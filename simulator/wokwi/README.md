@@ -2,15 +2,15 @@
 
 ## Purpose
 
-This directory contains the current runnable Wokwi-based edge node module for the project. It is the implementation baseline for the edge control layer and now represents the V3 simulation stage.
+This directory contains the current runnable Wokwi-based edge node module for the project. It is the implementation baseline for the edge control layer and now represents the V3.1 simulation stage.
 
 The goal of this directory is to support engineering verification of the temperature control node in a way that is easy to run, easy to observe, and easy to describe in the thesis.
 
 ## Current Version
 
-The current version is **Temperature Control Node V3**.
+The current version is **Temperature Control Node V3.1**.
 
-Compared with V2, this version upgrades the controller from simple proportional control to PI control. The purpose is to reduce the steady-state error that remained in the V2 closed-loop simulation.
+Compared with the initial V3 PI version, this tuned V3.1 version focuses on reducing overshoot and improving convergence smoothness while keeping the controller simple and explainable.
 
 ## Current Implementation
 
@@ -21,7 +21,7 @@ The current simulation node verifies the following functions:
 - DS18B20 temperature acquisition as a physical reference value
 - GPIO2 heartbeat status LED
 - GPIO18 PWM output
-- PI controller with a bounded integral state
+- tuned PI controller with a bounded integral state
 - virtual thermal model driven by PWM duty cycle
 - observable closed-loop temperature regulation behavior
 
@@ -30,7 +30,7 @@ This is an important engineering step because the simulation has moved from "con
 ## Files
 
 - `diagram.json`: Wokwi circuit definition, including ESP32, DS18B20, pull-up resistor, status LED, LED resistor, Logic Analyzer, and Serial Monitor wiring
-- `sketch.ino`: Arduino sketch for the V3 edge node simulation with a virtual thermal model and PI controller
+- `sketch.ino`: Arduino sketch for the V3.1 edge node simulation with a virtual thermal model and tuned PI controller
 - `libraries.txt`: required Arduino libraries for the Wokwi project
 - `README.md`: simulation usage notes and engineering explanation
 
@@ -52,7 +52,7 @@ This is an important engineering step because the simulation has moved from "con
 
 ## Current Control Logic
 
-The current controller is now a simplified PI controller.
+The current controller is a simplified PI controller with light anti-windup behavior.
 
 Control flow:
 
@@ -60,10 +60,11 @@ Control flow:
 2. Use the simulated temperature as the controlled process variable.
 3. Compute the error between target temperature and simulated temperature.
 4. Accumulate the integral of the error once per control period.
-5. Apply simple integral limiting to prevent excessive windup.
-6. Compute the PI control output and clamp it to the valid PWM range.
-7. Update the thermal model using the PWM duty cycle.
-8. Print both human-readable and CSV-style logs for observation and later experiment recording.
+5. Apply integral limiting and a simple anti-windup rule.
+6. If the output is already saturated and the current error would push it further into saturation, pause integral accumulation for that control cycle.
+7. Compute the PI control output and clamp it to the valid PWM range.
+8. Update the thermal model using the PWM duty cycle.
+9. Print both human-readable and CSV-style logs for observation and later experiment recording.
 
 This controller is intentionally simple. It is not the final industrial-grade control algorithm of the project, but it is appropriate for the current stage because it is stable, explainable, and suitable for simulation-based experiments.
 
@@ -94,7 +95,7 @@ Interpretation:
 
 ## Current Limitations
 
-The current V3 simulation is a useful engineering closed loop, but it is still simplified.
+The current V3.1 simulation is a useful engineering closed loop, but it is still simplified.
 
 - The controller acts on the simulated temperature rather than on a DS18B20 value that physically changes with heating.
 - The thermal model is a first-order approximation and does not yet represent more complex thermal lag, disturbance, or sensor dynamics.
@@ -102,13 +103,13 @@ The current V3 simulation is a useful engineering closed loop, but it is still s
 
 ## Why This Step Matters
 
-This version is important because it reduces a key limitation of V2:
+This version is important because it further improves a key limitation that remained after the first PI upgrade:
 
-- steady-state error under proportional-only control
+- overshoot and slow integral recovery in the first PI version
 
 to:
 
-- a more accurate closed-loop regulation process with a bounded integral term
+- a smoother PI-based regulation process with bounded integral action and simple anti-windup
 
 That makes the simulation much more valuable for thesis writing, experiment planning, and later control refinement.
 
@@ -122,6 +123,7 @@ The serial output now includes:
 This makes it easier to support:
 
 - P vs PI comparison experiments
+- PI initial version vs PI tuned version comparison
 - parameter tuning
 - step-response observation
 - steady-state error experiments
@@ -132,8 +134,8 @@ This makes it easier to support:
 
 The most natural next tasks are:
 
-- compare P and PI under the same thermal-model parameters
-- tune `Kp` and `Ki` for clearer response behavior
+- compare P, PI initial, and PI tuned versions under the same thermal-model parameters
+- tune `Kp` and `Ki` using metrics such as settling time, overshoot, and steady-state error
 - run step-response and steady-state error experiments
 - add disturbance injection scenarios
 - upgrade the controller from proportional control to simplified PID when needed

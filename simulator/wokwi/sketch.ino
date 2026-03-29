@@ -10,7 +10,7 @@ constexpr uint8_t kPwmOutput = 18;
 namespace ControlConfig {
 constexpr float kTargetTemperatureC = 35.0f;
 constexpr float kProportionalGain = 120.0f;
-constexpr float kIntegralGain = 10.0f;
+constexpr float kIntegralGain = 12.0f;
 constexpr float kIntegralMin = -20.0f;
 constexpr float kIntegralMax = 20.0f;
 constexpr unsigned long kControlPeriodMs = 1000;
@@ -55,18 +55,34 @@ float controlPeriodSeconds() {
   return ControlConfig::kControlPeriodMs / 1000.0f;
 }
 
+float computeRawControlOutput(float errorC, float integralError) {
+  const float proportionalTerm = errorC * ControlConfig::kProportionalGain;
+  const float integralTerm = integralError * ControlConfig::kIntegralGain;
+  return proportionalTerm + integralTerm;
+}
+
 float updateIntegralError(float errorC) {
-  accumulatedError += errorC * controlPeriodSeconds();
-  accumulatedError =
-      constrain(accumulatedError, ControlConfig::kIntegralMin,
-                ControlConfig::kIntegralMax);
+  const float candidateIntegral =
+      constrain(accumulatedError + errorC * controlPeriodSeconds(),
+                ControlConfig::kIntegralMin, ControlConfig::kIntegralMax);
+  const float candidateOutput = computeRawControlOutput(errorC, candidateIntegral);
+
+  // Simple anti-windup:
+  // if the output is already saturated and the current error would push it
+  // further into saturation, pause integral accumulation for this cycle.
+  const bool saturatingHigh =
+      candidateOutput > ControlConfig::kMaxDuty && errorC > 0.0f;
+  const bool saturatingLow = candidateOutput < 0.0f && errorC < 0.0f;
+
+  if (!(saturatingHigh || saturatingLow)) {
+    accumulatedError = candidateIntegral;
+  }
+
   return accumulatedError;
 }
 
 uint8_t computePwmDuty(float errorC, float integralError, float* controlOutput) {
-  const float proportionalTerm = errorC * ControlConfig::kProportionalGain;
-  const float integralTerm = integralError * ControlConfig::kIntegralGain;
-  const float rawOutput = proportionalTerm + integralTerm;
+  const float rawOutput = computeRawControlOutput(errorC, integralError);
   const float clampedOutput =
       constrain(rawOutput, 0.0f, static_cast<float>(ControlConfig::kMaxDuty));
 
@@ -185,7 +201,7 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
-  Serial.println("boot=edge_temperature_node_v3");
+  Serial.println("boot=edge_temperature_node_v3_1");
   Serial.println("serial_status=ready");
 
   pinMode(Pins::kStatusLed, OUTPUT);
@@ -198,8 +214,9 @@ void setup() {
   lastControlMs = millis() - ControlConfig::kControlPeriodMs;
   lastHeartbeatMs = millis();
 
-  Serial.println("edge_temperature_node_v3 started");
+  Serial.println("edge_temperature_node_v3_1 started");
   Serial.println("control_mode=pi_control");
+  Serial.println("control_revision=pi_tuned_v3_1");
   Serial.println("thermal_model=first_order_virtual_heating_cooling");
   Serial.println(
       "csv_header,time_s,target_c,sim_temp_c,sensor_temp_c,error_c,"
