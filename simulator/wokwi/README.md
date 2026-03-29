@@ -23,6 +23,10 @@ The current simulation node verifies the following functions:
 - GPIO18 PWM output
 - tuned PI controller with a bounded integral state
 - virtual thermal model driven by PWM duty cycle
+- telemetry message abstraction aligned with the MQTT interface design
+- serial-simulated telemetry publish in JSON-like payload form
+- minimal public MQTT broker integration for telemetry publish
+- minimal params/set subscription skeleton
 - observable closed-loop temperature regulation behavior
 
 This is an important engineering step because the simulation has moved from "control interface verification" to "closed-loop process verification".
@@ -30,7 +34,7 @@ This is an important engineering step because the simulation has moved from "con
 ## Files
 
 - `diagram.json`: Wokwi circuit definition, including ESP32, DS18B20, pull-up resistor, status LED, LED resistor, Logic Analyzer, and Serial Monitor wiring
-- `sketch.ino`: Arduino sketch for the V3.1 edge node simulation with a virtual thermal model and tuned PI controller
+- `sketch.ino`: single-file implementation for the current simulation node, including control logic, message structures, and minimal MQTT connectivity
 - `libraries.txt`: required Arduino libraries for the Wokwi project
 - `README.md`: simulation usage notes and engineering explanation
 
@@ -49,6 +53,9 @@ This is an important engineering step because the simulation has moved from "con
    - the PWM duty cycle decreasing as the simulated temperature approaches the target
    - the GPIO2 heartbeat LED activity
    - the GPIO18 waveform through the Logic Analyzer
+   - the JSON-style telemetry payload printed to the serial output
+   - MQTT telemetry publish attempts to the public test broker
+   - incoming `params/set` messages printed to the serial output
 
 ## Current Control Logic
 
@@ -119,6 +126,51 @@ The serial output now includes:
 
 - a human-readable runtime line
 - a CSV-style line for later copy-and-analyze workflows
+- a JSON-style telemetry line that simulates a future MQTT publish payload
+
+## MQTT Connectivity Preparation
+
+The current version moves beyond serial-only publish simulation and adds a minimal real MQTT path.
+
+Current scope:
+
+- Wi-Fi connection through `Wokwi-GUEST`
+- telemetry publish to a public test MQTT broker
+- subscription to the node-specific `params/set` topic
+- received `params/set` payloads printed to the serial output
+
+Current boundary:
+
+- telemetry publish is real
+- parameter downlink handling is still only a minimal receive-and-print skeleton
+- no broker authentication or production security mechanism is added yet
+
+Why this step matters:
+
+- it validates that the edge node can reach an external broker from Wokwi
+- it validates the telemetry topic and payload structure with a real MQTT path
+- it prepares the codebase for later migration to a private authenticated broker with minimal changes
+
+## Message-Structure Preparation
+
+The current code now starts to abstract the future MQTT message structure inside the simulation module.
+
+Current scope:
+
+- telemetry message structure is represented in code
+- parameter-downlink structure is reserved in code
+- optimizer recommendation structure is reserved in code
+
+Important boundary:
+
+- this is still not a real broker integration
+- the current implementation only simulates publish behavior through serial JSON output
+
+Why this step matters:
+
+- it validates payload field choices before real MQTT integration
+- it stabilizes the message structure early
+- it reduces future integration risk when a real authenticated MQTT broker is added later
 
 This makes it easier to support:
 
@@ -134,6 +186,8 @@ This makes it easier to support:
 
 The most natural next tasks are:
 
+- abstract parameter-apply logic around the reserved parameter structure
+- extend the current `params/set` subscription from print-only to controlled parameter application
 - compare P, PI initial, and PI tuned versions under the same thermal-model parameters
 - tune `Kp` and `Ki` using metrics such as settling time, overshoot, and steady-state error
 - run step-response and steady-state error experiments
