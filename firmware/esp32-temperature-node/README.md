@@ -1,17 +1,17 @@
 # esp32-temperature-node
 
-该目录预留给 ESP32 温控节点固件实现。
+This directory is reserved for the ESP32 temperature control node firmware.
 
-建议后续版本演进方式：
+Suggested version progression:
 
-- V1：最小运行验证，完成采温、PWM、串口输出
-- V2：整理模块结构，统一参数配置与日志输出
-- V3：增加通信接口与更稳定的控制策略
+- V1: minimum validation with sensing, PWM, and serial output
+- V2: improved module structure, unified parameter configuration, and standardized logs
+- V3: communication interfaces and more stable control strategies
 
-推荐后续代码拆分方向：
+Recommended future code layout:
 
-- `src/main.*`：主循环与调度
-- `src/sensors/*`：温度采集
-- `src/control/*`：控制算法
-- `src/drivers/*`：PWM 与状态指示
-- `src/common/*`：常量、配置、日志结构
+- `src/main.*`: main loop and scheduling
+- `src/sensors/*`: temperature acquisition
+- `src/control/*`: control algorithms
+- `src/drivers/*`: PWM and status indication
+- `src/common/*`: constants, configuration, and log structures

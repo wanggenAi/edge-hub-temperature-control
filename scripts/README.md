@@ -1,12 +1,12 @@
 # scripts
 
-该目录用于保存辅助脚本，避免把临时处理逻辑混入主工程代码。
+This directory stores helper scripts so that temporary data-processing logic does not leak into the main engineering code.
 
-建议后续在本目录放置：
+Suggested future contents:
 
-- 串口日志解析脚本
-- 实验数据清洗脚本
-- CSV 转换脚本
-- 结果绘图脚本
+- serial log parsing scripts
+- experiment data cleaning scripts
+- CSV conversion scripts
+- result plotting scripts
 
-当前阶段先保持轻量，等仿真日志格式稳定后再补充具体脚本。
+The directory should stay lightweight for now and can grow after the simulation log format is stabilized.

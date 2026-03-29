@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "author": "OpenAI Codex",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": -12.8,
+      "left": -10.2,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-ds18b20",
+      "id": "tempSensor",
+      "top": -119.4,
+      "left": 262.8,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "pullupResistor",
+      "top": -46.8,
+      "left": 316.8,
+      "rotate": 90,
+      "attrs": {
+        "value": "4.7k"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "statusLed",
+      "top": 145.2,
+      "left": 285.8,
+      "attrs": {
+        "color": "green"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "ledResistor",
+      "top": 163.2,
+      "left": 191.2,
+      "rotate": 0,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic",
+      "top": -116.8,
+      "left": -314.4,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [ "esp:3V3", "tempSensor:VDD", "red", [ "h177.6", "v-61.8" ] ],
+    [ "esp:GND.1", "tempSensor:GND", "black", [ "h187.2", "v-23.4" ] ],
+    [ "esp:21", "tempSensor:DQ", "green", [ "h196.8", "v-81" ] ],
+    [ "tempSensor:VDD", "pullupResistor:1", "red", [ "v0" ] ],
+    [ "tempSensor:DQ", "pullupResistor:2", "green", [ "h28.8", "v48" ] ],
+    [ "esp:2", "ledResistor:1", "blue", [ "h129.6", "v125.4" ] ],
+    [ "ledResistor:2", "statusLed:A", "blue", [ "h39.6", "v0" ] ],
+    [ "statusLed:C", "esp:GND.2", "black", [ "h-108", "v-23.4" ] ],
+    [ "esp:18", "logic:D0", "orange", [ "h-178.8", "v-9.6" ] ],
+    [ "esp:GND.3", "logic:GND", "black", [ "h-207.6", "v19.2" ] ],
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ]
+  ],
+  "dependencies": {}
+}

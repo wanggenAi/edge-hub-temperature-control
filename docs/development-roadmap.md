@@ -1,71 +1,71 @@
-# 开发路线图
+# Development Roadmap
 
-## 阶段 1：仓库与工程骨架初始化
+## Stage 1: Repository and Engineering Skeleton Initialization
 
-目标：
+Goals:
 
-- 建立统一目录结构
-- 明确模块边界
-- 建立基础文档
+- establish a unified directory structure
+- define module boundaries
+- create foundational documentation
 
-输出物：
+Deliverables:
 
-- 初版 README
-- 各目录职责说明
-- 架构总览文档
+- initial README
+- directory responsibility notes
+- architecture overview document
 
-## 阶段 2：边缘控制节点 V1 整理
+## Stage 2: Edge Control Node V1 Organization
 
-目标：
+Goals:
 
-- 整理现有 ESP32 与 DS18B20 代码
-- 统一参数命名与日志输出
-- 固化最小闭环运行版本
+- organize the existing ESP32 and DS18B20 code
+- unify parameter naming and log output
+- stabilize the minimum runnable closed-loop version
 
-输出物：
+Deliverables:
 
-- 固件目录初版
-- 引脚与参数说明
-- 日志字段说明
+- first firmware directory layout
+- pin and parameter documentation
+- log field definitions
 
-## 阶段 3：边缘控制节点 V2 与虚拟热模型
+## Stage 3: Edge Control Node V2 and Virtual Thermal Model
 
-目标：
+Goals:
 
-- 在 Wokwi 中建立热惯性模型
-- 形成 PWM 输出影响温度反馈的闭环
-- 实现更适合演示与实验记录的控制节点版本
+- build a thermal inertia model in Wokwi
+- form a closed loop where PWM output affects thermal feedback
+- implement a node version that is better suited for demonstration and experiment recording
 
-输出物：
+Deliverables:
 
-- 仿真工程整理版
-- 热模型设计说明
-- V2 控制流程说明
+- organized simulation project
+- thermal model design note
+- V2 control flow description
 
-## 阶段 4：实验记录与性能分析
+## Stage 4: Experiment Recording and Performance Analysis
 
-目标：
+Goals:
 
-- 记录不同目标温度与控制参数下的响应结果
-- 分析稳态误差与调节过程
-- 为论文图表提供原始数据
+- record response behavior under different targets and control parameters
+- analyze steady-state error and regulation process
+- produce raw data for thesis figures and tables
 
-输出物：
+Deliverables:
 
-- 实验日志
-- 数据表格
-- 曲线图与现象总结
+- experiment logs
+- data tables
+- plotted curves and summarized observations
 
-## 阶段 5：数据枢纽层与上层应用扩展
+## Stage 5: Data Hub and Application Layer Extension
 
-目标：
+Goals:
 
-- 增加数据上传与转发能力
-- 引入存储或消息通道
-- 完成可视化与参数配置界面
+- add data upload and routing capability
+- introduce storage or a messaging channel
+- complete a visualization and parameter configuration interface
 
-输出物：
+Deliverables:
 
-- 数据链路说明
-- 上层应用原型
-- 三层联调说明
+- data path description
+- upper-layer application prototype
+- three-layer integration note

@@ -1,22 +1,22 @@
 # experiments
 
-该目录用于保存实验记录、参数配置与结果分析材料。
+This directory stores experiment records, parameter settings, and result analysis materials.
 
-毕业设计阶段建议每次实验都至少记录：
+For the graduation project, each experiment should record at least:
 
-- 实验日期
-- 仿真版本或固件版本
-- 目标温度
-- 控制周期
-- 控制参数
-- 初始温度
-- 现象描述
-- 稳态误差
-- 是否出现振荡或超调
+- experiment date
+- simulation version or firmware version
+- target temperature
+- control cycle
+- control parameters
+- initial temperature
+- observed behavior
+- steady-state error
+- whether oscillation or overshoot occurred
 
-后续可继续增加：
+Future additions may include:
 
-- CSV 数据
-- 曲线图
-- 截图
-- 实验结论
+- CSV data
+- plotted curves
+- screenshots
+- experiment conclusions

@@ -1,182 +1,198 @@
-# 面向恒温控制场景的边缘控制—数据枢纽—应用决策三层架构系统设计与实现
+# Design and Implementation of a Three-Layer Architecture for Edge Control, Data Hub, and Application Decision in Constant Temperature Scenarios
 
-本仓库用于承载本科毕业设计的完整工程实现、设计文档、仿真模型、实验记录与论文支撑材料。
+This repository hosts the full engineering implementation, design documents, simulation assets, experiment records, and thesis-supporting materials for an undergraduate computer engineering graduation project.
 
-项目核心目标不是单独实现某个 AI 模型，而是围绕恒温控制场景，完成一个具备工程可落地性的三层架构系统：
+The core objective of this project is not to build an AI-centric system. Instead, it is to engineer a practical three-layer architecture for a temperature control scenario:
 
-1. 边缘控制层：负责温度采集、PWM 控制、设备状态输出与本地闭环。
-2. 数据枢纽层：负责数据接入、存储、消息流转与系统解耦。
-3. 应用决策层：负责可视化、参数配置、运行监控与后续优化扩展。
+1. Edge Control Layer: temperature sensing, PWM control, device actuation, and local closed-loop behavior.
+2. Data Hub Layer: data ingestion, storage, message routing, and system decoupling.
+3. Application Decision Layer: visualization, parameter configuration, monitoring, and future optimization extensions.
 
-当前阶段工作重点放在边缘控制层与仿真系统，优先完成“可演示、可验证、可扩展”的闭环温控节点。
+At the current stage, the main focus is the edge control layer and the simulation environment, with priority given to a closed-loop temperature control node that is demonstrable, verifiable, and extensible.
 
-## 1. 项目背景
+## Current Runnable Module
 
-传统温控系统往往只关注局部控制逻辑，缺少从控制节点、数据传输到上层应用的一体化工程设计。为了更贴近真实工业或智能设备场景，本项目采用三层架构进行设计，使控制、数据与应用解耦，便于后续扩展、实验记录与论文撰写。
+The repository now includes a first runnable engineering result:
 
-本课题选用 ESP32 作为边缘主控，以 DS18B20 作为温度采集传感器，以 PWM 作为执行控制输出形式，先在 Wokwi 平台完成闭环仿真，再逐步抽象为真实硬件实现方案。
+- `simulator/wokwi`
 
-## 2. 当前已确定方案
+This module contains the validated Wokwi-based edge node simulation for ESP32, DS18B20 sensing, heartbeat LED indication, GPIO18 PWM output, and simple proportional control V1.
 
-### 2.1 硬件与控制基础
+## Quick Start
 
-- 主控芯片：ESP32
-- 主测温传感器：DS18B20
-- 执行输出：PWM
-- 功率驱动思路：MOSFET 低边驱动
-- 控制周期：约 1 s
-- 目标温区：25 C ~ 45 C
+If you want to start from the current runnable result, read:
 
-### 2.2 当前已完成内容
+- `simulator/wokwi/README.md`
 
-- ESP32 最小运行验证
-- 串口输出
-- DS18B20 温度读取
-- LED 状态指示
-- PWM 输出测试
-- 基于目标温度的简单比例控制 V1
+That directory contains the Wokwi project files and the instructions for running the current edge-layer simulation.
 
-### 2.3 当前控制目标
+## 1. Project Background
 
-- 温度测量精度目标：±0.5 C 量级
-- 稳态控制误差目标：<= ±1.0 C
-- 输出控制形式：PWM
-- 当前阶段算法优先级：阈值控制 -> 比例控制 -> 简化 PID
+Many traditional temperature control implementations focus only on local control logic and do not provide an integrated engineering design from the control node to data flow and upper-layer applications. To better align with realistic embedded and industrial scenarios, this project adopts a three-layer architecture so that control execution, data routing, and user-facing applications are clearly decoupled. This also improves extensibility, maintainability, and thesis readability.
 
-## 3. 仓库结构
+The project uses ESP32 as the edge controller, DS18B20 as the primary temperature sensor, and PWM as the control output. Development starts with Wokwi-based simulation and then evolves toward a deployable real-hardware solution.
+
+## 2. Confirmed Technical Baseline
+
+### 2.1 Hardware and Control Foundation
+
+- Main controller: ESP32
+- Primary temperature sensor: DS18B20
+- Actuation output: PWM
+- Power driving approach: low-side MOSFET driving
+- Control cycle: approximately 1 second
+- Target temperature range: 25 C to 45 C
+
+### 2.2 Current Progress
+
+- ESP32 minimum runtime validation
+- Serial output
+- DS18B20 temperature reading
+- LED status indication
+- PWM output testing
+- Simple proportional control V1 based on target temperature
+
+### 2.3 Current Control Targets
+
+- Temperature measurement accuracy target: around +/-0.5 C
+- Steady-state control error target: <= +/-1.0 C
+- Output form: PWM
+- Current algorithm evolution priority: threshold control -> proportional control -> simplified PID
+
+## 3. Repository Structure
 
 ```text
 edge-hub-temperature-control/
-├── docs/                  项目文档、设计说明、接口说明、实验记录模板
-├── hardware/              硬件设计说明、引脚定义、真实硬件落地方案
-├── simulator/             Wokwi 仿真、热模型、虚拟闭环方案
-├── firmware/              ESP32 固件代码与节点实现
-├── edge-node/             边缘节点工程抽象与接口定义
-├── experiments/           实验记录、观测数据、结果分析
-├── scripts/               数据处理与辅助脚本
-└── README.md              项目总说明
+├── docs/                  Project documents, design notes, interface specs, experiment templates
+├── hardware/              Hardware notes, pin definitions, real-hardware implementation plan
+├── simulator/             Wokwi simulation, thermal model, virtual closed-loop behavior
+├── firmware/              ESP32 firmware and node implementation
+├── edge-node/             Edge node abstractions and interface-oriented design
+├── experiments/           Experiment records, observed data, and analysis
+├── scripts/               Data-processing and helper scripts
+└── README.md              Project overview
 ```
 
-## 4. 各目录职责
+## 4. Directory Responsibilities
 
 ### `docs/`
 
-保存毕业设计说明性文档，包括：
+Stores descriptive project documentation, including:
 
-- 系统总体架构
-- 模块划分说明
-- 接口设计
-- 开发计划
-- 实验记录模板
+- overall system architecture
+- module responsibility definitions
+- interface design
+- development plan
+- experiment record templates
 
 ### `hardware/`
 
-保存真实硬件相关内容，包括：
+Stores real-hardware-related content, including:
 
-- ESP32 引脚分配
-- DS18B20 接线方案
-- PWM 驱动与 MOSFET 低边驱动说明
-- 后续原理图、接线图与器件选型说明
+- ESP32 pin mapping
+- DS18B20 wiring plan
+- PWM and low-side MOSFET driving notes
+- later schematics, wiring diagrams, and component selection notes
 
 ### `simulator/`
 
-保存仿真相关内容，包括：
+Stores simulation-related assets, including:
 
-- Wokwi 工程
-- 虚拟热惯性模型
-- 闭环温控演示方案
-- 仿真配置与说明文档
+- Wokwi projects
+- virtual thermal inertia models
+- closed-loop temperature control demonstrations
+- simulation configuration and documentation
 
 ### `firmware/`
 
-保存 ESP32 固件代码，包括：
+Stores ESP32 firmware code, including:
 
-- 传感器采集
-- 控制器实现
-- PWM 输出
-- 状态打印与调试接口
-- 后续通信接口封装
+- sensor acquisition
+- controller implementation
+- PWM output
+- status reporting and debugging interfaces
+- future communication interface modules
 
 ### `edge-node/`
 
-保存边缘控制节点的模块化抽象，用于把“单片机代码”逐步整理成“节点工程”：
+Stores a modular abstraction of the edge control node, helping the project evolve from a microcontroller demo into a maintainable engineering system:
 
-- 节点职责定义
-- 数据结构定义
-- 控制流程说明
-- 与数据枢纽层的接口预留
+- node responsibility definitions
+- data structure definitions
+- control flow descriptions
+- reserved interfaces for the data hub layer
 
 ### `experiments/`
 
-保存实验过程资料，包括：
+Stores experiment materials, including:
 
-- 控制参数记录
-- 阶跃响应实验
-- 稳态误差实验
-- 仿真结果与截图说明
+- control parameter records
+- step-response experiments
+- steady-state error experiments
+- simulation result notes and screenshots
 
 ### `scripts/`
 
-保存辅助工具，例如：
+Stores helper utilities such as:
 
-- 实验数据整理脚本
-- 串口日志解析脚本
-- CSV 转换与绘图脚本
+- experiment data processing scripts
+- serial log parsing scripts
+- CSV conversion and plotting scripts
 
-## 5. 当前开发路线
+## 5. Current Development Roadmap
 
-### 阶段一：边缘节点最小闭环验证
+### Stage 1: Minimum Closed-Loop Validation for the Edge Node
 
-- 完成温度采集
-- 完成 PWM 输出
-- 完成阈值/比例控制
-- 完成串口观测
+- complete temperature acquisition
+- complete PWM output
+- complete threshold/proportional control
+- complete serial observation
 
-### 阶段二：虚拟热模型闭环仿真
+### Stage 2: Virtual Thermal Model Closed-Loop Simulation
 
-- 在 Wokwi 中构建温度随 PWM 变化的热惯性模型
-- 形成“控制输出影响温度反馈”的演示闭环
-- 记录控制周期、响应时间与稳态误差
+- build a thermal inertia model in Wokwi where temperature changes with PWM output
+- form a demonstration loop where control output affects thermal feedback
+- record control cycle, response time, and steady-state error
 
-### 阶段三：边缘节点工程化整理
+### Stage 3: Edge Node Engineering Refinement
 
-- 模块拆分
-- 参数配置集中化
-- 日志格式标准化
-- 为后续通信接入预留接口
+- split modules clearly
+- centralize parameter configuration
+- standardize log output format
+- reserve interfaces for later communication access
 
-### 阶段四：数据枢纽层与应用层扩展
+### Stage 4: Data Hub and Application Layer Extension
 
-- 数据接入与存储
-- 消息流转
-- 可视化页面
-- 参数配置与运行监控
-- 后续优化算法扩展
+- data ingestion and storage
+- message flow
+- visualization interface
+- parameter configuration and runtime monitoring
+- later optimization algorithm extensions
 
-## 6. 当前推荐的近期任务
+## 6. Recommended Near-Term Tasks
 
-1. 整理现有 Wokwi 仿真工程目录。
-2. 实现温控节点 V2。
-3. 引入虚拟热模型，使温度值能随 PWM 占空比动态变化。
-4. 明确串口日志格式，便于实验记录与论文引用。
-5. 建立第一版实验记录模板。
+1. Organize the current Wokwi simulation project.
+2. Implement temperature control node V2.
+3. Introduce a virtual thermal model so temperature changes dynamically with PWM duty cycle.
+4. Standardize the serial log format to support experiments and thesis references.
+5. Create the first version of the experiment record template.
 
-## 7. 运行与维护约定
+## 7. Development Conventions
 
-当前仓库处于初始化阶段，后续建议遵守以下约定：
+The repository is currently in its initialization phase. The following conventions are recommended:
 
-- 先整理模块边界，再增加复杂功能。
-- 每次迭代只推进一个明确目标。
-- 每次实验都保留参数、现象与结果。
-- 所有代码优先保证可读性、可维护性与可解释性。
+- define module boundaries before adding complexity
+- advance one clear objective per iteration
+- keep experimental parameters, observations, and results for every test
+- prioritize readability, maintainability, and explainability in all code
 
-后续当 `simulator/` 与 `firmware/` 目录中的工程文件补齐后，可分别在对应目录中查看具体运行说明。
+When `simulator/` and `firmware/` are populated with runnable content, their local documentation should describe the exact execution workflow.
 
-## 8. 下一步
+## 8. Next Step
 
-下一步优先推进两件事：
+The next priority is:
 
-1. 整理底层仿真代码结构。
-2. 实现温控节点 V2，引入虚拟热模型，完成可演示的闭环仿真。
+1. organize the low-level simulation code structure
+2. implement temperature control node V2 with a virtual thermal model for a demonstrable closed-loop simulation
 
-这将是后续论文中“系统实现”与“实验验证”章节的核心基础。
+This will become the engineering foundation for the "System Implementation" and "Experimental Validation" chapters of the thesis.

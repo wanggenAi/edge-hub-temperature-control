@@ -1,17 +1,17 @@
 # firmware
 
-该目录用于保存 ESP32 固件代码。
+This directory stores ESP32 firmware code.
 
-建议后续按模块组织：
+Suggested module groups:
 
-- 传感器采集模块
-- 控制器模块
-- 执行输出模块
-- 状态指示与日志模块
-- 通信接口模块
+- sensor acquisition
+- controller logic
+- actuation output
+- status indication and logging
+- communication interfaces
 
-当前阶段优先目标：
+Current priorities:
 
-1. 整理现有最小可运行代码
-2. 将参数、控制逻辑、日志输出从单文件中逐步抽离
-3. 形成便于实验记录和后续扩展的固件结构
+1. organize the existing minimum runnable code
+2. gradually separate parameters, control logic, and logging from monolithic source files
+3. build a firmware structure suitable for experiment recording and future extension

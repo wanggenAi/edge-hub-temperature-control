@@ -1,12 +1,12 @@
-# ESP32 引脚定义
+# ESP32 Pin Map
 
-本文件用于统一维护边缘控制节点的引脚分配，避免仿真与真实硬件阶段出现定义不一致的问题。
+This file is used to maintain a consistent pin assignment for the edge control node so that simulation and real-hardware stages do not drift apart.
 
-当前阶段建议至少维护以下内容：
+At minimum, the following definitions should be maintained here:
 
-- DS18B20 数据引脚
-- LED 状态指示引脚
-- PWM 输出引脚
-- 预留通信接口引脚
+- DS18B20 data pin
+- LED status indicator pin
+- PWM output pin
+- reserved communication interface pins
 
-后续在接入实际 Wokwi 工程或真实硬件原理图时，再补充具体编号与电气说明。
+Specific pin numbers and electrical notes can be filled in once the Wokwi project or real hardware schematic is finalized.

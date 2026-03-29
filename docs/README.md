@@ -1,17 +1,17 @@
 # docs
 
-该目录用于保存毕业设计的说明性文档与论文支撑材料。
+This directory stores descriptive project documents and thesis-supporting materials.
 
-建议优先在本目录维护以下内容：
+Recommended contents include:
 
-- 系统总体架构说明
-- 模块职责划分
-- 接口定义
-- 开发计划与阶段目标
-- 实验记录模板
-- 论文撰写过程中需要反复引用的工程说明
+- overall system architecture
+- module responsibility definitions
+- interface specifications
+- development plans and milestone notes
+- experiment record templates
+- engineering descriptions that will be referenced in the thesis
 
-当前已提供：
+Current files:
 
-- `architecture-overview.md`：三层架构总体说明
-- `development-roadmap.md`：项目阶段路线图
+- `architecture-overview.md`: overall description of the three-layer architecture
+- `development-roadmap.md`: staged project roadmap

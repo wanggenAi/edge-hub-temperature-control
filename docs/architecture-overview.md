@@ -1,68 +1,68 @@
-# 三层架构总体说明
+# Three-Layer Architecture Overview
 
-## 1. 架构目标
+## 1. Architectural Goal
 
-本项目面向恒温控制场景，采用“三层架构”进行系统设计，目的是将控制执行、数据流转与上层应用解耦，提升系统可扩展性、可维护性与论文表达清晰度。
+This project targets a constant-temperature control scenario and adopts a three-layer architecture to decouple control execution, data routing, and upper-layer applications. The purpose is to improve scalability, maintainability, and clarity for thesis presentation.
 
-系统划分为：
+The system is divided into:
 
-1. 边缘控制层
-2. 数据枢纽层
-3. 应用决策层
+1. Edge Control Layer
+2. Data Hub Layer
+3. Application Decision Layer
 
-## 2. 边缘控制层
+## 2. Edge Control Layer
 
-边缘控制层直接面向被控对象和执行设备，强调实时性与闭环能力。
+The edge control layer interacts directly with the controlled object and actuation hardware, with an emphasis on real-time behavior and closed-loop capability.
 
-主要职责：
+Main responsibilities:
 
-- 采集温度数据
-- 执行本地控制逻辑
-- 生成 PWM 输出
-- 输出节点状态与调试信息
-- 为上层数据接入提供标准化数据接口
+- acquire temperature data
+- execute local control logic
+- generate PWM output
+- report node status and debugging information
+- provide standardized data interfaces for upper layers
 
-当前本项目的边缘控制层方案：
+Current implementation baseline:
 
-- 控制器：ESP32
-- 传感器：DS18B20
-- 输出方式：PWM
-- 控制策略：优先采用阈值控制、比例控制、简化 PID 的渐进演化路线
+- controller: ESP32
+- sensor: DS18B20
+- output method: PWM
+- control strategy path: threshold control, proportional control, then simplified PID
 
-## 3. 数据枢纽层
+## 3. Data Hub Layer
 
-数据枢纽层位于控制节点与上层应用之间，主要用于承接数据采集、缓存、转发与存储。
+The data hub layer sits between the edge node and upper-layer applications. Its main role is to receive, normalize, route, and store system data.
 
-主要职责：
+Main responsibilities:
 
-- 接收边缘节点上传的数据
-- 统一数据格式
-- 支持消息流转与状态同步
-- 支持实验数据记录与后续分析
+- receive data uploaded by edge nodes
+- unify data formats
+- support message routing and state synchronization
+- support experiment logging and later analysis
 
-当前阶段该层暂不作为实现重点，但在目录结构与接口设计中预留扩展空间。
+This layer is not the implementation focus at the current stage, but expansion space is reserved in both repository structure and interface design.
 
-## 4. 应用决策层
+## 4. Application Decision Layer
 
-应用决策层面向用户交互与系统运行管理。
+The application decision layer is user-facing and focuses on system operation and management.
 
-主要职责：
+Main responsibilities:
 
-- 温度与状态可视化
-- 目标温度配置
-- 控制参数管理
-- 实验与运行结果展示
-- 后续优化算法或智能决策扩展
+- temperature and status visualization
+- target temperature configuration
+- control parameter management
+- experiment and runtime result presentation
+- later optimization or intelligent decision extensions
 
-本层在当前阶段不作为主要开发重点，但其接口需求会反向约束边缘层和数据层的输出格式设计。
+This layer is not the current development priority, but its expected interface needs still influence the output format design of the lower layers.
 
-## 5. 当前实现重点
+## 5. Current Implementation Priority
 
-当前阶段优先完成：
+The current phase focuses on:
 
-1. 温度采集闭环跑通
-2. PWM 控制输出稳定运行
-3. 基于虚拟热模型的仿真闭环
-4. 可记录、可解释、可重复的实验过程
+1. making the temperature acquisition loop run reliably
+2. making PWM control output stable
+3. building a simulation closed loop based on a virtual thermal model
+4. ensuring experiments are recordable, explainable, and repeatable
 
-这部分内容将直接支撑论文中的系统实现与实验验证章节。
+These items directly support the "System Implementation" and "Experimental Validation" sections of the thesis.

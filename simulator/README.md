@@ -1,19 +1,19 @@
 # simulator
 
-该目录用于保存仿真平台相关内容，当前以 Wokwi 为主。
+This directory stores simulation-related assets, currently centered on Wokwi.
 
-本项目仿真的目标不是简单演示传感器读数，而是逐步构建一个可解释的虚拟闭环温控系统：
+The simulation objective is not just to show a sensor reading. It is to gradually build an explainable virtual closed-loop temperature control system:
 
-1. 控制器输出 PWM
-2. 热模型根据 PWM 和环境散热进行状态更新
-3. 温度测量值反馈给控制器
-4. 控制器继续调整输出
+1. the controller outputs PWM
+2. the thermal model updates state according to PWM input and environmental cooling
+3. the measured temperature is fed back to the controller
+4. the controller adjusts output again
 
-建议本目录后续包含：
+Suggested future contents:
 
-- Wokwi 工程文件
-- 热惯性模型说明
-- 控制节点 V1 / V2 版本说明
-- 仿真运行截图与观察记录
+- Wokwi project files
+- thermal inertia model notes
+- control node V1 and V2 descriptions
+- simulation screenshots and observation records
 
-当前下一步重点是实现“温控节点 V2 + 虚拟热模型”。
+The current next step is to implement "temperature control node V2 + virtual thermal model".

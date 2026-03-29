@@ -1,15 +1,15 @@
 # edge-node
 
-该目录用于从“固件代码”向“边缘节点工程”过渡。
+This directory supports the transition from "firmware code" to a clearer "edge node engineering" abstraction.
 
-其意义在于把项目中的底层实现抽象为清晰的工程对象，而不是停留在单片机示例代码层面。
+Its purpose is to help the project evolve beyond a microcontroller demo into a structured engineering system.
 
-建议后续在本目录沉淀：
+Suggested future contents:
 
-- 节点输入输出定义
-- 节点状态机说明
-- 控制周期说明
-- 数据上报字段定义
-- 与数据枢纽层的接口抽象
+- node input and output definitions
+- node state machine notes
+- control cycle descriptions
+- data reporting field definitions
+- interface abstractions toward the data hub layer
 
-当前阶段本目录以文档和接口预留为主，可与 `firmware/` 配合演进。
+At the current stage, this directory mainly serves as documentation and an interface placeholder and can evolve together with `firmware/`.
