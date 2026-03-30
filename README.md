@@ -16,6 +16,10 @@ The repository now includes a first runnable engineering result:
 
 - `simulator/wokwi`
 
+The repository also includes an initial deployment-document area:
+
+- `docs/deployment`
+
 This module contains the validated Wokwi-based edge node simulation for ESP32, DS18B20 sensing, heartbeat LED indication, GPIO18 PWM output, and simple proportional control V1.
 
 ## Quick Start
@@ -23,6 +27,7 @@ This module contains the validated Wokwi-based edge node simulation for ESP32, D
 If you want to start from the current runnable result, read:
 
 - `simulator/wokwi/README.md`
+- `docs/deployment/mqtt-broker-ubuntu.md`
 
 That directory contains the Wokwi project files and the instructions for running the current edge-layer simulation.
 

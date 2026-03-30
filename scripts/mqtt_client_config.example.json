@@ -1,0 +1,9 @@
+{
+  "broker_host": "ip address",
+  "broker_port": 1883,
+  "username": "edgeadmin",
+  "password": "REPLACE_WITH_YOUR_PASSWORD",
+  "telemetry_topic": "edge/temperature/edge-node-001/telemetry",
+  "params_set_topic": "edge/temperature/edge-node-001/params/set",
+  "params_ack_topic": "edge/temperature/edge-node-001/params/ack"
+}

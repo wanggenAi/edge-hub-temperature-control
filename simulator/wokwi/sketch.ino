@@ -44,21 +44,26 @@ constexpr char kDefaultControlMode[] = "pi_control";
 constexpr char kControllerVersion[] = "pi_tuned_v3_1";
 constexpr char kSystemState[] = "running";
 
-constexpr char kTelemetryTopic[] =
-    "edge/temperature/edge-node-001/telemetry";
-constexpr char kParamsSetTopic[] =
-    "edge/temperature/edge-node-001/params/set";
-constexpr char kParamsAckTopic[] =
-    "edge/temperature/edge-node-001/params/ack";
+constexpr char kTelemetryTopic[] = "edge/temperature/edge-node-001/telemetry";
+constexpr char kParamsSetTopic[] = "edge/temperature/edge-node-001/params/set";
+constexpr char kParamsAckTopic[] = "edge/temperature/edge-node-001/params/ack";
 constexpr char kOptimizerRecommendationTopic[] =
     "edge/temperature/edge-node-001/optimizer/recommendation";
 }  // namespace MessagingConfig
 
 namespace NetworkConfig {
+// Update these connection settings when switching from the public test broker
+// to a self-managed MQTT server.
+// Current Wokwi simulation usually keeps Wi-Fi on `Wokwi-GUEST`.
+// For a real deployment, replace the Wi-Fi credentials and MQTT host here.
 constexpr char kWifiSsid[] = "Wokwi-GUEST";
 constexpr char kWifiPassword[] = "";
-constexpr char kMqttHost[] = "broker.emqx.io";
+constexpr char kMqttHost[] = "38.14.195.2";
 constexpr uint16_t kMqttPort = 1883;
+// These credentials are used for the current self-managed Mosquitto broker.
+// For a different server, update host / username / password here.
+constexpr char kMqttUsername[] = "edgeadmin";
+constexpr char kMqttPassword[] = "change your password";
 constexpr char kMqttClientId[] = "edge-node-001-sim";
 constexpr unsigned long kWifiReconnectIntervalMs = 5000;
 constexpr unsigned long kMqttReconnectIntervalMs = 5000;
@@ -204,9 +209,7 @@ float samplePhysicalSensor() {
   return sensors.getTempCByIndex(0);
 }
 
-float controlPeriodSeconds() {
-  return runtimeConfig.controlPeriodMs / 1000.0f;
-}
+float controlPeriodSeconds() { return runtimeConfig.controlPeriodMs / 1000.0f; }
 
 float computeRawControlOutput(float errorC, float integralError) {
   const float proportionalTerm = errorC * runtimeConfig.kp;
@@ -218,7 +221,8 @@ float updateIntegralError(float errorC) {
   const float candidateIntegral =
       constrain(accumulatedError + errorC * controlPeriodSeconds(),
                 ControlConfig::kIntegralMin, ControlConfig::kIntegralMax);
-  const float candidateOutput = computeRawControlOutput(errorC, candidateIntegral);
+  const float candidateOutput =
+      computeRawControlOutput(errorC, candidateIntegral);
 
   const bool saturatingHigh =
       candidateOutput > ControlConfig::kMaxDuty && errorC > 0.0f;
@@ -231,7 +235,8 @@ float updateIntegralError(float errorC) {
   return accumulatedError;
 }
 
-uint8_t computePwmDuty(float errorC, float integralError, float* controlOutput) {
+uint8_t computePwmDuty(float errorC, float integralError,
+                       float* controlOutput) {
   const float rawOutput = computeRawControlOutput(errorC, integralError);
   const float clampedOutput =
       constrain(rawOutput, 0.0f, static_cast<float>(ControlConfig::kMaxDuty));
@@ -254,20 +259,28 @@ float updateSimulatedTemperature(float currentTemperatureC,
   return currentTemperatureC + heatingTerm - coolingTerm;
 }
 
-TelemetryMessage buildTelemetryMessage(unsigned long nowMs, float simTemperatureC,
+TelemetryMessage buildTelemetryMessage(unsigned long nowMs,
+                                       float simTemperatureC,
                                        float sensorTemperatureC, float errorC,
-                                       float integralError,
-                                       float controlOutput, uint8_t duty,
-                                       float normalizedDuty) {
+                                       float integralError, float controlOutput,
+                                       uint8_t duty, float normalizedDuty) {
   TelemetryMessage message = {
-      MessagingConfig::kDeviceId,       nowMs,
-      runtimeConfig.targetTempC,        simTemperatureC,
-      sensorTemperatureC,               errorC,
-      integralError,                    controlOutput,
-      duty,                             normalizedDuty,
-      runtimeConfig.controlMode,        MessagingConfig::kControllerVersion,
-      runtimeConfig.kp,                 runtimeConfig.ki,
-      runtimeConfig.kd,                 MessagingConfig::kSystemState,
+      MessagingConfig::kDeviceId,
+      nowMs,
+      runtimeConfig.targetTempC,
+      simTemperatureC,
+      sensorTemperatureC,
+      errorC,
+      integralError,
+      controlOutput,
+      duty,
+      normalizedDuty,
+      runtimeConfig.controlMode,
+      MessagingConfig::kControllerVersion,
+      runtimeConfig.kp,
+      runtimeConfig.ki,
+      runtimeConfig.kd,
+      MessagingConfig::kSystemState,
       hasPendingParams,
       hasPendingParams ? (nowMs - pendingParamsReceivedMs) : 0,
   };
@@ -512,9 +525,15 @@ ParameterAckMessage buildParameterAckMessage(const char* ackType, bool success,
                                              const char* reason,
                                              unsigned long nowMs) {
   ParameterAckMessage message = {
-      MessagingConfig::kDeviceId, ackType,          success,
-      appliedImmediately,         hasPending,       runtimeConfig.targetTempC,
-      runtimeConfig.kp,           runtimeConfig.ki, runtimeConfig.kd,
+      MessagingConfig::kDeviceId,
+      ackType,
+      success,
+      appliedImmediately,
+      hasPending,
+      runtimeConfig.targetTempC,
+      runtimeConfig.kp,
+      runtimeConfig.ki,
+      runtimeConfig.kd,
       runtimeConfig.controlPeriodMs,
       runtimeConfig.controlMode,
       reason,
@@ -576,7 +595,8 @@ bool publishParameterAck(const ParameterAckMessage& message) {
 }
 
 // Parse supported MQTT params/set fields from a JSON-like payload.
-bool parseParameterSetMessage(const String& payload, ParameterSetMessage* message) {
+bool parseParameterSetMessage(const String& payload,
+                              ParameterSetMessage* message) {
   *message = {};
   bool hasAnyField = false;
 
@@ -606,7 +626,8 @@ bool parseParameterSetMessage(const String& payload, ParameterSetMessage* messag
     message->hasControlMode = true;
     hasAnyField = true;
   }
-  if (extractBoolField(payload, "apply_immediately", &message->applyImmediately)) {
+  if (extractBoolField(payload, "apply_immediately",
+                       &message->applyImmediately)) {
     message->hasApplyImmediately = true;
     hasAnyField = true;
   }
@@ -624,22 +645,22 @@ bool validateParameterSetMessage(const ParameterSetMessage& message,
     return false;
   }
 
-  if (message.hasKp &&
-      (message.kp < ControlConfig::kMinGain || message.kp > ControlConfig::kMaxGain)) {
+  if (message.hasKp && (message.kp < ControlConfig::kMinGain ||
+                        message.kp > ControlConfig::kMaxGain)) {
     Serial.println("params_validation_error=kp_out_of_range");
     *failureReason = "kp_out_of_range";
     return false;
   }
 
-  if (message.hasKi &&
-      (message.ki < ControlConfig::kMinGain || message.ki > ControlConfig::kMaxGain)) {
+  if (message.hasKi && (message.ki < ControlConfig::kMinGain ||
+                        message.ki > ControlConfig::kMaxGain)) {
     Serial.println("params_validation_error=ki_out_of_range");
     *failureReason = "ki_out_of_range";
     return false;
   }
 
-  if (message.hasKd &&
-      (message.kd < ControlConfig::kMinGain || message.kd > ControlConfig::kMaxGain)) {
+  if (message.hasKd && (message.kd < ControlConfig::kMinGain ||
+                        message.kd > ControlConfig::kMaxGain)) {
     Serial.println("params_validation_error=kd_out_of_range");
     *failureReason = "kd_out_of_range";
     return false;
@@ -742,8 +763,8 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
 
   if (incomingParams.hasApplyImmediately && incomingParams.applyImmediately) {
     applyParameterSetMessage(incomingParams);
-    publishParameterAck(buildParameterAckMessage(
-        "applied", true, true, false, "applied_ok", millis()));
+    publishParameterAck(buildParameterAckMessage("applied", true, true, false,
+                                                 "applied_ok", millis()));
     return;
   }
 
@@ -755,8 +776,8 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
   Serial.print("pending_params_received_ms=");
   Serial.println(pendingParamsReceivedMs);
   Serial.println("params_apply_mode=staged_waiting");
-  publishParameterAck(buildParameterAckMessage(
-      "staged", true, false, true, "staged_waiting", millis()));
+  publishParameterAck(buildParameterAckMessage("staged", true, false, true,
+                                               "staged_waiting", millis()));
 }
 
 void initializeMqttClient() {
@@ -799,7 +820,9 @@ void ensureMqttConnected(unsigned long nowMs) {
   Serial.print("mqtt_connecting_host=");
   Serial.println(NetworkConfig::kMqttHost);
 
-  if (mqttClient.connect(NetworkConfig::kMqttClientId)) {
+  if (mqttClient.connect(NetworkConfig::kMqttClientId,
+                         NetworkConfig::kMqttUsername,
+                         NetworkConfig::kMqttPassword)) {
     Serial.println("mqtt_status=connected");
     if (mqttClient.subscribe(MessagingConfig::kParamsSetTopic)) {
       Serial.print("mqtt_subscribed_topic=");
@@ -874,10 +897,9 @@ void runControlLoop(unsigned long nowMs) {
   printControlLog(nowMs, simulatedTemperatureC, lastSensorTemperatureC, errorC,
                   integralError, controlOutput, duty, normalizedDuty);
 
-  const TelemetryMessage telemetry =
-      buildTelemetryMessage(nowMs, simulatedTemperatureC, lastSensorTemperatureC,
-                            errorC, integralError, controlOutput, duty,
-                            normalizedDuty);
+  const TelemetryMessage telemetry = buildTelemetryMessage(
+      nowMs, simulatedTemperatureC, lastSensorTemperatureC, errorC,
+      integralError, controlOutput, duty, normalizedDuty);
   printTelemetryJson(telemetry);
   publishTelemetry(telemetryToJson(telemetry));
 }
@@ -926,6 +948,10 @@ void setup() {
   Serial.println("telemetry_publish_mode=serial_json_and_mqtt_publish");
   Serial.print("mqtt_broker_host=");
   Serial.println(NetworkConfig::kMqttHost);
+  Serial.print("mqtt_broker_port=");
+  Serial.println(NetworkConfig::kMqttPort);
+  Serial.print("mqtt_username=");
+  Serial.println(NetworkConfig::kMqttUsername);
   Serial.print("mqtt_telemetry_topic=");
   Serial.println(MessagingConfig::kTelemetryTopic);
   Serial.print("mqtt_params_topic=");

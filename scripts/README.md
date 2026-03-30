@@ -59,6 +59,7 @@ eval "$(pyenv init -)"
 The current MQTT test client is:
 
 - `scripts/mqtt_test_client.py`
+- `scripts/mqtt_client_config.example.json`
 
 It can be used to:
 
@@ -66,6 +67,23 @@ It can be used to:
 - subscribe to parameter ACK messages
 - publish an immediate parameter update
 - publish a staged parameter update
+
+To use a self-managed broker, create a local config file:
+
+```bash
+cp scripts/mqtt_client_config.example.json scripts/mqtt_client_config.json
+```
+
+Then edit the local file and fill in your actual:
+
+- broker host
+- broker port
+- username
+- password
+- topics if needed
+
+The local file `scripts/mqtt_client_config.json` is ignored by Git so that
+broker credentials do not need to be committed.
 
 Examples:
 

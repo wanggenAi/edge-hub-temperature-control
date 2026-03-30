@@ -15,3 +15,6 @@ Current files:
 
 - `architecture-overview.md`: overall description of the three-layer architecture
 - `development-roadmap.md`: staged project roadmap
+- `mqtt_interface.md`: MQTT message interface definition
+- `deployment/README.md`: deployment document index
+- `deployment/mqtt-broker-ubuntu.md`: Ubuntu Mosquitto deployment guide

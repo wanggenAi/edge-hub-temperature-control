@@ -14,6 +14,7 @@ env/
 .env
 .env.*
 *.local
+scripts/mqtt_client_config.json
 
 # Editor and OS files
 .vscode/
