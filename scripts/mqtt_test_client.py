@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Install dependency:
-pip install paho-mqtt
+python -m pip install -r requirements.txt
 """
 
 import argparse
@@ -10,6 +10,11 @@ import threading
 import time
 
 import paho.mqtt.client as mqtt
+
+try:
+    from paho.mqtt.enums import CallbackAPIVersion
+except ImportError:
+    CallbackAPIVersion = None
 
 
 BROKER_HOST = "broker.emqx.io"
@@ -119,16 +124,26 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def create_mqtt_client(mode: str) -> mqtt.Client:
+    if CallbackAPIVersion is not None:
+        return mqtt.Client(
+            callback_api_version=CallbackAPIVersion.VERSION2,
+            userdata={"mode": mode},
+        )
+
+    return mqtt.Client(userdata={"mode": mode})
+
+
 def main() -> None:
     args = parse_args()
 
     print_section("Test Client")
     print(f"mode: {args.mode}")
-    print("The client will subscribe first, then publish one params/set payload after 3 seconds.")
-
-    client = mqtt.Client(
-        mqtt.CallbackAPIVersion.VERSION2, userdata={"mode": args.mode}
+    print(
+        "The client will subscribe first, then publish one params/set payload after 3 seconds."
     )
+
+    client = create_mqtt_client(args.mode)
     client.on_connect = on_connect
     client.on_message = on_message
 
