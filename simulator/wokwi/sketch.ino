@@ -58,7 +58,7 @@ namespace NetworkConfig {
 // For a real deployment, replace the Wi-Fi credentials and MQTT host here.
 constexpr char kWifiSsid[] = "Wokwi-GUEST";
 constexpr char kWifiPassword[] = "";
-constexpr char kMqttHost[] = "38.14.195.2";
+constexpr char kMqttHost[] = "ip address";
 constexpr uint16_t kMqttPort = 1883;
 // These credentials are used for the current self-managed Mosquitto broker.
 // For a different server, update host / username / password here.
