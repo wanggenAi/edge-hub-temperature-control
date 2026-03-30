@@ -26,7 +26,8 @@ The current simulation node verifies the following functions:
 - telemetry message abstraction aligned with the MQTT interface design
 - serial-simulated telemetry publish in JSON-like payload form
 - minimal public MQTT broker integration for telemetry publish
-- minimal params/set subscription skeleton
+- runtime-config-based control parameters
+- params/set subscription with minimal runtime parameter application
 - observable closed-loop temperature regulation behavior
 
 This is an important engineering step because the simulation has moved from "control interface verification" to "closed-loop process verification".
@@ -138,11 +139,13 @@ Current scope:
 - telemetry publish to a public test MQTT broker
 - subscription to the node-specific `params/set` topic
 - received `params/set` payloads printed to the serial output
+- supported runtime fields include target temperature, controller gains, control period, and control mode
+- `apply_immediately=true` allows the new parameters to take effect at runtime
 
 Current boundary:
 
 - telemetry publish is real
-- parameter downlink handling is still only a minimal receive-and-print skeleton
+- parameter downlink handling is intentionally lightweight rather than a full remote configuration subsystem
 - no broker authentication or production security mechanism is added yet
 
 Why this step matters:
@@ -186,8 +189,8 @@ This makes it easier to support:
 
 The most natural next tasks are:
 
-- abstract parameter-apply logic around the reserved parameter structure
-- extend the current `params/set` subscription from print-only to controlled parameter application
+- refine staged-parameter handling when `apply_immediately=false`
+- add safer runtime application rules for gain updates if needed
 - compare P, PI initial, and PI tuned versions under the same thermal-model parameters
 - tune `Kp` and `Ki` using metrics such as settling time, overshoot, and steady-state error
 - run step-response and steady-state error experiments

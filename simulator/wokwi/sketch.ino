@@ -2,6 +2,7 @@
 #include <OneWire.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <string.h>
 
 namespace Pins {
 constexpr uint8_t kOneWireBus = 21;
@@ -13,6 +14,7 @@ namespace ControlConfig {
 constexpr float kTargetTemperatureC = 35.0f;
 constexpr float kProportionalGain = 120.0f;
 constexpr float kIntegralGain = 12.0f;
+constexpr float kDerivativeGain = 0.0f;
 constexpr float kIntegralMin = -20.0f;
 constexpr float kIntegralMax = 20.0f;
 constexpr unsigned long kControlPeriodMs = 1000;
@@ -20,6 +22,13 @@ constexpr unsigned long kHeartbeatPeriodMs = 500;
 constexpr uint32_t kPwmFrequencyHz = 5000;
 constexpr uint8_t kPwmResolutionBits = 8;
 constexpr uint8_t kMaxDuty = 255;
+constexpr float kMinTargetTempC = 20.0f;
+constexpr float kMaxTargetTempC = 60.0f;
+constexpr float kMinGain = 0.0f;
+constexpr float kMaxGain = 1000.0f;
+constexpr unsigned long kMinControlPeriodMs = 200;
+constexpr unsigned long kMaxControlPeriodMs = 10000;
+constexpr size_t kTextFieldSize = 32;
 }  // namespace ControlConfig
 
 namespace ThermalModel {
@@ -31,15 +40,16 @@ constexpr float kCoolingFactor = 0.08f;
 
 namespace MessagingConfig {
 constexpr char kDeviceId[] = "edge-node-001";
-constexpr char kControlMode[] = "pi_control";
+constexpr char kDefaultControlMode[] = "pi_control";
 constexpr char kControllerVersion[] = "pi_tuned_v3_1";
 constexpr char kSystemState[] = "running";
-constexpr float kDerivativeGain = 0.0f;
 
 constexpr char kTelemetryTopic[] =
     "edge/temperature/edge-node-001/telemetry";
 constexpr char kParamsSetTopic[] =
     "edge/temperature/edge-node-001/params/set";
+constexpr char kParamsAckTopic[] =
+    "edge/temperature/edge-node-001/params/ack";
 constexpr char kOptimizerRecommendationTopic[] =
     "edge/temperature/edge-node-001/optimizer/recommendation";
 }  // namespace MessagingConfig
@@ -53,6 +63,15 @@ constexpr char kMqttClientId[] = "edge-node-001-sim";
 constexpr unsigned long kWifiReconnectIntervalMs = 5000;
 constexpr unsigned long kMqttReconnectIntervalMs = 5000;
 }  // namespace NetworkConfig
+
+struct RuntimeConfig {
+  float targetTempC;
+  float kp;
+  float ki;
+  float kd;
+  unsigned long controlPeriodMs;
+  char controlMode[ControlConfig::kTextFieldSize];
+};
 
 struct TelemetryMessage {
   const char* deviceId;
@@ -71,16 +90,41 @@ struct TelemetryMessage {
   float ki;
   float kd;
   const char* systemState;
+  bool hasPendingParams;
+  unsigned long pendingParamsAgeMs;
 };
 
 struct ParameterSetMessage {
+  bool hasTargetTempC;
+  bool hasKp;
+  bool hasKi;
+  bool hasKd;
+  bool hasControlPeriodMs;
+  bool hasControlMode;
+  bool hasApplyImmediately;
+  float targetTempC;
+  float kp;
+  float ki;
+  float kd;
+  unsigned long controlPeriodMs;
+  char controlMode[ControlConfig::kTextFieldSize];
+  bool applyImmediately;
+};
+
+struct ParameterAckMessage {
+  const char* deviceId;
+  const char* ackType;
+  bool success;
+  bool appliedImmediately;
+  bool hasPendingParams;
   float targetTempC;
   float kp;
   float ki;
   float kd;
   unsigned long controlPeriodMs;
   const char* controlMode;
-  bool applyImmediately;
+  const char* reason;
+  unsigned long uptimeMs;
 };
 
 struct OptimizerRecommendationMessage {
@@ -105,31 +149,45 @@ unsigned long lastWifiAttemptMs = 0;
 unsigned long lastMqttAttemptMs = 0;
 bool heartbeatState = false;
 bool wifiReadyPrinted = false;
+bool hasPendingParams = false;
 
 float simulatedTemperatureC = ThermalModel::kInitialSimTemperatureC;
 float lastSensorTemperatureC = DEVICE_DISCONNECTED_C;
 float accumulatedError = 0.0f;
+unsigned long pendingParamsReceivedMs = 0;
 
-ParameterSetMessage pendingParams = {
-    ControlConfig::kTargetTemperatureC,
-    ControlConfig::kProportionalGain,
-    ControlConfig::kIntegralGain,
-    MessagingConfig::kDerivativeGain,
-    ControlConfig::kControlPeriodMs,
-    MessagingConfig::kControlMode,
-    false,
-};
+RuntimeConfig runtimeConfig;
+ParameterSetMessage pendingParams = {};
 
 OptimizerRecommendationMessage optimizerRecommendationTemplate = {
     "reserved",
     ControlConfig::kTargetTemperatureC,
     ControlConfig::kProportionalGain,
     ControlConfig::kIntegralGain,
-    MessagingConfig::kDerivativeGain,
+    ControlConfig::kDerivativeGain,
     "reserved_for_future_optimizer_integration",
     0.0f,
     "not_active",
 };
+
+void copyText(char* destination, size_t destinationSize, const char* source) {
+  if (destinationSize == 0) {
+    return;
+  }
+
+  strncpy(destination, source, destinationSize - 1);
+  destination[destinationSize - 1] = '\0';
+}
+
+void initializeRuntimeConfig() {
+  runtimeConfig.targetTempC = ControlConfig::kTargetTemperatureC;
+  runtimeConfig.kp = ControlConfig::kProportionalGain;
+  runtimeConfig.ki = ControlConfig::kIntegralGain;
+  runtimeConfig.kd = ControlConfig::kDerivativeGain;
+  runtimeConfig.controlPeriodMs = ControlConfig::kControlPeriodMs;
+  copyText(runtimeConfig.controlMode, sizeof(runtimeConfig.controlMode),
+           MessagingConfig::kDefaultControlMode);
+}
 
 bool setupPwm() {
   const bool pwmReady =
@@ -147,12 +205,12 @@ float samplePhysicalSensor() {
 }
 
 float controlPeriodSeconds() {
-  return ControlConfig::kControlPeriodMs / 1000.0f;
+  return runtimeConfig.controlPeriodMs / 1000.0f;
 }
 
 float computeRawControlOutput(float errorC, float integralError) {
-  const float proportionalTerm = errorC * ControlConfig::kProportionalGain;
-  const float integralTerm = integralError * ControlConfig::kIntegralGain;
+  const float proportionalTerm = errorC * runtimeConfig.kp;
+  const float integralTerm = integralError * runtimeConfig.ki;
   return proportionalTerm + integralTerm;
 }
 
@@ -202,22 +260,16 @@ TelemetryMessage buildTelemetryMessage(unsigned long nowMs, float simTemperature
                                        float controlOutput, uint8_t duty,
                                        float normalizedDuty) {
   TelemetryMessage message = {
-      MessagingConfig::kDeviceId,
-      nowMs,
-      ControlConfig::kTargetTemperatureC,
-      simTemperatureC,
-      sensorTemperatureC,
-      errorC,
-      integralError,
-      controlOutput,
-      duty,
-      normalizedDuty,
-      MessagingConfig::kControlMode,
-      MessagingConfig::kControllerVersion,
-      ControlConfig::kProportionalGain,
-      ControlConfig::kIntegralGain,
-      MessagingConfig::kDerivativeGain,
-      MessagingConfig::kSystemState,
+      MessagingConfig::kDeviceId,       nowMs,
+      runtimeConfig.targetTempC,        simTemperatureC,
+      sensorTemperatureC,               errorC,
+      integralError,                    controlOutput,
+      duty,                             normalizedDuty,
+      runtimeConfig.controlMode,        MessagingConfig::kControllerVersion,
+      runtimeConfig.kp,                 runtimeConfig.ki,
+      runtimeConfig.kd,                 MessagingConfig::kSystemState,
+      hasPendingParams,
+      hasPendingParams ? (nowMs - pendingParamsReceivedMs) : 0,
   };
   return message;
 }
@@ -229,7 +281,7 @@ void printControlLog(unsigned long nowMs, float simTemperatureC,
   Serial.print("time_s=");
   Serial.print(nowMs / 1000.0f, 1);
   Serial.print(", target_c=");
-  Serial.print(ControlConfig::kTargetTemperatureC, 2);
+  Serial.print(runtimeConfig.targetTempC, 2);
   Serial.print(", sim_temp_c=");
   Serial.print(simTemperatureC, 2);
   Serial.print(", sensor_temp_c=");
@@ -254,7 +306,7 @@ void printControlLog(unsigned long nowMs, float simTemperatureC,
   Serial.print("csv,");
   Serial.print(nowMs / 1000.0f, 1);
   Serial.print(",");
-  Serial.print(ControlConfig::kTargetTemperatureC, 2);
+  Serial.print(runtimeConfig.targetTempC, 2);
   Serial.print(",");
   Serial.print(simTemperatureC, 2);
   Serial.print(",");
@@ -316,7 +368,11 @@ String telemetryToJson(const TelemetryMessage& message) {
   payload += String(message.kd, 2);
   payload += ",\"system_state\":\"";
   payload += message.systemState;
-  payload += "\"}";
+  payload += "\",\"has_pending_params\":";
+  payload += message.hasPendingParams ? "true" : "false";
+  payload += ",\"pending_params_age_ms\":";
+  payload += String(message.pendingParamsAgeMs);
+  payload += "}";
   return payload;
 }
 
@@ -360,7 +416,298 @@ bool extractFloatField(const String& payload, const char* key, float* value) {
   return true;
 }
 
-void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+bool extractUnsignedLongField(const String& payload, const char* key,
+                              unsigned long* value) {
+  float parsedValue = 0.0f;
+  if (!extractFloatField(payload, key, &parsedValue)) {
+    return false;
+  }
+
+  *value = static_cast<unsigned long>(parsedValue);
+  return true;
+}
+
+bool extractBoolField(const String& payload, const char* key, bool* value) {
+  const String quotedKey = String("\"") + key + "\"";
+  const int keyStart = payload.indexOf(quotedKey);
+  if (keyStart < 0) {
+    return false;
+  }
+
+  const int colonIndex = payload.indexOf(':', keyStart + quotedKey.length());
+  if (colonIndex < 0) {
+    return false;
+  }
+
+  int valueStart = colonIndex + 1;
+  while (valueStart < payload.length() && payload[valueStart] == ' ') {
+    ++valueStart;
+  }
+
+  if (payload.startsWith("true", valueStart)) {
+    *value = true;
+    return true;
+  }
+
+  if (payload.startsWith("false", valueStart)) {
+    *value = false;
+    return true;
+  }
+
+  return false;
+}
+
+bool extractStringField(const String& payload, const char* key, char* value,
+                        size_t valueSize) {
+  const String quotedKey = String("\"") + key + "\"";
+  const int keyStart = payload.indexOf(quotedKey);
+  if (keyStart < 0) {
+    return false;
+  }
+
+  const int colonIndex = payload.indexOf(':', keyStart + quotedKey.length());
+  if (colonIndex < 0) {
+    return false;
+  }
+
+  int firstQuoteIndex = payload.indexOf('\"', colonIndex + 1);
+  if (firstQuoteIndex < 0) {
+    return false;
+  }
+
+  const int secondQuoteIndex = payload.indexOf('\"', firstQuoteIndex + 1);
+  if (secondQuoteIndex < 0) {
+    return false;
+  }
+
+  const String parsedText =
+      payload.substring(firstQuoteIndex + 1, secondQuoteIndex);
+  copyText(value, valueSize, parsedText.c_str());
+  return true;
+}
+
+bool isControlModeSupported(const char* controlMode) {
+  return strcmp(controlMode, "pi_control") == 0 ||
+         strcmp(controlMode, "p_control") == 0;
+}
+
+void printRuntimeConfigSnapshot() {
+  Serial.print("runtime_target_temp_c=");
+  Serial.println(runtimeConfig.targetTempC, 2);
+  Serial.print("runtime_kp=");
+  Serial.println(runtimeConfig.kp, 2);
+  Serial.print("runtime_ki=");
+  Serial.println(runtimeConfig.ki, 2);
+  Serial.print("runtime_kd=");
+  Serial.println(runtimeConfig.kd, 2);
+  Serial.print("runtime_control_period_ms=");
+  Serial.println(runtimeConfig.controlPeriodMs);
+  Serial.print("runtime_control_mode=");
+  Serial.println(runtimeConfig.controlMode);
+}
+
+ParameterAckMessage buildParameterAckMessage(const char* ackType, bool success,
+                                             bool appliedImmediately,
+                                             bool hasPending,
+                                             const char* reason,
+                                             unsigned long nowMs) {
+  ParameterAckMessage message = {
+      MessagingConfig::kDeviceId, ackType,          success,
+      appliedImmediately,         hasPending,       runtimeConfig.targetTempC,
+      runtimeConfig.kp,           runtimeConfig.ki, runtimeConfig.kd,
+      runtimeConfig.controlPeriodMs,
+      runtimeConfig.controlMode,
+      reason,
+      nowMs,
+  };
+  return message;
+}
+
+String parameterAckToJson(const ParameterAckMessage& message) {
+  String payload = "{\"device_id\":\"";
+  payload += message.deviceId;
+  payload += "\",\"ack_type\":\"";
+  payload += message.ackType;
+  payload += "\",\"success\":";
+  payload += message.success ? "true" : "false";
+  payload += ",\"applied_immediately\":";
+  payload += message.appliedImmediately ? "true" : "false";
+  payload += ",\"has_pending_params\":";
+  payload += message.hasPendingParams ? "true" : "false";
+  payload += ",\"target_temp_c\":";
+  payload += String(message.targetTempC, 2);
+  payload += ",\"kp\":";
+  payload += String(message.kp, 2);
+  payload += ",\"ki\":";
+  payload += String(message.ki, 2);
+  payload += ",\"kd\":";
+  payload += String(message.kd, 2);
+  payload += ",\"control_period_ms\":";
+  payload += String(message.controlPeriodMs);
+  payload += ",\"control_mode\":\"";
+  payload += message.controlMode;
+  payload += "\",\"reason\":\"";
+  payload += message.reason;
+  payload += "\",\"uptime_ms\":";
+  payload += String(message.uptimeMs);
+  payload += "}";
+  return payload;
+}
+
+bool publishParameterAck(const ParameterAckMessage& message) {
+  const String payload = parameterAckToJson(message);
+
+  Serial.print("mqtt_ack_topic=");
+  Serial.println(MessagingConfig::kParamsAckTopic);
+  Serial.print("mqtt_ack_payload=");
+  Serial.println(payload);
+
+  if (!mqttClient.connected()) {
+    Serial.println("mqtt_ack_status=skipped_not_connected");
+    return false;
+  }
+
+  const bool published =
+      mqttClient.publish(MessagingConfig::kParamsAckTopic, payload.c_str());
+
+  Serial.print("mqtt_ack_status=");
+  Serial.println(published ? "published" : "failed");
+  return published;
+}
+
+// Parse supported MQTT params/set fields from a JSON-like payload.
+bool parseParameterSetMessage(const String& payload, ParameterSetMessage* message) {
+  *message = {};
+  bool hasAnyField = false;
+
+  if (extractFloatField(payload, "target_temp_c", &message->targetTempC)) {
+    message->hasTargetTempC = true;
+    hasAnyField = true;
+  }
+  if (extractFloatField(payload, "kp", &message->kp)) {
+    message->hasKp = true;
+    hasAnyField = true;
+  }
+  if (extractFloatField(payload, "ki", &message->ki)) {
+    message->hasKi = true;
+    hasAnyField = true;
+  }
+  if (extractFloatField(payload, "kd", &message->kd)) {
+    message->hasKd = true;
+    hasAnyField = true;
+  }
+  if (extractUnsignedLongField(payload, "control_period_ms",
+                               &message->controlPeriodMs)) {
+    message->hasControlPeriodMs = true;
+    hasAnyField = true;
+  }
+  if (extractStringField(payload, "control_mode", message->controlMode,
+                         sizeof(message->controlMode))) {
+    message->hasControlMode = true;
+    hasAnyField = true;
+  }
+  if (extractBoolField(payload, "apply_immediately", &message->applyImmediately)) {
+    message->hasApplyImmediately = true;
+    hasAnyField = true;
+  }
+
+  return hasAnyField;
+}
+
+bool validateParameterSetMessage(const ParameterSetMessage& message,
+                                 const char** failureReason) {
+  if (message.hasTargetTempC &&
+      (message.targetTempC < ControlConfig::kMinTargetTempC ||
+       message.targetTempC > ControlConfig::kMaxTargetTempC)) {
+    Serial.println("params_validation_error=target_temp_c_out_of_range");
+    *failureReason = "target_temp_c_out_of_range";
+    return false;
+  }
+
+  if (message.hasKp &&
+      (message.kp < ControlConfig::kMinGain || message.kp > ControlConfig::kMaxGain)) {
+    Serial.println("params_validation_error=kp_out_of_range");
+    *failureReason = "kp_out_of_range";
+    return false;
+  }
+
+  if (message.hasKi &&
+      (message.ki < ControlConfig::kMinGain || message.ki > ControlConfig::kMaxGain)) {
+    Serial.println("params_validation_error=ki_out_of_range");
+    *failureReason = "ki_out_of_range";
+    return false;
+  }
+
+  if (message.hasKd &&
+      (message.kd < ControlConfig::kMinGain || message.kd > ControlConfig::kMaxGain)) {
+    Serial.println("params_validation_error=kd_out_of_range");
+    *failureReason = "kd_out_of_range";
+    return false;
+  }
+
+  if (message.hasControlPeriodMs &&
+      (message.controlPeriodMs < ControlConfig::kMinControlPeriodMs ||
+       message.controlPeriodMs > ControlConfig::kMaxControlPeriodMs)) {
+    Serial.println("params_validation_error=control_period_ms_out_of_range");
+    *failureReason = "control_period_ms_out_of_range";
+    return false;
+  }
+
+  if (message.hasControlMode && !isControlModeSupported(message.controlMode)) {
+    Serial.println("params_validation_error=control_mode_not_supported");
+    *failureReason = "control_mode_not_supported";
+    return false;
+  }
+
+  *failureReason = "ok";
+  return true;
+}
+
+void applyParameterSetMessage(const ParameterSetMessage& message) {
+  if (message.hasTargetTempC) {
+    runtimeConfig.targetTempC = message.targetTempC;
+  }
+  if (message.hasKp) {
+    runtimeConfig.kp = message.kp;
+  }
+  if (message.hasKi) {
+    runtimeConfig.ki = message.ki;
+  }
+  if (message.hasKd) {
+    runtimeConfig.kd = message.kd;
+  }
+  if (message.hasControlPeriodMs) {
+    runtimeConfig.controlPeriodMs = message.controlPeriodMs;
+  }
+  if (message.hasControlMode) {
+    copyText(runtimeConfig.controlMode, sizeof(runtimeConfig.controlMode),
+             message.controlMode);
+  }
+
+  Serial.println("params_update_applied=true");
+  printRuntimeConfigSnapshot();
+}
+
+void applyPendingParamsIfNeeded(unsigned long nowMs) {
+  if (!hasPendingParams) {
+    return;
+  }
+
+  applyParameterSetMessage(pendingParams);
+  hasPendingParams = false;
+  pendingParamsReceivedMs = 0;
+  pendingParams = {};
+
+  Serial.println("pending_params_applied=true");
+  Serial.print("pending_params_applied_ms=");
+  Serial.println(nowMs);
+
+  publishParameterAck(buildParameterAckMessage(
+      "pending_applied", true, false, false, "pending_params_applied", nowMs));
+}
+
+// Handle received MQTT params/set payloads and apply runtime config updates.
+void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
   String payloadText;
   payloadText.reserve(length);
 
@@ -372,22 +719,53 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   Serial.println(topic);
   Serial.print("mqtt_rx_payload=");
   Serial.println(payloadText);
+  Serial.print("params_update_received=");
+  Serial.println(payloadText);
 
-  float parsedTargetTempC = 0.0f;
-  if (extractFloatField(payloadText, "target_temp_c", &parsedTargetTempC)) {
-    pendingParams.targetTempC = parsedTargetTempC;
-    pendingParams.applyImmediately = false;
-    Serial.print("pending_target_temp_c=");
-    Serial.println(parsedTargetTempC, 2);
-    Serial.println("params_apply_mode=reserved_not_applied");
+  ParameterSetMessage incomingParams;
+  if (!parseParameterSetMessage(payloadText, &incomingParams)) {
+    Serial.println("params_update_parsed=false");
+    publishParameterAck(buildParameterAckMessage(
+        "parse_error", false, false, false, "payload_parse_failed", millis()));
+    return;
   }
+
+  Serial.println("params_update_parsed=true");
+
+  const char* validationReason = "ok";
+  if (!validateParameterSetMessage(incomingParams, &validationReason)) {
+    Serial.println("params_update_applied=false");
+    publishParameterAck(buildParameterAckMessage(
+        "validation_error", false, false, false, validationReason, millis()));
+    return;
+  }
+
+  if (incomingParams.hasApplyImmediately && incomingParams.applyImmediately) {
+    applyParameterSetMessage(incomingParams);
+    publishParameterAck(buildParameterAckMessage(
+        "applied", true, true, false, "applied_ok", millis()));
+    return;
+  }
+
+  pendingParams = incomingParams;
+  hasPendingParams = true;
+  pendingParamsReceivedMs = millis();
+  Serial.println("params_update_applied=false");
+  Serial.println("params_update_staged=true");
+  Serial.print("pending_params_received_ms=");
+  Serial.println(pendingParamsReceivedMs);
+  Serial.println("params_apply_mode=staged_waiting");
+  publishParameterAck(buildParameterAckMessage(
+      "staged", true, false, true, "staged_waiting", millis()));
 }
 
 void initializeMqttClient() {
   mqttClient.setServer(NetworkConfig::kMqttHost, NetworkConfig::kMqttPort);
-  mqttClient.setCallback(onMqttMessage);
+  mqttClient.setCallback(handleMqttMessage);
+  mqttClient.setBufferSize(512);
 }
 
+// Maintain Wi-Fi connectivity without blocking the control loop.
 void ensureWifiConnected(unsigned long nowMs) {
   if (WiFi.status() == WL_CONNECTED) {
     return;
@@ -406,6 +784,7 @@ void ensureWifiConnected(unsigned long nowMs) {
   WiFi.begin(NetworkConfig::kWifiSsid, NetworkConfig::kWifiPassword);
 }
 
+// Maintain MQTT connectivity and resubscribe when the broker link is restored.
 void ensureMqttConnected(unsigned long nowMs) {
   if (WiFi.status() != WL_CONNECTED || mqttClient.connected()) {
     return;
@@ -435,6 +814,27 @@ void ensureMqttConnected(unsigned long nowMs) {
   }
 }
 
+// Publish telemetry if MQTT is connected. Skip safely when offline.
+bool publishTelemetry(const String& payload) {
+  Serial.print("mqtt_publish_payload_len=");
+  Serial.println(payload.length());
+
+  if (!mqttClient.connected()) {
+    Serial.println("mqtt_publish_skipped=not_connected");
+    return false;
+  }
+
+  const bool published =
+      mqttClient.publish(MessagingConfig::kTelemetryTopic, payload.c_str());
+  if (!published) {
+    Serial.println("mqtt_publish_status=failed");
+  } else {
+    Serial.println("mqtt_publish_status=published");
+  }
+  return published;
+}
+
+// Maintain Wi-Fi and MQTT without blocking the control loop.
 void maintainNetwork(unsigned long nowMs) {
   ensureWifiConnected(nowMs);
 
@@ -451,29 +851,16 @@ void maintainNetwork(unsigned long nowMs) {
   }
 }
 
-bool publishTelemetry(const String& payload) {
-  if (!mqttClient.connected()) {
-    Serial.println("mqtt_publish_skipped=not_connected");
-    return false;
-  }
-
-  const bool published =
-      mqttClient.publish(MessagingConfig::kTelemetryTopic, payload.c_str());
-  if (!published) {
-    Serial.println("mqtt_publish_status=failed");
-  }
-  return published;
-}
-
 void runControlLoop(unsigned long nowMs) {
-  if (nowMs - lastControlMs < ControlConfig::kControlPeriodMs) {
+  if (nowMs - lastControlMs < runtimeConfig.controlPeriodMs) {
     return;
   }
 
   lastControlMs = nowMs;
+  applyPendingParamsIfNeeded(nowMs);
   lastSensorTemperatureC = samplePhysicalSensor();
 
-  const float errorC = ControlConfig::kTargetTemperatureC - simulatedTemperatureC;
+  const float errorC = runtimeConfig.targetTempC - simulatedTemperatureC;
   const float integralError = updateIntegralError(errorC);
 
   float controlOutput = 0.0f;
@@ -512,6 +899,8 @@ void setup() {
   Serial.println("boot=edge_temperature_node_v3_1");
   Serial.println("serial_status=ready");
 
+  initializeRuntimeConfig();
+
   pinMode(Pins::kStatusLed, OUTPUT);
   digitalWrite(Pins::kStatusLed, LOW);
 
@@ -524,7 +913,7 @@ void setup() {
 
   initializeMqttClient();
 
-  lastControlMs = millis() - ControlConfig::kControlPeriodMs;
+  lastControlMs = millis() - runtimeConfig.controlPeriodMs;
   lastHeartbeatMs = millis();
 
   Serial.println("edge_temperature_node_v3_1 started");
@@ -541,6 +930,9 @@ void setup() {
   Serial.println(MessagingConfig::kTelemetryTopic);
   Serial.print("mqtt_params_topic=");
   Serial.println(MessagingConfig::kParamsSetTopic);
+  Serial.print("mqtt_params_ack_topic=");
+  Serial.println(MessagingConfig::kParamsAckTopic);
+  printRuntimeConfigSnapshot();
 }
 
 void loop() {
