@@ -114,7 +114,7 @@ public final class DataHubMetrics {
         total.parameterAckPersisted() - lastParameterAckPersisted.getAndSet(total.parameterAckPersisted()));
 
     log.info(
-        "datahub.stats intervalMs={} delta[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={}] total[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={}] config[qos={} maxInflight={} sourceQueue={} pipelineBuffer={} parserConcurrency={} writerConcurrency={} prefetch={} overflow={} telemetryFilter={} heartbeatMs={} telemetrySummary={} summaryMinSamples={}]",
+        "datahub.stats intervalMs={} delta[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={}] total[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={}] config[qos={} maxInflight={} sourceQueue={} pipelineBuffer={} parserConcurrency={} writerConcurrency={} prefetch={} overflow={} telemetryFilter={} heartbeatMs={} telemetrySummary={} summaryMinSamples={} summaryIdleMs={} summaryIdleCheckMs={}]",
         properties.getMonitoring().getStatsLogIntervalMs(),
         delta.ingressReceived(),
         delta.ingressDropped(),
@@ -147,7 +147,9 @@ public final class DataHubMetrics {
         properties.getTelemetryFilter().isEnabled(),
         properties.getTelemetryFilter().getHeartbeatIntervalMs(),
         properties.getTelemetrySummary().isEnabled(),
-        properties.getTelemetrySummary().getMinSamples());
+        properties.getTelemetrySummary().getMinSamples(),
+        properties.getTelemetrySummary().getIdleFlushIntervalMs(),
+        properties.getTelemetrySummary().getIdleFlushCheckMs());
   }
 
   private record Snapshot(

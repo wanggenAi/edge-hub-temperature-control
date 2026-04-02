@@ -9,7 +9,7 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -60,13 +60,10 @@ public final class PahoReactiveMqttSource implements MqttMessageSource {
           options.setPassword(properties.getMqtt().getPassword().toCharArray());
         }
         client.connect(options).waitForCompletion();
-        int qos = properties.getMqtt().getQos();
-        client.subscribe("edge/temperature/+/telemetry", qos).waitForCompletion();
-        client.subscribe("edge/temperature/+/params/set", qos).waitForCompletion();
-        client.subscribe("edge/temperature/+/params/ack", qos).waitForCompletion();
+        subscribeTopics("initial_connect");
         log.info(
             "mqtt connected and subscribed qos={} maxInflight={} sourceQueueSize={}",
-            qos,
+            properties.getMqtt().getQos(),
             properties.getMqtt().getMaxInflight(),
             properties.effectiveSourceQueueSize());
       } catch (MqttException exception) {
@@ -89,14 +86,34 @@ public final class PahoReactiveMqttSource implements MqttMessageSource {
         if (client.isConnected()) {
           client.disconnect().waitForCompletion();
         }
-        client.close();
       } catch (MqttException exception) {
         throw new IllegalStateException("failed to disconnect mqtt source", exception);
       }
     });
   }
 
-  private final class CallbackAdapter implements MqttCallback {
+  private void subscribeTopics(String reason) throws MqttException {
+    int qos = properties.getMqtt().getQos();
+    client.subscribe("edge/temperature/+/telemetry", qos).waitForCompletion();
+    client.subscribe("edge/temperature/+/params/set", qos).waitForCompletion();
+    client.subscribe("edge/temperature/+/params/ack", qos).waitForCompletion();
+    log.info("mqtt subscriptions active reason={} qos={}", reason, qos);
+  }
+
+  private final class CallbackAdapter implements MqttCallbackExtended {
+    @Override
+    public void connectComplete(boolean reconnect, String serverURI) {
+      if (!reconnect) {
+        return;
+      }
+      try {
+        subscribeTopics("auto_reconnect");
+        log.info("mqtt reconnect complete serverUri={}", serverURI);
+      } catch (MqttException exception) {
+        log.error("mqtt resubscribe failed after reconnect serverUri={}", serverURI, exception);
+      }
+    }
+
     @Override
     public void connectionLost(Throwable cause) {
       log.warn("mqtt connection lost", cause);

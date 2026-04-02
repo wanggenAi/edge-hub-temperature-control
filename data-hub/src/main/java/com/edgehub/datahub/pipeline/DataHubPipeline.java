@@ -8,11 +8,16 @@ import com.edgehub.datahub.monitoring.DataHubMetrics;
 import com.edgehub.datahub.mqtt.MqttMessageSource;
 import com.edgehub.datahub.parser.HubMessageParser;
 import com.edgehub.datahub.storage.TdengineWriter;
+import java.time.Instant;
 import java.util.Locale;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.SmartLifecycle;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.Disposable;
@@ -21,7 +26,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 @Service
-public final class DataHubPipeline {
+public final class DataHubPipeline implements SmartLifecycle {
 
   private static final Logger log = LoggerFactory.getLogger(DataHubPipeline.class);
 
@@ -35,6 +40,7 @@ public final class DataHubPipeline {
   private final AtomicLong pipelineDropped = new AtomicLong();
   private final AtomicLong parseFailures = new AtomicLong();
   private final AtomicLong persistFailures = new AtomicLong();
+  private final AtomicBoolean running = new AtomicBoolean();
   private Disposable subscription;
 
   public DataHubPipeline(
@@ -54,54 +60,79 @@ public final class DataHubPipeline {
     this.telemetrySummaryAggregator = telemetrySummaryAggregator;
   }
 
-  public Mono<Void> start() {
-    return Mono.fromRunnable(() -> {
-      int parserConcurrency = properties.effectiveParserConcurrency();
-      int writerConcurrency = properties.effectiveWriterConcurrency();
-      int prefetch = properties.getProcessing().getPrefetch();
-      int pipelineBufferSize = properties.getBackpressure().getPipelineBufferSize();
-      BufferOverflowStrategy overflowStrategy = resolveOverflowStrategy(properties.getBackpressure().getOverflowStrategy());
-      subscription = source.messages()
-          .onBackpressureBuffer(
-              pipelineBufferSize,
-              dropped -> logPipelineDrop(dropped),
-              overflowStrategy)
-          .publishOn(Schedulers.parallel(), prefetch)
-          .flatMap(
-              message -> parser.parse(message)
-                  .doOnError(error -> logParseFailure(message, error))
-                  .onErrorResume(error -> Mono.empty()),
-              parserConcurrency,
-              prefetch)
-          .flatMap(
-              this::applyPersistencePolicy,
-              parserConcurrency,
-              prefetch)
-          .flatMap(
-              instruction -> persist(instruction)
-                  .doOnError(error -> logPersistFailure(instruction, error))
-                  .onErrorResume(error -> Mono.empty()),
-              writerConcurrency,
-              prefetch)
-          .doOnSubscribe(ignored -> log.info(
-              "data hub pipeline started parserConcurrency={} writerConcurrency={} prefetch={} pipelineBufferSize={} overflowStrategy={}",
-              parserConcurrency,
-              writerConcurrency,
-              prefetch,
-              pipelineBufferSize,
-              overflowStrategy))
-          .doOnError(error -> log.error("data hub pipeline processing error", error))
-          .retry()
-          .subscribe();
-    });
-  }
+  @Override
+  public synchronized void start() {
+    if (running.get()) {
+      return;
+    }
 
-  public Mono<Void> stop() {
-    return Mono.fromRunnable(() -> {
+    subscription = buildSubscription();
+    try {
+      source.connect().block();
+      running.set(true);
+      log.info("data hub service started");
+    } catch (RuntimeException exception) {
       if (subscription != null && !subscription.isDisposed()) {
         subscription.dispose();
       }
-    });
+      subscription = null;
+      throw exception;
+    }
+  }
+
+  @Override
+  public synchronized void stop() {
+    if (!running.getAndSet(false)) {
+      return;
+    }
+
+    try {
+      source.disconnect().block();
+    } catch (RuntimeException exception) {
+      log.warn("mqtt source disconnect failed during shutdown", exception);
+    }
+
+    flushSummaries(telemetrySummaryAggregator.flushAll("shutdown"), "shutdown");
+
+    if (subscription != null && !subscription.isDisposed()) {
+      subscription.dispose();
+    }
+    subscription = null;
+    log.info("data hub service stopped");
+  }
+
+  @Override
+  public void stop(Runnable callback) {
+    try {
+      stop();
+    } finally {
+      callback.run();
+    }
+  }
+
+  @Override
+  public boolean isAutoStartup() {
+    return true;
+  }
+
+  @Override
+  public boolean isRunning() {
+    return running.get();
+  }
+
+  @Override
+  public int getPhase() {
+    return 0;
+  }
+
+  @Scheduled(
+      initialDelayString = "${datahub.telemetry-summary.idle-flush-check-ms:10000}",
+      fixedDelayString = "${datahub.telemetry-summary.idle-flush-check-ms:10000}")
+  public void flushIdleSummaries() {
+    if (!running.get()) {
+      return;
+    }
+    flushSummaries(telemetrySummaryAggregator.flushIdle(Instant.now()), "idle-check");
   }
 
   private Mono<Void> persist(ParsedHubMessage message) {
@@ -158,6 +189,69 @@ public final class DataHubPipeline {
   private Flux<PersistenceInstruction> summaryInstruction(Optional<TelemetrySteadySummary> summary) {
     return summary.<Flux<PersistenceInstruction>>map(value -> Flux.just(new TelemetrySummaryInstruction(value)))
         .orElseGet(Flux::empty);
+  }
+
+  private Disposable buildSubscription() {
+    int parserConcurrency = properties.effectiveParserConcurrency();
+    int writerConcurrency = properties.effectiveWriterConcurrency();
+    int prefetch = properties.getProcessing().getPrefetch();
+    int pipelineBufferSize = properties.getBackpressure().getPipelineBufferSize();
+    BufferOverflowStrategy overflowStrategy =
+        resolveOverflowStrategy(properties.getBackpressure().getOverflowStrategy());
+    return source.messages()
+        .onBackpressureBuffer(
+            pipelineBufferSize,
+            this::logPipelineDrop,
+            overflowStrategy)
+        .publishOn(Schedulers.parallel(), prefetch)
+        .flatMap(
+            message -> parser.parse(message)
+                .doOnError(error -> logParseFailure(message, error))
+                .onErrorResume(error -> Mono.empty()),
+            parserConcurrency,
+            prefetch)
+        .flatMap(
+            this::applyPersistencePolicy,
+            parserConcurrency,
+            prefetch)
+        .flatMap(
+            instruction -> persist(instruction)
+                .doOnError(error -> logPersistFailure(instruction, error))
+                .onErrorResume(error -> Mono.empty()),
+            writerConcurrency,
+            prefetch)
+        .doOnSubscribe(ignored -> log.info(
+            "data hub pipeline started parserConcurrency={} writerConcurrency={} prefetch={} pipelineBufferSize={} overflowStrategy={}",
+            parserConcurrency,
+            writerConcurrency,
+            prefetch,
+            pipelineBufferSize,
+            overflowStrategy))
+        .doOnError(error -> log.error("data hub pipeline processing error", error))
+        .retry()
+        .subscribe();
+  }
+
+  private void flushSummaries(List<TelemetrySteadySummary> summaries, String reason) {
+    if (summaries.isEmpty()) {
+      return;
+    }
+    log.info("flushing telemetry summaries reason={} count={}", reason, summaries.size());
+    for (TelemetrySteadySummary summary : summaries) {
+      try {
+        writer.writeTelemetrySummary(summary)
+            .doOnSuccess(ignored -> metrics.recordTelemetrySummaryPersisted())
+            .block();
+      } catch (RuntimeException exception) {
+        metrics.recordPersistFailure();
+        log.error(
+            "telemetry summary persist failed deviceId={} flushReason={} persistContext={}",
+            summary.deviceId(),
+            summary.flushReason(),
+            reason,
+            exception);
+      }
+    }
   }
 
   private void logPipelineDrop(RawMqttMessage dropped) {

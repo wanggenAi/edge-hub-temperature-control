@@ -129,6 +129,8 @@ Key tuning properties:
 - `datahub.telemetry-filter.heartbeat-interval-ms`
 - `datahub.telemetry-summary.enabled`
 - `datahub.telemetry-summary.min-samples`
+- `datahub.telemetry-summary.idle-flush-interval-ms`
+- `datahub.telemetry-summary.idle-flush-check-ms`
 - `datahub.monitoring.stats-log-enabled`
 - `datahub.monitoring.stats-log-interval-ms`
 
@@ -212,7 +214,15 @@ Current behavior when `datahub.telemetry-summary.enabled=true`:
 
 - skipped telemetry points are accumulated per device
 - when a heartbeat write happens, or a meaningful change resumes, the skipped window is flushed as one summary row
+- if a device goes quiet while a summary window is still open, the window is also flushed after the configured idle timeout
 - short windows below `datahub.telemetry-summary.min-samples` are ignored
+
+Recommended starting properties:
+
+- `datahub.telemetry-summary.enabled=true`
+- `datahub.telemetry-summary.min-samples=3`
+- `datahub.telemetry-summary.idle-flush-interval-ms=45000`
+- `datahub.telemetry-summary.idle-flush-check-ms=10000`
 
 Each summary row captures the kind of features that are more useful than raw repeats:
 

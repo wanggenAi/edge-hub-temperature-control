@@ -376,6 +376,8 @@ public class HubProperties {
   public static class TelemetrySummary {
     private boolean enabled = false;
     private int minSamples = 3;
+    private long idleFlushIntervalMs = 45000;
+    private long idleFlushCheckMs = 10000;
 
     public boolean isEnabled() {
       return enabled;
@@ -391,6 +393,22 @@ public class HubProperties {
 
     public void setMinSamples(int minSamples) {
       this.minSamples = minSamples;
+    }
+
+    public long getIdleFlushIntervalMs() {
+      return idleFlushIntervalMs;
+    }
+
+    public void setIdleFlushIntervalMs(long idleFlushIntervalMs) {
+      this.idleFlushIntervalMs = idleFlushIntervalMs;
+    }
+
+    public long getIdleFlushCheckMs() {
+      return idleFlushCheckMs;
+    }
+
+    public void setIdleFlushCheckMs(long idleFlushCheckMs) {
+      this.idleFlushCheckMs = idleFlushCheckMs;
     }
   }
 

@@ -4,6 +4,8 @@ import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetryPayload;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,6 +54,46 @@ public final class TelemetrySummaryAggregator {
       return Optional.empty();
     }
     return Optional.of(window.toSummary(flushReason));
+  }
+
+  public List<TelemetrySteadySummary> flushIdle(Instant now) {
+    if (!properties.isEnabled() || properties.getIdleFlushIntervalMs() <= 0) {
+      return List.of();
+    }
+
+    long idleFlushIntervalMs = properties.getIdleFlushIntervalMs();
+    int minSamples = Math.max(properties.getMinSamples(), 1);
+    List<TelemetrySteadySummary> summaries = new ArrayList<>();
+    pendingWindowsByDevice.forEach((deviceId, window) -> {
+      if (window == null) {
+        return;
+      }
+      long idleMs = now.toEpochMilli() - window.windowEnd().toEpochMilli();
+      if (idleMs < idleFlushIntervalMs) {
+        return;
+      }
+      if (!pendingWindowsByDevice.remove(deviceId, window) || window.sampleCount() < minSamples) {
+        return;
+      }
+      summaries.add(window.toSummary("idle_timeout"));
+    });
+    return summaries;
+  }
+
+  public List<TelemetrySteadySummary> flushAll(String flushReason) {
+    if (!properties.isEnabled()) {
+      return List.of();
+    }
+
+    int minSamples = Math.max(properties.getMinSamples(), 1);
+    List<TelemetrySteadySummary> summaries = new ArrayList<>();
+    pendingWindowsByDevice.forEach((deviceId, window) -> {
+      if (window == null || !pendingWindowsByDevice.remove(deviceId, window) || window.sampleCount() < minSamples) {
+        return;
+      }
+      summaries.add(window.toSummary(flushReason));
+    });
+    return summaries;
   }
 
   private static long normalizeControlPeriodMs(Long value) {
