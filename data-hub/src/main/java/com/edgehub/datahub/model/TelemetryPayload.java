@@ -1,0 +1,21 @@
+package com.edgehub.datahub.model;
+
+public record TelemetryPayload(
+    String device_id,
+    long uptime_ms,
+    double target_temp_c,
+    double sim_temp_c,
+    Double sensor_temp_c,
+    double error_c,
+    double integral_error,
+    double control_output,
+    int pwm_duty,
+    double pwm_norm,
+    String control_mode,
+    String controller_version,
+    double kp,
+    double ki,
+    double kd,
+    String system_state,
+    boolean has_pending_params,
+    long pending_params_age_ms) {}

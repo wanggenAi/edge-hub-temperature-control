@@ -1,0 +1,14 @@
+.gradle/
+build/
+out/
+
+# IDE
+.idea/
+*.iml
+
+# Local runtime artifacts
+logs/
+*.log
+
+# Local configuration
+config/application.properties
