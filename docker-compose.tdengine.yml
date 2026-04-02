@@ -1,0 +1,20 @@
+services:
+  tdengine:
+    image: tdengine/tsdb-ee:latest
+    container_name: edgehub-tdengine
+    restart: unless-stopped
+    ports:
+      - "6030:6030"
+      - "6041:6041"
+      - "6043-6060:6043-6060"
+      - "6043-6060:6043-6060/udp"
+      - "6060:6060"
+    volumes:
+      - ./runtime/tdengine/data:/var/lib/taos
+      - ./runtime/tdengine/log:/var/log/taos
+    healthcheck:
+      test: ["CMD-SHELL", "taos -s 'show databases;' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s

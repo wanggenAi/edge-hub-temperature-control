@@ -14,10 +14,15 @@ thesis.
 At the current stage, the available deployment document is:
 
 - `mqtt-broker-ubuntu.md`
+- `tdengine-docker-local.md`
 
 This document records the minimum practical deployment path for a self-managed
 MQTT broker based on Mosquitto on Ubuntu, with public access and username /
 password authentication.
+
+The TDengine document records the recommended local Docker-based deployment
+path, including Docker Desktop preparation, Compose startup, REST verification,
+and integration with the Java `data-hub`.
 
 ## Planned Deployment Topics
 

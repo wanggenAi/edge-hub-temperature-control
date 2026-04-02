@@ -17,6 +17,10 @@ repositories {
     mavenCentral()
 }
 
+configurations.configureEach {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+}
+
 ext {
     reactorVersion = '3.7.3'
     pahoVersion = '1.2.5'
@@ -25,6 +29,7 @@ ext {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-json'
+    implementation 'org.springframework.boot:spring-boot-starter-log4j2'
     implementation "io.projectreactor:reactor-core:${reactorVersion}"
     implementation "org.eclipse.paho:org.eclipse.paho.client.mqttv3:${pahoVersion}"
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

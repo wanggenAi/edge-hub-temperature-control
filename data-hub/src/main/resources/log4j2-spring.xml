@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="ERROR" monitorInterval="60">
+  <Properties>
+    <Property name="APP_NAME">${spring:spring.application.name:-data-hub}</Property>
+    <Property name="ROOT_LEVEL">${spring:datahub.logging.level.root:-warn}</Property>
+    <Property name="APP_LEVEL">${spring:datahub.logging.level.app:-info}</Property>
+    <Property name="SPRING_LEVEL">${spring:datahub.logging.level.spring:-warn}</Property>
+    <Property name="MQTT_LEVEL">${spring:datahub.logging.level.mqtt:-warn}</Property>
+    <Property name="LOG_DIR">${spring:datahub.logging.dir:-runtime/logs}</Property>
+    <Property name="LOG_FILE_NAME">${spring:datahub.logging.file-name:-${APP_NAME}.log}</Property>
+    <Property name="ARCHIVE_DIR">${spring:datahub.logging.archive-dir:-${LOG_DIR}/archive}</Property>
+    <Property name="LOG_FILE">${LOG_DIR}/${LOG_FILE_NAME}</Property>
+    <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+    <Property name="FILE_PATTERN">${spring:datahub.logging.rolling.file-pattern:-${ARCHIVE_DIR}/${APP_NAME}-%d{yyyy-MM-dd}-%i.log.gz}</Property>
+    <Property name="MAX_FILE_SIZE">${spring:datahub.logging.rolling.max-file-size:-20MB}</Property>
+    <Property name="RETENTION_DAYS">${spring:datahub.logging.rolling.retention-days:-30}</Property>
+    <Property name="TOTAL_SIZE_CAP">${spring:datahub.logging.rolling.total-size-cap:-2GB}</Property>
+  </Properties>
+
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+    </Console>
+
+    <RollingRandomAccessFile
+        name="RollingFile"
+        fileName="${LOG_FILE}"
+        filePattern="${FILE_PATTERN}">
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="${MAX_FILE_SIZE}"/>
+      </Policies>
+      <DefaultRolloverStrategy fileIndex="min">
+        <Delete basePath="${ARCHIVE_DIR}" maxDepth="1">
+          <IfFileName glob="${APP_NAME}-*.log.gz"/>
+          <IfAny>
+            <IfLastModified age="${RETENTION_DAYS}d"/>
+            <IfAccumulatedFileSize exceeds="${TOTAL_SIZE_CAP}"/>
+          </IfAny>
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingRandomAccessFile>
+  </Appenders>
+
+  <Loggers>
+    <Logger name="com.edgehub.datahub" level="${APP_LEVEL}"/>
+    <Logger name="org.springframework" level="${SPRING_LEVEL}"/>
+    <Logger name="org.springframework.boot" level="${SPRING_LEVEL}"/>
+    <Logger name="org.springframework.boot.autoconfigure" level="warn"/>
+    <Logger name="org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger" level="warn"/>
+    <Logger name="org.springframework.boot.availability" level="warn"/>
+    <Logger name="org.eclipse.paho" level="${MQTT_LEVEL}"/>
+    <Logger name="org.apache.kafka" level="warn"/>
+
+    <Root level="${ROOT_LEVEL}">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+    </Root>
+  </Loggers>
+</Configuration>

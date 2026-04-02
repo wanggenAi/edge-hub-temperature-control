@@ -2,6 +2,7 @@
 #include <OneWire.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <esp_system.h>
 #include <string.h>
 
 namespace Pins {
@@ -43,6 +44,10 @@ constexpr char kDeviceId[] = "edge-node-001";
 constexpr char kDefaultControlMode[] = "pi_control";
 constexpr char kControllerVersion[] = "pi_tuned_v3_1";
 constexpr char kSystemState[] = "running";
+constexpr char kSaturationLow[] = "low";
+constexpr char kSaturationNone[] = "none";
+constexpr char kSaturationHigh[] = "high";
+constexpr size_t kRunIdSize = 48;
 
 constexpr char kTelemetryTopic[] = "edge/temperature/edge-node-001/telemetry";
 constexpr char kParamsSetTopic[] = "edge/temperature/edge-node-001/params/set";
@@ -89,6 +94,10 @@ struct TelemetryMessage {
   float controlOutput;
   uint8_t pwmDuty;
   float pwmNorm;
+  unsigned long controlPeriodMs;
+  const char* saturationState;
+  bool sensorValid;
+  const char* runId;
   const char* controlMode;
   const char* controllerVersion;
   float kp;
@@ -155,6 +164,7 @@ unsigned long lastMqttAttemptMs = 0;
 bool heartbeatState = false;
 bool wifiReadyPrinted = false;
 bool hasPendingParams = false;
+char currentRunId[MessagingConfig::kRunIdSize] = {};
 
 float simulatedTemperatureC = ThermalModel::kInitialSimTemperatureC;
 float lastSensorTemperatureC = DEVICE_DISCONNECTED_C;
@@ -192,6 +202,12 @@ void initializeRuntimeConfig() {
   runtimeConfig.controlPeriodMs = ControlConfig::kControlPeriodMs;
   copyText(runtimeConfig.controlMode, sizeof(runtimeConfig.controlMode),
            MessagingConfig::kDefaultControlMode);
+}
+
+void initializeRunId() {
+  snprintf(currentRunId, sizeof(currentRunId), "%s-run-%08lx",
+           MessagingConfig::kDeviceId,
+           static_cast<unsigned long>(esp_random()));
 }
 
 bool setupPwm() {
@@ -235,11 +251,19 @@ float updateIntegralError(float errorC) {
   return accumulatedError;
 }
 
-uint8_t computePwmDuty(float errorC, float integralError,
-                       float* controlOutput) {
+uint8_t computePwmDuty(float errorC, float integralError, float* controlOutput,
+                       const char** saturationState) {
   const float rawOutput = computeRawControlOutput(errorC, integralError);
   const float clampedOutput =
       constrain(rawOutput, 0.0f, static_cast<float>(ControlConfig::kMaxDuty));
+
+  if (rawOutput < 0.0f) {
+    *saturationState = MessagingConfig::kSaturationLow;
+  } else if (rawOutput > ControlConfig::kMaxDuty) {
+    *saturationState = MessagingConfig::kSaturationHigh;
+  } else {
+    *saturationState = MessagingConfig::kSaturationNone;
+  }
 
   *controlOutput = clampedOutput;
   return static_cast<uint8_t>(clampedOutput);
@@ -263,7 +287,9 @@ TelemetryMessage buildTelemetryMessage(unsigned long nowMs,
                                        float simTemperatureC,
                                        float sensorTemperatureC, float errorC,
                                        float integralError, float controlOutput,
-                                       uint8_t duty, float normalizedDuty) {
+                                       uint8_t duty, float normalizedDuty,
+                                       const char* saturationState,
+                                       bool sensorValid) {
   TelemetryMessage message = {
       MessagingConfig::kDeviceId,
       nowMs,
@@ -275,6 +301,10 @@ TelemetryMessage buildTelemetryMessage(unsigned long nowMs,
       controlOutput,
       duty,
       normalizedDuty,
+      runtimeConfig.controlPeriodMs,
+      saturationState,
+      sensorValid,
+      currentRunId,
       runtimeConfig.controlMode,
       MessagingConfig::kControllerVersion,
       runtimeConfig.kp,
@@ -290,7 +320,8 @@ TelemetryMessage buildTelemetryMessage(unsigned long nowMs,
 void printControlLog(unsigned long nowMs, float simTemperatureC,
                      float sensorTemperatureC, float errorC,
                      float integralError, float controlOutput, uint8_t duty,
-                     float normalizedDuty) {
+                     float normalizedDuty, const char* saturationState,
+                     bool sensorValid) {
   Serial.print("time_s=");
   Serial.print(nowMs / 1000.0f, 1);
   Serial.print(", target_c=");
@@ -314,7 +345,15 @@ void printControlLog(unsigned long nowMs, float simTemperatureC,
   Serial.print(", pwm_duty=");
   Serial.print(duty);
   Serial.print(", pwm_norm=");
-  Serial.println(normalizedDuty, 3);
+  Serial.print(normalizedDuty, 3);
+  Serial.print(", control_period_ms=");
+  Serial.print(runtimeConfig.controlPeriodMs);
+  Serial.print(", saturation_state=");
+  Serial.print(saturationState);
+  Serial.print(", sensor_valid=");
+  Serial.print(sensorValid ? "true" : "false");
+  Serial.print(", run_id=");
+  Serial.println(currentRunId);
 
   Serial.print("csv,");
   Serial.print(nowMs / 1000.0f, 1);
@@ -339,7 +378,15 @@ void printControlLog(unsigned long nowMs, float simTemperatureC,
   Serial.print(",");
   Serial.print(duty);
   Serial.print(",");
-  Serial.println(normalizedDuty, 3);
+  Serial.print(normalizedDuty, 3);
+  Serial.print(",");
+  Serial.print(runtimeConfig.controlPeriodMs);
+  Serial.print(",");
+  Serial.print(saturationState);
+  Serial.print(",");
+  Serial.print(sensorValid ? "true" : "false");
+  Serial.print(",");
+  Serial.println(currentRunId);
 }
 
 String telemetryToJson(const TelemetryMessage& message) {
@@ -369,6 +416,15 @@ String telemetryToJson(const TelemetryMessage& message) {
   payload += String(message.pwmDuty);
   payload += ",\"pwm_norm\":";
   payload += String(message.pwmNorm, 3);
+  payload += ",\"control_period_ms\":";
+  payload += String(message.controlPeriodMs);
+  payload += ",\"saturation_state\":\"";
+  payload += message.saturationState;
+  payload += "\",\"sensor_valid\":";
+  payload += message.sensorValid ? "true" : "false";
+  payload += ",\"run_id\":\"";
+  payload += message.runId;
+  payload += "\"";
   payload += ",\"control_mode\":\"";
   payload += message.controlMode;
   payload += "\",\"controller_version\":\"";
@@ -887,19 +943,24 @@ void runControlLoop(unsigned long nowMs) {
   const float integralError = updateIntegralError(errorC);
 
   float controlOutput = 0.0f;
-  const uint8_t duty = computePwmDuty(errorC, integralError, &controlOutput);
+  const char* saturationState = MessagingConfig::kSaturationNone;
+  const uint8_t duty =
+      computePwmDuty(errorC, integralError, &controlOutput, &saturationState);
   const float normalizedDuty = dutyToNormalizedLevel(duty);
+  const bool sensorValid = lastSensorTemperatureC != DEVICE_DISCONNECTED_C;
 
   ledcWrite(Pins::kPwmOutput, duty);
   simulatedTemperatureC =
       updateSimulatedTemperature(simulatedTemperatureC, normalizedDuty);
 
   printControlLog(nowMs, simulatedTemperatureC, lastSensorTemperatureC, errorC,
-                  integralError, controlOutput, duty, normalizedDuty);
+                  integralError, controlOutput, duty, normalizedDuty,
+                  saturationState, sensorValid);
 
   const TelemetryMessage telemetry = buildTelemetryMessage(
       nowMs, simulatedTemperatureC, lastSensorTemperatureC, errorC,
-      integralError, controlOutput, duty, normalizedDuty);
+      integralError, controlOutput, duty, normalizedDuty, saturationState,
+      sensorValid);
   printTelemetryJson(telemetry);
   publishTelemetry(telemetryToJson(telemetry));
 }
@@ -922,6 +983,7 @@ void setup() {
   Serial.println("serial_status=ready");
 
   initializeRuntimeConfig();
+  initializeRunId();
 
   pinMode(Pins::kStatusLed, OUTPUT);
   digitalWrite(Pins::kStatusLed, LOW);
@@ -944,8 +1006,11 @@ void setup() {
   Serial.println("thermal_model=first_order_virtual_heating_cooling");
   Serial.println(
       "csv_header,time_s,target_c,sim_temp_c,sensor_temp_c,error_c,"
-      "integral_error,control_output,pwm_duty,pwm_norm");
+      "integral_error,control_output,pwm_duty,pwm_norm,control_period_ms,"
+      "saturation_state,sensor_valid,run_id");
   Serial.println("telemetry_publish_mode=serial_json_and_mqtt_publish");
+  Serial.print("run_id=");
+  Serial.println(currentRunId);
   Serial.print("mqtt_broker_host=");
   Serial.println(NetworkConfig::kMqttHost);
   Serial.print("mqtt_broker_port=");

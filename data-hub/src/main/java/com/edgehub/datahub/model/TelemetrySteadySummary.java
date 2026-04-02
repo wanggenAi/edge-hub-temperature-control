@@ -1,0 +1,38 @@
+package com.edgehub.datahub.model;
+
+import java.time.Instant;
+
+public record TelemetrySteadySummary(
+    String deviceId,
+    String rawTopic,
+    String runId,
+    Instant windowStart,
+    Instant windowEnd,
+    long durationMs,
+    String flushReason,
+    int sampleCount,
+    long controlPeriodMs,
+    long uptimeStartMs,
+    long uptimeEndMs,
+    double targetTempAvg,
+    double simTempAvg,
+    Double sensorTempAvg,
+    Double sensorTempMin,
+    Double sensorTempMax,
+    double errorAvg,
+    double absErrorAvg,
+    double absErrorMax,
+    double controlOutputAvg,
+    double controlOutputMin,
+    double controlOutputMax,
+    double pwmDutyAvg,
+    int pwmDutyMin,
+    int pwmDutyMax,
+    double pwmNormAvg,
+    double pwmNormMin,
+    double pwmNormMax,
+    String controlMode,
+    String systemState,
+    double kp,
+    double ki,
+    double kd) {}

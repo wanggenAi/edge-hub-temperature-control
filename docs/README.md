@@ -18,3 +18,4 @@ Current files:
 - `mqtt_interface.md`: MQTT message interface definition
 - `deployment/README.md`: deployment document index
 - `deployment/mqtt-broker-ubuntu.md`: Ubuntu Mosquitto deployment guide
+- `deployment/tdengine-docker-local.md`: local TDengine Docker deployment guide
