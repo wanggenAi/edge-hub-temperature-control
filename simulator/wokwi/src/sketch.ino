@@ -2,13 +2,21 @@
 #include <OneWire.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <esp_arduino_version.h>
 #include <esp_system.h>
 #include <string.h>
+
+#if __has_include("secrets.h")
+#include "secrets.h"
+#else
+#include "secrets.example.h"
+#endif
 
 namespace Pins {
 constexpr uint8_t kOneWireBus = 21;
 constexpr uint8_t kStatusLed = 2;
 constexpr uint8_t kPwmOutput = 18;
+constexpr uint8_t kPwmChannel = 0;
 }  // namespace Pins
 
 namespace ControlConfig {
@@ -57,18 +65,13 @@ constexpr char kOptimizerRecommendationTopic[] =
 }  // namespace MessagingConfig
 
 namespace NetworkConfig {
-// Update these connection settings when switching from the public test broker
-// to a self-managed MQTT server.
-// Current Wokwi simulation usually keeps Wi-Fi on `Wokwi-GUEST`.
-// For a real deployment, replace the Wi-Fi credentials and MQTT host here.
-constexpr char kWifiSsid[] = "Wokwi-GUEST";
-constexpr char kWifiPassword[] = "";
-constexpr char kMqttHost[] = "ip address";
-constexpr uint16_t kMqttPort = 1883;
-// These credentials are used for the current self-managed Mosquitto broker.
-// For a different server, update host / username / password here.
-constexpr char kMqttUsername[] = "edgeadmin";
-constexpr char kMqttPassword[] = "change your password";
+constexpr const char* kWifiSsid = ProjectSecrets::kWifiSsid;
+constexpr const char* kWifiPassword = ProjectSecrets::kWifiPassword;
+constexpr const char* kMqttHost = ProjectSecrets::kMqttHost;
+constexpr uint16_t kMqttPort = ProjectSecrets::kMqttPort;
+constexpr const char* kMqttUsername = ProjectSecrets::kMqttUsername;
+constexpr const char* kMqttPassword = ProjectSecrets::kMqttPassword;
+constexpr uint16_t kMqttClientBufferSize = 1024;
 constexpr char kMqttClientId[] = "edge-node-001-sim";
 constexpr unsigned long kWifiReconnectIntervalMs = 5000;
 constexpr unsigned long kMqttReconnectIntervalMs = 5000;
@@ -211,6 +214,7 @@ void initializeRunId() {
 }
 
 bool setupPwm() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
   const bool pwmReady =
       ledcAttach(Pins::kPwmOutput, ControlConfig::kPwmFrequencyHz,
                  ControlConfig::kPwmResolutionBits);
@@ -218,6 +222,26 @@ bool setupPwm() {
     ledcWrite(Pins::kPwmOutput, 0);
   }
   return pwmReady;
+#else
+  const uint32_t configuredFrequency =
+      ledcSetup(Pins::kPwmChannel, ControlConfig::kPwmFrequencyHz,
+                ControlConfig::kPwmResolutionBits);
+  if (configuredFrequency == 0) {
+    return false;
+  }
+
+  ledcAttachPin(Pins::kPwmOutput, Pins::kPwmChannel);
+  ledcWrite(Pins::kPwmChannel, 0);
+  return true;
+#endif
+}
+
+void writePwmDuty(uint8_t duty) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcWrite(Pins::kPwmOutput, duty);
+#else
+  ledcWrite(Pins::kPwmChannel, duty);
+#endif
 }
 
 float samplePhysicalSensor() {
@@ -839,7 +863,7 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
 void initializeMqttClient() {
   mqttClient.setServer(NetworkConfig::kMqttHost, NetworkConfig::kMqttPort);
   mqttClient.setCallback(handleMqttMessage);
-  mqttClient.setBufferSize(512);
+  mqttClient.setBufferSize(NetworkConfig::kMqttClientBufferSize);
 }
 
 // Maintain Wi-Fi connectivity without blocking the control loop.
@@ -949,7 +973,7 @@ void runControlLoop(unsigned long nowMs) {
   const float normalizedDuty = dutyToNormalizedLevel(duty);
   const bool sensorValid = lastSensorTemperatureC != DEVICE_DISCONNECTED_C;
 
-  ledcWrite(Pins::kPwmOutput, duty);
+  writePwmDuty(duty);
   simulatedTemperatureC =
       updateSimulatedTemperature(simulatedTemperatureC, normalizedDuty);
 

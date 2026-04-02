@@ -35,20 +35,30 @@ This is an important engineering step because the simulation has moved from "con
 ## Files
 
 - `diagram.json`: Wokwi circuit definition, including ESP32, DS18B20, pull-up resistor, status LED, LED resistor, Logic Analyzer, and Serial Monitor wiring
-- `sketch.ino`: single-file implementation for the current simulation node, including control logic, message structures, and minimal MQTT connectivity
+- `src/sketch.ino`: single-file implementation for the current simulation node, including control logic, message structures, and MQTT connectivity
+- `src/secrets.example.h`: safe template for local Wi-Fi / MQTT settings
+- `platformio.ini`: PlatformIO build configuration for the ESP32 Wokwi project
+- `wokwi.toml`: Wokwi project configuration that points to the generated firmware image
 - `libraries.txt`: required Arduino libraries for the Wokwi project
 - `README.md`: simulation usage notes and engineering explanation
+
+## Local Secrets
+
+The project uses a local-only secrets file for Wi-Fi and MQTT credentials.
+
+- `src/secrets.h`: local machine settings, intentionally ignored by Git
+- `src/secrets.example.h`: committed template that documents the expected fields
+
+When cloning the project on another machine, copy `src/secrets.example.h` to `src/secrets.h` and fill in the local values.
 
 ## How To Run In Wokwi
 
 1. Open Wokwi and create or import an ESP32 Arduino project.
-2. Copy the files from this directory into the Wokwi project:
-   - `diagram.json`
-   - `sketch.ino`
-   - `libraries.txt`
-3. Start the simulation.
-4. Open the Serial Monitor.
-5. Observe:
+2. Provide local credentials in `src/secrets.h` if MQTT access is required.
+3. Build the firmware with PlatformIO.
+4. Start the simulation from the Wokwi VS Code extension.
+5. Open the Wokwi Serial Monitor.
+6. Observe:
    - the simulated temperature rising from a lower initial value
    - the control error gradually shrinking
    - the PWM duty cycle decreasing as the simulated temperature approaches the target

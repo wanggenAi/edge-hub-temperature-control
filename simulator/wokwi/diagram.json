@@ -68,5 +68,11 @@
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ]
   ],
+  "serialMonitor": {
+    "display": "always",
+    "collapse": false,
+    "convertEol": false,
+    "newline": "lf"
+  },
   "dependencies": {}
 }
