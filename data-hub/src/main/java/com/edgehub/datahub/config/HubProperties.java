@@ -419,6 +419,7 @@ public class HubProperties {
     private String password = "";
     private int qos = 1;
     private int maxInflight = 128;
+    private boolean logEachMessage = true;
     private int connectTimeoutSeconds = 10;
     private int keepAliveSeconds = 30;
 
@@ -468,6 +469,14 @@ public class HubProperties {
 
     public void setMaxInflight(int maxInflight) {
       this.maxInflight = maxInflight;
+    }
+
+    public boolean isLogEachMessage() {
+      return logEachMessage;
+    }
+
+    public void setLogEachMessage(boolean logEachMessage) {
+      this.logEachMessage = logEachMessage;
     }
 
     public int getConnectTimeoutSeconds() {

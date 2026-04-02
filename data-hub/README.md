@@ -56,6 +56,7 @@ Suggested environment variables:
 - `DATAHUB_MQTT_PASSWORD` optional
 - `DATAHUB_MQTT_QOS` default: `1`
 - `DATAHUB_MQTT_MAX_INFLIGHT` default: `128`
+- `DATAHUB_MQTT_LOG_EACH_MESSAGE` default: `true`
 - `DATAHUB_BUFFER_SIZE` default: `2048`
 - `DATAHUB_PROCESSING_CONCURRENCY` default: `8`
 - `DATAHUB_PROCESSING_PARSER_CONCURRENCY` default: `8`
@@ -118,6 +119,7 @@ Key tuning properties:
 
 - `datahub.mqtt.qos`
 - `datahub.mqtt.max-inflight`
+- `datahub.mqtt.log-each-message`
 - `datahub.processing.parser-concurrency`
 - `datahub.processing.writer-concurrency`
 - `datahub.processing.prefetch`
@@ -141,6 +143,8 @@ Supported overflow strategies:
 - `error`
 
 `datahub.mqtt.max-inflight` limits how many QoS-managed messages can remain in the MQTT client's in-flight window at the same time. This is one of the key protocol-level controls for keeping the consumer stable under burst traffic.
+
+`datahub.mqtt.log-each-message=true` makes the MQTT ingress layer print every received message with topic, QoS, retained flag, and payload. This is useful during integration because it lets you confirm the edge node is still publishing exactly what the data hub is consuming.
 
 ## Runtime Stats
 

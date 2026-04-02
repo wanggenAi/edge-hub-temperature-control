@@ -126,6 +126,14 @@ public final class PahoReactiveMqttSource implements MqttMessageSource {
           new String(message.getPayload(), StandardCharsets.UTF_8),
           Instant.now());
       metrics.recordIngressReceived();
+      if (properties.getMqtt().isLogEachMessage()) {
+        log.info(
+            "mqtt message received topic={} qos={} retained={} payload={}",
+            topic,
+            message.getQos(),
+            message.isRetained(),
+            inbound.payload());
+      }
       Sinks.EmitResult result = sink.tryEmitNext(inbound);
       if (result.isFailure()) {
         metrics.recordIngressDropped();
