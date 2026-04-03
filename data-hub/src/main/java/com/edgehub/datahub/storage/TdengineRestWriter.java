@@ -1,13 +1,5 @@
 package com.edgehub.datahub.storage;
 
-import com.edgehub.datahub.config.HubProperties;
-import com.edgehub.datahub.model.ParameterAckPayload;
-import com.edgehub.datahub.model.ParameterSetPayload;
-import com.edgehub.datahub.model.ParsedHubMessage;
-import com.edgehub.datahub.model.TelemetryPayload;
-import com.edgehub.datahub.model.TelemetrySteadySummary;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,10 +11,20 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.ParameterAckPayload;
+import com.edgehub.datahub.model.ParameterSetPayload;
+import com.edgehub.datahub.model.ParsedHubMessage;
+import com.edgehub.datahub.model.TelemetrySteadySummary;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -143,20 +145,19 @@ public final class TdengineRestWriter implements TdengineWriter {
         + numericValue(summary.ki()) + ", "
         + numericValue(summary.kd())
         + ")";
-    String logMessage =
-        "tdengine.telemetry_summary_written device=%s runId=%s table=%s samples=%s durationMs=%s controlPeriodMs=%s sensorTempAvg=%s absErrorMax=%s pwmDutyRange=%s-%s flushReason=%s"
-            .formatted(
-                summary.deviceId(),
-                summary.runId(),
-                qualifiedTableName(tableName),
-                summary.sampleCount(),
-                summary.durationMs(),
-                summary.controlPeriodMs(),
-                summary.sensorTempAvg(),
-                summary.absErrorMax(),
-                summary.pwmDutyMin(),
-                summary.pwmDutyMax(),
-                summary.flushReason());
+    String logMessage = "tdengine.telemetry_summary_written device=%s runId=%s table=%s samples=%s durationMs=%s controlPeriodMs=%s sensorTempAvg=%s absErrorMax=%s pwmDutyRange=%s-%s flushReason=%s"
+        .formatted(
+            summary.deviceId(),
+            summary.runId(),
+            qualifiedTableName(tableName),
+            summary.sampleCount(),
+            summary.durationMs(),
+            summary.controlPeriodMs(),
+            summary.sensorTempAvg(),
+            summary.absErrorMax(),
+            summary.pwmDutyMin(),
+            summary.pwmDutyMax(),
+            summary.flushReason());
     return executeWrite(sql, "telemetry_summary", summary.deviceId(), logMessage);
   }
 
@@ -166,7 +167,8 @@ public final class TdengineRestWriter implements TdengineWriter {
     String tableName = tableName("params_set", parameterSet.topic().deviceId());
     String sql = "INSERT INTO " + qualifiedTableName(tableName)
         + " USING " + qualifiedTableName("params_set")
-        + " TAGS (" + stringValue(parameterSet.topic().deviceId()) + ", " + stringValue(parameterSet.topic().rawTopic()) + ")"
+        + " TAGS (" + stringValue(parameterSet.topic().deviceId()) + ", " + stringValue(parameterSet.topic().rawTopic())
+        + ")"
         + " VALUES ("
         + parameterSet.receivedAt().toEpochMilli() + ", "
         + numericValue(payload.target_temp_c()) + ", "
@@ -194,7 +196,8 @@ public final class TdengineRestWriter implements TdengineWriter {
     String tableName = tableName("params_ack", parameterAck.topic().deviceId());
     String sql = "INSERT INTO " + qualifiedTableName(tableName)
         + " USING " + qualifiedTableName("params_ack")
-        + " TAGS (" + stringValue(parameterAck.topic().deviceId()) + ", " + stringValue(parameterAck.topic().rawTopic()) + ")"
+        + " TAGS (" + stringValue(parameterAck.topic().deviceId()) + ", " + stringValue(parameterAck.topic().rawTopic())
+        + ")"
         + " VALUES ("
         + parameterAck.receivedAt().toEpochMilli() + ", "
         + stringValue(payload.ack_type()) + ", "
@@ -240,108 +243,108 @@ public final class TdengineRestWriter implements TdengineWriter {
       }
       List<String> ddl = List.of(
           """
-          CREATE STABLE IF NOT EXISTS %s.telemetry (
-            ts TIMESTAMP,
-            uptime_ms BIGINT,
-            target_temp_c DOUBLE,
-            sim_temp_c DOUBLE,
-            sensor_temp_c DOUBLE,
-            error_c DOUBLE,
-            integral_error DOUBLE,
-            control_output DOUBLE,
-            pwm_duty INT,
-            pwm_norm DOUBLE,
-            control_period_ms BIGINT,
-            saturation_state VARCHAR(32),
-            sensor_valid BOOL,
-            run_id VARCHAR(128),
-            control_mode VARCHAR(64),
-            controller_version VARCHAR(64),
-            kp DOUBLE,
-            ki DOUBLE,
-            kd DOUBLE,
-            system_state VARCHAR(64),
-            has_pending_params BOOL,
-            pending_params_age_ms BIGINT
-          ) TAGS (
-            device_id BINARY(128),
-            mqtt_topic BINARY(255)
-          )
-          """.formatted(databaseName),
+              CREATE STABLE IF NOT EXISTS %s.telemetry (
+                ts TIMESTAMP,
+                uptime_ms BIGINT,
+                target_temp_c DOUBLE,
+                sim_temp_c DOUBLE,
+                sensor_temp_c DOUBLE,
+                error_c DOUBLE,
+                integral_error DOUBLE,
+                control_output DOUBLE,
+                pwm_duty INT,
+                pwm_norm DOUBLE,
+                control_period_ms BIGINT,
+                saturation_state VARCHAR(32),
+                sensor_valid BOOL,
+                run_id VARCHAR(128),
+                control_mode VARCHAR(64),
+                controller_version VARCHAR(64),
+                kp DOUBLE,
+                ki DOUBLE,
+                kd DOUBLE,
+                system_state VARCHAR(64),
+                has_pending_params BOOL,
+                pending_params_age_ms BIGINT
+              ) TAGS (
+                device_id BINARY(128),
+                mqtt_topic BINARY(255)
+              )
+              """.formatted(databaseName),
           """
-          CREATE STABLE IF NOT EXISTS %s.telemetry_summary (
-            ts TIMESTAMP,
-            run_id VARCHAR(128),
-            window_start_ts TIMESTAMP,
-            window_end_ts TIMESTAMP,
-            duration_ms BIGINT,
-            flush_reason VARCHAR(64),
-            sample_count INT,
-            control_period_ms BIGINT,
-            uptime_start_ms BIGINT,
-            uptime_end_ms BIGINT,
-            target_temp_avg DOUBLE,
-            sim_temp_avg DOUBLE,
-            sensor_temp_avg DOUBLE,
-            sensor_temp_min DOUBLE,
-            sensor_temp_max DOUBLE,
-            error_avg DOUBLE,
-            abs_error_avg DOUBLE,
-            abs_error_max DOUBLE,
-            control_output_avg DOUBLE,
-            control_output_min DOUBLE,
-            control_output_max DOUBLE,
-            pwm_duty_avg DOUBLE,
-            pwm_duty_min INT,
-            pwm_duty_max INT,
-            pwm_norm_avg DOUBLE,
-            pwm_norm_min DOUBLE,
-            pwm_norm_max DOUBLE,
-            control_mode VARCHAR(64),
-            system_state VARCHAR(64),
-            kp DOUBLE,
-            ki DOUBLE,
-            kd DOUBLE
-          ) TAGS (
-            device_id BINARY(128),
-            mqtt_topic BINARY(255)
-          )
-          """.formatted(databaseName),
+              CREATE STABLE IF NOT EXISTS %s.telemetry_summary (
+                ts TIMESTAMP,
+                run_id VARCHAR(128),
+                window_start_ts TIMESTAMP,
+                window_end_ts TIMESTAMP,
+                duration_ms BIGINT,
+                flush_reason VARCHAR(64),
+                sample_count INT,
+                control_period_ms BIGINT,
+                uptime_start_ms BIGINT,
+                uptime_end_ms BIGINT,
+                target_temp_avg DOUBLE,
+                sim_temp_avg DOUBLE,
+                sensor_temp_avg DOUBLE,
+                sensor_temp_min DOUBLE,
+                sensor_temp_max DOUBLE,
+                error_avg DOUBLE,
+                abs_error_avg DOUBLE,
+                abs_error_max DOUBLE,
+                control_output_avg DOUBLE,
+                control_output_min DOUBLE,
+                control_output_max DOUBLE,
+                pwm_duty_avg DOUBLE,
+                pwm_duty_min INT,
+                pwm_duty_max INT,
+                pwm_norm_avg DOUBLE,
+                pwm_norm_min DOUBLE,
+                pwm_norm_max DOUBLE,
+                control_mode VARCHAR(64),
+                system_state VARCHAR(64),
+                kp DOUBLE,
+                ki DOUBLE,
+                kd DOUBLE
+              ) TAGS (
+                device_id BINARY(128),
+                mqtt_topic BINARY(255)
+              )
+              """.formatted(databaseName),
           """
-          CREATE STABLE IF NOT EXISTS %s.params_set (
-            ts TIMESTAMP,
-            target_temp_c DOUBLE,
-            kp DOUBLE,
-            ki DOUBLE,
-            kd DOUBLE,
-            control_period_ms BIGINT,
-            control_mode VARCHAR(64),
-            apply_immediately BOOL
-          ) TAGS (
-            device_id BINARY(128),
-            mqtt_topic BINARY(255)
-          )
-          """.formatted(databaseName),
+              CREATE STABLE IF NOT EXISTS %s.params_set (
+                ts TIMESTAMP,
+                target_temp_c DOUBLE,
+                kp DOUBLE,
+                ki DOUBLE,
+                kd DOUBLE,
+                control_period_ms BIGINT,
+                control_mode VARCHAR(64),
+                apply_immediately BOOL
+              ) TAGS (
+                device_id BINARY(128),
+                mqtt_topic BINARY(255)
+              )
+              """.formatted(databaseName),
           """
-          CREATE STABLE IF NOT EXISTS %s.params_ack (
-            ts TIMESTAMP,
-            ack_type VARCHAR(64),
-            success BOOL,
-            applied_immediately BOOL,
-            has_pending_params BOOL,
-            target_temp_c DOUBLE,
-            kp DOUBLE,
-            ki DOUBLE,
-            kd DOUBLE,
-            control_period_ms BIGINT,
-            control_mode VARCHAR(64),
-            reason VARCHAR(255),
-            uptime_ms BIGINT
-          ) TAGS (
-            device_id BINARY(128),
-            mqtt_topic BINARY(255)
-          )
-          """.formatted(databaseName));
+              CREATE STABLE IF NOT EXISTS %s.params_ack (
+                ts TIMESTAMP,
+                ack_type VARCHAR(64),
+                success BOOL,
+                applied_immediately BOOL,
+                has_pending_params BOOL,
+                target_temp_c DOUBLE,
+                kp DOUBLE,
+                ki DOUBLE,
+                kd DOUBLE,
+                control_period_ms BIGINT,
+                control_mode VARCHAR(64),
+                reason VARCHAR(255),
+                uptime_ms BIGINT
+              ) TAGS (
+                device_id BINARY(128),
+                mqtt_topic BINARY(255)
+              )
+              """.formatted(databaseName));
       ddl.forEach(this::executeSql);
       ensureTelemetrySchemaCompatibility();
       ensureTelemetrySummarySchemaCompatibility();
@@ -367,7 +370,8 @@ public final class TdengineRestWriter implements TdengineWriter {
         .POST(HttpRequest.BodyPublishers.ofString(sql, StandardCharsets.UTF_8))
         .build();
     try {
-      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response = httpClient.send(request,
+          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
         throw new IllegalStateException("tdengine http status " + response.statusCode() + " body=" + response.body());
       }
