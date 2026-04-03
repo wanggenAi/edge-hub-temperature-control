@@ -39,6 +39,9 @@ data-hub/runtime/
 hmi/frontend/node_modules/
 hmi/frontend/dist/
 *.tsbuildinfo
+hmi/backend/data/*.db
+hmi/backend/data/*.sqlite
+hmi/backend/data/*.sqlite3
 
 # CadQuery / enclosure generated outputs
 hardware/enclosure/exports/

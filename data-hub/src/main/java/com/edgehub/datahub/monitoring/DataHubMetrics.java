@@ -25,6 +25,15 @@ public final class DataHubMetrics {
   private final LongAdder telemetrySummaryPersisted = new LongAdder();
   private final LongAdder parameterSetPersisted = new LongAdder();
   private final LongAdder parameterAckPersisted = new LongAdder();
+  private final LongAdder deviceStatusPersisted = new LongAdder();
+  private final LongAdder telemetryFilterStateEvicted = new LongAdder();
+  private final LongAdder telemetrySummaryWindowEvicted = new LongAdder();
+  private final LongAdder telemetrySummaryWindowDiscarded = new LongAdder();
+  private final LongAdder deviceStatusStateEvicted = new LongAdder();
+
+  private final AtomicLong telemetryFilterStateSize = new AtomicLong();
+  private final AtomicLong telemetrySummaryWindowSize = new AtomicLong();
+  private final AtomicLong deviceStatusStateSize = new AtomicLong();
 
   private final AtomicLong lastIngressReceived = new AtomicLong();
   private final AtomicLong lastIngressDropped = new AtomicLong();
@@ -36,6 +45,7 @@ public final class DataHubMetrics {
   private final AtomicLong lastTelemetrySummaryPersisted = new AtomicLong();
   private final AtomicLong lastParameterSetPersisted = new AtomicLong();
   private final AtomicLong lastParameterAckPersisted = new AtomicLong();
+  private final AtomicLong lastDeviceStatusPersisted = new AtomicLong();
 
   public DataHubMetrics(HubProperties properties) {
     this.properties = properties;
@@ -81,6 +91,38 @@ public final class DataHubMetrics {
     parameterAckPersisted.increment();
   }
 
+  public void recordDeviceStatusPersisted() {
+    deviceStatusPersisted.increment();
+  }
+
+  public void recordTelemetryFilterStateEvicted() {
+    telemetryFilterStateEvicted.increment();
+  }
+
+  public void recordTelemetrySummaryWindowEvicted() {
+    telemetrySummaryWindowEvicted.increment();
+  }
+
+  public void recordTelemetrySummaryWindowDiscarded() {
+    telemetrySummaryWindowDiscarded.increment();
+  }
+
+  public void updateTelemetryFilterStateSize(long size) {
+    telemetryFilterStateSize.set(size);
+  }
+
+  public void updateTelemetrySummaryWindowSize(long size) {
+    telemetrySummaryWindowSize.set(size);
+  }
+
+  public void recordDeviceStatusStateEvicted() {
+    deviceStatusStateEvicted.increment();
+  }
+
+  public void updateDeviceStatusStateSize(long size) {
+    deviceStatusStateSize.set(size);
+  }
+
   @Scheduled(
       initialDelayString = "${datahub.monitoring.stats-log-interval-ms:30000}",
       fixedDelayString = "${datahub.monitoring.stats-log-interval-ms:30000}")
@@ -99,7 +141,8 @@ public final class DataHubMetrics {
         telemetryPersisted.sum(),
         telemetrySummaryPersisted.sum(),
         parameterSetPersisted.sum(),
-        parameterAckPersisted.sum());
+        parameterAckPersisted.sum(),
+        deviceStatusPersisted.sum());
 
     Snapshot delta = new Snapshot(
         total.ingressReceived() - lastIngressReceived.getAndSet(total.ingressReceived()),
@@ -111,10 +154,11 @@ public final class DataHubMetrics {
         total.telemetryPersisted() - lastTelemetryPersisted.getAndSet(total.telemetryPersisted()),
         total.telemetrySummaryPersisted() - lastTelemetrySummaryPersisted.getAndSet(total.telemetrySummaryPersisted()),
         total.parameterSetPersisted() - lastParameterSetPersisted.getAndSet(total.parameterSetPersisted()),
-        total.parameterAckPersisted() - lastParameterAckPersisted.getAndSet(total.parameterAckPersisted()));
+        total.parameterAckPersisted() - lastParameterAckPersisted.getAndSet(total.parameterAckPersisted()),
+        total.deviceStatusPersisted() - lastDeviceStatusPersisted.getAndSet(total.deviceStatusPersisted()));
 
     log.info(
-        "datahub.stats intervalMs={} delta[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={}] total[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={}] config[qos={} maxInflight={} sourceQueue={} pipelineBuffer={} parserConcurrency={} writerConcurrency={} prefetch={} overflow={} telemetryFilter={} heartbeatMs={} telemetrySummary={} summaryMinSamples={} summaryIdleMs={} summaryIdleCheckMs={}]",
+        "datahub.stats intervalMs={} delta[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={} deviceStatusOk={}] total[recv={} ingressDrop={} pipelineDrop={} parseFail={} persistFail={} telemetrySkip={} telemetryOk={} telemetrySummaryOk={} paramsSetOk={} paramsAckOk={} deviceStatusOk={}] cache[filterSize={} filterEvict={} summarySize={} summaryEvict={} summaryDiscard={} deviceStatusSize={} deviceStatusEvict={}] config[qos={} maxInflight={} sourceQueue={} pipelineBuffer={} parserConcurrency={} writerConcurrency={} prefetch={} overflow={} telemetryFilter={} heartbeatMs={} filterTtlMs={} filterMaxDevices={} telemetrySummary={} summaryMinSamples={} summaryIdleMs={} summaryIdleCheckMs={} summaryTtlMs={} summaryMaxWindows={} deviceStatus={} onlineTimeoutMs={} offlineCheckMs={} deviceStatusTtlMs={} deviceStatusMaxDevices={}]",
         properties.getMonitoring().getStatsLogIntervalMs(),
         delta.ingressReceived(),
         delta.ingressDropped(),
@@ -126,6 +170,7 @@ public final class DataHubMetrics {
         delta.telemetrySummaryPersisted(),
         delta.parameterSetPersisted(),
         delta.parameterAckPersisted(),
+        delta.deviceStatusPersisted(),
         total.ingressReceived(),
         total.ingressDropped(),
         total.pipelineDropped(),
@@ -136,6 +181,14 @@ public final class DataHubMetrics {
         total.telemetrySummaryPersisted(),
         total.parameterSetPersisted(),
         total.parameterAckPersisted(),
+        total.deviceStatusPersisted(),
+        telemetryFilterStateSize.get(),
+        telemetryFilterStateEvicted.sum(),
+        telemetrySummaryWindowSize.get(),
+        telemetrySummaryWindowEvicted.sum(),
+        telemetrySummaryWindowDiscarded.sum(),
+        deviceStatusStateSize.get(),
+        deviceStatusStateEvicted.sum(),
         properties.getMqtt().getQos(),
         properties.getMqtt().getMaxInflight(),
         properties.effectiveSourceQueueSize(),
@@ -146,10 +199,19 @@ public final class DataHubMetrics {
         properties.getBackpressure().getOverflowStrategy(),
         properties.getTelemetryFilter().isEnabled(),
         properties.getTelemetryFilter().getHeartbeatIntervalMs(),
+        properties.getTelemetryFilter().getStateTtlMs(),
+        properties.getTelemetryFilter().getMaxActiveDevices(),
         properties.getTelemetrySummary().isEnabled(),
         properties.getTelemetrySummary().getMinSamples(),
         properties.getTelemetrySummary().getIdleFlushIntervalMs(),
-        properties.getTelemetrySummary().getIdleFlushCheckMs());
+        properties.getTelemetrySummary().getIdleFlushCheckMs(),
+        properties.getTelemetrySummary().getWindowTtlMs(),
+        properties.getTelemetrySummary().getMaxActiveWindows(),
+        properties.getDeviceStatus().isEnabled(),
+        properties.getDeviceStatus().getOnlineTimeoutMs(),
+        properties.getDeviceStatus().getOfflineCheckMs(),
+        properties.getDeviceStatus().getStateTtlMs(),
+        properties.getDeviceStatus().getMaxActiveDevices());
   }
 
   private record Snapshot(
@@ -162,5 +224,6 @@ public final class DataHubMetrics {
       long telemetryPersisted,
       long telemetrySummaryPersisted,
       long parameterSetPersisted,
-      long parameterAckPersisted) {}
+      long parameterAckPersisted,
+      long deviceStatusPersisted) {}
 }

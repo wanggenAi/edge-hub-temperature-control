@@ -18,6 +18,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParameterAckPayload;
 import com.edgehub.datahub.model.ParameterSetPayload;
 import com.edgehub.datahub.model.ParsedHubMessage;
@@ -223,6 +224,30 @@ public final class TdengineRestWriter implements TdengineWriter {
     return executeWrite(sql, "params_ack", parameterAck.topic().deviceId(), logMessage);
   }
 
+  @Override
+  public Mono<Void> writeDeviceStatus(DeviceStatusSnapshot status) {
+    String tableName = tableName("device_status", status.deviceId());
+    String sql = "INSERT INTO " + qualifiedTableName(tableName)
+        + " USING " + qualifiedTableName("device_status")
+        + " TAGS (" + stringValue(status.deviceId()) + ", " + stringValue(status.rawTopic()) + ")"
+        + " VALUES ("
+        + status.observedAt().toEpochMilli() + ", "
+        + status.lastSeenAt().toEpochMilli() + ", "
+        + booleanValue(status.online()) + ", "
+        + stringValue(status.statusReason()) + ", "
+        + stringValue(status.systemState()) + ", "
+        + stringValue(status.lastMessageKind())
+        + ")";
+    String logMessage = "tdengine.device_status_written device=%s table=%s online=%s reason=%s lastSeen=%s"
+        .formatted(
+            status.deviceId(),
+            qualifiedTableName(tableName),
+            status.online(),
+            status.statusReason(),
+            status.lastSeenAt());
+    return executeWrite(sql, "device_status", status.deviceId(), logMessage);
+  }
+
   private Mono<Void> executeWrite(String sql, String eventType, String deviceId, String successLogMessage) {
     return ensureInitialized.then(Mono.fromRunnable(() -> executeSql(sql))
         .subscribeOn(Schedulers.boundedElastic())
@@ -340,6 +365,19 @@ public final class TdengineRestWriter implements TdengineWriter {
                 control_mode VARCHAR(64),
                 reason VARCHAR(255),
                 uptime_ms BIGINT
+              ) TAGS (
+                device_id BINARY(128),
+                mqtt_topic BINARY(255)
+              )
+              """.formatted(databaseName),
+          """
+              CREATE STABLE IF NOT EXISTS %s.device_status (
+                ts TIMESTAMP,
+                last_seen_ts TIMESTAMP,
+                online BOOL,
+                status_reason VARCHAR(64),
+                system_state VARCHAR(64),
+                last_message_kind VARCHAR(32)
               ) TAGS (
                 device_id BINARY(128),
                 mqtt_topic BINARY(255)

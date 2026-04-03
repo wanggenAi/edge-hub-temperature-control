@@ -1,45 +1,59 @@
 <template>
   <header class="portal-header">
     <div class="portal-header__brand">
-      <p class="portal-header__eyebrow">Application Decision Layer</p>
       <RouterLink to="/" class="portal-header__title">
-        Intelligent Temperature Control Experimental Platform
+        EdgeHub HMI
       </RouterLink>
-      <p class="portal-header__subtitle">
-        FastAPI + Vue HMI for monitoring, parameter control, and thesis demonstration.
-      </p>
+      <p class="portal-header__subtitle">Intelligent Temperature Control</p>
     </div>
 
-    <nav class="portal-header__nav">
-      <RouterLink v-for="item in items" :key="item.to" :to="item.to" class="portal-header__link">
+    <nav class="portal-header__nav" aria-label="Primary">
+      <RouterLink v-for="item in items" :key="item.key" :to="item.to" class="portal-header__link">
         {{ item.label }}
       </RouterLink>
     </nav>
 
     <div class="portal-header__user">
-      <StatusBadge :label="user?.role === 'operator' ? 'Operator' : 'Viewer'" tone="primary" />
-      <RouterLink to="/user" class="portal-header__profile">
-        {{ user?.display_name ?? "Guest" }}
-      </RouterLink>
+      <span class="portal-header__profile">{{ user?.display_name ?? "System Admin" }}</span>
+      <el-button text @click="handleLogout">Sign Out</el-button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
+import { computed } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
+import { useAuth } from "../composables/useAuth";
 import type { UserPublic } from "../types";
-import StatusBadge from "./StatusBadge.vue";
 
-defineProps<{
+const props = defineProps<{
   user: UserPublic | null;
 }>();
 
-const items = [
-  { label: "Overview", to: "/" },
-  { label: "Realtime", to: "/realtime" },
-  { label: "History", to: "/history" },
-  { label: "Parameters", to: "/params" },
-  { label: "AI Reserve", to: "/ai" },
-];
+const router = useRouter();
+const route = useRoute();
+const { logout } = useAuth();
+
+const items = computed(() => {
+  const scopedDeviceId = route.query.device_id ? String(route.query.device_id) : undefined;
+  const scopedQuery = scopedDeviceId ? { device_id: scopedDeviceId } : undefined;
+  const scopedTo = (path: string) => (scopedQuery ? { path, query: scopedQuery } : path);
+  const base = [
+    { key: "overview", label: "Overview", to: "/" },
+    { key: "realtime", label: "Realtime", to: scopedTo("/realtime") },
+    { key: "history", label: "History", to: scopedTo("/history") },
+    { key: "params", label: "Params", to: scopedTo("/params") },
+    { key: "ai", label: "AI", to: scopedTo("/ai") },
+  ];
+  if (props.user?.permissions.includes("system.manage")) {
+    base.push({ key: "system", label: "System", to: "/system" });
+  }
+  return base;
+});
+
+async function handleLogout() {
+  logout();
+  await router.push("/login");
+}
 </script>

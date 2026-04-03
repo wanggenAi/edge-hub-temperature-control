@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ai, auth, history, overview, params, realtime
+from app.api.routes import ai, auth, devices, history, overview, params, realtime, system
 from app.core.config import settings
 
 app = FastAPI(
@@ -21,11 +21,13 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix=settings.api_prefix)
+app.include_router(devices.router, prefix=settings.api_prefix)
 app.include_router(overview.router, prefix=settings.api_prefix)
 app.include_router(realtime.router, prefix=settings.api_prefix)
 app.include_router(history.router, prefix=settings.api_prefix)
 app.include_router(params.router, prefix=settings.api_prefix)
 app.include_router(ai.router, prefix=settings.api_prefix)
+app.include_router(system.router, prefix=settings.api_prefix)
 
 
 @app.get("/health")

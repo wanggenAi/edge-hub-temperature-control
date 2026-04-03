@@ -1,40 +1,35 @@
 <template>
   <div class="login-page">
-    <section class="login-page__hero">
-      <p class="page-eyebrow">Campus Experimental Portal</p>
-      <h1>Intelligent Temperature Control HMI</h1>
-      <p class="login-page__text">
-        This HMI serves the thesis-defense scenario by clearly separating realtime state,
-        historical analysis, parameter closed-loop feedback, and future AI recommendations.
-      </p>
-      <div class="login-page__demo">
-        <div>
-          <strong>Demo operator</strong>
-          <span>`operator / operator123`</span>
-        </div>
-        <div>
-          <strong>Demo viewer</strong>
-          <span>`viewer / viewer123`</span>
-        </div>
-      </div>
-    </section>
-
     <section class="login-card">
-      <h2>Platform Login</h2>
-      <p class="login-card__subtitle">Access monitoring, control, and analysis functions.</p>
+      <div class="login-card__brand">
+        <p class="page-eyebrow">EdgeHub HMI</p>
+        <h1>Sign In</h1>
+        <p class="login-card__subtitle">Intelligent Temperature Control</p>
+      </div>
+
       <form class="login-form" @submit.prevent="handleSubmit">
-        <label>
-          Username
-          <input v-model="username" autocomplete="username" />
-        </label>
-        <label>
-          Password
-          <input v-model="password" type="password" autocomplete="current-password" />
-        </label>
-        <button class="primary-button" :disabled="submitting">
+        <el-input v-model="username" autocomplete="username" placeholder="Username" />
+        <el-input v-model="password" type="password" autocomplete="current-password" show-password placeholder="Password" />
+        <el-button type="primary" class="primary-button--block" :loading="submitting" native-type="submit">
           {{ submitting ? "Signing in..." : "Sign In" }}
-        </button>
+        </el-button>
       </form>
+
+      <div class="summary-strip summary-strip--stack">
+        <span class="summary-chip">
+          <strong>Admin</strong>
+          admin / admin123
+        </span>
+        <span class="summary-chip">
+          <strong>Operator</strong>
+          operator / operator123
+        </span>
+        <span class="summary-chip">
+          <strong>Viewer</strong>
+          viewer / viewer123
+        </span>
+      </div>
+
       <p v-if="error" class="form-error">{{ error }}</p>
     </section>
   </div>

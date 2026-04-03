@@ -1,6 +1,7 @@
 package com.edgehub.datahub.pipeline;
 
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.RawMqttMessage;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
@@ -11,7 +12,6 @@ import com.edgehub.datahub.storage.TdengineWriter;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
@@ -37,6 +37,7 @@ public final class DataHubPipeline implements SmartLifecycle {
   private final DataHubMetrics metrics;
   private final TelemetryWriteFilter telemetryWriteFilter;
   private final TelemetrySummaryAggregator telemetrySummaryAggregator;
+  private final DeviceStatusTracker deviceStatusTracker;
   private final AtomicLong pipelineDropped = new AtomicLong();
   private final AtomicLong parseFailures = new AtomicLong();
   private final AtomicLong persistFailures = new AtomicLong();
@@ -50,7 +51,8 @@ public final class DataHubPipeline implements SmartLifecycle {
       HubProperties properties,
       DataHubMetrics metrics,
       TelemetryWriteFilter telemetryWriteFilter,
-      TelemetrySummaryAggregator telemetrySummaryAggregator) {
+      TelemetrySummaryAggregator telemetrySummaryAggregator,
+      DeviceStatusTracker deviceStatusTracker) {
     this.source = source;
     this.parser = parser;
     this.writer = writer;
@@ -58,6 +60,7 @@ public final class DataHubPipeline implements SmartLifecycle {
     this.metrics = metrics;
     this.telemetryWriteFilter = telemetryWriteFilter;
     this.telemetrySummaryAggregator = telemetrySummaryAggregator;
+    this.deviceStatusTracker = deviceStatusTracker;
   }
 
   @Override
@@ -135,6 +138,16 @@ public final class DataHubPipeline implements SmartLifecycle {
     flushSummaries(telemetrySummaryAggregator.flushIdle(Instant.now()), "idle-check");
   }
 
+  @Scheduled(
+      initialDelayString = "${datahub.device-status.offline-check-ms:10000}",
+      fixedDelayString = "${datahub.device-status.offline-check-ms:10000}")
+  public void flushOfflineStatuses() {
+    if (!running.get()) {
+      return;
+    }
+    flushDeviceStatuses(deviceStatusTracker.flushOffline(Instant.now()), "offline-check");
+  }
+
   private Mono<Void> persist(ParsedHubMessage message) {
     if (message instanceof ParsedHubMessage.TelemetryMessage telemetry) {
       return writer.writeTelemetry(telemetry)
@@ -159,36 +172,56 @@ public final class DataHubPipeline implements SmartLifecycle {
       return writer.writeTelemetrySummary(summaryInstruction.summary())
           .doOnSuccess(ignored -> metrics.recordTelemetrySummaryPersisted());
     }
+    if (instruction instanceof DeviceStatusInstruction deviceStatusInstruction) {
+      return writer.writeDeviceStatus(deviceStatusInstruction.status())
+          .doOnSuccess(ignored -> metrics.recordDeviceStatusPersisted());
+    }
     return Mono.empty();
   }
 
   private Flux<PersistenceInstruction> applyPersistencePolicy(ParsedHubMessage message) {
+    DeviceStatusTracker.StatusBatch statusBatch = deviceStatusTracker.onMessage(message);
     if (message instanceof ParsedHubMessage.TelemetryMessage telemetry) {
       TelemetryWriteFilter.FilterDecision decision = telemetryWriteFilter.evaluate(telemetry);
-      Optional<TelemetrySteadySummary> summary = telemetrySummaryAggregator.onTelemetry(telemetry, decision);
+      TelemetrySummaryAggregator.SummaryBatch summaryBatch = telemetrySummaryAggregator.onTelemetry(telemetry, decision);
       if (!decision.persist()) {
-        return summaryInstruction(summary);
+        return statusInstruction(statusBatch.updates()).concatWith(summaryInstruction(summaryBatch.summaries()));
       }
-      return summaryInstruction(summary).concatWithValues(new MessageInstruction(message));
+      return statusInstruction(statusBatch.updates())
+          .concatWith(summaryInstruction(summaryBatch.summaries()))
+          .concatWithValues(new MessageInstruction(message));
     }
     if (message instanceof ParsedHubMessage.ParameterSetMessage paramsSet) {
-      Optional<TelemetrySteadySummary> summary =
+      TelemetrySummaryAggregator.SummaryBatch summaryBatch =
           telemetrySummaryAggregator.flush(paramsSet.topic().deviceId(), "parameter_set");
       telemetryWriteFilter.invalidate(paramsSet.topic().deviceId(), "parameter_set");
-      return summaryInstruction(summary).concatWithValues(new MessageInstruction(message));
+      return statusInstruction(statusBatch.updates())
+          .concatWith(summaryInstruction(summaryBatch.summaries()))
+          .concatWithValues(new MessageInstruction(message));
     }
     if (message instanceof ParsedHubMessage.ParameterAckMessage paramsAck) {
-      Optional<TelemetrySteadySummary> summary =
+      TelemetrySummaryAggregator.SummaryBatch summaryBatch =
           telemetrySummaryAggregator.flush(paramsAck.topic().deviceId(), "parameter_ack");
       telemetryWriteFilter.invalidate(paramsAck.topic().deviceId(), "parameter_ack");
-      return summaryInstruction(summary).concatWithValues(new MessageInstruction(message));
+      return statusInstruction(statusBatch.updates())
+          .concatWith(summaryInstruction(summaryBatch.summaries()))
+          .concatWithValues(new MessageInstruction(message));
     }
-    return Flux.just(new MessageInstruction(message));
+    return statusInstruction(statusBatch.updates()).concatWithValues(new MessageInstruction(message));
   }
 
-  private Flux<PersistenceInstruction> summaryInstruction(Optional<TelemetrySteadySummary> summary) {
-    return summary.<Flux<PersistenceInstruction>>map(value -> Flux.just(new TelemetrySummaryInstruction(value)))
-        .orElseGet(Flux::empty);
+  private Flux<PersistenceInstruction> summaryInstruction(List<TelemetrySteadySummary> summaries) {
+    if (summaries.isEmpty()) {
+      return Flux.empty();
+    }
+    return Flux.fromIterable(summaries).map(TelemetrySummaryInstruction::new);
+  }
+
+  private Flux<PersistenceInstruction> statusInstruction(List<DeviceStatusSnapshot> updates) {
+    if (updates.isEmpty()) {
+      return Flux.empty();
+    }
+    return Flux.fromIterable(updates).map(DeviceStatusInstruction::new);
   }
 
   private Disposable buildSubscription() {
@@ -254,6 +287,29 @@ public final class DataHubPipeline implements SmartLifecycle {
     }
   }
 
+  private void flushDeviceStatuses(List<DeviceStatusSnapshot> statuses, String reason) {
+    if (statuses.isEmpty()) {
+      return;
+    }
+    log.info("flushing device status updates reason={} count={}", reason, statuses.size());
+    for (DeviceStatusSnapshot status : statuses) {
+      try {
+        writer.writeDeviceStatus(status)
+            .doOnSuccess(ignored -> metrics.recordDeviceStatusPersisted())
+            .block();
+      } catch (RuntimeException exception) {
+        metrics.recordPersistFailure();
+        log.error(
+            "device status persist failed deviceId={} online={} reason={} persistContext={}",
+            status.deviceId(),
+            status.online(),
+            status.statusReason(),
+            reason,
+            exception);
+      }
+    }
+  }
+
   private void logPipelineDrop(RawMqttMessage dropped) {
     metrics.recordPipelineDropped();
     long droppedCount = pipelineDropped.incrementAndGet();
@@ -298,6 +354,16 @@ public final class DataHubPipeline implements SmartLifecycle {
           summaryInstruction.summary().flushReason(),
           failureCount,
           error);
+      return;
+    }
+    if (instruction instanceof DeviceStatusInstruction deviceStatusInstruction) {
+      log.error(
+          "device status persist failed deviceId={} online={} statusReason={} persistFailureCount={}",
+          deviceStatusInstruction.status().deviceId(),
+          deviceStatusInstruction.status().online(),
+          deviceStatusInstruction.status().statusReason(),
+          failureCount,
+          error);
     }
   }
 
@@ -313,9 +379,11 @@ public final class DataHubPipeline implements SmartLifecycle {
     };
   }
 
-  private sealed interface PersistenceInstruction permits MessageInstruction, TelemetrySummaryInstruction {}
+  private sealed interface PersistenceInstruction permits MessageInstruction, TelemetrySummaryInstruction, DeviceStatusInstruction {}
 
   private record MessageInstruction(ParsedHubMessage message) implements PersistenceInstruction {}
 
   private record TelemetrySummaryInstruction(TelemetrySteadySummary summary) implements PersistenceInstruction {}
+
+  private record DeviceStatusInstruction(DeviceStatusSnapshot status) implements PersistenceInstruction {}
 }

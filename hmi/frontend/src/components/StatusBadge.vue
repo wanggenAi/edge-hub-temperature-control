@@ -5,6 +5,6 @@
 <script setup lang="ts">
 defineProps<{
   label: string;
-  tone?: "primary" | "success" | "warning" | "neutral";
+  tone?: "primary" | "success" | "warning" | "danger" | "neutral";
 }>();
 </script>

@@ -1,101 +1,195 @@
 <template>
   <section class="page-section">
-    <div class="page-title-row">
+    <div class="page-title-row page-title-row--compact">
       <div>
-        <p class="page-eyebrow">Realtime State</p>
+        <p class="page-eyebrow">Realtime</p>
         <h1>Realtime Monitoring</h1>
-        <p class="page-intro">
-          Focus on the live chain: current telemetry, control mode, and actuator output.
-        </p>
       </div>
-      <StatusBadge :label="snapshot?.system_state ?? 'loading'" tone="success" />
+      <div class="page-title-row__actions">
+        <DeviceScopeSelect :model-value="activeDeviceId" @update:model-value="handleDeviceChange" />
+      </div>
     </div>
 
-    <div v-if="snapshot" class="metric-grid">
-      <MetricCard :metric="{ key: 'sensor', label: 'Measured Temperature', value: snapshot.sensor_temp_c.toFixed(2), unit: 'C', trend_hint: 'Realtime telemetry', data_source: 'realtime_link' }" />
-      <MetricCard :metric="{ key: 'target', label: 'Target Temperature', value: snapshot.target_temp_c.toFixed(1), unit: 'C', trend_hint: 'Realtime setpoint', data_source: 'realtime_link' }" />
-      <MetricCard :metric="{ key: 'pwm', label: 'PWM Duty', value: String(snapshot.pwm_duty), unit: '', trend_hint: 'Actuator output', data_source: 'realtime_link' }" />
-      <MetricCard :metric="{ key: 'mode', label: 'Control Mode', value: snapshot.control_mode, unit: '', trend_hint: 'Current controller strategy', data_source: 'fastapi_aggregate' }" />
+    <section v-if="snapshot" class="focus-stage">
+      <div class="focus-stage__top">
+        <div>
+          <p class="focus-stage__eyebrow">Current running detail</p>
+          <h2 class="focus-stage__title">{{ runLabel }}</h2>
+        </div>
+        <div class="focus-stage__meta">
+          <StatusBadge :label="runLabel" :tone="runTone" />
+          <StatusBadge :label="alertLabel" :tone="alertTone" />
+        </div>
+      </div>
+
+      <div class="focus-stage__lead">
+        <div class="focus-stage__value-block">
+          <p class="focus-stage__label">Current Temperature</p>
+          <strong class="focus-stage__value">{{ snapshot.sensor_temp_c.toFixed(2) }} C</strong>
+          <p class="focus-stage__note">Updated {{ formatDateTime(snapshot.collected_at) }}</p>
+        </div>
+
+        <div class="focus-stage__support">
+          <article class="focus-stage__stat">
+            <span>Target</span>
+            <strong>{{ snapshot.target_temp_c.toFixed(1) }} C</strong>
+          </article>
+          <article class="focus-stage__stat">
+            <span>Delta</span>
+            <strong>{{ Math.abs(snapshot.error_c).toFixed(2) }} C</strong>
+          </article>
+          <article class="focus-stage__stat">
+            <span>PWM</span>
+            <strong>{{ snapshot.pwm_duty }}</strong>
+          </article>
+          <article class="focus-stage__stat">
+            <span>Mode</span>
+            <strong>{{ snapshot.control_mode }}</strong>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="snapshot" class="summary-strip">
+      <span class="summary-chip">
+        <strong>Device</strong>
+        {{ snapshot.device_id }}
+      </span>
+      <span class="summary-chip">
+        <strong>Stable</strong>
+        {{ stableLabel }}
+      </span>
+      <span class="summary-chip">
+        <strong>PID</strong>
+        {{ snapshot.kp.toFixed(1) }} / {{ snapshot.ki.toFixed(1) }} / {{ snapshot.kd.toFixed(1) }}
+      </span>
+      <span class="summary-chip">
+        <strong>Pending</strong>
+        {{ snapshot.has_pending_params ? "Yes" : "No" }}
+      </span>
     </div>
 
-    <SimpleLineChart
+    <EchartsLineChart
       v-if="series"
-      title="Realtime Trend Window"
-      subtitle="Current temperature, target temperature, and PWM within the latest observation interval"
-      :series-list="series.series"
+      title="Realtime Trend"
+      :series-list="chartSeries"
     />
 
-    <div v-if="snapshot" class="two-column-grid">
-      <PortalCard title="Current Control State" subtitle="Live telemetry fields most useful in the defense narrative">
-        <dl class="description-grid">
-          <div><dt>Device</dt><dd>{{ snapshot.device_id }}</dd></div>
-          <div><dt>Controller</dt><dd>{{ snapshot.controller_version }}</dd></div>
-          <div><dt>Error</dt><dd>{{ snapshot.error_c.toFixed(3) }} C</dd></div>
-          <div><dt>Integral Error</dt><dd>{{ snapshot.integral_error.toFixed(3) }}</dd></div>
-          <div><dt>Output</dt><dd>{{ snapshot.control_output.toFixed(2) }}</dd></div>
-          <div><dt>Period</dt><dd>{{ snapshot.control_period_ms }} ms</dd></div>
-        </dl>
-      </PortalCard>
-
-      <PortalCard title="Communication and Parameter State" subtitle="Operational context for the current run">
-        <div class="info-stack">
-          <p><strong>Collected:</strong> {{ formatDateTime(snapshot.collected_at) }}</p>
-          <p><strong>Uptime:</strong> {{ formatDuration(snapshot.uptime_ms) }}</p>
-          <p><strong>Pending Params:</strong> {{ snapshot.has_pending_params ? "Yes" : "No" }}</p>
-          <p><strong>Kp / Ki / Kd:</strong> {{ snapshot.kp.toFixed(1) }} / {{ snapshot.ki.toFixed(1) }} / {{ snapshot.kd.toFixed(1) }}</p>
-        </div>
-      </PortalCard>
-    </div>
+    <PortalCard v-if="snapshot" title="Current Context">
+      <dl class="description-grid description-grid--compact">
+        <div><dt>Device</dt><dd>{{ snapshot.device_id }}</dd></div>
+        <div><dt>Controller</dt><dd>{{ snapshot.controller_version }}</dd></div>
+        <div><dt>Period</dt><dd>{{ snapshot.control_period_ms }} ms</dd></div>
+        <div><dt>Output</dt><dd>{{ snapshot.control_output.toFixed(2) }}</dd></div>
+      </dl>
+    </PortalCard>
 
     <p v-if="error" class="form-error">{{ error }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { api } from "../api";
-import MetricCard from "../components/MetricCard.vue";
+import DeviceScopeSelect from "../components/DeviceScopeSelect.vue";
+import EchartsLineChart from "../components/EchartsLineChart.vue";
 import PortalCard from "../components/PortalCard.vue";
-import SimpleLineChart from "../components/SimpleLineChart.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import type { RealtimeSeriesResponse, TelemetrySnapshot } from "../types";
+import type { RealtimeSeriesResponse, Series, TelemetrySnapshot } from "../types";
+
+type BadgeTone = "primary" | "success" | "warning" | "danger" | "neutral";
 
 const snapshot = ref<TelemetrySnapshot | null>(null);
 const series = ref<RealtimeSeriesResponse | null>(null);
 const error = ref("");
 let timer: number | null = null;
+const route = useRoute();
+const router = useRouter();
+
+const selectedDeviceId = computed(() =>
+  route.query.device_id ? String(route.query.device_id) : undefined,
+);
+const activeDeviceId = computed(() => selectedDeviceId.value ?? snapshot.value?.device_id);
 
 async function loadRealtime() {
   try {
     const [nextSnapshot, nextSeries] = await Promise.all([
-      api.getRealtimeSnapshot(),
-      api.getRealtimeSeries(),
+      api.getRealtimeSnapshot(selectedDeviceId.value),
+      api.getRealtimeSeries(selectedDeviceId.value),
     ]);
     snapshot.value = nextSnapshot;
     series.value = nextSeries;
+    error.value = "";
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Failed to load realtime data.";
   }
 }
 
-onMounted(async () => {
-  await loadRealtime();
+onMounted(() => {
   timer = window.setInterval(() => {
     void loadRealtime();
   }, 5000);
 });
 
+watch(
+  selectedDeviceId,
+  () => {
+    void loadRealtime();
+  },
+  { immediate: true },
+);
+
 onUnmounted(() => {
   if (timer !== null) window.clearInterval(timer);
 });
 
+const runLabel = computed(() => snapshot.value?.system_state === "running" ? "Running" : "Waiting");
+const runTone = computed<BadgeTone>(() => snapshot.value?.system_state === "running" ? "success" : "warning");
+const stableLabel = computed(() => Math.abs(snapshot.value?.error_c ?? 0) <= 0.5 ? "Yes" : "Adjusting");
+const alertLabel = computed(() => {
+  if (!snapshot.value) return "Loading";
+  if (snapshot.value.has_pending_params) return "Pending params";
+  if (Math.abs(snapshot.value.error_c) > 1) return "Tracking deviation";
+  return "Normal";
+});
+const alertTone = computed<BadgeTone>(() => {
+  if (alertLabel.value === "Normal") return "success";
+  if (alertLabel.value === "Loading") return "neutral";
+  return "warning";
+});
+
+const chartSeries = computed<Series[]>(() => {
+  if (!series.value) {
+    return [];
+  }
+  const temperature = series.value.series.find((item) => item.name.toLowerCase().includes("temperature"));
+  const target = series.value.series.find((item) => item.name.toLowerCase().includes("target"));
+  if (!temperature || !target || temperature.points.length !== target.points.length) {
+    return series.value.series;
+  }
+  const delta: Series = {
+    name: "Delta",
+    color: "#D97706",
+    unit: "C",
+    data_source: "fastapi_aggregate",
+    points: temperature.points.map((point, index) => ({
+      ts: point.ts,
+      value: Number((target.points[index].value - point.value).toFixed(3)),
+    })),
+  };
+  return [...series.value.series, delta];
+});
+
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function formatDuration(durationMs: number) {
-  const minutes = Math.floor(durationMs / 60000);
-  return `${minutes} min`;
+async function handleDeviceChange(deviceId: string | undefined) {
+  await router.replace({
+    path: route.path,
+    query: deviceId ? { device_id: deviceId } : {},
+  });
 }
 </script>

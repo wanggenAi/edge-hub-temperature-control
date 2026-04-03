@@ -1,21 +1,67 @@
-export type Role = "viewer" | "operator";
+export type Role = string;
+export type DataSource = string;
 
-export type DataSource =
-  | "realtime_link"
-  | "historical_store"
-  | "fastapi_aggregate"
-  | "ai_reserved";
+export interface PermissionDefinition {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface RoleDefinition {
+  key: string;
+  name: string;
+  permissions: string[];
+}
 
 export interface UserPublic {
   username: string;
   display_name: string;
   role: Role;
+  permissions: string[];
+}
+
+export interface ManagedUser extends UserPublic {
+  enabled: boolean;
+  assigned_device_ids: string[];
 }
 
 export interface LoginResponse {
   access_token: string;
   token_type: string;
   user: UserPublic;
+}
+
+export interface DeviceSummary {
+  device_id: string;
+  name: string;
+  location: string;
+  status: string;
+  target_temp_c: number;
+  control_mode: string;
+  updated_at: string;
+}
+
+export interface DevicePageResponse {
+  items: DeviceSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface DeviceStatsResponse {
+  total: number;
+  running: number;
+  idle: number;
+  offline: number;
+}
+
+export interface DeviceUpsertRequest {
+  device_id: string;
+  name: string;
+  location: string;
+  status: string;
+  target_temp_c: number;
+  control_mode: string;
 }
 
 export interface MetricCard {
@@ -28,6 +74,7 @@ export interface MetricCard {
 }
 
 export interface ParameterState {
+  device_id: string;
   target_temp_c: number;
   kp: number;
   ki: number;
@@ -39,6 +86,7 @@ export interface ParameterState {
 }
 
 export interface AckRecord {
+  device_id: string;
   ack_type: string;
   success: boolean;
   applied_immediately: boolean;
@@ -56,6 +104,7 @@ export interface AckRecord {
 }
 
 export interface RunSummary {
+  device_id: string;
   run_id: string;
   window_start: string;
   window_end: string;
@@ -72,6 +121,8 @@ export interface RunSummary {
 export interface OverviewResponse {
   hero_title: string;
   hero_description: string;
+  selected_device: DeviceSummary;
+  telemetry_collected_at: string;
   live_cards: MetricCard[];
   current_parameters: ParameterState;
   recent_ack: AckRecord;
@@ -118,11 +169,13 @@ export interface Series {
 }
 
 export interface RealtimeSeriesResponse {
+  device_id: string;
   window_label: string;
   series: Series[];
 }
 
 export interface HistoryResponse {
+  device_id: string;
   range_label: string;
   kpis: MetricCard[];
   series: Series[];
@@ -130,12 +183,14 @@ export interface HistoryResponse {
 }
 
 export interface ParameterPageResponse {
+  device_id: string;
   current: ParameterState;
   latest_ack: AckRecord;
   recent_acks: AckRecord[];
 }
 
 export interface ParameterCommandRequest {
+  device_id?: string | null;
   target_temp_c: number;
   kp: number;
   ki: number;
@@ -146,6 +201,7 @@ export interface ParameterCommandRequest {
 }
 
 export interface AIRecommendation {
+  device_id: string;
   title: string;
   category: string;
   summary: string;
@@ -157,4 +213,32 @@ export interface AIRecommendation {
   suggested_ki?: number | null;
   suggested_kd?: number | null;
   data_source: DataSource;
+}
+
+export interface SystemAccessResponse {
+  users: ManagedUser[];
+  roles: RoleDefinition[];
+  permissions: PermissionDefinition[];
+  devices: DeviceSummary[];
+}
+
+export interface UserUpsertRequest {
+  username: string;
+  display_name: string;
+  role: string;
+  password?: string;
+  enabled: boolean;
+  device_ids?: string[] | null;
+}
+
+export interface RoleUpsertRequest {
+  key: string;
+  name: string;
+  permissions: string[];
+}
+
+export interface DeleteResult {
+  deleted: boolean;
+  resource: string;
+  key: string;
 }

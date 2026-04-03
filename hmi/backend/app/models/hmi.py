@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
+from app.models.auth import ManagedUser, PermissionDefinition, RoleDefinition
 
-DataSource = Literal["realtime_link", "historical_store", "fastapi_aggregate", "ai_reserved"]
+
+DataSource = str
 
 
 class MetricCard(BaseModel):
@@ -29,7 +29,41 @@ class ArchitectureNode(BaseModel):
   status: str
 
 
+class DeviceSummary(BaseModel):
+  device_id: str
+  name: str
+  location: str
+  status: str
+  target_temp_c: float
+  control_mode: str
+  updated_at: str
+
+
+class DevicePageResponse(BaseModel):
+  items: list[DeviceSummary]
+  total: int
+  page: int
+  page_size: int
+
+
+class DeviceStatsResponse(BaseModel):
+  total: int
+  running: int
+  idle: int
+  offline: int
+
+
+class DeviceUpsertRequest(BaseModel):
+  device_id: str = Field(min_length=3, max_length=128)
+  name: str = Field(min_length=2, max_length=128)
+  location: str = Field(min_length=1, max_length=128)
+  status: str = Field(min_length=2, max_length=32)
+  target_temp_c: float = Field(ge=20.0, le=60.0)
+  control_mode: str = Field(min_length=2, max_length=64)
+
+
 class ParameterState(BaseModel):
+  device_id: str
   target_temp_c: float
   kp: float
   ki: float
@@ -41,6 +75,7 @@ class ParameterState(BaseModel):
 
 
 class AckRecord(BaseModel):
+  device_id: str
   ack_type: str
   success: bool
   applied_immediately: bool
@@ -58,6 +93,7 @@ class AckRecord(BaseModel):
 
 
 class RunSummary(BaseModel):
+  device_id: str
   run_id: str
   window_start: str
   window_end: str
@@ -74,6 +110,8 @@ class RunSummary(BaseModel):
 class OverviewResponse(BaseModel):
   hero_title: str
   hero_description: str
+  selected_device: DeviceSummary
+  telemetry_collected_at: str
   live_cards: list[MetricCard]
   current_parameters: ParameterState
   recent_ack: AckRecord
@@ -120,11 +158,13 @@ class Series(BaseModel):
 
 
 class RealtimeSeriesResponse(BaseModel):
+  device_id: str
   window_label: str
   series: list[Series]
 
 
 class HistoryResponse(BaseModel):
+  device_id: str
   range_label: str
   kpis: list[MetricCard]
   series: list[Series]
@@ -132,6 +172,7 @@ class HistoryResponse(BaseModel):
 
 
 class ParameterCommandRequest(BaseModel):
+  device_id: str | None = None
   target_temp_c: float = Field(ge=20.0, le=60.0)
   kp: float = Field(ge=0.0, le=500.0)
   ki: float = Field(ge=0.0, le=200.0)
@@ -142,12 +183,14 @@ class ParameterCommandRequest(BaseModel):
 
 
 class ParameterPageResponse(BaseModel):
+  device_id: str
   current: ParameterState
   latest_ack: AckRecord
   recent_acks: list[AckRecord]
 
 
 class AIRecommendation(BaseModel):
+  device_id: str
   title: str
   category: str
   summary: str
@@ -159,3 +202,10 @@ class AIRecommendation(BaseModel):
   suggested_ki: float | None = None
   suggested_kd: float | None = None
   data_source: DataSource
+
+
+class SystemAccessResponse(BaseModel):
+  users: list[ManagedUser]
+  roles: list[RoleDefinition]
+  permissions: list[PermissionDefinition]
+  devices: list[DeviceSummary]

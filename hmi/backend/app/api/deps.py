@@ -23,10 +23,14 @@ def get_current_user(
   return demo_data_service.get_user(payload.username)
 
 
-def require_operator(current_user: UserPublic = Depends(get_current_user)) -> UserPublic:
-  if current_user.role != "operator":
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Operator role required for parameter submission.",
-    )
-  return current_user
+def require_permission(permission_key: str):
+
+  def dependency(current_user: UserPublic = Depends(get_current_user)) -> UserPublic:
+    if permission_key not in current_user.permissions:
+      raise HTTPException(
+          status_code=status.HTTP_403_FORBIDDEN,
+          detail=f"Permission required: {permission_key}",
+      )
+    return current_user
+
+  return dependency

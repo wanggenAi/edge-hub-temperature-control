@@ -1,59 +1,143 @@
 <template>
   <section class="page-section">
-    <div class="page-title-row">
+    <div class="page-title-row page-title-row--compact">
       <div>
-        <p class="page-eyebrow">AI Reserve</p>
-        <h1>AI Suggestions and Intelligent Analysis</h1>
-        <p class="page-intro">
-          This page reserves the upper-layer decision space for future tuning advice, anomaly analysis,
-          and interpretive recommendations.
-        </p>
+        <p class="page-eyebrow">AI</p>
+        <h1>AI Suggestions</h1>
       </div>
-      <StatusBadge label="Reserved capability" tone="neutral" />
     </div>
 
-    <PortalCard title="Current Positioning" subtitle="What this page means in the thesis-defense narrative">
-      <div class="info-stack">
-        <p>The current HMI separates direct control from advisory intelligence.</p>
-        <p>AI outputs should be presented as recommendations, not immediate device commands.</p>
-        <p>This page demonstrates extension readiness without overbuilding the current stage.</p>
-      </div>
-    </PortalCard>
-
-    <div v-if="recommendations.length" class="quick-action-grid">
-      <PortalCard v-for="item in recommendations" :key="item.title" :title="item.title" :subtitle="item.category">
-        <div class="info-stack">
-          <p>{{ item.summary }}</p>
-          <p><strong>Reason:</strong> {{ item.reason }}</p>
-          <p><strong>Confidence:</strong> {{ (item.confidence * 100).toFixed(0) }}%</p>
-          <p v-if="item.suggested_kp !== undefined">
-            <strong>Suggested PID:</strong>
-            {{ item.suggested_kp ?? "-" }} / {{ item.suggested_ki ?? "-" }} / {{ item.suggested_kd ?? "-" }}
-          </p>
+    <section v-if="primaryRecommendation" class="focus-stage focus-stage--advice">
+      <div class="focus-stage__top">
+        <div>
+          <p class="focus-stage__eyebrow">Suggestion and rationale</p>
+          <h2 class="focus-stage__title">{{ primaryRecommendation.title }}</h2>
         </div>
-      </PortalCard>
+        <div class="focus-stage__meta">
+          <el-button @click="openParams">Open Params</el-button>
+          <StatusBadge :label="recommendationStatus" tone="primary" />
+          <StatusBadge :label="`${Math.round(primaryRecommendation.confidence * 100)}% confidence`" tone="neutral" />
+        </div>
+      </div>
+
+      <div class="focus-stage__support focus-stage__support--wide">
+        <article class="focus-stage__stat">
+          <span>Recommended Kp</span>
+          <strong>{{ formatNullable(primaryRecommendation.suggested_kp) }}</strong>
+        </article>
+        <article class="focus-stage__stat">
+          <span>Recommended Ki</span>
+          <strong>{{ formatNullable(primaryRecommendation.suggested_ki) }}</strong>
+        </article>
+        <article class="focus-stage__stat">
+          <span>Recommended Kd</span>
+          <strong>{{ formatNullable(primaryRecommendation.suggested_kd) }}</strong>
+        </article>
+        <article class="focus-stage__stat">
+          <span>Current PID</span>
+          <strong>{{ currentPid }}</strong>
+        </article>
+      </div>
+
+      <div class="portal-card">
+        <div class="portal-card__body focus-stage__narrative">
+          <p class="focus-stage__narrative-title">Reason</p>
+          <p>{{ primaryRecommendation.reason }}</p>
+          <p class="focus-stage__narrative-title">Direction</p>
+          <p>{{ primaryRecommendation.summary }}</p>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="parameters" class="summary-strip">
+      <span class="summary-chip">
+        <strong>Device</strong>
+        {{ parameters.device_id }}
+      </span>
+      <span class="summary-chip">
+        <strong>Target</strong>
+        {{ parameters.current.target_temp_c.toFixed(1) }} C
+      </span>
+      <span class="summary-chip">
+        <strong>Mode</strong>
+        {{ parameters.current.control_mode }}
+      </span>
+      <span class="summary-chip">
+        <strong>Current PID</strong>
+        {{ currentPid }}
+      </span>
     </div>
+
+    <details v-if="secondaryRecommendations.length" class="compact-fold">
+      <summary>More Suggestions</summary>
+      <div class="compact-fold__body">
+        <div class="run-list">
+          <article v-for="item in secondaryRecommendations" :key="item.title" class="run-item">
+            <header>
+              <h3>{{ item.title }}</h3>
+              <StatusBadge :label="`${Math.round(item.confidence * 100)}%`" tone="neutral" />
+            </header>
+            <p>{{ item.summary }}</p>
+            <p>{{ item.reason }}</p>
+          </article>
+        </div>
+      </div>
+    </details>
 
     <p v-if="error" class="form-error">{{ error }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { api } from "../api";
-import PortalCard from "../components/PortalCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import type { AIRecommendation } from "../types";
+import type { AIRecommendation, ParameterPageResponse } from "../types";
 
 const recommendations = ref<AIRecommendation[]>([]);
+const parameters = ref<ParameterPageResponse | null>(null);
 const error = ref("");
+const route = useRoute();
+const router = useRouter();
+const selectedDeviceId = computed(() =>
+  route.query.device_id ? String(route.query.device_id) : undefined,
+);
 
 onMounted(async () => {
   try {
-    recommendations.value = await api.getRecommendations();
+    const [nextRecommendations, nextParameters] = await Promise.all([
+      api.getRecommendations(selectedDeviceId.value),
+      api.getParameters(selectedDeviceId.value),
+    ]);
+    recommendations.value = nextRecommendations;
+    parameters.value = nextParameters;
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Failed to load AI recommendations.";
   }
 });
+
+const primaryRecommendation = computed(() => recommendations.value[0] ?? null);
+const secondaryRecommendations = computed(() => recommendations.value.slice(1));
+const recommendationStatus = computed(() => {
+  const status = primaryRecommendation.value?.status ?? "advisory";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+});
+const currentPid = computed(() => {
+  if (!parameters.value) return "-";
+  const { kp, ki, kd } = parameters.value.current;
+  return `${kp.toFixed(1)} / ${ki.toFixed(1)} / ${kd.toFixed(1)}`;
+});
+const paramsLink = computed(() =>
+  selectedDeviceId.value ? `/params?device_id=${encodeURIComponent(selectedDeviceId.value)}` : "/params",
+);
+
+async function openParams() {
+  await router.push(paramsLink.value);
+}
+
+function formatNullable(value?: number | null) {
+  return value === undefined || value === null ? "-" : value.toFixed(1);
+}
 </script>

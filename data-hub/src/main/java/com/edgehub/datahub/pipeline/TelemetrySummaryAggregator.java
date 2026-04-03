@@ -4,67 +4,99 @@ import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetryPayload;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
+import com.edgehub.datahub.monitoring.DataHubMetrics;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class TelemetrySummaryAggregator {
 
   private final HubProperties.TelemetrySummary properties;
-  private final ConcurrentHashMap<String, SummaryWindow> pendingWindowsByDevice = new ConcurrentHashMap<>();
+  private final DataHubMetrics metrics;
+  private final Cache<String, SummaryWindow> pendingWindowsByDevice;
+  private final ConcurrentLinkedQueue<TelemetrySteadySummary> evictedSummaries = new ConcurrentLinkedQueue<>();
 
-  public TelemetrySummaryAggregator(HubProperties hubProperties) {
+  public TelemetrySummaryAggregator(HubProperties hubProperties, DataHubMetrics metrics) {
     this.properties = hubProperties.getTelemetrySummary();
+    this.metrics = metrics;
+    this.pendingWindowsByDevice = Caffeine.newBuilder()
+        .maximumSize(Math.max(1L, properties.getMaxActiveWindows()))
+        .expireAfterAccess(Duration.ofMillis(Math.max(1000L, properties.getWindowTtlMs())))
+        .removalListener((String deviceId, SummaryWindow window, RemovalCause cause) -> {
+          if (deviceId == null || window == null) {
+            return;
+          }
+          if (cause == RemovalCause.EXPLICIT || cause == RemovalCause.REPLACED) {
+            return;
+          }
+          metrics.recordTelemetrySummaryWindowEvicted();
+          if (window.sampleCount() < Math.max(properties.getMinSamples(), 1)) {
+            metrics.recordTelemetrySummaryWindowDiscarded();
+            return;
+          }
+          evictedSummaries.add(window.toSummary(cause == RemovalCause.SIZE ? "cache_size_limit" : "cache_expired"));
+        })
+        .build();
+    metrics.updateTelemetrySummaryWindowSize(0L);
   }
 
-  public Optional<TelemetrySteadySummary> onTelemetry(
+  public SummaryBatch onTelemetry(
       ParsedHubMessage.TelemetryMessage telemetry,
       TelemetryWriteFilter.FilterDecision decision) {
+    List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
     if (!properties.isEnabled()) {
-      return Optional.empty();
+      return new SummaryBatch(summaries);
     }
 
     String deviceId = telemetry.topic().deviceId();
     if (deviceId == null || deviceId.isBlank()) {
-      return Optional.empty();
+      return new SummaryBatch(summaries);
     }
+
+    pendingWindowsByDevice.cleanUp();
 
     if (decision.persist()) {
-      return flush(deviceId, decision.reason());
+      flushCurrentWindow(deviceId, decision.reason()).ifPresent(summaries::add);
+      metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
+      return new SummaryBatch(summaries);
     }
 
-    pendingWindowsByDevice.compute(
+    pendingWindowsByDevice.asMap().compute(
         deviceId,
         (ignored, existing) -> existing == null ? SummaryWindow.from(telemetry) : existing.append(telemetry));
-    return Optional.empty();
+    metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
+    return new SummaryBatch(summaries);
   }
 
-  public Optional<TelemetrySteadySummary> flush(String deviceId, String flushReason) {
+  public SummaryBatch flush(String deviceId, String flushReason) {
+    List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
     if (!properties.isEnabled() || deviceId == null || deviceId.isBlank()) {
-      return Optional.empty();
+      return new SummaryBatch(summaries);
     }
-
-    SummaryWindow window = pendingWindowsByDevice.remove(deviceId);
-    int minSamples = Math.max(properties.getMinSamples(), 1);
-    if (window == null || window.sampleCount() < minSamples) {
-      return Optional.empty();
-    }
-    return Optional.of(window.toSummary(flushReason));
+    pendingWindowsByDevice.cleanUp();
+    flushCurrentWindow(deviceId, flushReason).ifPresent(summaries::add);
+    metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
+    return new SummaryBatch(summaries);
   }
 
   public List<TelemetrySteadySummary> flushIdle(Instant now) {
+    List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
     if (!properties.isEnabled() || properties.getIdleFlushIntervalMs() <= 0) {
-      return List.of();
+      return summaries;
     }
 
+    pendingWindowsByDevice.cleanUp();
     long idleFlushIntervalMs = properties.getIdleFlushIntervalMs();
     int minSamples = Math.max(properties.getMinSamples(), 1);
-    List<TelemetrySteadySummary> summaries = new ArrayList<>();
-    pendingWindowsByDevice.forEach((deviceId, window) -> {
+    pendingWindowsByDevice.asMap().forEach((deviceId, window) -> {
       if (window == null) {
         return;
       }
@@ -72,29 +104,64 @@ public final class TelemetrySummaryAggregator {
       if (idleMs < idleFlushIntervalMs) {
         return;
       }
-      if (!pendingWindowsByDevice.remove(deviceId, window) || window.sampleCount() < minSamples) {
+      if (!pendingWindowsByDevice.asMap().remove(deviceId, window)) {
+        return;
+      }
+      if (window.sampleCount() < minSamples) {
+        metrics.recordTelemetrySummaryWindowDiscarded();
         return;
       }
       summaries.add(window.toSummary("idle_timeout"));
     });
+    metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
     return summaries;
   }
 
   public List<TelemetrySteadySummary> flushAll(String flushReason) {
+    List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
     if (!properties.isEnabled()) {
-      return List.of();
+      return summaries;
     }
 
     int minSamples = Math.max(properties.getMinSamples(), 1);
-    List<TelemetrySteadySummary> summaries = new ArrayList<>();
-    pendingWindowsByDevice.forEach((deviceId, window) -> {
-      if (window == null || !pendingWindowsByDevice.remove(deviceId, window) || window.sampleCount() < minSamples) {
+    pendingWindowsByDevice.asMap().forEach((deviceId, window) -> {
+      if (window == null || !pendingWindowsByDevice.asMap().remove(deviceId, window)) {
+        return;
+      }
+      if (window.sampleCount() < minSamples) {
+        metrics.recordTelemetrySummaryWindowDiscarded();
         return;
       }
       summaries.add(window.toSummary(flushReason));
     });
+    metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
     return summaries;
   }
+
+  private Optional<TelemetrySteadySummary> flushCurrentWindow(String deviceId, String flushReason) {
+    SummaryWindow window = pendingWindowsByDevice.asMap().remove(deviceId);
+    int minSamples = Math.max(properties.getMinSamples(), 1);
+    if (window == null || window.sampleCount() < minSamples) {
+      if (window != null) {
+        metrics.recordTelemetrySummaryWindowDiscarded();
+      }
+      return Optional.empty();
+    }
+    return Optional.of(window.toSummary(flushReason));
+  }
+
+  private List<TelemetrySteadySummary> drainEvictedSummaries() {
+    pendingWindowsByDevice.cleanUp();
+    List<TelemetrySteadySummary> drained = new ArrayList<>();
+    TelemetrySteadySummary summary;
+    while ((summary = evictedSummaries.poll()) != null) {
+      drained.add(summary);
+    }
+    metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
+    return drained;
+  }
+
+  public record SummaryBatch(List<TelemetrySteadySummary> summaries) {}
 
   private static long normalizeControlPeriodMs(Long value) {
     return value == null ? 0L : value.longValue();

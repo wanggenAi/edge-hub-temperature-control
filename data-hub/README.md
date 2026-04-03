@@ -129,10 +129,19 @@ Key tuning properties:
 - `datahub.backpressure.overflow-log-every`
 - `datahub.telemetry-filter.enabled`
 - `datahub.telemetry-filter.heartbeat-interval-ms`
+- `datahub.telemetry-filter.state-ttl-ms`
+- `datahub.telemetry-filter.max-active-devices`
 - `datahub.telemetry-summary.enabled`
 - `datahub.telemetry-summary.min-samples`
 - `datahub.telemetry-summary.idle-flush-interval-ms`
 - `datahub.telemetry-summary.idle-flush-check-ms`
+- `datahub.telemetry-summary.window-ttl-ms`
+- `datahub.telemetry-summary.max-active-windows`
+- `datahub.device-status.enabled`
+- `datahub.device-status.online-timeout-ms`
+- `datahub.device-status.offline-check-ms`
+- `datahub.device-status.state-ttl-ms`
+- `datahub.device-status.max-active-devices`
 - `datahub.monitoring.stats-log-enabled`
 - `datahub.monitoring.stats-log-interval-ms`
 
@@ -172,6 +181,22 @@ Example fields:
   - parameter-set messages persisted successfully
 - `paramsAckOk`
   - parameter-ack messages persisted successfully
+- `filterSize`
+  - current number of active device filter states kept in the cache
+- `filterEvict`
+  - number of filter states evicted by TTL or size protection
+- `summarySize`
+  - current number of active summary windows kept in the cache
+- `summaryEvict`
+  - number of summary windows evicted by TTL or size protection
+- `summaryDiscard`
+  - summary windows dropped because they were too short to persist
+- `deviceStatusOk`
+  - device online/offline status events persisted successfully
+- `deviceStatusSize`
+  - current number of active device presence states kept in memory
+- `deviceStatusEvict`
+  - number of device presence states evicted by TTL or size protection
 
 Use these stats together with:
 
@@ -198,6 +223,8 @@ Recommended starting properties:
 
 - `datahub.telemetry-filter.enabled=true`
 - `datahub.telemetry-filter.heartbeat-interval-ms=30000`
+- `datahub.telemetry-filter.state-ttl-ms=900000`
+- `datahub.telemetry-filter.max-active-devices=100000`
 - `datahub.telemetry-filter.target-temp-deadband=0.05`
 - `datahub.telemetry-filter.sim-temp-deadband=0.05`
 - `datahub.telemetry-filter.sensor-temp-deadband=0.05`
@@ -227,6 +254,8 @@ Recommended starting properties:
 - `datahub.telemetry-summary.min-samples=3`
 - `datahub.telemetry-summary.idle-flush-interval-ms=45000`
 - `datahub.telemetry-summary.idle-flush-check-ms=10000`
+- `datahub.telemetry-summary.window-ttl-ms=120000`
+- `datahub.telemetry-summary.max-active-windows=100000`
 
 Each summary row captures the kind of features that are more useful than raw repeats:
 
@@ -239,6 +268,26 @@ Each summary row captures the kind of features that are more useful than raw rep
 - final control mode and system state
 
 This is valuable because it preserves steady-state behavior without storing every repeated point, which is much friendlier for later model training and control-tuning analysis.
+
+## Device Online And Offline Tracking
+
+The data hub can also maintain per-device online state so the HMI can show whether a device is currently reachable.
+
+Current behavior when `datahub.device-status.enabled=true`:
+
+- the first telemetry or parameter-ack seen from a device marks it online
+- a reconnect after timeout writes a new online event
+- telemetry `system_state` changes also write a new online event
+- if no telemetry or parameter-ack arrives within the configured timeout, the device is marked offline
+- device presence state is also bounded with TTL and maximum active device count so the tracker cannot grow without limit
+
+Recommended starting properties:
+
+- `datahub.device-status.enabled=true`
+- `datahub.device-status.online-timeout-ms=60000`
+- `datahub.device-status.offline-check-ms=10000`
+- `datahub.device-status.state-ttl-ms=86400000`
+- `datahub.device-status.max-active-devices=100000`
 
 ## Storage Modes
 
@@ -258,6 +307,7 @@ When `file` mode is enabled, the module creates:
 - `telemetry.jsonl`
 - `params-set.jsonl`
 - `params-ack.jsonl`
+- `device-status.jsonl`
 
 Each line is a self-contained normalized event envelope with:
 
