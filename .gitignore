@@ -9,6 +9,7 @@ __pycache__/
 .venv/
 venv/
 env/
+hmi/backend/.venv/
 
 # Java / Gradle build outputs
 .gradle/
@@ -35,6 +36,9 @@ tmp/
 temp/
 runtime/
 data-hub/runtime/
+hmi/frontend/node_modules/
+hmi/frontend/dist/
+*.tsbuildinfo
 
 # CadQuery / enclosure generated outputs
 hardware/enclosure/exports/
