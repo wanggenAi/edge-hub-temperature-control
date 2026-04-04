@@ -1,6 +1,7 @@
 package com.edgehub.datahub.storage;
 
 import com.edgehub.datahub.model.ParsedHubMessage;
+import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,5 +62,17 @@ public final class LoggingTdengineWriter implements TdengineWriter {
         parameterAck.payload().ack_type(),
         parameterAck.payload().success(),
         parameterAck.payload().reason()));
+  }
+
+  @Override
+  public Mono<Void> writeDeviceStatus(DeviceStatusSnapshot status) {
+    return Mono.fromRunnable(() -> log.info(
+        "tdengine.device_status device={} online={} reason={} lastSeen={} systemState={} lastMessageKind={}",
+        status.deviceId(),
+        status.online(),
+        status.statusReason(),
+        status.lastSeenAt(),
+        status.systemState(),
+        status.lastMessageKind()));
   }
 }

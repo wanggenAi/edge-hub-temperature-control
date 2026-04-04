@@ -1,0 +1,221 @@
+{
+  "permissions": [
+    {
+      "key": "overview.view",
+      "label": "Overview View",
+      "description": "View system overview and status"
+    },
+    {
+      "key": "realtime.view",
+      "label": "Realtime View",
+      "description": "View live telemetry and status"
+    },
+    {
+      "key": "history.view",
+      "label": "History View",
+      "description": "View historical curves and run summaries"
+    },
+    {
+      "key": "params.view",
+      "label": "Parameters View",
+      "description": "View active parameter state"
+    },
+    {
+      "key": "params.write",
+      "label": "Parameters Write",
+      "description": "Submit parameter updates"
+    },
+    {
+      "key": "ai.view",
+      "label": "AI View",
+      "description": "View AI recommendations and rationale"
+    },
+    {
+      "key": "system.manage",
+      "label": "System Manage",
+      "description": "Manage users, roles, and device inventory"
+    }
+  ],
+  "roles": [
+    {
+      "key": "admin",
+      "name": "Administrator",
+      "permissions": [
+        "overview.view",
+        "realtime.view",
+        "history.view",
+        "params.view",
+        "params.write",
+        "ai.view",
+        "system.manage"
+      ]
+    },
+    {
+      "key": "operator",
+      "name": "Operator",
+      "permissions": [
+        "overview.view",
+        "realtime.view",
+        "history.view",
+        "params.view",
+        "params.write",
+        "ai.view"
+      ]
+    },
+    {
+      "key": "viewer",
+      "name": "Viewer",
+      "permissions": [
+        "overview.view",
+        "realtime.view",
+        "history.view",
+        "params.view",
+        "ai.view"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "display_name": "System Admin",
+      "role": "admin",
+      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "enabled": true
+    },
+    {
+      "username": "operator",
+      "display_name": "Control Operator",
+      "role": "operator",
+      "password_hash": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+      "enabled": true
+    },
+    {
+      "username": "viewer",
+      "display_name": "Monitoring Viewer",
+      "role": "viewer",
+      "password_hash": "65375049b9e4d7cad6c9ba286fdeb9394b28135a3e84136404cfccfdcc438894",
+      "enabled": true
+    }
+  ],
+  "devices": [
+    {
+      "device_id": "edge-node-001",
+      "name": "Zone 1 Chamber",
+      "location": "Lab A",
+      "status": "running",
+      "target_temp_c": 35.0,
+      "kp": 120.0,
+      "ki": 12.0,
+      "kd": 0.0,
+      "control_period_ms": 1000,
+      "control_mode": "pi_control",
+      "controller_version": "pi_tuned_v3_1",
+      "booted_at": "2026-04-02T18:43:45.269492+00:00",
+      "base_temp_c": 34.55,
+      "variation": 0.35,
+      "updated_at": "2026-04-03T14:07:45.269492+00:00"
+    },
+    {
+      "device_id": "edge-node-002",
+      "name": "Zone 2 Chamber",
+      "location": "Lab B",
+      "status": "running",
+      "target_temp_c": 33.0,
+      "kp": 108.0,
+      "ki": 10.0,
+      "kd": 0.0,
+      "control_period_ms": 1000,
+      "control_mode": "pi_control",
+      "controller_version": "pi_tuned_v3_0",
+      "booted_at": "2026-04-03T05:55:45.269492+00:00",
+      "base_temp_c": 32.62,
+      "variation": 0.28,
+      "updated_at": "2026-04-03T14:07:45.269492+00:00"
+    },
+    {
+      "device_id": "edge-node-003",
+      "name": "Aging Rack",
+      "location": "Pilot Line",
+      "status": "idle",
+      "target_temp_c": 30.0,
+      "kp": 100.0,
+      "ki": 9.0,
+      "kd": 0.0,
+      "control_period_ms": 1000,
+      "control_mode": "manual_hold",
+      "controller_version": "pi_safe_v1_4",
+      "booted_at": "2026-04-03T10:04:45.269492+00:00",
+      "base_temp_c": 29.74,
+      "variation": 0.18,
+      "updated_at": "2026-04-03T14:07:45.269492+00:00"
+    }
+  ],
+  "acks": {
+    "edge-node-001": [
+      {
+        "device_id": "edge-node-001",
+        "ack_type": "params_applied",
+        "success": true,
+        "applied_immediately": true,
+        "has_pending_params": false,
+        "target_temp_c": 35.0,
+        "kp": 120.0,
+        "ki": 12.0,
+        "kd": 0.0,
+        "control_period_ms": 1000,
+        "control_mode": "pi_control",
+        "reason": "Initial parameter baseline synchronized for HMI startup.",
+        "uptime_ms": 0,
+        "received_at": "2026-04-03T13:49:45.269492+00:00",
+        "data_source": "fastapi_aggregate"
+      }
+    ],
+    "edge-node-002": [
+      {
+        "device_id": "edge-node-002",
+        "ack_type": "params_applied",
+        "success": true,
+        "applied_immediately": true,
+        "has_pending_params": false,
+        "target_temp_c": 33.0,
+        "kp": 108.0,
+        "ki": 10.0,
+        "kd": 0.0,
+        "control_period_ms": 1000,
+        "control_mode": "pi_control",
+        "reason": "Initial parameter baseline synchronized for HMI startup.",
+        "uptime_ms": 0,
+        "received_at": "2026-04-03T13:49:45.269492+00:00",
+        "data_source": "fastapi_aggregate"
+      }
+    ],
+    "edge-node-003": [
+      {
+        "device_id": "edge-node-003",
+        "ack_type": "params_applied",
+        "success": true,
+        "applied_immediately": true,
+        "has_pending_params": false,
+        "target_temp_c": 30.0,
+        "kp": 100.0,
+        "ki": 9.0,
+        "kd": 0.0,
+        "control_period_ms": 1000,
+        "control_mode": "manual_hold",
+        "reason": "Initial parameter baseline synchronized for HMI startup.",
+        "uptime_ms": 0,
+        "received_at": "2026-04-03T13:49:45.269492+00:00",
+        "data_source": "fastapi_aggregate"
+      }
+    ]
+  },
+  "control_goals": {
+    "target_band_c": 0.3,
+    "temp_rate_threshold_c_per_s": 0.02,
+    "steady_hold_seconds": 60,
+    "flat_change_pct": 5.0,
+    "pwm_saturation_low": 10,
+    "pwm_saturation_high": 245,
+    "realtime_steady_error_axis_c": 1.2
+  }
+}

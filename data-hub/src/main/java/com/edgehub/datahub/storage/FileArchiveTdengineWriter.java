@@ -1,6 +1,7 @@
 package com.edgehub.datahub.storage;
 
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +33,7 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
   private final Path telemetrySummaryFile;
   private final Path parameterSetFile;
   private final Path parameterAckFile;
+  private final Path deviceStatusFile;
 
   public FileArchiveTdengineWriter(ObjectMapper objectMapper, HubProperties properties) {
     this.objectMapper = objectMapper;
@@ -40,6 +42,7 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
     this.telemetrySummaryFile = baseDir.resolve("telemetry-summary.jsonl");
     this.parameterSetFile = baseDir.resolve("params-set.jsonl");
     this.parameterAckFile = baseDir.resolve("params-ack.jsonl");
+    this.deviceStatusFile = baseDir.resolve("device-status.jsonl");
     createBaseDirectory();
   }
 
@@ -84,6 +87,18 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         Map.of(
             "topic", parameterAck.topic().rawTopic(),
             "payload", parameterAck.payload()));
+  }
+
+  @Override
+  public Mono<Void> writeDeviceStatus(DeviceStatusSnapshot status) {
+    return appendJsonLine(
+        deviceStatusFile,
+        "device_status",
+        status.observedAt(),
+        status.deviceId(),
+        Map.of(
+            "topic", status.rawTopic(),
+            "payload", status));
   }
 
   private Mono<Void> appendJsonLine(

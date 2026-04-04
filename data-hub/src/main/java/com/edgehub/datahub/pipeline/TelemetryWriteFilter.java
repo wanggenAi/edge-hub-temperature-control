@@ -4,9 +4,12 @@ import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetryPayload;
 import com.edgehub.datahub.monitoring.DataHubMetrics;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -18,11 +21,22 @@ public final class TelemetryWriteFilter {
 
   private final HubProperties.TelemetryFilter properties;
   private final DataHubMetrics metrics;
-  private final ConcurrentHashMap<String, DeviceState> lastPersistedByDevice = new ConcurrentHashMap<>();
+  private final Cache<String, DeviceState> lastPersistedByDevice;
 
   public TelemetryWriteFilter(HubProperties hubProperties, DataHubMetrics metrics) {
     this.properties = hubProperties.getTelemetryFilter();
     this.metrics = metrics;
+    this.lastPersistedByDevice = Caffeine.newBuilder()
+        .maximumSize(Math.max(1L, properties.getMaxActiveDevices()))
+        .expireAfterAccess(Duration.ofMillis(Math.max(1000L, properties.getStateTtlMs())))
+        .removalListener((String deviceId, DeviceState ignored, RemovalCause cause) -> {
+          if (deviceId == null || cause == RemovalCause.EXPLICIT || cause == RemovalCause.REPLACED) {
+            return;
+          }
+          metrics.recordTelemetryFilterStateEvicted();
+        })
+        .build();
+    metrics.updateTelemetryFilterStateSize(0L);
   }
 
   public FilterDecision evaluate(ParsedHubMessage.TelemetryMessage telemetry) {
@@ -34,9 +48,10 @@ public final class TelemetryWriteFilter {
     if (deviceId == null || deviceId.isBlank()) {
       return FilterDecision.persist("missing_device_id");
     }
-    DecisionHolder holder = new DecisionHolder();
 
-    lastPersistedByDevice.compute(deviceId, (ignored, existing) -> {
+    lastPersistedByDevice.cleanUp();
+    DecisionHolder holder = new DecisionHolder();
+    lastPersistedByDevice.asMap().compute(deviceId, (ignored, existing) -> {
       if (existing == null) {
         holder.decision = FilterDecision.persist("first_sample");
         return DeviceState.from(telemetry);
@@ -56,6 +71,7 @@ public final class TelemetryWriteFilter {
       holder.decision = FilterDecision.skip("steady_state_duplicate");
       return existing;
     });
+    metrics.updateTelemetryFilterStateSize(lastPersistedByDevice.estimatedSize());
 
     if (!holder.decision.persist()) {
       metrics.recordTelemetrySkipped();
@@ -81,7 +97,8 @@ public final class TelemetryWriteFilter {
     if (!properties.isEnabled() || deviceId == null || deviceId.isBlank()) {
       return;
     }
-    lastPersistedByDevice.remove(deviceId);
+    lastPersistedByDevice.invalidate(deviceId);
+    metrics.updateTelemetryFilterStateSize(lastPersistedByDevice.estimatedSize());
     if (properties.isLogSkips()) {
       log.info("telemetry filter state reset device={} reason={}", deviceId, reason);
     }

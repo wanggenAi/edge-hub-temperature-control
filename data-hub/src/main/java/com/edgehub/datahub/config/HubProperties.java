@@ -11,6 +11,7 @@ public class HubProperties {
   private final Backpressure backpressure = new Backpressure();
   private final TelemetryFilter telemetryFilter = new TelemetryFilter();
   private final TelemetrySummary telemetrySummary = new TelemetrySummary();
+  private final DeviceStatus deviceStatus = new DeviceStatus();
   private final Monitoring monitoring = new Monitoring();
   private int bufferSize = 2048;
   private int processingConcurrency = 8;
@@ -49,6 +50,10 @@ public class HubProperties {
 
   public TelemetrySummary getTelemetrySummary() {
     return telemetrySummary;
+  }
+
+  public DeviceStatus getDeviceStatus() {
+    return deviceStatus;
   }
 
   public int getProcessingConcurrency() {
@@ -266,6 +271,8 @@ public class HubProperties {
     private boolean enabled = false;
     private boolean logSkips = false;
     private long heartbeatIntervalMs = 30000;
+    private long stateTtlMs = 900000;
+    private long maxActiveDevices = 100000;
     private double targetTempDeadband = 0.05;
     private double simTempDeadband = 0.05;
     private double sensorTempDeadband = 0.05;
@@ -298,6 +305,22 @@ public class HubProperties {
 
     public void setHeartbeatIntervalMs(long heartbeatIntervalMs) {
       this.heartbeatIntervalMs = heartbeatIntervalMs;
+    }
+
+    public long getStateTtlMs() {
+      return stateTtlMs;
+    }
+
+    public void setStateTtlMs(long stateTtlMs) {
+      this.stateTtlMs = stateTtlMs;
+    }
+
+    public long getMaxActiveDevices() {
+      return maxActiveDevices;
+    }
+
+    public void setMaxActiveDevices(long maxActiveDevices) {
+      this.maxActiveDevices = maxActiveDevices;
     }
 
     public double getTargetTempDeadband() {
@@ -378,6 +401,8 @@ public class HubProperties {
     private int minSamples = 3;
     private long idleFlushIntervalMs = 45000;
     private long idleFlushCheckMs = 10000;
+    private long windowTtlMs = 120000;
+    private long maxActiveWindows = 100000;
 
     public boolean isEnabled() {
       return enabled;
@@ -409,6 +434,70 @@ public class HubProperties {
 
     public void setIdleFlushCheckMs(long idleFlushCheckMs) {
       this.idleFlushCheckMs = idleFlushCheckMs;
+    }
+
+    public long getWindowTtlMs() {
+      return windowTtlMs;
+    }
+
+    public void setWindowTtlMs(long windowTtlMs) {
+      this.windowTtlMs = windowTtlMs;
+    }
+
+    public long getMaxActiveWindows() {
+      return maxActiveWindows;
+    }
+
+    public void setMaxActiveWindows(long maxActiveWindows) {
+      this.maxActiveWindows = maxActiveWindows;
+    }
+  }
+
+  public static class DeviceStatus {
+    private boolean enabled = true;
+    private long onlineTimeoutMs = 60000;
+    private long offlineCheckMs = 10000;
+    private long stateTtlMs = 86400000;
+    private long maxActiveDevices = 100000;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public long getOnlineTimeoutMs() {
+      return onlineTimeoutMs;
+    }
+
+    public void setOnlineTimeoutMs(long onlineTimeoutMs) {
+      this.onlineTimeoutMs = onlineTimeoutMs;
+    }
+
+    public long getOfflineCheckMs() {
+      return offlineCheckMs;
+    }
+
+    public void setOfflineCheckMs(long offlineCheckMs) {
+      this.offlineCheckMs = offlineCheckMs;
+    }
+
+    public long getStateTtlMs() {
+      return stateTtlMs;
+    }
+
+    public void setStateTtlMs(long stateTtlMs) {
+      this.stateTtlMs = stateTtlMs;
+    }
+
+    public long getMaxActiveDevices() {
+      return maxActiveDevices;
+    }
+
+    public void setMaxActiveDevices(long maxActiveDevices) {
+      this.maxActiveDevices = maxActiveDevices;
     }
   }
 
