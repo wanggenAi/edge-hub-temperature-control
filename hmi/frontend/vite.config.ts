@@ -1,9 +1,13 @@
+import { fileURLToPath, URL } from "node:url";
+
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
-  plugins: [vue()],
-  server: {
-    port: 5173,
-  },
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url))
+    }
+  }
 });

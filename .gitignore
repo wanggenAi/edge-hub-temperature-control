@@ -46,6 +46,9 @@ hmi/frontend/dist/
 hmi/backend/data/*.db
 hmi/backend/data/*.sqlite
 hmi/backend/data/*.sqlite3
+hmi/backend/app.db
+hmi/frontend/vite.config.js
+hmi/frontend/vite.config.d.ts
 
 # CadQuery / enclosure generated outputs
 hardware/enclosure/exports/
