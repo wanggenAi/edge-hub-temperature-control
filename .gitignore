@@ -38,6 +38,10 @@ runtime/
 data-hub/runtime/
 hmi/frontend/node_modules/
 hmi/frontend/dist/
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
 *.tsbuildinfo
 hmi/backend/data/*.db
 hmi/backend/data/*.sqlite
