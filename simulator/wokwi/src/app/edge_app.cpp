@@ -60,7 +60,9 @@ EdgeTemperatureApp::EdgeTemperatureApp(const edge::config::AppConfig& config,
       mqtt_(mqtt),
       feedback_selector_(config.prefer_simulated_feedback),
       controller_(config.control),
+#if EDGE_BUILD_SIMULATOR
       plant_model_(config.sim),
+#endif
       hooks_(hooks),
       runtime_store_(build_initial_runtime_config(config)),
       param_validator_(config.control),

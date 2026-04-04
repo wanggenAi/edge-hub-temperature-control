@@ -209,3 +209,61 @@ The most natural next tasks are:
 - upgrade the controller from proportional control to simplified PID when needed
 
 Documentation sync date: 2026-04-04.
+
+## Build, Flash, and Mode Switch
+
+This project supports two build profiles without changing application logic.
+
+- `esp32dev`: simulator-oriented build (`EDGE_BUILD_SIMULATOR=1`, default)
+- `esp32dev-real`: real hardware build (`EDGE_BUILD_SIMULATOR=0`)
+
+### 1) Configure credentials
+
+Create `src/secrets.h` from `src/secrets.example.h` and fill:
+
+- `kWifiSsid`
+- `kWifiPassword`
+- `kMqttHost`
+- `kMqttPort`
+- `kMqttUsername`
+- `kMqttPassword`
+
+### 2) Build simulator mode (Wokwi-compatible)
+
+```bash
+cd simulator/wokwi
+~/.platformio/penv/bin/pio run -e esp32dev
+```
+
+### 3) Build and flash real hardware
+
+```bash
+cd simulator/wokwi
+~/.platformio/penv/bin/pio run -e esp32dev-real -t upload
+~/.platformio/penv/bin/pio device monitor -b 115200
+```
+
+If serial auto-detection fails, set explicit ports in `platformio.ini`:
+
+```ini
+[env:esp32dev-real]
+upload_port = /dev/cu.usbserial-xxxx
+monitor_port = /dev/cu.usbserial-xxxx
+```
+
+### 4) Hardware mapping for real board
+
+- OneWire bus (DS18B20 DATA): `GPIO21` with external `4.7k` pull-up to `3V3`
+- Heater PWM output (MOSFET gate): `GPIO18`
+- Status LED: `GPIO2`
+
+### 5) Runtime behavior parity
+
+Both modes keep the same edge application capabilities:
+
+- Wi-Fi and MQTT reconnect
+- Telemetry publish
+- `params/set` subscribe and runtime apply
+- Validation, `apply_immediately`, staged apply
+- `params/ack` publish
+- Runtime config snapshot and control loop updates

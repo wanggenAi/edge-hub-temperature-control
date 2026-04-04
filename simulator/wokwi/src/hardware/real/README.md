@@ -1,4 +1,13 @@
-# Real Hardware Placeholder
+# Real Hardware Implementations
 
-这里放真实硬件实现（例如 MAX31865、SSR、风扇继电器等）。
-当前仅保留占位，不参与 Wokwi 主流程。
+This directory contains real hardware drivers that implement the existing
+interfaces.
+
+- `RealDs18b20Sensor`: DS18B20 OneWire temperature sensor on `GPIO21`
+- `MosfetHeater`: low-side MOSFET heater driver on `GPIO18` PWM
+
+Notes:
+- The status LED remains controlled by `EdgeTemperatureApp` on `GPIO2`.
+- Wokwi and real-hardware assembly are switched by build macro.
+- Application logic is shared across both modes:
+  `MQTT / params / ack / runtime config`.

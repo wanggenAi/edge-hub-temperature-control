@@ -15,7 +15,9 @@
 #include "domain/model/runtime_state.h"
 #include "hardware/interfaces/actuator.h"
 #include "hardware/interfaces/temperature_sensor.h"
+#if EDGE_BUILD_SIMULATOR
 #include "hardware/wokwi/thermal_plant_model.h"
+#endif
 
 namespace edge::app {
 
@@ -55,7 +57,9 @@ class EdgeTemperatureApp {
 
   FeedbackSelector feedback_selector_;
   edge::controller::PiController controller_;
+#if EDGE_BUILD_SIMULATOR
   edge::hardware::wokwi::ThermalPlantModel plant_model_;
+#endif
   MigrationHooks hooks_;
   RuntimeConfigStore runtime_store_;
   edge::comms::mqtt::ParamMessageParser param_parser_;
