@@ -82,6 +82,12 @@
       </div>
     </section>
 
+    <ControlEffectComparePanel
+      v-if="pageData"
+      title="Before / After Parameter Effect"
+      :compare="pageData.latest_tuning_compare"
+    />
+
     <div v-if="pageData" class="summary-strip">
       <span class="summary-chip">
         <strong>Device</strong>
@@ -126,6 +132,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { api } from "../api";
+import ControlEffectComparePanel from "../components/ControlEffectComparePanel.vue";
 import DeviceScopeSelect from "../components/DeviceScopeSelect.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { useAuth } from "../composables/useAuth";

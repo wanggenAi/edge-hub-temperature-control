@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import require_permission
 from app.models.auth import DeleteResult, ManagedUser, RoleDefinition, UserPublic, RoleUpsertRequest, UserUpsertRequest
-from app.models.hmi import SystemAccessResponse
+from app.models.hmi import ControlGoalsConfig, SystemAccessResponse
 from app.services.demo_data import demo_data_service
 
 router = APIRouter(prefix="/system", tags=["system"])
@@ -43,3 +43,20 @@ def delete_user(
 ) -> DeleteResult:
   del current_user
   return demo_data_service.delete_user(username)
+
+
+@router.get("/control-goals", response_model=ControlGoalsConfig)
+def read_control_goals(
+    current_user: UserPublic = Depends(require_permission("system.manage")),
+) -> ControlGoalsConfig:
+  del current_user
+  return demo_data_service.get_control_goals()
+
+
+@router.put("/control-goals", response_model=ControlGoalsConfig)
+def update_control_goals(
+    payload: ControlGoalsConfig,
+    current_user: UserPublic = Depends(require_permission("system.manage")),
+) -> ControlGoalsConfig:
+  del current_user
+  return demo_data_service.upsert_control_goals(payload)

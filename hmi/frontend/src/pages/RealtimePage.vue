@@ -75,6 +75,18 @@
       :series-list="chartSeries"
     />
 
+    <EchartsLineChart
+      v-if="series"
+      title="Steady-state Error"
+      subtitle="Rolling steady error with target band and alert threshold"
+      :series-list="[series.steady_error_series]"
+      :y-axis-min="0"
+      :y-axis-max="steadyErrorAxisMax"
+      :threshold-lines="steadyErrorThresholds"
+      :force-render-error-series="true"
+      :height="260"
+    />
+
     <PortalCard v-if="snapshot" title="Current Context">
       <dl class="description-grid description-grid--compact">
         <div><dt>Device</dt><dd>{{ snapshot.device_id }}</dd></div>
@@ -180,6 +192,22 @@ const chartSeries = computed<Series[]>(() => {
     })),
   };
   return [...series.value.series, delta];
+});
+
+const steadyErrorAxisMax = computed(() => {
+  const axis = series.value?.goals.realtime_steady_error_axis_c ?? 1.2;
+  const floor = (series.value?.goals.target_band_c ?? 0.3) * 2;
+  return Math.max(axis, floor);
+});
+
+const steadyErrorThresholds = computed(() => {
+  if (!series.value) return [];
+  const band = series.value.goals.target_band_c;
+  const alert = Math.min(steadyErrorAxisMax.value, band * 2);
+  return [
+    { value: band, label: `Target band ${band.toFixed(2)}C`, color: "#2B8C83", lineType: "dashed" as const },
+    { value: alert, label: `Alert ${alert.toFixed(2)}C`, color: "#D97706", lineType: "solid" as const },
+  ];
 });
 
 function formatDateTime(value: string) {

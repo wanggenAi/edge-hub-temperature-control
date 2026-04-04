@@ -28,10 +28,18 @@ const props = withDefaults(
     seriesList: Series[];
     height?: number;
     errorThreshold?: number;
+    yAxisMin?: number;
+    yAxisMax?: number;
+    forceRenderErrorSeries?: boolean;
+    thresholdLines?: Array<{ value: number; label: string; color?: string; lineType?: "solid" | "dashed" }>;
   }>(),
   {
     height: 320,
     errorThreshold: 0.8,
+    yAxisMin: undefined,
+    yAxisMax: undefined,
+    forceRenderErrorSeries: false,
+    thresholdLines: () => [],
   },
 );
 
@@ -41,7 +49,7 @@ let chart: echarts.ECharts | null = null;
 const chartSeries = computed(() => {
   return props.seriesList
     .filter((series) => shouldRenderSeries(series))
-    .map((series) => {
+    .map((series, index) => {
       const mapped = mapStyle(series.name);
       return {
         name: series.name,
@@ -54,6 +62,21 @@ const chartSeries = computed(() => {
           width: mapped.width,
           type: mapped.lineType,
         },
+        markLine: index === 0 && props.thresholdLines.length
+          ? {
+              symbol: "none",
+              label: { show: true, color: "#64748B", fontSize: 12, formatter: "{b}" },
+              lineStyle: { width: 1 },
+              data: props.thresholdLines.map((line) => ({
+                yAxis: Number(line.value.toFixed(3)),
+                name: line.label,
+                lineStyle: {
+                  color: line.color ?? "#D97706",
+                  type: line.lineType ?? "dashed",
+                },
+              })),
+            }
+          : undefined,
         data: series.points.map((point) => [point.ts, Number(point.value.toFixed(3))]),
       };
     });
@@ -126,6 +149,8 @@ function renderChart() {
     yAxis: [
       {
         type: "value",
+        min: props.yAxisMin,
+        max: props.yAxisMax,
         axisLabel: {
           color: "#64748B",
           fontSize: 12,
@@ -169,6 +194,9 @@ function mapStyle(name: string): { color: string; width: number; lineType: "soli
 }
 
 function shouldRenderSeries(series: Series): boolean {
+  if (props.forceRenderErrorSeries) {
+    return true;
+  }
   const isErrorSeries =
     series.name.toLowerCase().includes("error") || series.name.toLowerCase().includes("delta");
   if (!isErrorSeries) {

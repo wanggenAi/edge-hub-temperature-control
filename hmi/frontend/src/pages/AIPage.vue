@@ -49,6 +49,12 @@
       </div>
     </section>
 
+    <ControlEffectComparePanel
+      v-if="pageData"
+      title="Before / After AI Adoption Effect"
+      :compare="pageData.adoption_compare"
+    />
+
     <div v-if="parameters" class="summary-strip">
       <span class="summary-chip">
         <strong>Device</strong>
@@ -89,14 +95,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { api } from "../api";
+import ControlEffectComparePanel from "../components/ControlEffectComparePanel.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import type { AIRecommendation, ParameterPageResponse } from "../types";
+import type { AIPageResponse, AIRecommendation, ParameterPageResponse } from "../types";
 
-const recommendations = ref<AIRecommendation[]>([]);
+const pageData = ref<AIPageResponse | null>(null);
 const parameters = ref<ParameterPageResponse | null>(null);
 const error = ref("");
 const route = useRoute();
@@ -105,19 +112,29 @@ const selectedDeviceId = computed(() =>
   route.query.device_id ? String(route.query.device_id) : undefined,
 );
 
-onMounted(async () => {
+async function loadPage() {
   try {
-    const [nextRecommendations, nextParameters] = await Promise.all([
+    const [nextPageData, nextParameters] = await Promise.all([
       api.getRecommendations(selectedDeviceId.value),
       api.getParameters(selectedDeviceId.value),
     ]);
-    recommendations.value = nextRecommendations;
+    pageData.value = nextPageData;
     parameters.value = nextParameters;
+    error.value = "";
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Failed to load AI recommendations.";
   }
-});
+}
 
+watch(
+  selectedDeviceId,
+  () => {
+    void loadPage();
+  },
+  { immediate: true },
+);
+
+const recommendations = computed<AIRecommendation[]>(() => pageData.value?.recommendations ?? []);
 const primaryRecommendation = computed(() => recommendations.value[0] ?? null);
 const secondaryRecommendations = computed(() => recommendations.value.slice(1));
 const recommendationStatus = computed(() => {

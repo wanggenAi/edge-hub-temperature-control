@@ -1,5 +1,5 @@
 import type {
-  AIRecommendation,
+  AIPageResponse,
   AckRecord,
   DeleteResult,
   DevicePageResponse,
@@ -8,6 +8,7 @@ import type {
   DeviceUpsertRequest,
   HistoryResponse,
   LoginResponse,
+  ControlGoalsConfig,
   ManagedUser,
   OverviewResponse,
   ParameterCommandRequest,
@@ -117,7 +118,7 @@ export const api = {
     });
   },
   getRecommendations(deviceId?: string) {
-    return request<AIRecommendation[]>(withQuery("/ai/recommendations", { device_id: deviceId }));
+    return request<AIPageResponse>(withQuery("/ai/recommendations", { device_id: deviceId }));
   },
   getSystemAccess() {
     return request<SystemAccessResponse>("/system/access");
@@ -136,6 +137,15 @@ export const api = {
   saveRole(payload: RoleUpsertRequest) {
     return request<RoleDefinition>("/system/roles", {
       method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getControlGoals() {
+    return request<ControlGoalsConfig>("/system/control-goals");
+  },
+  updateControlGoals(payload: ControlGoalsConfig) {
+    return request<ControlGoalsConfig>("/system/control-goals", {
+      method: "PUT",
       body: JSON.stringify(payload),
     });
   },

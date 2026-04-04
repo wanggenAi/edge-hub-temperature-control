@@ -92,6 +92,69 @@ class AckRecord(BaseModel):
   data_source: DataSource
 
 
+class ControlCompareThresholds(BaseModel):
+  target_band_c: float
+  temp_rate_threshold_c_per_s: float
+  steady_hold_seconds: int
+  flat_change_pct: float
+  pwm_saturation_low: int
+  pwm_saturation_high: int
+
+
+class ControlGoalsConfig(BaseModel):
+  target_band_c: float = Field(gt=0.0, le=5.0)
+  temp_rate_threshold_c_per_s: float = Field(gt=0.0, le=1.0)
+  steady_hold_seconds: int = Field(ge=20, le=600)
+  flat_change_pct: float = Field(ge=0.1, le=30.0)
+  pwm_saturation_low: int = Field(ge=0, le=255)
+  pwm_saturation_high: int = Field(ge=0, le=255)
+  realtime_steady_error_axis_c: float = Field(gt=0.1, le=5.0)
+
+
+class ControlCompareWindow(BaseModel):
+  label: str
+  started_at: str
+  ended_at: str
+  sample_count: int
+  steady_state_detected: bool
+
+
+class ControlCompareMetric(BaseModel):
+  key: str
+  label: str
+  unit: str
+  baseline: float | None = None
+  after: float | None = None
+  delta: float | None = None
+  delta_pct: float | None = None
+  better_direction: str
+  status: str
+  status_label: str
+  not_comparable_reason: str | None = None
+
+
+class ControlCompareConclusion(BaseModel):
+  status: str
+  label: str
+  summary: str
+  highlights: list[str] = []
+
+
+class ControlEffectComparison(BaseModel):
+  scenario: str
+  device_id: str
+  event_label: str
+  event_at: str | None = None
+  comparable: bool
+  not_comparable_reason: str | None = None
+  baseline_window: ControlCompareWindow
+  after_window: ControlCompareWindow
+  thresholds: ControlCompareThresholds
+  metrics: list[ControlCompareMetric]
+  conclusion: ControlCompareConclusion
+  data_source: DataSource
+
+
 class RunSummary(BaseModel):
   device_id: str
   run_id: str
@@ -161,6 +224,8 @@ class RealtimeSeriesResponse(BaseModel):
   device_id: str
   window_label: str
   series: list[Series]
+  steady_error_series: Series
+  goals: ControlGoalsConfig
 
 
 class HistoryResponse(BaseModel):
@@ -187,6 +252,7 @@ class ParameterPageResponse(BaseModel):
   current: ParameterState
   latest_ack: AckRecord
   recent_acks: list[AckRecord]
+  latest_tuning_compare: ControlEffectComparison
 
 
 class AIRecommendation(BaseModel):
@@ -202,6 +268,12 @@ class AIRecommendation(BaseModel):
   suggested_ki: float | None = None
   suggested_kd: float | None = None
   data_source: DataSource
+
+
+class AIPageResponse(BaseModel):
+  device_id: str
+  recommendations: list[AIRecommendation]
+  adoption_compare: ControlEffectComparison
 
 
 class SystemAccessResponse(BaseModel):

@@ -230,4 +230,13 @@ def _default_payload() -> dict[str, Any]:
       ],
       "devices": devices,
       "acks": acks,
+      "control_goals": {
+          "target_band_c": 0.3,
+          "temp_rate_threshold_c_per_s": 0.02,
+          "steady_hold_seconds": 60,
+          "flat_change_pct": 5.0,
+          "pwm_saturation_low": 10,
+          "pwm_saturation_high": 245,
+          "realtime_steady_error_axis_c": 1.2,
+      },
   }

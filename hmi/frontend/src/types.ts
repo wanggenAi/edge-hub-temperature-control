@@ -103,6 +103,65 @@ export interface AckRecord {
   data_source: DataSource;
 }
 
+export interface ControlCompareThresholds {
+  target_band_c: number;
+  temp_rate_threshold_c_per_s: number;
+  steady_hold_seconds: number;
+  flat_change_pct: number;
+  pwm_saturation_low: number;
+  pwm_saturation_high: number;
+}
+
+export interface ControlGoalsConfig extends ControlCompareThresholds {
+  realtime_steady_error_axis_c: number;
+}
+
+export interface ControlCompareWindow {
+  label: string;
+  started_at: string;
+  ended_at: string;
+  sample_count: number;
+  steady_state_detected: boolean;
+}
+
+export type ControlCompareMetricStatus = "improved" | "worse" | "flat" | "not_comparable";
+
+export interface ControlCompareMetric {
+  key: string;
+  label: string;
+  unit: string;
+  baseline?: number | null;
+  after?: number | null;
+  delta?: number | null;
+  delta_pct?: number | null;
+  better_direction: string;
+  status: ControlCompareMetricStatus;
+  status_label: string;
+  not_comparable_reason?: string | null;
+}
+
+export interface ControlCompareConclusion {
+  status: "major_improvement" | "slight_improvement" | "no_significant_change" | "degraded" | "not_comparable";
+  label: string;
+  summary: string;
+  highlights: string[];
+}
+
+export interface ControlEffectComparison {
+  scenario: string;
+  device_id: string;
+  event_label: string;
+  event_at?: string | null;
+  comparable: boolean;
+  not_comparable_reason?: string | null;
+  baseline_window: ControlCompareWindow;
+  after_window: ControlCompareWindow;
+  thresholds: ControlCompareThresholds;
+  metrics: ControlCompareMetric[];
+  conclusion: ControlCompareConclusion;
+  data_source: DataSource;
+}
+
 export interface RunSummary {
   device_id: string;
   run_id: string;
@@ -172,6 +231,8 @@ export interface RealtimeSeriesResponse {
   device_id: string;
   window_label: string;
   series: Series[];
+  steady_error_series: Series;
+  goals: ControlGoalsConfig;
 }
 
 export interface HistoryResponse {
@@ -187,6 +248,7 @@ export interface ParameterPageResponse {
   current: ParameterState;
   latest_ack: AckRecord;
   recent_acks: AckRecord[];
+  latest_tuning_compare: ControlEffectComparison;
 }
 
 export interface ParameterCommandRequest {
@@ -213,6 +275,12 @@ export interface AIRecommendation {
   suggested_ki?: number | null;
   suggested_kd?: number | null;
   data_source: DataSource;
+}
+
+export interface AIPageResponse {
+  device_id: string;
+  recommendations: AIRecommendation[];
+  adoption_compare: ControlEffectComparison;
 }
 
 export interface SystemAccessResponse {

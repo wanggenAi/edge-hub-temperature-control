@@ -16,8 +16,11 @@ from app.models.auth import (
     UserUpsertRequest,
 )
 from app.models.hmi import (
+    AIPageResponse,
     AIRecommendation,
     AckRecord,
+    ControlGoalsConfig,
+    ControlEffectComparison,
     DevicePageResponse,
     DeviceStatsResponse,
     DeviceSummary,
@@ -37,6 +40,7 @@ from app.models.hmi import (
 )
 from app.services.json_store import JsonStore
 from app.services.access_control import access_control_service
+from app.services.control_compare import CompareConfig, build_ai_adoption_compare, build_compare_config, build_params_tuning_compare
 
 
 class DemoDataService:
@@ -172,16 +176,26 @@ class DemoDataService:
   def get_realtime_series(self, username: str, device_id: str | None = None) -> RealtimeSeriesResponse:
     payload = self._store.read()
     device = self._resolve_device(payload, username, device_id)
+    goals = self._control_goals_config(payload)
     now = datetime.now(UTC)
     temp_points: list[TimePoint] = []
     target_points: list[TimePoint] = []
     pwm_points: list[TimePoint] = []
+    steady_error_points: list[TimePoint] = []
+    recent_errors: list[float] = []
+    hold_samples = max(1, math.ceil(goals.steady_hold_seconds / 5))
     for index in range(24):
       ts = now - timedelta(seconds=(23 - index) * 5)
       sensor_temp, pwm_duty = self._realtime_wave(device, ts)
+      error_c = device["target_temp_c"] - sensor_temp
       temp_points.append(TimePoint(ts=ts.isoformat(), value=round(sensor_temp, 2)))
       target_points.append(TimePoint(ts=ts.isoformat(), value=device["target_temp_c"]))
       pwm_points.append(TimePoint(ts=ts.isoformat(), value=round(pwm_duty, 2)))
+      recent_errors.append(error_c)
+      if len(recent_errors) > hold_samples:
+        recent_errors.pop(0)
+      steady_error = sum(abs(value) for value in recent_errors) / len(recent_errors)
+      steady_error_points.append(TimePoint(ts=ts.isoformat(), value=round(steady_error, 3)))
     return RealtimeSeriesResponse(
         device_id=device["device_id"],
         window_label="Last 120 seconds",
@@ -190,6 +204,14 @@ class DemoDataService:
             Series(name="Target", color="#D97706", unit="C", data_source="realtime_link", points=target_points),
             Series(name="PWM", color="#2B8C83", unit="duty", data_source="realtime_link", points=pwm_points),
         ],
+        steady_error_series=Series(
+            name="Steady-state error",
+            color="#D97706",
+            unit="C",
+            data_source="fastapi_aggregate",
+            points=steady_error_points,
+        ),
+        goals=ControlGoalsConfig(**goals.__dict__),
     )
 
   def get_history(self, username: str, device_id: str | None = None) -> HistoryResponse:
@@ -200,11 +222,13 @@ class DemoDataService:
   def get_parameters_page(self, username: str, device_id: str | None = None) -> ParameterPageResponse:
     payload = self._store.read()
     device = self._resolve_device(payload, username, device_id)
+    ack_history = self._acks_for_device(payload, device["device_id"])
     return ParameterPageResponse(
         device_id=device["device_id"],
         current=self._parameter_state(device),
         latest_ack=self._latest_ack(payload, device["device_id"]),
         recent_acks=self._recent_acks(payload, device["device_id"]),
+        latest_tuning_compare=build_params_tuning_compare(device, ack_history, self._control_goals_config(payload)),
     )
 
   def submit_parameters(self, username: str, command: ParameterCommandRequest) -> AckRecord:
@@ -227,12 +251,12 @@ class DemoDataService:
     device = self._resolve_device_by_id(payload, target_device_id)
     return self._latest_ack(payload, device["device_id"])
 
-  def get_ai_recommendations(self, username: str, device_id: str | None = None) -> list[AIRecommendation]:
+  def get_ai_page(self, username: str, device_id: str | None = None) -> AIPageResponse:
     payload = self._store.read()
     device = self._resolve_device(payload, username, device_id)
     history = self._history_for_device(device)
     max_error = history.runs[0].abs_error_max
-    return [
+    recommendations = [
         AIRecommendation(
             device_id=device["device_id"],
             title="Reduce overshoot during approach",
@@ -258,9 +282,34 @@ class DemoDataService:
             data_source="ai_reserved",
         ),
     ]
+    ack_history = self._acks_for_device(payload, device["device_id"])
+    compare: ControlEffectComparison = build_ai_adoption_compare(
+        device=device,
+        acks=ack_history,
+        recommendation=recommendations[0] if recommendations else None,
+        config=self._control_goals_config(payload),
+    )
+    return AIPageResponse(
+        device_id=device["device_id"],
+        recommendations=recommendations,
+        adoption_compare=compare,
+    )
 
   def get_access_control(self) -> SystemAccessResponse:
     return access_control_service.get_access_control()
+
+  def get_control_goals(self) -> ControlGoalsConfig:
+    payload = self._store.read()
+    config = self._control_goals_config(payload)
+    return ControlGoalsConfig(**config.__dict__)
+
+  def upsert_control_goals(self, config: ControlGoalsConfig) -> ControlGoalsConfig:
+    def updater(store_payload: dict) -> dict:
+      store_payload["control_goals"] = config.model_dump()
+      return store_payload
+
+    self._store.update(updater)
+    return config
 
   def upsert_user(self, request: UserUpsertRequest) -> ManagedUser:
     return access_control_service.upsert_user(request)
@@ -350,6 +399,10 @@ class DemoDataService:
   def _recent_acks(self, payload: dict, device_id: str) -> list[AckRecord]:
     ack_payload = payload.get("acks", {}).get(device_id, [])
     return [AckRecord.model_validate(item) for item in ack_payload[:5]]
+
+  def _acks_for_device(self, payload: dict, device_id: str) -> list[AckRecord]:
+    ack_payload = payload.get("acks", {}).get(device_id, [])
+    return [AckRecord.model_validate(item) for item in ack_payload]
 
   def _build_ack_record(self, device: dict, reason: str) -> AckRecord:
     booted_at = datetime.fromisoformat(device["booted_at"])
@@ -497,6 +550,9 @@ class DemoDataService:
 
   def _iso_now(self) -> str:
     return datetime.now(UTC).isoformat()
+
+  def _control_goals_config(self, payload: dict) -> CompareConfig:
+    return build_compare_config(payload.get("control_goals"))
 
 
 demo_data_service = DemoDataService()
