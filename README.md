@@ -71,8 +71,6 @@ edge-hub-temperature-control/
 ├── docs/                  Project documents, design notes, interface specs, experiment templates
 ├── hardware/              Hardware notes, pin definitions, real-hardware implementation plan
 ├── simulator/             Wokwi simulation, thermal model, virtual closed-loop behavior
-├── firmware/              ESP32 firmware and node implementation
-├── edge-node/             Edge node abstractions and interface-oriented design
 ├── experiments/           Experiment records, observed data, and analysis
 ├── scripts/               Data-processing and helper scripts
 └── README.md              Project overview
@@ -107,25 +105,6 @@ Stores simulation-related assets, including:
 - virtual thermal inertia models
 - closed-loop temperature control demonstrations
 - simulation configuration and documentation
-
-### `firmware/`
-
-Stores ESP32 firmware code, including:
-
-- sensor acquisition
-- controller implementation
-- PWM output
-- status reporting and debugging interfaces
-- future communication interface modules
-
-### `edge-node/`
-
-Stores a modular abstraction of the edge control node, helping the project evolve from a microcontroller demo into a maintainable engineering system:
-
-- node responsibility definitions
-- data structure definitions
-- control flow descriptions
-- reserved interfaces for the data hub layer
 
 ### `experiments/`
 
@@ -191,7 +170,7 @@ The repository is currently in its initialization phase. The following conventio
 - keep experimental parameters, observations, and results for every test
 - prioritize readability, maintainability, and explainability in all code
 
-When `simulator/` and `firmware/` are populated with runnable content, their local documentation should describe the exact execution workflow.
+When simulation modules are populated with runnable content, local documentation should describe the exact execution workflow.
 
 ## 8. Next Step
 
