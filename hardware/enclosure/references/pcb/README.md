@@ -13,3 +13,5 @@ Use them with the following intent:
 - `DXF`: board outline, mounting-hole centers, 2D reference geometry
 
 For V1, these files are stored here first and then consumed gradually by the CadQuery workflow.
+
+Documentation sync date: 2026-04-04.

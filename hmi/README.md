@@ -20,6 +20,11 @@ This MVP HMI is designed for thesis defense and system demonstration. It focuses
 - `backend/`: FastAPI service for authentication, page-oriented aggregation, and parameter interactions
 - `frontend/`: Vue portal-style interface for the HMI pages
 
+This module is the active application layer in the repository and is maintained in sync with:
+
+- edge simulation (`simulator/wokwi`)
+- Java data hub (`data-hub`)
+
 ## Demo Accounts
 
 - operator: `operator / operator123`
@@ -53,3 +58,5 @@ npm run dev
 Default frontend API base URL:
 
 - `http://127.0.0.1:8000/api`
+
+Documentation sync date: 2026-04-04.

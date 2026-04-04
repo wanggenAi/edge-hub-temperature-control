@@ -2,6 +2,12 @@
 
 This directory stores descriptive project documents and thesis-supporting materials.
 
+Current structure is aligned with the active modules in the repository:
+
+- edge simulation (`simulator/wokwi`)
+- data hub (`data-hub`)
+- application layer (`hmi`)
+
 Recommended contents include:
 
 - overall system architecture
@@ -19,3 +25,5 @@ Current files:
 - `deployment/README.md`: deployment document index
 - `deployment/mqtt-broker-ubuntu.md`: Ubuntu Mosquitto deployment guide
 - `deployment/tdengine-docker-local.md`: local TDengine Docker deployment guide
+
+Documentation sync date: 2026-04-04.

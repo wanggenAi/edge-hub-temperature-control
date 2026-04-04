@@ -11,7 +11,7 @@ thesis.
 
 ## Current Scope
 
-At the current stage, the available deployment document is:
+At the current stage, the available deployment documents are:
 
 - `mqtt-broker-ubuntu.md`
 - `tdengine-docker-local.md`
@@ -23,6 +23,12 @@ password authentication.
 The TDengine document records the recommended local Docker-based deployment
 path, including Docker Desktop preparation, Compose startup, REST verification,
 and integration with the Java `data-hub`.
+
+These documents currently support three active runtime paths:
+
+- edge simulation runtime (`simulator/wokwi`)
+- data-hub runtime (`data-hub`)
+- HMI runtime (`hmi`)
 
 ## Planned Deployment Topics
 
@@ -49,3 +55,5 @@ flat and readable naming style, for example:
 - `docker-compose-stack.md`
 
 This keeps the structure simple while making later expansion straightforward.
+
+Documentation sync date: 2026-04-04.

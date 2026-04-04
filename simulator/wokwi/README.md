@@ -176,8 +176,9 @@ Current scope:
 
 Important boundary:
 
-- this is still not a real broker integration
-- the current implementation only simulates publish behavior through serial JSON output
+- this module is still a simulation-first node, not a production deployment package
+- telemetry publish path is real MQTT in the current baseline
+- parts of the message handling remain intentionally lightweight for rapid simulation iteration
 
 Why this step matters:
 
@@ -206,3 +207,5 @@ The most natural next tasks are:
 - run step-response and steady-state error experiments
 - add disturbance injection scenarios
 - upgrade the controller from proportional control to simplified PID when needed
+
+Documentation sync date: 2026-04-04.

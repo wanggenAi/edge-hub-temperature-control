@@ -91,3 +91,5 @@ Examples:
 python scripts/mqtt_test_client.py --mode immediate
 python scripts/mqtt_test_client.py --mode staged
 ```
+
+Documentation sync date: 2026-04-04.

@@ -13,7 +13,7 @@ Current experiment record structure:
 For the graduation project, each experiment should record at least:
 
 - experiment date
-- simulation version or firmware version
+- simulation version
 - target temperature
 - control cycle
 - control parameters
@@ -28,3 +28,5 @@ Future additions may include:
 - plotted curves
 - screenshots
 - experiment conclusions
+
+Documentation sync date: 2026-04-04.

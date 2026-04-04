@@ -2,6 +2,14 @@
 
 This module is the Java data hub baseline for the project.
 
+It is one of the three active modules in the current repository baseline:
+
+- edge simulation: `simulator/wokwi`
+- data ingestion and storage: `data-hub` (this module)
+- application layer: `hmi`
+
+Documentation sync date: 2026-04-04.
+
 ## Runtime Baseline
 
 This module is pinned to:

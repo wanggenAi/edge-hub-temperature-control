@@ -50,7 +50,7 @@ It is useful for:
 - validating pin assignment
 - verifying basic signal paths
 - checking simulation wiring logic
-- supporting early-stage firmware and control experiments
+- supporting early-stage simulation and control experiments
 
 It should not be treated as:
 
@@ -59,3 +59,5 @@ It should not be treated as:
 - a final hardware design package
 
 The purpose of this directory is to bridge that gap step by step.
+
+Documentation sync date: 2026-04-04.
