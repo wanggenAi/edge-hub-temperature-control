@@ -262,17 +262,12 @@ def acknowledge_alarm(
     if not alarm:
         raise HTTPException(status_code=404, detail="Alarm not found")
 
-    alarm.is_active = False
-    active_alarm_exists = db.scalar(
-        select(DeviceAlarm.id).where(DeviceAlarm.device_id == device_id, DeviceAlarm.is_active.is_(True))
-    )
-    if not active_alarm_exists:
-        device = db.scalar(select(Device).where(Device.id == device_id))
-        if device:
-            device.is_alarm = False
+    # V1 behavior: acknowledge only marks operator acknowledgment.
+    # Active/Cleared lifecycle is controlled by alarm state transitions, not ack action.
+    alarm.acknowledged = True
 
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "acknowledged": True}
 
 
 @router.post("/{device_id}/ai-recommendation/apply", response_model=ParameterOut)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.security import get_password_hash
 from app.models.entities import (
     AIRecommendation,
+    AlarmRule,
     Device,
     DeviceAlarm,
     DeviceMetric,
@@ -52,6 +53,76 @@ PARAMETER_COLUMN_DEFAULTS: dict[str, str] = {
     "steady_window_samples": "12",
 }
 
+ALARM_COLUMN_DEFAULTS: dict[str, str] = {
+    "rule_code": "'out_of_band'",
+    "source": "'rule_engine'",
+    "acknowledged": "0",
+    "cleared_at": "NULL",
+}
+
+DEFAULT_ALARM_RULES = [
+    {
+        "rule_code": "out_of_band",
+        "name": "Out of Band",
+        "target": "temperature_error",
+        "operator": ">",
+        "threshold": "0.5",
+        "hold_seconds": 30,
+        "severity": "warning",
+        "enabled": True,
+        "scope_type": "global",
+        "scope_value": "*",
+    },
+    {
+        "rule_code": "sensor_invalid",
+        "name": "Sensor Invalid",
+        "target": "sensor_valid",
+        "operator": "==",
+        "threshold": "false",
+        "hold_seconds": 10,
+        "severity": "critical",
+        "enabled": True,
+        "scope_type": "global",
+        "scope_value": "*",
+    },
+    {
+        "rule_code": "high_saturation",
+        "name": "High Saturation",
+        "target": "pwm_output",
+        "operator": ">=",
+        "threshold": "85",
+        "hold_seconds": 60,
+        "severity": "warning",
+        "enabled": True,
+        "scope_type": "global",
+        "scope_value": "*",
+    },
+    {
+        "rule_code": "param_apply_failed",
+        "name": "Param Apply Failed",
+        "target": "params_ack",
+        "operator": "==",
+        "threshold": "failed",
+        "hold_seconds": 5,
+        "severity": "warning",
+        "enabled": True,
+        "scope_type": "global",
+        "scope_value": "*",
+    },
+    {
+        "rule_code": "device_offline",
+        "name": "Device Offline",
+        "target": "telemetry_gap",
+        "operator": ">",
+        "threshold": "60",
+        "hold_seconds": 60,
+        "severity": "critical",
+        "enabled": True,
+        "scope_type": "global",
+        "scope_value": "*",
+    },
+]
+
 
 def ensure_runtime_schema(db: Session) -> None:
     """
@@ -71,11 +142,40 @@ def ensure_runtime_schema(db: Session) -> None:
                 f"ADD COLUMN {column} {sql_type} NOT NULL DEFAULT {default}"
             )
         )
+    alarm_columns = {
+        row[1]
+        for row in db.execute(text("PRAGMA table_info(device_alarms)")).fetchall()
+    }
+    for column, default in ALARM_COLUMN_DEFAULTS.items():
+        if column in alarm_columns:
+            continue
+        sql_type = "DATETIME" if column == "cleared_at" else ("BOOLEAN" if column == "acknowledged" else "TEXT")
+        default_sql = f" DEFAULT {default}" if default != "NULL" else ""
+        nullable_sql = "" if column != "cleared_at" else ""
+        db.execute(
+            text(
+                f"ALTER TABLE device_alarms "
+                f"ADD COLUMN {column} {sql_type}{nullable_sql}{default_sql}"
+            )
+        )
+    db.commit()
+
+
+def seed_alarm_rules(db: Session) -> None:
+    existing = {
+        code
+        for code in db.scalars(select(AlarmRule.rule_code)).all()
+    }
+    for row in DEFAULT_ALARM_RULES:
+        if row["rule_code"] in existing:
+            continue
+        db.add(AlarmRule(**row, updated_by="seed"))
     db.commit()
 
 
 def seed_database(db: Session) -> None:
     ensure_runtime_schema(db)
+    seed_alarm_rules(db)
 
     if db.scalar(select(User.id).limit(1)):
         return
@@ -204,9 +304,16 @@ def seed_database(db: Session) -> None:
                 DeviceAlarm(
                     device_id=device.id,
                     level="critical" if not device.is_online else "warning",
-                    title="Temperature Out of Range",
-                    message=f"{device.code} exceeded safe target band; verify sensor and load.",
+                    rule_code="device_offline" if not device.is_online else "out_of_band",
+                    source="device_status" if not device.is_online else "rule_engine",
+                    title="Device Offline" if not device.is_online else "Temperature Out of Range",
+                    message=(
+                        f"{device.code} has no telemetry heartbeat."
+                        if not device.is_online
+                        else f"{device.code} exceeded safe target band; verify sensor and load."
+                    ),
                     is_active=True,
+                    acknowledged=False,
                 )
             )
 

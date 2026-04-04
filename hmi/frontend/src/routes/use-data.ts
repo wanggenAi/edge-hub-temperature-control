@@ -5,6 +5,9 @@ import type {
   AIRecommendation,
   Alarm,
   AlarmListItem,
+  AlarmRuleItem,
+  ActiveAlarmItem,
+  AlarmHistoryItem,
   Device,
   Metric,
   Parameter,
@@ -153,6 +156,109 @@ export function useAlarmCenter(initialPage = 1) {
   useEffect(reload, [reload]);
 
   return { items, total, page, pageSize, q, loading, setPage, setPageSize, setQ, reload };
+}
+
+export function useAlarmsHmi() {
+  const [activeItems, setActiveItems] = useState<ActiveAlarmItem[]>([]);
+  const [activeTotal, setActiveTotal] = useState(0);
+  const [activeStats, setActiveStats] = useState({ active_total: 0, critical: 0, warning: 0 });
+  const [activePage, setActivePage] = useState(1);
+  const [activePageSize, setActivePageSize] = useState(20);
+  const [activeStatus, setActiveStatus] = useState<"active" | "all">("active");
+  const [activeQ, setActiveQ] = useState("");
+
+  const [historyItems, setHistoryItems] = useState<AlarmHistoryItem[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(20);
+  const [historyQ, setHistoryQ] = useState("");
+  const [historyRange, setHistoryRange] = useState<"24h" | "7d">("24h");
+  const [historySeverity, setHistorySeverity] = useState<string | undefined>(undefined);
+  const [historyType, setHistoryType] = useState<string | undefined>(undefined);
+  const [historySource, setHistorySource] = useState<string | undefined>(undefined);
+
+  const [rules, setRules] = useState<AlarmRuleItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      api.alarmsActive({
+        page: activePage,
+        page_size: activePageSize,
+        q: activeQ,
+        status: activeStatus,
+      }),
+      api.alarmsHistory({
+        page: historyPage,
+        page_size: historyPageSize,
+        q: historyQ,
+        range_key: historyRange,
+        severity: historySeverity,
+        alarm_type: historyType,
+        source: historySource,
+      }),
+      api.alarmRules(),
+    ])
+      .then(([active, history, ruleRes]) => {
+        setActiveItems(active.items);
+        setActiveTotal(active.total);
+        setActiveStats(active.stats);
+        setHistoryItems(history.items);
+        setHistoryTotal(history.total);
+        setRules(ruleRes.items);
+      })
+      .finally(() => setLoading(false));
+  }, [
+    activePage,
+    activePageSize,
+    activeQ,
+    activeStatus,
+    historyPage,
+    historyPageSize,
+    historyQ,
+    historyRange,
+    historySeverity,
+    historyType,
+    historySource,
+  ]);
+
+  useEffect(reload, [reload]);
+
+  return {
+    loading,
+    activeItems,
+    activeTotal,
+    activeStats,
+    activePage,
+    activePageSize,
+    activeStatus,
+    activeQ,
+    setActivePage,
+    setActivePageSize,
+    setActiveStatus,
+    setActiveQ,
+    historyItems,
+    historyTotal,
+    historyPage,
+    historyPageSize,
+    historyQ,
+    historyRange,
+    historySeverity,
+    historyType,
+    historySource,
+    setHistoryPage,
+    setHistoryPageSize,
+    setHistoryQ,
+    setHistoryRange,
+    setHistorySeverity,
+    setHistoryType,
+    setHistorySource,
+    rules,
+    reload,
+    updateRule: (id: number, payload: { threshold: string; hold_seconds: number; level: string; enabled: boolean }) =>
+      api.updateAlarmRule(id, payload),
+  };
 }
 
 export function useSummaryHistory(initialPage = 1, initialDeviceId?: number) {

@@ -1,7 +1,11 @@
 import type {
   AIRecommendation,
   Alarm,
+  AlarmHistoryResponse,
   AlarmListResponse,
+  AlarmRuleListResponse,
+  AlarmRuleUpdateResponse,
+  ActiveAlarmResponse,
   Device,
   Me,
   Metric,
@@ -101,6 +105,36 @@ export const api = {
         params.q ?? ""
       )}`
     ),
+  alarmsActive: (params: { page?: number; page_size?: number; q?: string; status?: "active" | "all" } = {}) =>
+    request<ActiveAlarmResponse>(
+      `/alarms/active?page=${params.page ?? 1}&page_size=${params.page_size ?? 20}&q=${encodeURIComponent(
+        params.q ?? ""
+      )}&status=${params.status ?? "active"}`
+    ),
+  alarmsHistory: (params: {
+    page?: number;
+    page_size?: number;
+    q?: string;
+    range_key?: "24h" | "7d";
+    device_id?: number;
+    severity?: string;
+    alarm_type?: string;
+    source?: string;
+  } = {}) =>
+    request<AlarmHistoryResponse>(
+      `/alarms/history?page=${params.page ?? 1}&page_size=${params.page_size ?? 20}&q=${encodeURIComponent(
+        params.q ?? ""
+      )}&range_key=${params.range_key ?? "24h"}${params.device_id ? `&device_id=${params.device_id}` : ""}${
+        params.severity ? `&severity=${encodeURIComponent(params.severity)}` : ""
+      }${params.alarm_type ? `&alarm_type=${encodeURIComponent(params.alarm_type)}` : ""}${
+        params.source ? `&source=${encodeURIComponent(params.source)}` : ""
+      }`
+    ),
+  alarmRules: () => request<AlarmRuleListResponse>("/alarms/rules"),
+  updateAlarmRule: (
+    id: number,
+    payload: { threshold: string; hold_seconds: number; level: string; enabled: boolean }
+  ) => request<AlarmRuleUpdateResponse>(`/alarms/rules/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   summaryList: (params: { page?: number; page_size?: number; q?: string; device_id?: number } = {}) =>
     request<SummaryListResponse>(
       `/history/summaries?page=${params.page ?? 1}&page_size=${params.page_size ?? 20}&q=${encodeURIComponent(

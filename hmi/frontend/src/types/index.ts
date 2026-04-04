@@ -107,6 +107,77 @@ export interface AlarmListResponse {
   page_size: number;
 }
 
+export interface ActiveAlarmItem {
+  id: number;
+  device_id: number;
+  device_code: string;
+  device_name: string;
+  alarm_name: string;
+  severity: string;
+  triggered_at: string;
+  status: "Active" | "Cleared";
+  reason: string;
+  acknowledged: boolean;
+}
+
+export interface ActiveAlarmResponse {
+  stats: {
+    active_total: number;
+    critical: number;
+    warning: number;
+  };
+  items: ActiveAlarmItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AlarmHistoryItem {
+  id: number;
+  time: string;
+  device_id: number;
+  device_code: string;
+  device_name: string;
+  alarm_type: string;
+  severity: string;
+  duration_seconds?: number | null;
+  recovery: "Cleared" | "Uncleared";
+  source: "telemetry" | "params_ack" | "device_status" | "rule_engine" | string;
+}
+
+export interface AlarmHistoryResponse {
+  items: AlarmHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AlarmRuleItem {
+  id: number;
+  rule_code: string;
+  name: string;
+  target: string;
+  operator: string;
+  threshold: string;
+  hold_seconds: number;
+  severity: string;
+  enabled: boolean;
+  scope_type: "global" | "device" | "group" | string;
+  scope_value: string;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface AlarmRuleListResponse {
+  items: AlarmRuleItem[];
+  total: number;
+}
+
+export interface AlarmRuleUpdateResponse {
+  item: AlarmRuleItem;
+  applied: boolean;
+}
+
 export interface SummaryItem {
   id: number;
   device_id: number;

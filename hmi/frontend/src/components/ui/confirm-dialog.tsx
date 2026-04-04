@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +16,7 @@ export function ConfirmDialog({
 }: {
   open: boolean;
   title: string;
-  description: string;
+  description: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: "accent" | "danger";

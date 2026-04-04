@@ -391,6 +391,34 @@ Verified local workflow:
 docker exec edgehub-tdengine taos -s "SHOW DATABASES; USE edgehub; SHOW STABLES; SHOW TABLES; SELECT COUNT(*) FROM edgehub.telemetry_edge_node_001;"
 ```
 
+## Redis Alarm Cache (Minimal V1)
+
+The data hub can optionally maintain Redis cache entries for alarm workflows:
+
+- active alarm state cache
+- alarm rules cache
+- FSM intermediate state cache
+
+Redis is cache-only in this design and not the fact storage.
+
+Key properties:
+
+- `datahub.redis.enabled`
+- `datahub.redis.host`
+- `datahub.redis.port`
+- `datahub.redis.password`
+- `datahub.redis.database`
+- `datahub.redis.alarm-key-prefix`
+- `datahub.redis.active-ttl-seconds`
+- `datahub.redis.rules-ttl-seconds`
+- `datahub.redis.fsm-ttl-seconds`
+
+Start local Redis with Docker:
+
+```bash
+docker compose -f ../docker-compose.redis.yml up -d
+```
+
 ## Build and Run With Gradle Wrapper
 
 Preferred commands after the wrapper exists:

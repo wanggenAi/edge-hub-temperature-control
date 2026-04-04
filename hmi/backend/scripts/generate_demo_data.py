@@ -13,10 +13,11 @@ from app.models.entities import Device, DeviceAlarm, DeviceMetric, DeviceParamet
 
 
 ALARM_TEMPLATES = [
-    ("warning", "Temperature Drift", "Detected sustained drift from target band. Check process load."),
-    ("warning", "PWM Saturation Trend", "PWM output frequently approaches threshold. Tune gains carefully."),
-    ("critical", "Out of Band", "Current temperature exceeds safe band for extended duration."),
-    ("warning", "Sensor Stability Alert", "Sensor noise increased in latest window. Verify sensor health."),
+    ("out_of_band", "rule_engine", "warning", "Out of Band", "Temperature remains outside target band."),
+    ("sensor_invalid", "telemetry", "critical", "Sensor Invalid", "Sensor signal invalid or disconnected."),
+    ("high_saturation", "telemetry", "warning", "High Saturation", "PWM remains high for too long."),
+    ("param_apply_failed", "params_ack", "warning", "Param Apply Failed", "Controller rejected parameter update."),
+    ("device_offline", "device_status", "critical", "Device Offline", "No telemetry for configured timeout."),
 ]
 
 
@@ -114,14 +115,18 @@ def generate_for_device(
 
         should_add_alarm = random.random() < alarm_probability or trigger in {"error_window", "saturation_window"}
         if should_add_alarm:
-            level, title, message = random.choice(ALARM_TEMPLATES)
+            rule_code, source, level, title, message = random.choice(ALARM_TEMPLATES)
             alarm = DeviceAlarm(
                 device_id=device.id,
                 level=level,
+                rule_code=rule_code,
+                source=source,
                 title=title,
                 message=f"{device.code}: {message}",
                 is_active=random.random() < 0.45,
+                acknowledged=random.random() < 0.3,
                 created_at=points[-1]["timestamp"],
+                cleared_at=None if random.random() < 0.45 else points[-1]["timestamp"] + timedelta(minutes=random.randint(2, 40)),
             )
             db_add(alarm)
             alarms_added += 1

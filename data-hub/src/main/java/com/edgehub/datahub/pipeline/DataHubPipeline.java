@@ -1,5 +1,6 @@
 package com.edgehub.datahub.pipeline;
 
+import com.edgehub.datahub.alarm.AlarmRedisCacheService;
 import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public final class DataHubPipeline implements SmartLifecycle {
   private final TelemetryWriteFilter telemetryWriteFilter;
   private final TelemetrySummaryAggregator telemetrySummaryAggregator;
   private final DeviceStatusTracker deviceStatusTracker;
+  private final AlarmRedisCacheService alarmRedisCacheService;
   private final AtomicLong pipelineDropped = new AtomicLong();
   private final AtomicLong parseFailures = new AtomicLong();
   private final AtomicLong persistFailures = new AtomicLong();
@@ -52,7 +55,8 @@ public final class DataHubPipeline implements SmartLifecycle {
       DataHubMetrics metrics,
       TelemetryWriteFilter telemetryWriteFilter,
       TelemetrySummaryAggregator telemetrySummaryAggregator,
-      DeviceStatusTracker deviceStatusTracker) {
+      DeviceStatusTracker deviceStatusTracker,
+      ObjectProvider<AlarmRedisCacheService> alarmRedisCacheServiceProvider) {
     this.source = source;
     this.parser = parser;
     this.writer = writer;
@@ -61,6 +65,7 @@ public final class DataHubPipeline implements SmartLifecycle {
     this.telemetryWriteFilter = telemetryWriteFilter;
     this.telemetrySummaryAggregator = telemetrySummaryAggregator;
     this.deviceStatusTracker = deviceStatusTracker;
+    this.alarmRedisCacheService = alarmRedisCacheServiceProvider.getIfAvailable();
   }
 
   @Override
@@ -180,6 +185,9 @@ public final class DataHubPipeline implements SmartLifecycle {
   }
 
   private Flux<PersistenceInstruction> applyPersistencePolicy(ParsedHubMessage message) {
+    if (alarmRedisCacheService != null) {
+      alarmRedisCacheService.onMessage(message);
+    }
     DeviceStatusTracker.StatusBatch statusBatch = deviceStatusTracker.onMessage(message);
     if (message instanceof ParsedHubMessage.TelemetryMessage telemetry) {
       TelemetryWriteFilter.FilterDecision decision = telemetryWriteFilter.evaluate(telemetry);
@@ -220,6 +228,9 @@ public final class DataHubPipeline implements SmartLifecycle {
   private Flux<PersistenceInstruction> statusInstruction(List<DeviceStatusSnapshot> updates) {
     if (updates.isEmpty()) {
       return Flux.empty();
+    }
+    if (alarmRedisCacheService != null) {
+      updates.forEach(alarmRedisCacheService::onDeviceStatus);
     }
     return Flux.fromIterable(updates).map(DeviceStatusInstruction::new);
   }

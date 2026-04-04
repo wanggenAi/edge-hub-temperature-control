@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -129,12 +130,34 @@ class DeviceAlarm(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
     level: Mapped[str] = mapped_column(String(16), default="warning")
+    rule_code: Mapped[str] = mapped_column(String(64), default="out_of_band", index=True)
+    source: Mapped[str] = mapped_column(String(32), default="rule_engine", index=True)
     title: Mapped[str] = mapped_column(String(128))
     message: Mapped[str] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cleared_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     device: Mapped[Device] = relationship(back_populates="alarms")
+
+
+class AlarmRule(Base):
+    __tablename__ = "alarm_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    rule_code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    target: Mapped[str] = mapped_column(String(64))
+    operator: Mapped[str] = mapped_column(String(16), default=">")
+    threshold: Mapped[str] = mapped_column(String(128))
+    hold_seconds: Mapped[int] = mapped_column(Integer, default=60)
+    severity: Mapped[str] = mapped_column(String(16), default="warning")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    scope_type: Mapped[str] = mapped_column(String(16), default="global")
+    scope_value: Mapped[str] = mapped_column(String(128), default="*")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by: Mapped[str] = mapped_column(String(64), default="system")
 
 
 class AIRecommendation(Base):

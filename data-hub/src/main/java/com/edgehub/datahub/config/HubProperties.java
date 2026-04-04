@@ -12,6 +12,7 @@ public class HubProperties {
   private final TelemetryFilter telemetryFilter = new TelemetryFilter();
   private final TelemetrySummary telemetrySummary = new TelemetrySummary();
   private final DeviceStatus deviceStatus = new DeviceStatus();
+  private final Redis redis = new Redis();
   private final Monitoring monitoring = new Monitoring();
   private int bufferSize = 2048;
   private int processingConcurrency = 8;
@@ -54,6 +55,10 @@ public class HubProperties {
 
   public DeviceStatus getDeviceStatus() {
     return deviceStatus;
+  }
+
+  public Redis getRedis() {
+    return redis;
   }
 
   public int getProcessingConcurrency() {
@@ -498,6 +503,99 @@ public class HubProperties {
 
     public void setMaxActiveDevices(long maxActiveDevices) {
       this.maxActiveDevices = maxActiveDevices;
+    }
+  }
+
+  public static class Redis {
+    private boolean enabled = false;
+    private String host = "127.0.0.1";
+    private int port = 6379;
+    private String password = "";
+    private int database = 0;
+    private long connectTimeoutMs = 2000;
+    private String alarmKeyPrefix = "datahub:alarm";
+    private long activeTtlSeconds = 172800;
+    private long rulesTtlSeconds = 172800;
+    private long fsmTtlSeconds = 172800;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public String getHost() {
+      return host;
+    }
+
+    public void setHost(String host) {
+      this.host = host;
+    }
+
+    public int getPort() {
+      return port;
+    }
+
+    public void setPort(int port) {
+      this.port = port;
+    }
+
+    public String getPassword() {
+      return password;
+    }
+
+    public void setPassword(String password) {
+      this.password = password;
+    }
+
+    public int getDatabase() {
+      return database;
+    }
+
+    public void setDatabase(int database) {
+      this.database = database;
+    }
+
+    public long getConnectTimeoutMs() {
+      return connectTimeoutMs;
+    }
+
+    public void setConnectTimeoutMs(long connectTimeoutMs) {
+      this.connectTimeoutMs = connectTimeoutMs;
+    }
+
+    public String getAlarmKeyPrefix() {
+      return alarmKeyPrefix;
+    }
+
+    public void setAlarmKeyPrefix(String alarmKeyPrefix) {
+      this.alarmKeyPrefix = alarmKeyPrefix;
+    }
+
+    public long getActiveTtlSeconds() {
+      return activeTtlSeconds;
+    }
+
+    public void setActiveTtlSeconds(long activeTtlSeconds) {
+      this.activeTtlSeconds = activeTtlSeconds;
+    }
+
+    public long getRulesTtlSeconds() {
+      return rulesTtlSeconds;
+    }
+
+    public void setRulesTtlSeconds(long rulesTtlSeconds) {
+      this.rulesTtlSeconds = rulesTtlSeconds;
+    }
+
+    public long getFsmTtlSeconds() {
+      return fsmTtlSeconds;
+    }
+
+    public void setFsmTtlSeconds(long fsmTtlSeconds) {
+      this.fsmTtlSeconds = fsmTtlSeconds;
     }
   }
 
