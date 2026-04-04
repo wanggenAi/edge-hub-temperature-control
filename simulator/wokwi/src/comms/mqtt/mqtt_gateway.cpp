@@ -2,19 +2,59 @@
 
 namespace edge::comms::mqtt {
 
+MqttGateway* MqttGateway::active_instance_ = nullptr;
+
 MqttGateway::MqttGateway(const edge::config::NetworkConfig& cfg)
     : cfg_(cfg), mqtt_client_(wifi_client_) {}
 
 void MqttGateway::begin() {
   mqtt_client_.setServer(cfg_.mqtt_host, cfg_.mqtt_port);
-  mqtt_client_.setBufferSize(1024);
+  mqtt_client_.setBufferSize(cfg_.mqtt_client_buffer_size);
+  active_instance_ = this;
+  mqtt_client_.setCallback(mqtt_callback_router);
+}
+
+void MqttGateway::set_params_message_callback(ParamsMessageCallback callback,
+                                              void* ctx) {
+  params_callback_ = callback;
+  params_callback_ctx_ = ctx;
+}
+
+void MqttGateway::mqtt_callback_router(char* topic, byte* payload, unsigned int length) {
+  if (active_instance_ == nullptr) {
+    return;
+  }
+  active_instance_->handle_mqtt_message(topic, payload, length);
+}
+
+void MqttGateway::handle_mqtt_message(char* topic, byte* payload, unsigned int length) {
+  if (params_callback_ == nullptr) {
+    return;
+  }
+
+  if (String(topic) != cfg_.params_set_topic) {
+    return;
+  }
+
+  String payload_text;
+  payload_text.reserve(length);
+  for (unsigned int index = 0; index < length; ++index) {
+    payload_text += static_cast<char>(payload[index]);
+  }
+
+  Serial.print("mqtt_rx_topic=");
+  Serial.println(topic);
+  Serial.print("mqtt_rx_payload=");
+  Serial.println(payload_text);
+
+  params_callback_(payload_text, millis(), params_callback_ctx_);
 }
 
 void MqttGateway::ensure_wifi(unsigned long now_ms) {
   if (WiFi.status() == WL_CONNECTED) {
     return;
   }
-  if (now_ms - last_wifi_attempt_ms_ < 5000) {
+  if (now_ms - last_wifi_attempt_ms_ < cfg_.wifi_reconnect_interval_ms) {
     return;
   }
 
@@ -28,12 +68,26 @@ void MqttGateway::ensure_mqtt(unsigned long now_ms) {
   if (WiFi.status() != WL_CONNECTED || mqtt_client_.connected()) {
     return;
   }
-  if (now_ms - last_mqtt_attempt_ms_ < 5000) {
+  if (now_ms - last_mqtt_attempt_ms_ < cfg_.mqtt_reconnect_interval_ms) {
     return;
   }
 
   last_mqtt_attempt_ms_ = now_ms;
-  mqtt_client_.connect(cfg_.mqtt_client_id, cfg_.mqtt_username, cfg_.mqtt_password);
+  if (!mqtt_client_.connect(cfg_.mqtt_client_id, cfg_.mqtt_username,
+                            cfg_.mqtt_password)) {
+    Serial.print("mqtt_connect_failed_state=");
+    Serial.println(mqtt_client_.state());
+    return;
+  }
+
+  Serial.println("mqtt_status=connected");
+  if (mqtt_client_.subscribe(cfg_.params_set_topic)) {
+    Serial.print("mqtt_subscribed_topic=");
+    Serial.println(cfg_.params_set_topic);
+  } else {
+    Serial.print("mqtt_subscribe_failed_topic=");
+    Serial.println(cfg_.params_set_topic);
+  }
 }
 
 void MqttGateway::maintain(unsigned long now_ms) {
@@ -51,39 +105,35 @@ void MqttGateway::maintain(unsigned long now_ms) {
   }
 }
 
-String MqttGateway::telemetry_to_json(const edge::domain::TelemetrySnapshot& s) const {
-  String payload = "{\"device_id\":\"";
-  payload += s.device_id;
-  payload += "\",\"uptime_ms\":";
-  payload += String(s.uptime_ms);
-  payload += ",\"target_temp_c\":";
-  payload += String(s.target_temp_c, 2);
-  payload += ",\"measured_temp_c\":";
-  payload += String(s.measured_temp_c, 2);
-  payload += ",\"sensor_temp_c\":";
-  payload += s.sensor_valid ? String(s.sensor_temp_c, 2) : String("null");
-  payload += ",\"simulated_temp_c\":";
-  payload += String(s.simulated_temp_c, 2);
-  payload += ",\"using_simulated_feedback\":";
-  payload += s.using_simulated_feedback ? "true" : "false";
-  payload += ",\"pwm_duty\":";
-  payload += String(s.control.pwm_duty);
-  payload += ",\"pwm_norm\":";
-  payload += String(s.control.pwm_norm, 3);
-  payload += ",\"error_c\":";
-  payload += String(s.control.error_c, 2);
-  payload += ",\"integral_error\":";
-  payload += String(s.control.integral_error, 2);
-  payload += "}";
-  return payload;
-}
-
 bool MqttGateway::publish_telemetry(const edge::domain::TelemetrySnapshot& snapshot) {
   if (!mqtt_client_.connected()) {
+    Serial.println("mqtt_publish_skipped=not_connected");
     return false;
   }
-  const String payload = telemetry_to_json(snapshot);
-  return mqtt_client_.publish(cfg_.telemetry_topic, payload.c_str());
+  const String payload = telemetry_builder_.to_json(snapshot);
+  const bool published = mqtt_client_.publish(cfg_.telemetry_topic, payload.c_str());
+  Serial.print("mqtt_publish_status=");
+  Serial.println(published ? "published" : "failed");
+  return published;
 }
+
+bool MqttGateway::publish_ack_json(const String& payload) {
+  Serial.print("mqtt_ack_topic=");
+  Serial.println(cfg_.params_ack_topic);
+  Serial.print("mqtt_ack_payload=");
+  Serial.println(payload);
+
+  if (!mqtt_client_.connected()) {
+    Serial.println("mqtt_ack_status=skipped_not_connected");
+    return false;
+  }
+
+  const bool published = mqtt_client_.publish(cfg_.params_ack_topic, payload.c_str());
+  Serial.print("mqtt_ack_status=");
+  Serial.println(published ? "published" : "failed");
+  return published;
+}
+
+bool MqttGateway::connected() { return mqtt_client_.connected(); }
 
 }  // namespace edge::comms::mqtt

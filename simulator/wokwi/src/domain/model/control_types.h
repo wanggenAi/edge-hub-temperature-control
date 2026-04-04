@@ -9,6 +9,12 @@ enum class FeedbackSourceType {
   kSensor,
 };
 
+enum class SaturationState {
+  kLow,
+  kNone,
+  kHigh,
+};
+
 struct TemperatureSample {
   float temperature_c = NAN;
   bool valid = false;
@@ -27,6 +33,7 @@ struct ControllerOutput {
   float pwm_norm = 0.0f;
   float error_c = 0.0f;
   float integral_error = 0.0f;
+  SaturationState saturation_state = SaturationState::kNone;
 };
 
 struct TelemetrySnapshot {
@@ -38,6 +45,16 @@ struct TelemetrySnapshot {
   float simulated_temp_c = NAN;
   bool sensor_valid = false;
   bool using_simulated_feedback = false;
+  unsigned long control_period_ms = 0;
+  const char* run_id = "";
+  const char* control_mode = "";
+  const char* controller_version = "";
+  float kp = 0.0f;
+  float ki = 0.0f;
+  float kd = 0.0f;
+  const char* system_state = "";
+  bool has_pending_params = false;
+  unsigned long pending_params_age_ms = 0;
   ControllerOutput control;
 };
 
