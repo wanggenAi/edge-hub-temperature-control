@@ -2,6 +2,7 @@ package com.edgehub.datahub.pipeline;
 
 import com.edgehub.datahub.alarm.AlarmRedisCacheService;
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.RawMqttMessage;
@@ -181,21 +182,28 @@ public final class DataHubPipeline implements SmartLifecycle {
       return writer.writeDeviceStatus(deviceStatusInstruction.status())
           .doOnSuccess(ignored -> metrics.recordDeviceStatusPersisted());
     }
+    if (instruction instanceof AlarmFactInstruction alarmFactInstruction) {
+      return writer.writeAlarmFact(alarmFactInstruction.alarmFactEvent());
+    }
     return Mono.empty();
   }
 
   private Flux<PersistenceInstruction> applyPersistencePolicy(ParsedHubMessage message) {
+    List<AlarmFactEvent> alarmEvents = List.of();
     if (alarmRedisCacheService != null) {
-      alarmRedisCacheService.onMessage(message);
+      alarmEvents = alarmRedisCacheService.onMessage(message);
     }
     DeviceStatusTracker.StatusBatch statusBatch = deviceStatusTracker.onMessage(message);
     if (message instanceof ParsedHubMessage.TelemetryMessage telemetry) {
       TelemetryWriteFilter.FilterDecision decision = telemetryWriteFilter.evaluate(telemetry);
       TelemetrySummaryAggregator.SummaryBatch summaryBatch = telemetrySummaryAggregator.onTelemetry(telemetry, decision);
       if (!decision.persist()) {
-        return statusInstruction(statusBatch.updates()).concatWith(summaryInstruction(summaryBatch.summaries()));
+        return alarmInstruction(alarmEvents)
+            .concatWith(statusInstruction(statusBatch.updates()))
+            .concatWith(summaryInstruction(summaryBatch.summaries()));
       }
-      return statusInstruction(statusBatch.updates())
+      return alarmInstruction(alarmEvents)
+          .concatWith(statusInstruction(statusBatch.updates()))
           .concatWith(summaryInstruction(summaryBatch.summaries()))
           .concatWithValues(new MessageInstruction(message));
     }
@@ -203,7 +211,8 @@ public final class DataHubPipeline implements SmartLifecycle {
       TelemetrySummaryAggregator.SummaryBatch summaryBatch =
           telemetrySummaryAggregator.flush(paramsSet.topic().deviceId(), "parameter_set");
       telemetryWriteFilter.invalidate(paramsSet.topic().deviceId(), "parameter_set");
-      return statusInstruction(statusBatch.updates())
+      return alarmInstruction(alarmEvents)
+          .concatWith(statusInstruction(statusBatch.updates()))
           .concatWith(summaryInstruction(summaryBatch.summaries()))
           .concatWithValues(new MessageInstruction(message));
     }
@@ -211,11 +220,21 @@ public final class DataHubPipeline implements SmartLifecycle {
       TelemetrySummaryAggregator.SummaryBatch summaryBatch =
           telemetrySummaryAggregator.flush(paramsAck.topic().deviceId(), "parameter_ack");
       telemetryWriteFilter.invalidate(paramsAck.topic().deviceId(), "parameter_ack");
-      return statusInstruction(statusBatch.updates())
+      return alarmInstruction(alarmEvents)
+          .concatWith(statusInstruction(statusBatch.updates()))
           .concatWith(summaryInstruction(summaryBatch.summaries()))
           .concatWithValues(new MessageInstruction(message));
     }
-    return statusInstruction(statusBatch.updates()).concatWithValues(new MessageInstruction(message));
+    return alarmInstruction(alarmEvents)
+        .concatWith(statusInstruction(statusBatch.updates()))
+        .concatWithValues(new MessageInstruction(message));
+  }
+
+  private Flux<PersistenceInstruction> alarmInstruction(List<AlarmFactEvent> alarmEvents) {
+    if (alarmEvents == null || alarmEvents.isEmpty()) {
+      return Flux.empty();
+    }
+    return Flux.fromIterable(alarmEvents).map(AlarmFactInstruction::new);
   }
 
   private Flux<PersistenceInstruction> summaryInstruction(List<TelemetrySteadySummary> summaries) {
@@ -229,10 +248,14 @@ public final class DataHubPipeline implements SmartLifecycle {
     if (updates.isEmpty()) {
       return Flux.empty();
     }
+    Flux<PersistenceInstruction> alarmEvents = Flux.empty();
     if (alarmRedisCacheService != null) {
-      updates.forEach(alarmRedisCacheService::onDeviceStatus);
+      alarmEvents =
+          Flux.fromIterable(updates)
+              .flatMapIterable(alarmRedisCacheService::onDeviceStatus)
+              .map(AlarmFactInstruction::new);
     }
-    return Flux.fromIterable(updates).map(DeviceStatusInstruction::new);
+    return alarmEvents.concatWith(Flux.fromIterable(updates).map(DeviceStatusInstruction::new));
   }
 
   private Disposable buildSubscription() {
@@ -305,6 +328,12 @@ public final class DataHubPipeline implements SmartLifecycle {
     log.info("flushing device status updates reason={} count={}", reason, statuses.size());
     for (DeviceStatusSnapshot status : statuses) {
       try {
+        if (alarmRedisCacheService != null) {
+          List<AlarmFactEvent> events = alarmRedisCacheService.onDeviceStatus(status);
+          for (AlarmFactEvent event : events) {
+            writer.writeAlarmFact(event).block();
+          }
+        }
         writer.writeDeviceStatus(status)
             .doOnSuccess(ignored -> metrics.recordDeviceStatusPersisted())
             .block();
@@ -375,6 +404,17 @@ public final class DataHubPipeline implements SmartLifecycle {
           deviceStatusInstruction.status().statusReason(),
           failureCount,
           error);
+      return;
+    }
+    if (instruction instanceof AlarmFactInstruction alarmFactInstruction) {
+      AlarmFactEvent event = alarmFactInstruction.alarmFactEvent();
+      log.error(
+          "alarm fact persist failed deviceId={} ruleCode={} eventType={} persistFailureCount={}",
+          event.deviceId(),
+          event.ruleCode(),
+          event.eventType(),
+          failureCount,
+          error);
     }
   }
 
@@ -390,11 +430,14 @@ public final class DataHubPipeline implements SmartLifecycle {
     };
   }
 
-  private sealed interface PersistenceInstruction permits MessageInstruction, TelemetrySummaryInstruction, DeviceStatusInstruction {}
+  private sealed interface PersistenceInstruction
+      permits MessageInstruction, TelemetrySummaryInstruction, DeviceStatusInstruction, AlarmFactInstruction {}
 
   private record MessageInstruction(ParsedHubMessage message) implements PersistenceInstruction {}
 
   private record TelemetrySummaryInstruction(TelemetrySteadySummary summary) implements PersistenceInstruction {}
 
   private record DeviceStatusInstruction(DeviceStatusSnapshot status) implements PersistenceInstruction {}
+
+  private record AlarmFactInstruction(AlarmFactEvent alarmFactEvent) implements PersistenceInstruction {}
 }

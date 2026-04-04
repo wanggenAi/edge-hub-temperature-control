@@ -20,6 +20,7 @@ from app.schemas.alarm import (
     AlarmRuleUpdateIn,
     AlarmRuleUpdateOut,
 )
+from app.services.alarm_rule_cache import sync_rule_to_redis
 
 router = APIRouter(prefix="/alarms", tags=["alarms"])
 
@@ -209,6 +210,7 @@ def update_alarm_rule(
     rule.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rule)
+    sync_rule_to_redis(rule)
 
     return AlarmRuleUpdateOut(
         item=AlarmRuleItem(

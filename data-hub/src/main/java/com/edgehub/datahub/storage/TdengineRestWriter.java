@@ -18,6 +18,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParameterAckPayload;
 import com.edgehub.datahub.model.ParameterSetPayload;
@@ -248,6 +249,33 @@ public final class TdengineRestWriter implements TdengineWriter {
     return executeWrite(sql, "device_status", status.deviceId(), logMessage);
   }
 
+  @Override
+  public Mono<Void> writeAlarmFact(AlarmFactEvent alarmFactEvent) {
+    String tableName = tableName("alarm_events", alarmFactEvent.deviceId());
+    String sql = "INSERT INTO " + qualifiedTableName(tableName)
+        + " USING " + qualifiedTableName("alarm_events")
+        + " TAGS (" + stringValue(alarmFactEvent.deviceId()) + ", " + stringValue(alarmFactEvent.ruleCode()) + ")"
+        + " VALUES ("
+        + alarmFactEvent.eventTime().toEpochMilli() + ", "
+        + stringValue(alarmFactEvent.severity()) + ", "
+        + stringValue(alarmFactEvent.source()) + ", "
+        + stringValue(alarmFactEvent.reason()) + ", "
+        + stringValue(alarmFactEvent.eventType()) + ", "
+        + timestampValue(alarmFactEvent.triggeredAt()) + ", "
+        + numericValue(alarmFactEvent.durationSeconds()) + ", "
+        + stringValue(alarmFactEvent.contextJson())
+        + ")";
+    String logMessage = "tdengine.alarm_event_written device=%s rule=%s table=%s eventType=%s severity=%s source=%s"
+        .formatted(
+            alarmFactEvent.deviceId(),
+            alarmFactEvent.ruleCode(),
+            qualifiedTableName(tableName),
+            alarmFactEvent.eventType(),
+            alarmFactEvent.severity(),
+            alarmFactEvent.source());
+    return executeWrite(sql, "alarm_event", alarmFactEvent.deviceId(), logMessage);
+  }
+
   private Mono<Void> executeWrite(String sql, String eventType, String deviceId, String successLogMessage) {
     return ensureInitialized.then(Mono.fromRunnable(() -> executeSql(sql))
         .subscribeOn(Schedulers.boundedElastic())
@@ -382,6 +410,21 @@ public final class TdengineRestWriter implements TdengineWriter {
                 device_id BINARY(128),
                 mqtt_topic BINARY(255)
               )
+              """.formatted(databaseName),
+          """
+              CREATE STABLE IF NOT EXISTS %s.alarm_events (
+                ts TIMESTAMP,
+                severity VARCHAR(16),
+                source VARCHAR(32),
+                reason VARCHAR(255),
+                event_type VARCHAR(16),
+                triggered_at TIMESTAMP,
+                duration_seconds BIGINT,
+                context_json VARCHAR(2048)
+              ) TAGS (
+                device_id BINARY(128),
+                rule_code BINARY(64)
+              )
               """.formatted(databaseName));
       ddl.forEach(this::executeSql);
       ensureTelemetrySchemaCompatibility();
@@ -492,6 +535,10 @@ public final class TdengineRestWriter implements TdengineWriter {
 
   private String booleanValue(Boolean value) {
     return value == null ? "NULL" : Boolean.TRUE.equals(value) ? "true" : "false";
+  }
+
+  private String timestampValue(java.time.Instant value) {
+    return value == null ? "NULL" : Long.toString(value.toEpochMilli());
   }
 
   private String normalizeBaseUrl(String url) {

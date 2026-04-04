@@ -1,6 +1,7 @@
 package com.edgehub.datahub.storage;
 
 import com.edgehub.datahub.model.ParsedHubMessage;
+import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
 import org.slf4j.Logger;
@@ -74,5 +75,20 @@ public final class LoggingTdengineWriter implements TdengineWriter {
         status.lastSeenAt(),
         status.systemState(),
         status.lastMessageKind()));
+  }
+
+  @Override
+  public Mono<Void> writeAlarmFact(AlarmFactEvent alarmFactEvent) {
+    return Mono.fromRunnable(() -> log.info(
+        "tdengine.alarm_event device={} rule={} type={} severity={} source={} reason={} eventTime={} triggeredAt={} durationSeconds={}",
+        alarmFactEvent.deviceId(),
+        alarmFactEvent.ruleCode(),
+        alarmFactEvent.eventType(),
+        alarmFactEvent.severity(),
+        alarmFactEvent.source(),
+        alarmFactEvent.reason(),
+        alarmFactEvent.eventTime(),
+        alarmFactEvent.triggeredAt(),
+        alarmFactEvent.durationSeconds()));
   }
 }

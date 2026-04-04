@@ -1,6 +1,7 @@
 package com.edgehub.datahub.storage;
 
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
@@ -34,6 +35,7 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
   private final Path parameterSetFile;
   private final Path parameterAckFile;
   private final Path deviceStatusFile;
+  private final Path alarmEventFile;
 
   public FileArchiveTdengineWriter(ObjectMapper objectMapper, HubProperties properties) {
     this.objectMapper = objectMapper;
@@ -43,6 +45,7 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
     this.parameterSetFile = baseDir.resolve("params-set.jsonl");
     this.parameterAckFile = baseDir.resolve("params-ack.jsonl");
     this.deviceStatusFile = baseDir.resolve("device-status.jsonl");
+    this.alarmEventFile = baseDir.resolve("alarm-events.jsonl");
     createBaseDirectory();
   }
 
@@ -99,6 +102,25 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         Map.of(
             "topic", status.rawTopic(),
             "payload", status));
+  }
+
+  @Override
+  public Mono<Void> writeAlarmFact(AlarmFactEvent alarmFactEvent) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("rule_code", alarmFactEvent.ruleCode());
+    payload.put("severity", alarmFactEvent.severity());
+    payload.put("source", alarmFactEvent.source());
+    payload.put("reason", alarmFactEvent.reason());
+    payload.put("event_type", alarmFactEvent.eventType());
+    payload.put("triggered_at", alarmFactEvent.triggeredAt());
+    payload.put("duration_seconds", alarmFactEvent.durationSeconds());
+    payload.put("context_json", alarmFactEvent.contextJson());
+    return appendJsonLine(
+        alarmEventFile,
+        "alarm_event",
+        alarmFactEvent.eventTime(),
+        alarmFactEvent.deviceId(),
+        payload);
   }
 
   private Mono<Void> appendJsonLine(
