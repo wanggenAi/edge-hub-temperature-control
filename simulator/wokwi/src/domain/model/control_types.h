@@ -33,6 +33,8 @@ struct ControllerOutput {
   float pwm_norm = 0.0f;
   float error_c = 0.0f;
   float integral_error = 0.0f;
+  float derivative_error = 0.0f;
+  float d_term = 0.0f;
   SaturationState saturation_state = SaturationState::kNone;
 };
 

@@ -34,6 +34,10 @@ String TelemetryBuilder::to_json(const edge::domain::TelemetrySnapshot& s) const
   payload += String(s.control.error_c, 2);
   payload += ",\"integral_error\":";
   payload += String(s.control.integral_error, 2);
+  payload += ",\"derivative_error\":";
+  payload += String(s.control.derivative_error, 3);
+  payload += ",\"d_term\":";
+  payload += String(s.control.d_term, 3);
   payload += ",\"control_output\":";
   payload += String(s.control.control_output, 2);
   payload += ",\"pwm_duty\":";

@@ -18,6 +18,8 @@ class PiController {
  private:
   edge::config::ControlConfig cfg_;
   float integral_error_ = 0.0f;
+  float previous_error_ = 0.0f;
+  bool previous_error_initialized_ = false;
 };
 
 }  // namespace edge::controller
