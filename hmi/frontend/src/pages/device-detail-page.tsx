@@ -1043,7 +1043,7 @@ function DeviceSearchSelect({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onInputKeyDown}
-              placeholder="Search device name/code..."
+              placeholder="Search name/code/line/location..."
               className="h-8"
             />
           </div>
@@ -1066,7 +1066,7 @@ function DeviceSearchSelect({
                 onClick={() => onSelect(item)}
               >
                 <div className="truncate">{item.name}</div>
-                <div className="truncate text-xs text-mute">{item.code} · {item.line}</div>
+                <div className="truncate text-xs text-mute">{item.code} · {item.line} · {item.location}</div>
               </button>
             ))}
           </div>
