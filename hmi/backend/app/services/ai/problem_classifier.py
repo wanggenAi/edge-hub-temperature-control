@@ -6,15 +6,15 @@ from app.services.ai.schemas import FeatureSet, RecommendationGenerateInput
 
 def classify_problem(payload: RecommendationGenerateInput, features: FeatureSet) -> tuple[ProblemType, float, dict[str, bool]]:
     rules: dict[str, bool] = {
-        # 饱和优先级最高：当执行器长期贴边时，继续加大增益通常收益有限且风险高。
+        # Saturation is evaluated first because actuator headroom is already limited.
         "saturation_limited": features.saturation_ratio >= payload.saturation_warn_ratio,
-        # 振荡：误差零交叉频繁 + 波动较大，通常是 Kp/Ki 偏高或 Kd 不足。
+        # Frequent zero crossings with high error spread indicate oscillation behavior.
         "oscillation": features.zero_crossings >= 6 and features.error_std >= payload.target_band,
-        # 超调：峰值超调超过参数阈值。
+        # Overshoot exceeds configured limit.
         "overshoot_high": features.overshoot_pct > payload.overshoot_limit_pct,
-        # 稳态误差：误差偏置明显且最终未进入目标带。
+        # Mean error remains biased and in-band ratio stays low.
         "steady_state_error": abs(features.mean_error) > payload.target_band and features.in_band_ratio < 0.6,
-        # 慢响应：绝对误差偏大且收敛慢（长时间未稳定）。
+        # Large absolute error and no fast settling indicate slow response.
         "slow_response": features.mean_abs_error > payload.target_band
         and (features.settling_sec is None or features.settling_sec > 300),
     }

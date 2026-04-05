@@ -81,7 +81,7 @@ def build_recommendation(
     if problem_type in {ProblemType.OVERSHOOT_HIGH, ProblemType.OSCILLATION}:
         risk = RiskLevel.MEDIUM
     if problem_type == ProblemType.SATURATION_LIMITED:
-        # 执行器受限时，提高风险等级并要求人工确认，避免盲目增益导致更大波动。
+        # Saturation-limited systems have reduced tuning headroom and higher execution risk.
         risk = RiskLevel.HIGH
 
     requires_confirmation = risk != RiskLevel.LOW

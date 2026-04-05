@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
+import re
 
 from app.services.ai.feature_extractor import extract_features
 from app.services.ai.problem_classifier import classify_problem
-from app.services.ai.schemas import RecommendationGenerateInput, RecommendationGenerateOutput
+from app.services.ai.schemas import PIDParams, RecommendationGenerateInput, RecommendationGenerateOutput
 from app.services.ai.tuning_engine import build_recommendation
 
 
 class RecommendationService:
+    _LEGACY_GAIN_PATTERN = re.compile(r"(Kp|Ki|Kd)\s*:\s*([+-]?\d+(?:\.\d+)?)")
+
     def generate(self, payload: RecommendationGenerateInput) -> RecommendationGenerateOutput:
         features = extract_features(payload)
         problem_type, confidence, rules = classify_problem(payload, features)
@@ -46,4 +50,89 @@ class RecommendationService:
             expected_effect=expected_effect,
             evidence=evidence,
             generated_at=datetime.utcnow(),
+        )
+
+    def to_storage_fields(self, output: RecommendationGenerateOutput) -> tuple[str, str, str]:
+        reason = f"{output.problem_type.value}; effect={output.expected_effect.value}"
+        risk = f"{output.risk_level.value}; requires_confirmation={output.requires_confirmation}"
+        recommended = output.recommended_params.model_dump(mode="json")
+        delta = output.delta.model_dump(mode="json")
+        suggestion = json.dumps(
+            {
+                "f": "ai_rec",
+                "v": "1",
+                "p": {
+                    "t": output.problem_type.value,
+                    "e": output.expected_effect.value,
+                    "r": output.risk_level.value,
+                    "c": round(output.confidence, 4),
+                    "rc": output.requires_confirmation,
+                    "rp": {
+                        "kp": round(float(recommended["kp"]), 4),
+                        "ki": round(float(recommended["ki"]), 4),
+                        "kd": round(float(recommended["kd"]), 4),
+                    },
+                    "d": {
+                        "kp": round(float(delta["kp"]), 4),
+                        "ki": round(float(delta["ki"]), 4),
+                        "kd": round(float(delta["kd"]), 4),
+                    },
+                },
+            },
+            separators=(",", ":"),
+        )
+        return reason, suggestion, risk
+
+    def parse_recommended_params(self, suggestion: str, current_params: PIDParams) -> PIDParams | None:
+        if not suggestion:
+            return None
+
+        try:
+            body = json.loads(suggestion)
+            if isinstance(body, dict) and body.get("f") == "ai_rec":
+                compact_payload = body.get("p")
+                if isinstance(compact_payload, dict):
+                    rec = compact_payload.get("rp")
+                    if isinstance(rec, dict):
+                        return PIDParams(
+                            kp=float(rec.get("kp", current_params.kp)),
+                            ki=float(rec.get("ki", current_params.ki)),
+                            kd=float(rec.get("kd", current_params.kd)),
+                        )
+                    delta = compact_payload.get("d")
+                    if isinstance(delta, dict):
+                        return PIDParams(
+                            kp=round(current_params.kp + float(delta.get("kp", 0.0)), 4),
+                            ki=round(current_params.ki + float(delta.get("ki", 0.0)), 4),
+                            kd=round(current_params.kd + float(delta.get("kd", 0.0)), 4),
+                        )
+
+            payload = body.get("payload") if isinstance(body, dict) else None
+            if isinstance(payload, dict):
+                rec = payload.get("recommended_params")
+                if isinstance(rec, dict):
+                    return PIDParams(
+                        kp=float(rec.get("kp", current_params.kp)),
+                        ki=float(rec.get("ki", current_params.ki)),
+                        kd=float(rec.get("kd", current_params.kd)),
+                    )
+                delta = payload.get("delta")
+                if isinstance(delta, dict):
+                    return PIDParams(
+                        kp=round(current_params.kp + float(delta.get("kp", 0.0)), 4),
+                        ki=round(current_params.ki + float(delta.get("ki", 0.0)), 4),
+                        kd=round(current_params.kd + float(delta.get("kd", 0.0)), 4),
+                    )
+        except (ValueError, TypeError):
+            pass
+
+        updates: dict[str, float] = {}
+        for key, value in self._LEGACY_GAIN_PATTERN.findall(suggestion):
+            updates[key.lower()] = float(value)
+        if not updates:
+            return None
+        return PIDParams(
+            kp=round(current_params.kp + updates.get("kp", 0.0), 4),
+            ki=round(current_params.ki + updates.get("ki", 0.0), 4),
+            kd=round(current_params.kd + updates.get("kd", 0.0), 4),
         )

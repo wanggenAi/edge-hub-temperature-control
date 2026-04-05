@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import re
 import time
 from typing import Optional
 
@@ -49,14 +48,6 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
 recommendation_service = RecommendationService()
-
-
-def parse_ai_gain_suggestion(suggestion: str) -> dict[str, float]:
-    updates: dict[str, float] = {}
-    pattern = re.compile(r"(Kp|Ki|Kd)\s*:\s*([+-]?\d+(?:\.\d+)?)")
-    for key, value in pattern.findall(suggestion):
-        updates[key.lower()] = float(value)
-    return updates
 
 
 def query_accessible_devices(db: Session, current_user: User):
@@ -367,6 +358,59 @@ def _build_recommendation_input(
         saturation_warn_ratio=float(params.saturation_warn_ratio),
         saturation_high_ratio=float(params.saturation_high_ratio),
     )
+
+
+def _dispatch_and_confirm_parameter_update(
+    *,
+    db: Session,
+    device: Device,
+    param: DeviceParameter,
+    updated_by: str,
+    control_mode_for_publish: Optional[str] = None,
+) -> DeviceParameter:
+    if not mqtt_publisher.enabled():
+        raise HTTPException(status_code=503, detail="MQTT publish is disabled; cannot dispatch runtime parameters")
+
+    param.updated_by = updated_by
+    param.updated_at = datetime.utcnow()
+
+    dispatch_ms = int(time.time() * 1000)
+    publish_result = mqtt_publisher.publish_params_set(
+        device_id=device.code,
+        target_temp_c=device.target_temp,
+        kp=param.kp,
+        ki=param.ki,
+        kd=param.kd,
+        control_mode=control_mode_for_publish,
+        control_period_ms=param.sampling_period_ms,
+        apply_immediately=True,
+    )
+    if not publish_result.enabled:
+        raise HTTPException(status_code=503, detail="MQTT publish is disabled; parameter dispatch skipped")
+
+    ack = _wait_latest_params_ack(device.code, after_ms=dispatch_ms)
+    if ack is None:
+        raise HTTPException(status_code=504, detail="Parameter ack timeout: no params_ack received from device")
+    if not bool(ack.get("success") is True):
+        reason = str(ack.get("reason") or "unknown_reason")
+        ack_type = str(ack.get("ack_type") or "unknown_ack_type")
+        raise HTTPException(status_code=409, detail=f"Parameter ack failed: {ack_type} ({reason})")
+
+    # Persist runtime-confirmed values so UI and DB reflect actual device state immediately.
+    if ack.get("kp") is not None:
+        param.kp = float(ack.get("kp") or param.kp)
+    if ack.get("ki") is not None:
+        param.ki = float(ack.get("ki") or param.ki)
+    if ack.get("kd") is not None:
+        param.kd = float(ack.get("kd") or param.kd)
+    if ack.get("control_mode"):
+        param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
+    if ack.get("target_temp_c") is not None:
+        device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
+
+    db.commit()
+    db.refresh(param)
+    return param
 
 
 @router.get("", response_model=list[DeviceOut])
@@ -757,8 +801,6 @@ def update_parameters(
     current_user: User = Depends(require_roles("admin", "operator")),
 ) -> DeviceParameter:
     require_device_access(device_id, db, current_user)
-    if not mqtt_publisher.enabled():
-        raise HTTPException(status_code=503, detail="MQTT publish is disabled; cannot dispatch runtime parameters")
 
     param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
     device = db.scalar(select(Device).where(Device.id == device_id))
@@ -777,48 +819,13 @@ def update_parameters(
 
     for key, value in payload_data.items():
         setattr(param, key, value)
-    param.updated_by = current_user.username
-    param.updated_at = datetime.utcnow()
-
-    # Publish runtime parameter update to device MQTT params/set topic.
-    dispatch_ms = int(time.time() * 1000)
-    publish_result = mqtt_publisher.publish_params_set(
-        device_id=device.code,
-        target_temp_c=device.target_temp,
-        kp=param.kp,
-        ki=param.ki,
-        kd=param.kd,
-        control_mode=str(payload_data["control_mode"]) if "control_mode" in payload_data else None,
-        control_period_ms=param.sampling_period_ms,
-        apply_immediately=True,
+    return _dispatch_and_confirm_parameter_update(
+        db=db,
+        device=device,
+        param=param,
+        updated_by=current_user.username,
+        control_mode_for_publish=str(payload_data["control_mode"]) if "control_mode" in payload_data else None,
     )
-    if not publish_result.enabled:
-        raise HTTPException(status_code=503, detail="MQTT publish is disabled; parameter dispatch skipped")
-
-    ack = _wait_latest_params_ack(device.code, after_ms=dispatch_ms)
-    if ack is None:
-        raise HTTPException(status_code=504, detail="Parameter ack timeout: no params_ack received from device")
-    ack_success = bool(ack.get("success") is True)
-    if not ack_success:
-        reason = str(ack.get("reason") or "unknown_reason")
-        ack_type = str(ack.get("ack_type") or "unknown_ack_type")
-        raise HTTPException(status_code=409, detail=f"Parameter ack failed: {ack_type} ({reason})")
-
-    # Persist runtime-confirmed values from ack to keep HMI UI consistent immediately.
-    if ack.get("kp") is not None:
-        param.kp = float(ack.get("kp") or param.kp)
-    if ack.get("ki") is not None:
-        param.ki = float(ack.get("ki") or param.ki)
-    if ack.get("kd") is not None:
-        param.kd = float(ack.get("kd") or param.kd)
-    if ack.get("control_mode"):
-        param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
-    if ack.get("target_temp_c") is not None:
-        device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
-
-    db.commit()
-    db.refresh(param)
-    return param
 
 
 @router.get("/{device_id}/alarms", response_model=list[AlarmOut])
@@ -908,13 +915,7 @@ def generate_ai_recommendation(
     )
     generated = recommendation_service.generate(request_payload)
 
-    reason = f"{generated.problem_type.value}; effect={generated.expected_effect.value}"
-    suggestion = (
-        f"Kp: {generated.delta.kp:+.4f}, "
-        f"Ki: {generated.delta.ki:+.4f}, "
-        f"Kd: {generated.delta.kd:+.4f}"
-    )
-    risk = f"{generated.risk_level.value}; requires_confirmation={generated.requires_confirmation}"
+    reason, suggestion, risk = recommendation_service.to_storage_fields(generated)
     rec = AIRecommendation(
         device_id=device_id,
         reason=reason,
@@ -958,6 +959,10 @@ def apply_ai_recommendation(
     current_user: User = Depends(require_roles("admin", "operator")),
 ) -> DeviceParameter:
     require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
     rec = db.scalar(
         select(AIRecommendation)
         .where(AIRecommendation.device_id == device_id)
@@ -970,8 +975,9 @@ def apply_ai_recommendation(
     if not params:
         raise HTTPException(status_code=404, detail="Parameters not found")
 
-    updates = parse_ai_gain_suggestion(rec.suggestion)
-    if not updates:
+    current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
+    recommended = recommendation_service.parse_recommended_params(rec.suggestion, current)
+    if not recommended:
         params.updated_by = f"{current_user.username}:ai-noop"
         params.updated_at = datetime.utcnow()
         rec.last_run_at = datetime.utcnow()
@@ -979,13 +985,14 @@ def apply_ai_recommendation(
         db.refresh(params)
         return params
 
-    for key, delta in updates.items():
-        current = float(getattr(params, key))
-        setattr(params, key, round(current + delta, 4))
-
-    params.updated_by = f"{current_user.username}:ai"
-    params.updated_at = datetime.utcnow()
+    params.kp = round(float(recommended.kp), 4)
+    params.ki = round(float(recommended.ki), 4)
+    params.kd = round(float(recommended.kd), 4)
     rec.last_run_at = datetime.utcnow()
-    db.commit()
-    db.refresh(params)
-    return params
+
+    return _dispatch_and_confirm_parameter_update(
+        db=db,
+        device=device,
+        param=params,
+        updated_by=f"{current_user.username}:ai",
+    )
