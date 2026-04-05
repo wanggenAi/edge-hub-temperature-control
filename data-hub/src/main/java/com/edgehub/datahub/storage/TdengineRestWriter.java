@@ -7,15 +7,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.StringJoiner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -36,7 +32,10 @@ import com.edgehub.datahub.model.TelemetrySteadySummary;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 @Component
@@ -56,9 +55,9 @@ public final class TdengineRestWriter implements TdengineWriter {
   private final boolean telemetryBatchEnabled;
   private final int telemetryBatchMaxRows;
   private final long telemetryBatchMaxDelayMs;
-  private final Object telemetryBatchLock = new Object();
-  private final Map<String, TelemetryBatchBucket> telemetryBatchBuckets = new HashMap<>();
-  private final ScheduledExecutorService telemetryBatchFlushExecutor;
+  private final Sinks.Many<TelemetryBatchItem> telemetryBatchSink;
+  private final Disposable telemetryBatchSubscription;
+  private final CountDownLatch telemetryBatchDrainLatch;
 
   public TdengineRestWriter(HubProperties hubProperties, ObjectMapper objectMapper) {
     this.properties = hubProperties.getStorage().getTdengine();
@@ -77,19 +76,23 @@ public final class TdengineRestWriter implements TdengineWriter {
         .subscribeOn(Schedulers.boundedElastic())
         .cache();
     if (telemetryBatchEnabled) {
-      this.telemetryBatchFlushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "tdengine-telemetry-batch-flusher");
-        t.setDaemon(true);
-        return t;
-      });
-      long flushIntervalMs = Math.max(100L, telemetryBatchMaxDelayMs / 2L);
-      this.telemetryBatchFlushExecutor.scheduleWithFixedDelay(
-          this::flushEligibleTelemetryBatchesSafely,
-          flushIntervalMs,
-          flushIntervalMs,
-          TimeUnit.MILLISECONDS);
+      this.telemetryBatchSink = Sinks.many().multicast().onBackpressureBuffer();
+      this.telemetryBatchDrainLatch = new CountDownLatch(1);
+      this.telemetryBatchSubscription = telemetryBatchSink.asFlux()
+          .groupBy(TelemetryBatchItem::tableName)
+          .flatMap(groupedFlux -> groupedFlux
+              .bufferTimeout(telemetryBatchMaxRows, Duration.ofMillis(telemetryBatchMaxDelayMs))
+              .filter(batch -> !batch.isEmpty())
+              .concatMap(this::flushTelemetryBatchReactive), 32)
+          .doFinally(signalType -> telemetryBatchDrainLatch.countDown())
+          .subscribe(
+              ignored -> {
+              },
+              exception -> log.error("tdengine telemetry batch pipeline terminated", exception));
     } else {
-      this.telemetryBatchFlushExecutor = null;
+      this.telemetryBatchSink = null;
+      this.telemetryBatchSubscription = null;
+      this.telemetryBatchDrainLatch = null;
     }
     log.info(
         "tdengine telemetry batch mode enabled={} maxRows={} maxDelayMs={}",
@@ -102,9 +105,13 @@ public final class TdengineRestWriter implements TdengineWriter {
   public Mono<Void> writeTelemetry(ParsedHubMessage.TelemetryMessage telemetry) {
     String tableName = tableName("telemetry", telemetry.topic().deviceId());
     if (telemetryBatchEnabled) {
-      return ensureInitialized.then(Mono.fromRunnable(() -> enqueueTelemetry(telemetry))
-          .subscribeOn(Schedulers.boundedElastic())
-          .then());
+      return ensureInitialized.then(Mono.defer(() -> {
+        Sinks.EmitResult emitResult = telemetryBatchSink.tryEmitNext(TelemetryBatchItem.from(this, telemetry));
+        if (emitResult.isSuccess()) {
+          return Mono.empty();
+        }
+        return Mono.error(new IllegalStateException("tdengine telemetry batch enqueue failed: " + emitResult));
+      }));
     }
     String sql = buildTelemetryInsertStatement(tableName, telemetry.topic().deviceId(), telemetry.topic().rawTopic(), telemetry);
     String logMessage =
@@ -302,104 +309,65 @@ public final class TdengineRestWriter implements TdengineWriter {
     return executeWrite(sql, "alarm_event", alarmFactEvent.deviceId(), logMessage);
   }
 
-  private void enqueueTelemetry(ParsedHubMessage.TelemetryMessage telemetry) {
-    TelemetryFlushBatch immediateBatch = null;
-    long now = System.currentTimeMillis();
-    String tableName = tableName("telemetry", telemetry.topic().deviceId());
-    synchronized (telemetryBatchLock) {
-      TelemetryBatchBucket bucket = telemetryBatchBuckets.computeIfAbsent(
-          tableName,
-          key -> new TelemetryBatchBucket(tableName, telemetry.topic().deviceId(), telemetry.topic().rawTopic(), now));
-      if (!bucket.rawTopic.equals(telemetry.topic().rawTopic())) {
-        log.warn(
-            "telemetry batch bucket topic changed table={} existingTopic={} incomingTopic={} device={}",
-            qualifiedTableName(tableName),
-            bucket.rawTopic,
-            telemetry.topic().rawTopic(),
-            telemetry.topic().deviceId());
-      }
-      bucket.rows.add(telemetry);
-      if (bucket.rows.size() >= telemetryBatchMaxRows) {
-        telemetryBatchBuckets.remove(tableName);
-        immediateBatch = bucket.toFlushBatch();
-      }
+  private Mono<Void> flushTelemetryBatchReactive(List<TelemetryBatchItem> batch) {
+    if (batch.isEmpty()) {
+      return Mono.empty();
     }
-    if (immediateBatch != null) {
-      flushTelemetryBatch(immediateBatch, "size");
-    }
-  }
-
-  private void flushEligibleTelemetryBatchesSafely() {
-    try {
-      flushEligibleTelemetryBatches(false);
-    } catch (Exception exception) {
-      log.error("telemetry batch periodic flush failed", exception);
-    }
-  }
-
-  private void flushEligibleTelemetryBatches(boolean flushAll) {
-    if (!telemetryBatchEnabled) {
-      return;
-    }
-    List<TelemetryFlushBatch> ready = new ArrayList<>();
-    long now = System.currentTimeMillis();
-    synchronized (telemetryBatchLock) {
-      List<String> keysToRemove = new ArrayList<>();
-      for (Map.Entry<String, TelemetryBatchBucket> entry : telemetryBatchBuckets.entrySet()) {
-        TelemetryBatchBucket bucket = entry.getValue();
-        long ageMs = Math.max(0L, now - bucket.oldestEnqueueMs);
-        if (flushAll || ageMs >= telemetryBatchMaxDelayMs || bucket.rows.size() >= telemetryBatchMaxRows) {
-          ready.add(bucket.toFlushBatch());
-          keysToRemove.add(entry.getKey());
-        }
-      }
-      keysToRemove.forEach(telemetryBatchBuckets::remove);
-    }
-    for (TelemetryFlushBatch batch : ready) {
-      flushTelemetryBatch(batch, flushAll ? "shutdown" : "age");
-    }
-  }
-
-  private void flushTelemetryBatch(TelemetryFlushBatch batch, String reason) {
-    if (batch.rows().isEmpty()) {
-      return;
-    }
+    TelemetryBatchItem first = batch.get(0);
+    String reason = batch.size() >= telemetryBatchMaxRows ? "size" : "time";
     String sql = buildTelemetryBatchInsertStatements(batch);
-    try {
-      executeSql(sql);
-      if (properties.isLogEachWrite()) {
-        log.info(
-            "tdengine.telemetry_batch_written device={} table={} size={} reason={} batchEnabled={}",
-            batch.deviceId(),
-            qualifiedTableName(batch.tableName()),
-            batch.rows().size(),
-            reason,
-            telemetryBatchEnabled);
-      } else {
-        log.debug(
-            "tdengine telemetry batch persisted device={} table={} size={} reason={}",
-            batch.deviceId(),
-            qualifiedTableName(batch.tableName()),
-            batch.rows().size(),
-            reason);
-      }
-    } catch (Exception exception) {
-      log.error(
-          "tdengine telemetry batch failed device={} table={} size={} reason={} cause={}",
-          batch.deviceId(),
-          qualifiedTableName(batch.tableName()),
-          batch.rows().size(),
-          reason,
-          exception.getMessage(),
-          exception);
-      throw exception;
-    }
+    return Mono.fromRunnable(() -> executeSql(sql))
+        .subscribeOn(Schedulers.boundedElastic())
+        .doOnSuccess(ignored -> {
+          if (properties.isLogEachWrite()) {
+            log.info(
+                "tdengine.telemetry_batch_written device={} table={} size={} reason={} batchEnabled={}",
+                first.deviceId(),
+                qualifiedTableName(first.tableName()),
+                batch.size(),
+                reason,
+                telemetryBatchEnabled);
+          } else {
+            log.debug(
+                "tdengine telemetry batch persisted device={} table={} size={} reason={}",
+                first.deviceId(),
+                qualifiedTableName(first.tableName()),
+                batch.size(),
+                reason);
+          }
+        })
+        .then()
+        // On batch failure, fallback to per-row writes so successful rows are still persisted.
+        .onErrorResume(exception -> fallbackTelemetryBatchToSingleWrites(batch, exception));
   }
 
-  private String buildTelemetryBatchInsertStatements(TelemetryFlushBatch batch) {
+  private Mono<Void> fallbackTelemetryBatchToSingleWrites(List<TelemetryBatchItem> batch, Throwable batchException) {
+    TelemetryBatchItem first = batch.get(0);
+    log.error(
+        "tdengine telemetry batch failed device={} table={} size={} cause={} -> fallback single writes",
+        first.deviceId(),
+        qualifiedTableName(first.tableName()),
+        batch.size(),
+        batchException.getMessage(),
+        batchException);
+    return Flux.fromIterable(batch)
+        .concatMap(item -> Mono.fromRunnable(() -> executeSql(
+            buildTelemetryInsertStatement(item.tableName(), item.deviceId(), item.rawTopic(), item.telemetry())))
+            .subscribeOn(Schedulers.boundedElastic())
+            .doOnError(exception -> log.error(
+                "tdengine telemetry single fallback failed device={} table={} cause={}",
+                item.deviceId(),
+                qualifiedTableName(item.tableName()),
+                exception.getMessage(),
+                exception))
+            .onErrorResume(exception -> Mono.empty()))
+        .then();
+  }
+
+  private String buildTelemetryBatchInsertStatements(List<TelemetryBatchItem> batch) {
     StringJoiner sqlJoiner = new StringJoiner("; ");
-    for (ParsedHubMessage.TelemetryMessage telemetry : batch.rows()) {
-      sqlJoiner.add(buildTelemetryInsertStatement(batch.tableName(), batch.deviceId(), batch.rawTopic(), telemetry));
+    for (TelemetryBatchItem item : batch) {
+      sqlJoiner.add(buildTelemetryInsertStatement(item.tableName(), item.deviceId(), item.rawTopic(), item.telemetry()));
     }
     return sqlJoiner.toString();
   }
@@ -753,40 +721,37 @@ public final class TdengineRestWriter implements TdengineWriter {
 
   @PreDestroy
   void shutdown() {
-    if (telemetryBatchFlushExecutor != null) {
-      telemetryBatchFlushExecutor.shutdownNow();
+    if (!telemetryBatchEnabled) {
+      return;
     }
     try {
-      flushEligibleTelemetryBatches(true);
-    } catch (Exception exception) {
-      log.error("telemetry batch shutdown flush failed", exception);
+      telemetryBatchSink.tryEmitComplete();
+      long awaitMs = Math.max(1000L, telemetryBatchMaxDelayMs * 2L);
+      if (!telemetryBatchDrainLatch.await(awaitMs, TimeUnit.MILLISECONDS)) {
+        log.warn("tdengine telemetry batch shutdown drain timed out after {} ms", awaitMs);
+      }
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      log.warn("tdengine telemetry batch shutdown interrupted", exception);
+    } finally {
+      if (telemetryBatchSubscription != null && !telemetryBatchSubscription.isDisposed()) {
+        telemetryBatchSubscription.dispose();
+      }
     }
   }
 
-  private static final class TelemetryBatchBucket {
-    private final String tableName;
-    private final String deviceId;
-    private final String rawTopic;
-    private final long oldestEnqueueMs;
-    private final List<ParsedHubMessage.TelemetryMessage> rows = new ArrayList<>();
-
-    private TelemetryBatchBucket(String tableName, String deviceId, String rawTopic, long oldestEnqueueMs) {
-      this.tableName = tableName;
-      this.deviceId = deviceId;
-      this.rawTopic = rawTopic;
-      this.oldestEnqueueMs = oldestEnqueueMs;
-    }
-
-    private TelemetryFlushBatch toFlushBatch() {
-      return new TelemetryFlushBatch(tableName, deviceId, rawTopic, List.copyOf(rows));
-    }
-  }
-
-  private record TelemetryFlushBatch(
+  private record TelemetryBatchItem(
       String tableName,
       String deviceId,
       String rawTopic,
-      List<ParsedHubMessage.TelemetryMessage> rows) {
+      ParsedHubMessage.TelemetryMessage telemetry) {
+    private static TelemetryBatchItem from(TdengineRestWriter writer, ParsedHubMessage.TelemetryMessage telemetry) {
+      return new TelemetryBatchItem(
+          writer.tableName("telemetry", telemetry.topic().deviceId()),
+          telemetry.topic().deviceId(),
+          telemetry.topic().rawTopic(),
+          telemetry);
+    }
   }
 
   private String normalizeBaseUrl(String url) {
