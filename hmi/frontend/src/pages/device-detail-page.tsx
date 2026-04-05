@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { useDeviceDetail } from "@/routes/use-data";
-import type { ControlEvaluation, Device, MetricWindowStats } from "@/types";
+import type { AIGeneratedRecommendation, ControlEvaluation, Device, MetricWindowStats } from "@/types";
 
 type TargetConfig = {
   band: number;
@@ -71,7 +71,7 @@ export function DeviceDetailPage() {
   const canWrite = hasRole("admin", "operator");
   const deviceId = Number(id);
 
-  const { device, metrics, parameters, recommendation, loading, reload, updateParameters } = useDeviceDetail(deviceId);
+  const { device, metrics, parameters, recommendation, loading, reload, updateParameters, applyAiRecommendation } = useDeviceDetail(deviceId);
 
   const [editing, setEditing] = useState({ kp: "", ki: "", kd: "", target_temp: "", control_mode: "" });
   const [feedback, setFeedback] = useState({
@@ -90,6 +90,11 @@ export function DeviceDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmIntent, setConfirmIntent] = useState<"full" | "targets">("full");
+  const [aiConfirmOpen, setAiConfirmOpen] = useState(false);
+  const [aiGenerateBusy, setAiGenerateBusy] = useState(false);
+  const [aiApplyBusy, setAiApplyBusy] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState<AIGeneratedRecommendation | null>(null);
+  const [aiApplyResult, setAiApplyResult] = useState({ ackStatus: "Idle", applyStatus: "Idle", detail: "-" });
   const [targetEvalOpen, setTargetEvalOpen] = useState(false);
   const [historyRangePreset, setHistoryRangePreset] = useState<HistoryRangePreset>("6h");
   const [historyCustomStart, setHistoryCustomStart] = useState(() =>
@@ -349,6 +354,14 @@ export function DeviceDetailPage() {
     return [Number((min - margin).toFixed(2)), Number((max + margin).toFixed(2))];
   }, [chartData, targetTemp, targetConfig.band]);
 
+  const aiCurrentParams = aiGenerated?.current_params ?? {
+    kp: parameters?.kp ?? 0,
+    ki: parameters?.ki ?? 0,
+    kd: parameters?.kd ?? 0,
+  };
+  const aiRecommendedParams = aiGenerated?.recommended_params ?? null;
+  const aiDelta = aiGenerated?.delta ?? null;
+
   if (loading) return <p className="text-sm text-mute">Loading device detail...</p>;
   if (!device || !parameters) return <p className="text-sm text-danger">Device not found or no permission.</p>;
 
@@ -437,6 +450,64 @@ export function DeviceDetailPage() {
       appliedStatus: "Applied",
       reason: "-",
     }));
+  }
+
+  async function handleGenerateAiRecommendation() {
+    setAiGenerateBusy(true);
+    try {
+      const generated = await api.generateAiRecommendation(deviceId, { window_minutes: 60 });
+      setAiGenerated(generated);
+      setAiApplyResult({ ackStatus: "Generated", applyStatus: "Pending", detail: "Recommendation generated. Awaiting confirmation." });
+      await reload({ silent: true });
+    } catch (error) {
+      const message = normalizeApiError(error);
+      setAiApplyResult({ ackStatus: "Generate Failed", applyStatus: "Generate Failed", detail: message });
+    } finally {
+      setAiGenerateBusy(false);
+    }
+  }
+
+  function openApplyAiConfirm() {
+    if (!aiGenerated || !canWrite || aiApplyBusy) return;
+    setAiConfirmOpen(true);
+  }
+
+  async function executeApplyAiRecommendation() {
+    if (!canWrite || !aiGenerated) return;
+    setAiApplyBusy(true);
+    setAiApplyResult({ ackStatus: "Pending", applyStatus: "Applying", detail: "Dispatching AI recommendation to device..." });
+    try {
+      await applyAiRecommendation();
+      await reload();
+      setAiApplyResult({ ackStatus: "Acked", applyStatus: "Applied", detail: "AI recommendation acknowledged by device." });
+      setFeedback((prev) => ({
+        ...prev,
+        lastUpdate: new Date().toLocaleTimeString(),
+        ackStatus: "Acked",
+        appliedStatus: "Applied",
+        reason: "-",
+      }));
+    } catch (error) {
+      const message = normalizeApiError(error);
+      const lower = message.toLowerCase();
+      const applyStatus = lower.includes("ack timeout")
+        ? "Ack Timeout"
+        : lower.includes("ack failed")
+          ? "Ack Failed"
+          : lower.includes("mqtt publish")
+            ? "Publish Failed"
+            : "Apply Failed";
+      setAiApplyResult({ ackStatus: "Failed", applyStatus, detail: message });
+      setFeedback((prev) => ({
+        ...prev,
+        lastUpdate: new Date().toLocaleTimeString(),
+        ackStatus: "Failed",
+        appliedStatus: applyStatus,
+        reason: message,
+      }));
+    } finally {
+      setAiApplyBusy(false);
+    }
   }
 
   return (
@@ -608,7 +679,7 @@ export function DeviceDetailPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide text-neon">AI Recommended Configuration</div>
-                  <div className="text-xs text-mute">High-priority panel for suggestion, confidence, and execution workflow</div>
+                  <div className="text-xs text-mute">Generate, review, confirm, then apply with ACK feedback</div>
                 </div>
                 <span className="rounded border border-neon/40 bg-neon/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-neon">
                   AI Core Module
@@ -617,49 +688,64 @@ export function DeviceDetailPage() {
 
               <div className="mt-3 grid gap-2 lg:grid-cols-3">
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-mute">Insight</div>
+                  <div className="text-[11px] uppercase tracking-wide text-mute">Diagnosis</div>
                   <div className="mt-1 text-xs text-mute">
-                    Reason: <span className="text-text">{recommendation?.reason ?? "Pending live recommendation data"}</span>
+                    Problem Type: <span className="text-text">{aiGenerated?.problem_type ?? "Not generated"}</span>
                   </div>
                   <div className="mt-1 text-xs text-mute">
-                    Risk: <span className="text-text">{recommendation?.risk ?? "Not evaluated yet"}</span>
+                    Risk Level: <span className="text-text">{aiGenerated?.risk_level ?? "N/A"}</span>
                   </div>
                   <div className="mt-1 text-xs text-mute">
                     Confidence:{" "}
                     <span className="text-accent">
-                      {typeof recommendation?.confidence === "number" ? `${Math.round(recommendation.confidence * 100)}%` : "N/A"}
+                      {typeof aiGenerated?.confidence === "number" ? `${Math.round(aiGenerated.confidence * 100)}%` : "N/A"}
                     </span>
                   </div>
-                </div>
-
-                <div className="rounded border border-line/70 bg-panel px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-mute">Proposed Parameter Set</div>
                   <div className="mt-1 text-xs text-mute">
-                    Suggestion: <span className="text-accent">{recommendation?.suggestion ?? "Reserved for AI generated Kp/Ki/Kd/Target set"}</span>
+                    Requires Confirmation: <span className={aiGenerated?.requires_confirmation ? "text-warn" : "text-accent"}>{aiGenerated ? String(aiGenerated.requires_confirmation) : "N/A"}</span>
                   </div>
-                  <div className="mt-1 text-xs text-mute">Preset Slot: <span className="text-text">AI_SET_A</span></div>
-                  <div className="mt-1 text-xs text-mute">Scope: <span className="text-text">Current device only</span></div>
                 </div>
 
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-mute">Execution Pipeline</div>
-                  <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-                    <span className="rounded border border-line/70 px-1.5 py-0.5 text-mute">Preview</span>
-                    <span className="rounded border border-line/70 px-1.5 py-0.5 text-mute">Confirm</span>
-                    <span className="rounded border border-line/70 px-1.5 py-0.5 text-mute">Apply</span>
-                    <span className="rounded border border-line/70 px-1.5 py-0.5 text-mute">Observe</span>
+                  <div className="text-[11px] uppercase tracking-wide text-mute">Parameter Comparison</div>
+                  <div className="mt-1 grid grid-cols-4 gap-1 text-[11px]">
+                    <span className="text-mute">Param</span>
+                    <span className="text-mute">Current</span>
+                    <span className="text-mute">Recommended</span>
+                    <span className="text-mute">Delta</span>
+                    <span className="text-text">Kp</span>
+                    <span className="text-text">{aiCurrentParams.kp.toFixed(4)}</span>
+                    <span className="text-accent">{aiRecommendedParams ? aiRecommendedParams.kp.toFixed(4) : "-"}</span>
+                    <span className="text-neon">{aiDelta ? withSign(aiDelta.kp) : "-"}</span>
+                    <span className="text-text">Ki</span>
+                    <span className="text-text">{aiCurrentParams.ki.toFixed(4)}</span>
+                    <span className="text-accent">{aiRecommendedParams ? aiRecommendedParams.ki.toFixed(4) : "-"}</span>
+                    <span className="text-neon">{aiDelta ? withSign(aiDelta.ki) : "-"}</span>
+                    <span className="text-text">Kd</span>
+                    <span className="text-text">{aiCurrentParams.kd.toFixed(4)}</span>
+                    <span className="text-accent">{aiRecommendedParams ? aiRecommendedParams.kd.toFixed(4) : "-"}</span>
+                    <span className="text-neon">{aiDelta ? withSign(aiDelta.kd) : "-"}</span>
                   </div>
-                  <div className="mt-2 text-xs text-mute">Reserved for one-click AI apply with closed-loop feedback.</div>
+                </div>
+
+                <div className="rounded border border-line/70 bg-panel px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-mute">Apply Result</div>
+                  <div className="mt-1 text-xs text-mute">ACK: <span className="text-text">{aiApplyResult.ackStatus}</span></div>
+                  <div className="mt-1 text-xs text-mute">Apply: <span className="text-text">{aiApplyResult.applyStatus}</span></div>
+                  <div className="mt-1 text-xs text-mute">
+                    Detail: <span className="text-text">{aiApplyResult.detail}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-mute">Last Stored Suggestion: <span className="text-text">{recommendation?.reason ?? "-"}</span></div>
                 </div>
               </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="ghost" disabled>
-                Preview Impact
-                </Button>
-                <Button size="sm" variant="accent" disabled>
-                  Apply AI Set
-                </Button>
+              <Button size="sm" variant="ghost" onClick={handleGenerateAiRecommendation} disabled={aiGenerateBusy}>
+                {aiGenerateBusy ? "Generating..." : "Generate Recommendation"}
+              </Button>
+              <Button size="sm" variant="accent" onClick={openApplyAiConfirm} disabled={!canWrite || !aiGenerated || aiApplyBusy}>
+                {aiApplyBusy ? "Applying..." : "Apply Recommendation"}
+              </Button>
               </div>
             </div>
 
@@ -842,6 +928,32 @@ export function DeviceDetailPage() {
             setConfirmOpen(false);
           } finally {
             setConfirmBusy(false);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={aiConfirmOpen}
+        title="Confirm AI Recommendation Apply"
+        description={
+          aiGenerated ? (
+            <span>
+              Apply recommendation now? problem_type=<b>{aiGenerated.problem_type}</b>, risk_level=<b>{aiGenerated.risk_level}</b>, confidence=
+              <b>{Math.round(aiGenerated.confidence * 100)}%</b>.
+            </span>
+          ) : (
+            "No recommendation generated."
+          )
+        }
+        confirmLabel="Apply Recommendation"
+        busy={aiApplyBusy}
+        onCancel={() => !aiApplyBusy && setAiConfirmOpen(false)}
+        onConfirm={async () => {
+          try {
+            await executeApplyAiRecommendation();
+            setAiConfirmOpen(false);
+          } finally {
+            // noop
           }
         }}
       />
@@ -1103,6 +1215,10 @@ function normalizeApiError(error: unknown): string {
     // keep raw message
   }
   return raw;
+}
+
+function withSign(value: number): string {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(4)}`;
 }
 
 function normalizeControlMode(mode: string): string {

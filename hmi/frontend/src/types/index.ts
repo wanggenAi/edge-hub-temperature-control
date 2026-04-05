@@ -98,6 +98,32 @@ export interface AIRecommendation {
   last_run_at: string;
 }
 
+export interface AITuningParams {
+  kp: number;
+  ki: number;
+  kd: number;
+}
+
+export interface AIGeneratedRecommendation {
+  problem_type: "normal" | "slow_response" | "steady_state_error" | "overshoot_high" | "oscillation" | "saturation_limited" | string;
+  confidence: number;
+  risk_level: "Low" | "Medium" | "High" | string;
+  requires_confirmation: boolean;
+  current_params: AITuningParams;
+  recommended_params: AITuningParams;
+  delta: AITuningParams;
+  expected_effect:
+    | "keep_stable"
+    | "speed_up_response"
+    | "reduce_steady_state_error"
+    | "reduce_overshoot"
+    | "reduce_oscillation"
+    | "limited_gain_expected"
+    | string;
+  evidence: Record<string, string | number | boolean | null>;
+  generated_at: string;
+}
+
 export interface UserItem {
   id: number;
   username: string;

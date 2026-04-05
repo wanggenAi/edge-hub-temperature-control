@@ -1,5 +1,6 @@
 import type {
   AIRecommendation,
+  AIGeneratedRecommendation,
   Alarm,
   AlarmHistoryResponse,
   AlarmListResponse,
@@ -156,6 +157,17 @@ export const api = {
     }),
   alarms: (id: number) => request<Alarm[]>(`/devices/${id}/alarms`),
   aiRecommendation: (id: number) => request<AIRecommendation>(`/devices/${id}/ai-recommendation`),
+  generateAiRecommendation: (
+    deviceId: number,
+    params: { window_minutes?: number; end_ms?: number; limit?: number } = {}
+  ) => {
+    const sp = new URLSearchParams();
+    if (typeof params.window_minutes === "number") sp.set("window_minutes", String(params.window_minutes));
+    if (typeof params.end_ms === "number") sp.set("end_ms", String(params.end_ms));
+    if (typeof params.limit === "number") sp.set("limit", String(params.limit));
+    const suffix = sp.toString() ? `?${sp.toString()}` : "";
+    return request<AIGeneratedRecommendation>(`/devices/${deviceId}/ai-recommendation/generate${suffix}`, { method: "POST" });
+  },
   users: () => request<UserItem[]>("/users"),
   createUser: (payload: { username: string; email: string; password: string; roles: string[] }) =>
     request<UserItem>("/users", { method: "POST", body: JSON.stringify(payload) }),
