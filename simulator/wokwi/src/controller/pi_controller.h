@@ -16,10 +16,12 @@ class PiController {
   void reset_integral();
 
  private:
+  static constexpr float kDerivativeFilterAlpha = 0.2f;
   edge::config::ControlConfig cfg_;
   float integral_error_ = 0.0f;
   float previous_error_ = 0.0f;
   bool previous_error_initialized_ = false;
+  float filtered_derivative_ = 0.0f;
 };
 
 }  // namespace edge::controller

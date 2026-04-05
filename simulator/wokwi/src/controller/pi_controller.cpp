@@ -17,8 +17,13 @@ edge::domain::ControllerOutput PiController::update(
   const float safe_dt_s = in.dt_s > 0.0f ? in.dt_s : 0.0f;
 
   if (previous_error_initialized_ && safe_dt_s > 0.0f) {
-    out.derivative_error = (out.error_c - previous_error_) / safe_dt_s;
+    const float raw_derivative = (out.error_c - previous_error_) / safe_dt_s;
+    filtered_derivative_ = kDerivativeFilterAlpha * raw_derivative +
+                           (1.0f - kDerivativeFilterAlpha) * filtered_derivative_;
+    // derivative_error exposes filtered derivative for telemetry/debug.
+    out.derivative_error = filtered_derivative_;
   } else {
+    filtered_derivative_ = 0.0f;
     out.derivative_error = 0.0f;
   }
   out.d_term = active_kd * out.derivative_error;
@@ -59,6 +64,7 @@ void PiController::reset_integral() {
   integral_error_ = 0.0f;
   previous_error_ = 0.0f;
   previous_error_initialized_ = false;
+  filtered_derivative_ = 0.0f;
 }
 
 }  // namespace edge::controller
