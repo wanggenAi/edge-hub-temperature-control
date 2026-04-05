@@ -413,6 +413,46 @@ def _dispatch_and_confirm_parameter_update(
     return param
 
 
+def _hydrate_runtime_parameters(device: Device, param: DeviceParameter) -> None:
+    if not tdengine.enabled():
+        return
+
+    # Prefer runtime-confirmed params_ack values to keep UI and AI inputs aligned with device runtime state.
+    ack = _latest_params_ack(device.code)
+    if ack and bool(ack.get("success") is True):
+        if ack.get("kp") is not None:
+            param.kp = float(ack.get("kp") or param.kp)
+        if ack.get("ki") is not None:
+            param.ki = float(ack.get("ki") or param.ki)
+        if ack.get("kd") is not None:
+            param.kd = float(ack.get("kd") or param.kd)
+        if ack.get("control_mode"):
+            param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
+        if ack.get("target_temp_c") is not None:
+            device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
+        return
+
+    # Fallback to latest telemetry snapshot when params_ack stream is unavailable.
+    sql = (
+        f"SELECT ts, target_temp_c, kp, ki, kd, control_mode "
+        f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 1"
+    )
+    result = tdengine.query(sql)
+    if not result.rows:
+        return
+    row = tdengine.row_to_dict(result.columns, result.rows[0])
+    if row.get("kp") is not None:
+        param.kp = float(row.get("kp") or param.kp)
+    if row.get("ki") is not None:
+        param.ki = float(row.get("ki") or param.ki)
+    if row.get("kd") is not None:
+        param.kd = float(row.get("kd") or param.kd)
+    if row.get("control_mode"):
+        param.control_mode = _normalize_control_mode(str(row.get("control_mode"))) or param.control_mode
+    if row.get("target_temp_c") is not None:
+        device.target_temp = float(row.get("target_temp_c") or device.target_temp)
+
+
 @router.get("", response_model=list[DeviceOut])
 def list_devices(
     db: Session = Depends(get_db_dep),
@@ -757,39 +797,7 @@ def get_parameters(
     param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
     if not param:
         raise HTTPException(status_code=404, detail="Parameters not found")
-    if tdengine.enabled():
-        # Prefer latest params_ack (runtime confirmed) to avoid post-update UI reversion while telemetry catches up.
-        ack = _latest_params_ack(device.code)
-        if ack and bool(ack.get("success") is True):
-            if ack.get("kp") is not None:
-                param.kp = float(ack.get("kp") or param.kp)
-            if ack.get("ki") is not None:
-                param.ki = float(ack.get("ki") or param.ki)
-            if ack.get("kd") is not None:
-                param.kd = float(ack.get("kd") or param.kd)
-            if ack.get("control_mode"):
-                param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
-            if ack.get("target_temp_c") is not None:
-                device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
-        else:
-            # Fallback to latest telemetry snapshot when ack stream is unavailable.
-            sql = (
-                f"SELECT ts, target_temp_c, kp, ki, kd, control_mode "
-                f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 1"
-            )
-            result = tdengine.query(sql)
-            if result.rows:
-                row = tdengine.row_to_dict(result.columns, result.rows[0])
-                if row.get("kp") is not None:
-                    param.kp = float(row.get("kp") or param.kp)
-                if row.get("ki") is not None:
-                    param.ki = float(row.get("ki") or param.ki)
-                if row.get("kd") is not None:
-                    param.kd = float(row.get("kd") or param.kd)
-                if row.get("control_mode"):
-                    param.control_mode = _normalize_control_mode(str(row.get("control_mode"))) or param.control_mode
-                if row.get("target_temp_c") is not None:
-                    device.target_temp = float(row.get("target_temp_c") or device.target_temp)
+    _hydrate_runtime_parameters(device, param)
     return param
 
 
@@ -899,6 +907,7 @@ def generate_ai_recommendation(
     params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
     if not params:
         raise HTTPException(status_code=404, detail="Parameters not found")
+    _hydrate_runtime_parameters(device, params)
 
     end_ms_final = int(end_ms if end_ms is not None else datetime.utcnow().timestamp() * 1000)
     start_ms_final = int(end_ms_final - max(1, window_minutes) * 60 * 1000)
@@ -974,6 +983,7 @@ def apply_ai_recommendation(
     params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
     if not params:
         raise HTTPException(status_code=404, detail="Parameters not found")
+    _hydrate_runtime_parameters(device, params)
 
     current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
     recommended = recommendation_service.parse_recommended_params(rec.suggestion, current)

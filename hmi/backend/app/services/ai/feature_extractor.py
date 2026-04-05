@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from statistics import mean, pstdev
+from typing import Optional
 
 from app.services.ai.schemas import FeatureSet, RecommendationGenerateInput
 
@@ -23,7 +24,7 @@ def _calc_settling_sec(
     errors: list[float],
     target_band: float,
     steady_window_samples: int,
-) -> float | None:
+) -> Optional[float]:
     if len(errors) < max(2, steady_window_samples):
         return None
     for i in range(0, len(errors) - steady_window_samples + 1):

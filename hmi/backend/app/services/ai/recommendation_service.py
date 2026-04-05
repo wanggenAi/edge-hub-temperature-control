@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import re
+from typing import Optional, Union
 
 from app.services.ai.feature_extractor import extract_features
 from app.services.ai.problem_classifier import classify_problem
@@ -20,7 +21,7 @@ class RecommendationService:
             problem_type, payload.current_params
         )
 
-        evidence: dict[str, float | int | str | bool | None] = {
+        evidence: dict[str, Union[float, int, str, bool, None]] = {
             "rule_saturation_limited": rules.get("saturation_limited", False),
             "rule_oscillation": rules.get("oscillation", False),
             "rule_overshoot_high": rules.get("overshoot_high", False),
@@ -83,7 +84,7 @@ class RecommendationService:
         )
         return reason, suggestion, risk
 
-    def parse_recommended_params(self, suggestion: str, current_params: PIDParams) -> PIDParams | None:
+    def parse_recommended_params(self, suggestion: str, current_params: PIDParams) -> Optional[PIDParams]:
         if not suggestion:
             return None
 

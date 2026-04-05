@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -76,5 +76,5 @@ class RecommendationGenerateOutput(BaseModel):
     recommended_params: PIDParams
     delta: PIDParams
     expected_effect: ExpectedEffect
-    evidence: dict[str, float | int | str | bool | None]
+    evidence: dict[str, Union[float, int, str, bool, None]]
     generated_at: datetime
