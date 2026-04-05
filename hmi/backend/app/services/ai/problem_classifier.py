@@ -5,6 +5,8 @@ from app.services.ai.schemas import FeatureSet, RecommendationGenerateInput
 
 
 def classify_problem(payload: RecommendationGenerateInput, features: FeatureSet) -> tuple[ProblemType, float, dict[str, bool]]:
+    severe_saturation = features.saturation_ratio >= payload.saturation_high_ratio
+
     rules: dict[str, bool] = {
         # Saturation is evaluated first because actuator headroom is already limited.
         "saturation_limited": features.saturation_ratio >= payload.saturation_warn_ratio,
@@ -17,10 +19,14 @@ def classify_problem(payload: RecommendationGenerateInput, features: FeatureSet)
         # Large absolute error and no fast settling indicate slow response.
         "slow_response": features.mean_abs_error > payload.target_band
         and (features.settling_sec is None or features.settling_sec > 300),
+        "severe_saturation": severe_saturation,
     }
 
-    if rules["saturation_limited"]:
-        return ProblemType.SATURATION_LIMITED, 0.86, rules
+    # Priority fix:
+    # 1) Severe saturation always wins.
+    # 2) For non-severe saturation, prioritize dynamic behavior problems first.
+    if rules["severe_saturation"]:
+        return ProblemType.SATURATION_LIMITED, 0.9, rules
     if rules["oscillation"]:
         return ProblemType.OSCILLATION, 0.82, rules
     if rules["overshoot_high"]:
@@ -29,5 +35,7 @@ def classify_problem(payload: RecommendationGenerateInput, features: FeatureSet)
         return ProblemType.STEADY_STATE_ERROR, 0.76, rules
     if rules["slow_response"]:
         return ProblemType.SLOW_RESPONSE, 0.72, rules
+    if rules["saturation_limited"]:
+        return ProblemType.SATURATION_LIMITED, 0.74, rules
 
     return ProblemType.NORMAL, 0.9, rules

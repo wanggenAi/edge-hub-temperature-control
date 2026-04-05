@@ -84,8 +84,8 @@ def build_recommendation(
         # Saturation-limited systems have reduced tuning headroom and higher execution risk.
         risk = RiskLevel.HIGH
 
-    requires_confirmation = risk != RiskLevel.LOW
-    if problem_type == ProblemType.NORMAL:
-        requires_confirmation = False
+    # Tightened rule:
+    # Any non-normal recommendation requires explicit human confirmation.
+    requires_confirmation = problem_type != ProblemType.NORMAL
 
     return current_params, recommended, delta, risk, requires_confirmation, effect
