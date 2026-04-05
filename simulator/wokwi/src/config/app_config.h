@@ -25,6 +25,8 @@ struct ControlConfig {
   float max_gain = 1000.0f;
   uint32_t min_control_period_ms = 200;
   uint32_t max_control_period_ms = 10000;
+  float software_max_safe_temp_c = 65.0f;
+  bool fault_latch_enabled = true;
 };
 
 struct SimConfig {

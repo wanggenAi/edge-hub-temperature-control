@@ -38,15 +38,20 @@ class EdgeTemperatureApp {
                                      void* ctx);
   static bool publish_ack_adapter(const String& payload, void* ctx);
   static void on_runtime_applied_adapter(bool reset_integral, void* ctx);
+  static void enrich_ack_adapter(edge::domain::ParameterAckMessage* message, void* ctx);
 
   void run_control_tick(unsigned long now_ms);
   void update_heartbeat(unsigned long now_ms);
   void print_runtime_config_snapshot() const;
   void on_runtime_applied(bool reset_integral);
+  void enrich_ack(edge::domain::ParameterAckMessage* message) const;
+  void latch_fault(const char* reason);
+  void clear_fault_if_possible();
   edge::domain::TelemetrySnapshot build_snapshot(
       unsigned long now_ms,
       const edge::domain::TemperatureSample& feedback,
-      const edge::domain::ControllerOutput& control) const;
+      const edge::domain::ControllerOutput& control,
+      bool safety_output_forced_off) const;
   edge::domain::RuntimeControlConfig build_initial_runtime_config(
       const edge::config::AppConfig& config) const;
 

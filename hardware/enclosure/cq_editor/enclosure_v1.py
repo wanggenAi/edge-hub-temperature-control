@@ -67,6 +67,11 @@ POWER_PAD_ORIGIN = (
     WALL + 10.0,
     BASE + 6.0,
 )
+TS1_SERVICE_PAD_ORIGIN = (
+    OUTER_L - WALL - 24.0,
+    SERVICE_CONSTRAINTS["ts1_opening_y_offset"] - 10.0,
+    BASE + 6.0,
+)
 
 SAMPLE_AREA_ORIGIN = (
     WALL + 10.0,
@@ -96,6 +101,10 @@ DEBUG_OPENING_CENTER = (
 POWER_OPENING_CENTER = (
     WALL + 18.0,
     BASE + SERVICE_CONSTRAINTS["power_opening_z_offset"],
+)
+TS1_OPENING_CENTER = (
+    SERVICE_CONSTRAINTS["ts1_opening_y_offset"],
+    BASE + SERVICE_CONSTRAINTS["ts1_opening_z_offset"],
 )
 
 ELECTRONICS_COVER_ORIGIN = (
@@ -198,6 +207,18 @@ def build_enclosure_body() -> cq.Workplane:
         .translate((OUTER_L - WALL * 2.0, 0.0, 0.0))
     )
     body = body.cut(power_opening)
+
+    ts1_opening = (
+        cq.Workplane("YZ")
+        .center(*TS1_OPENING_CENTER)
+        .rect(
+            SERVICE_CONSTRAINTS["ts1_opening_width"],
+            SERVICE_CONSTRAINTS["ts1_opening_height"],
+        )
+        .extrude(WALL * 2.0)
+        .translate((OUTER_L - WALL * 2.0, 0.0, 0.0))
+    )
+    body = body.cut(ts1_opening)
 
     for center, diameter in (
         (SENSOR_PASSAGE_XY, SERVICE_CONSTRAINTS["sensor_passage_diameter"]),
@@ -366,6 +387,19 @@ def build_power_service_pad() -> cq.Workplane:
     )
 
 
+def build_ts1_service_pad() -> cq.Workplane:
+    return (
+        cq.Workplane("XY")
+        .box(
+            18.0,
+            16.0,
+            2.0,
+            centered=(False, False, False),
+        )
+        .translate(TS1_SERVICE_PAD_ORIGIN)
+    )
+
+
 def build_sample_area_reference() -> cq.Workplane:
     return (
         cq.Workplane("XY")
@@ -437,12 +471,18 @@ def build_divider_passage_ring(center_xy: tuple[float, float], outer_diameter: f
     )
 
 
-def build_opening_frame(opening_width: float, opening_height: float, side: str) -> cq.Workplane:
+def build_opening_frame(
+    opening_width: float,
+    opening_height: float,
+    side: str,
+    center_y: float,
+    center_z: float,
+) -> cq.Workplane:
     frame = (
         cq.Workplane("YZ")
         .center(
-            WALL + 18.0,
-            BASE + SERVICE_CONSTRAINTS["debug_opening_z_offset"],
+            center_y,
+            center_z,
         )
         .rect(opening_width + 6.0, opening_height + 6.0)
         .rect(opening_width, opening_height)
@@ -472,6 +512,7 @@ electronics_cover = build_electronics_cover()
 board_proxy = build_board_proxy().translate(PCB_MODEL_OFFSET)
 pcb_support_shelf = build_pcb_support_shelf()
 power_service_pad = build_power_service_pad()
+ts1_service_pad = build_ts1_service_pad()
 sample_area_reference = build_sample_area_reference()
 heater_pad = build_heater_pad()
 heater_placeholder = build_heater_placeholder()
@@ -490,11 +531,22 @@ debug_opening_frame = build_opening_frame(
     SERVICE_CONSTRAINTS["debug_opening_width"],
     SERVICE_CONSTRAINTS["debug_opening_height"],
     side="left",
+    center_y=DEBUG_OPENING_CENTER[0],
+    center_z=DEBUG_OPENING_CENTER[1],
 )
 power_opening_frame = build_opening_frame(
     SERVICE_CONSTRAINTS["power_opening_width"],
     SERVICE_CONSTRAINTS["power_opening_height"],
     side="right",
+    center_y=POWER_OPENING_CENTER[0],
+    center_z=POWER_OPENING_CENTER[1],
+)
+ts1_opening_frame = build_opening_frame(
+    SERVICE_CONSTRAINTS["ts1_opening_width"],
+    SERVICE_CONSTRAINTS["ts1_opening_height"],
+    side="right",
+    center_y=TS1_OPENING_CENTER[0],
+    center_z=TS1_OPENING_CENTER[1],
 )
 step_reference = load_step_reference()
 
@@ -505,6 +557,8 @@ layout_debug = {
     "pcb_offset": PCB_MODEL_OFFSET,
     "sensor_passage_xy": SENSOR_PASSAGE_XY,
     "heater_passage_xy": HEATER_PASSAGE_XY,
+    "ts1_opening_center": TS1_OPENING_CENTER,
+    "ts1_service_pad_origin": TS1_SERVICE_PAD_ORIGIN,
 }
 
 
@@ -590,9 +644,19 @@ if "show_object" in globals():
             options={"color": "tan", "alpha": 0.9},
         )
         show_object(
+            ts1_opening_frame,
+            name="ts1_opening_frame",
+            options={"color": "orchid", "alpha": 0.92},
+        )
+        show_object(
             power_service_pad,
             name="power_service_pad",
             options={"color": "sienna", "alpha": VIEW_OPTIONS["helper_alpha"]},
+        )
+        show_object(
+            ts1_service_pad,
+            name="ts1_service_pad",
+            options={"color": "purple", "alpha": VIEW_OPTIONS["helper_alpha"]},
         )
 
 
@@ -615,4 +679,6 @@ __all__ = [
     "sensor_passage_ring",
     "sensor_probe_reference",
     "step_reference",
+    "ts1_opening_frame",
+    "ts1_service_pad",
 ]

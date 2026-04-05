@@ -16,8 +16,8 @@ PCB_REFERENCE_DIR = PROJECT_ROOT / "references" / "pcb"
 
 
 REFERENCE_FILES = {
-    "pcb_step": PCB_REFERENCE_DIR / "3D_PCB1_2026-04-01.step",
-    "pcb_dxf": PCB_REFERENCE_DIR / "DXF_PCB1_2026-04-01_AutoCAD2007.dxf",
+    "pcb_step": PCB_REFERENCE_DIR / "3D_PCB1_2026-04-05.step",
+    "pcb_dxf": PCB_REFERENCE_DIR / "DXF_PCB1_2026-04-05_AutoCAD2007.dxf",
 }
 
 
@@ -93,6 +93,11 @@ SERVICE_CONSTRAINTS = {
     "power_opening_width": 32.0,
     "power_opening_height": 18.0,
     "power_opening_z_offset": 13.0,
+    # Dedicated side opening for J_TS1 external thermal protection switch wiring.
+    "ts1_opening_width": 22.0,
+    "ts1_opening_height": 14.0,
+    "ts1_opening_z_offset": 20.0,
+    "ts1_opening_y_offset": 52.0,
     # Divider pass-throughs let heater and sensor wiring go straight up.
     "sensor_passage_diameter": 5.0,
     "heater_passage_diameter": 7.0,

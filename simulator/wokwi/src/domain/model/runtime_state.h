@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 namespace edge::domain {
 
 struct RuntimeState {
@@ -8,8 +10,12 @@ struct RuntimeState {
   bool sensor_valid = false;
 
   unsigned long last_control_ms = 0;
+  unsigned long last_actual_dt_ms = 0;
+  long last_dt_error_ms = 0;
   unsigned long last_heartbeat_ms = 0;
   bool heartbeat_state = false;
+  bool fault_latched = false;
+  char fault_reason[48] = "none";
 };
 
 }  // namespace edge::domain

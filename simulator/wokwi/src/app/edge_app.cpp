@@ -19,7 +19,9 @@ edge::comms::mqtt::ParamUpdateHandler::Dependencies BuildParamDeps(
     bool (*publish_ack)(const String&, void*),
     void* publish_ack_ctx,
     void (*on_runtime_applied)(bool, void*),
-    void* on_runtime_applied_ctx) {
+    void* on_runtime_applied_ctx,
+    void (*enrich_ack)(edge::domain::ParameterAckMessage*, void*),
+    void* enrich_ack_ctx) {
   edge::comms::mqtt::ParamUpdateHandler::Dependencies deps{};
   deps.device_id = device_id;
   deps.store = store;
@@ -30,6 +32,8 @@ edge::comms::mqtt::ParamUpdateHandler::Dependencies BuildParamDeps(
   deps.publish_ack_ctx = publish_ack_ctx;
   deps.on_runtime_applied = on_runtime_applied;
   deps.on_runtime_applied_ctx = on_runtime_applied_ctx;
+  deps.enrich_ack = enrich_ack;
+  deps.enrich_ack_ctx = enrich_ack_ctx;
   return deps;
 }
 
@@ -69,7 +73,8 @@ EdgeTemperatureApp::EdgeTemperatureApp(const edge::config::AppConfig& config,
       param_handler_(BuildParamDeps(config.device_id, &runtime_store_, &param_parser_,
                                     &param_validator_, &ack_builder_,
                                     publish_ack_adapter, this,
-                                    on_runtime_applied_adapter, this)) {
+                                    on_runtime_applied_adapter, this,
+                                    enrich_ack_adapter, this)) {
   state_.simulated_temp_c = config.sim.initial_temp_c;
   snprintf(run_id_, sizeof(run_id_), "%s-run-%08lx", config.device_id,
            static_cast<unsigned long>(esp_random()));
@@ -138,6 +143,56 @@ void EdgeTemperatureApp::on_runtime_applied_adapter(bool reset_integral, void* c
   app->on_runtime_applied(reset_integral);
 }
 
+void EdgeTemperatureApp::enrich_ack_adapter(edge::domain::ParameterAckMessage* message,
+                                            void* ctx) {
+  if (ctx == nullptr || message == nullptr) {
+    return;
+  }
+  auto* app = static_cast<EdgeTemperatureApp*>(ctx);
+  app->enrich_ack(message);
+}
+
+void EdgeTemperatureApp::enrich_ack(edge::domain::ParameterAckMessage* message) const {
+  if (message == nullptr) {
+    return;
+  }
+  message->sensor_valid = state_.sensor_valid;
+  message->fault_latched = state_.fault_latched;
+  message->fault_reason = state_.fault_reason;
+  message->software_max_safe_temp_c = cfg_.control.software_max_safe_temp_c;
+}
+
+void EdgeTemperatureApp::latch_fault(const char* reason) {
+  if (state_.fault_latched) {
+    return;
+  }
+  state_.fault_latched = true;
+  strncpy(state_.fault_reason, reason, sizeof(state_.fault_reason) - 1);
+  state_.fault_reason[sizeof(state_.fault_reason) - 1] = '\0';
+  controller_.reset_integral();
+  actuator_.write_duty(0);
+  Serial.print("safety_fault_latched=");
+  Serial.println(state_.fault_reason);
+}
+
+void EdgeTemperatureApp::clear_fault_if_possible() {
+  if (!state_.fault_latched) {
+    return;
+  }
+  if (cfg_.control.fault_latch_enabled) {
+    return;
+  }
+  if (!state_.sensor_valid) {
+    return;
+  }
+  if (state_.sensor_temp_c > cfg_.control.software_max_safe_temp_c - 2.0f) {
+    return;
+  }
+  state_.fault_latched = false;
+  strncpy(state_.fault_reason, "none", sizeof(state_.fault_reason) - 1);
+  state_.fault_reason[sizeof(state_.fault_reason) - 1] = '\0';
+}
+
 void EdgeTemperatureApp::on_runtime_applied(bool reset_integral) {
   if (reset_integral) {
     controller_.reset_integral();
@@ -147,10 +202,14 @@ void EdgeTemperatureApp::on_runtime_applied(bool reset_integral) {
 
 void EdgeTemperatureApp::run_control_tick(unsigned long now_ms) {
   const edge::domain::RuntimeControlConfig runtime = runtime_store_.current();
-  if (now_ms - state_.last_control_ms < runtime.control_period_ms) {
+  const unsigned long elapsed_ms = now_ms - state_.last_control_ms;
+  if (elapsed_ms < runtime.control_period_ms) {
     return;
   }
   state_.last_control_ms = now_ms;
+  state_.last_actual_dt_ms = elapsed_ms;
+  state_.last_dt_error_ms =
+      static_cast<long>(elapsed_ms) - static_cast<long>(runtime.control_period_ms);
 
   param_handler_.apply_pending_if_needed(now_ms);
 
@@ -162,6 +221,13 @@ void EdgeTemperatureApp::run_control_tick(unsigned long now_ms) {
   state_.sensor_valid = sensor_.is_valid(sensor_temp);
   state_.sensor_temp_c = sensor_temp;
 
+  if (!state_.sensor_valid) {
+    latch_fault("sensor_invalid");
+  } else if (state_.sensor_temp_c > cfg_.control.software_max_safe_temp_c) {
+    latch_fault("software_overtemp");
+  }
+  clear_fault_if_possible();
+
   const edge::domain::TemperatureSample feedback =
       feedback_selector_.select(state_.sensor_temp_c, state_.sensor_valid,
                                 state_.simulated_temp_c);
@@ -169,11 +235,24 @@ void EdgeTemperatureApp::run_control_tick(unsigned long now_ms) {
   edge::domain::ControllerInput input;
   input.target_temp_c = runtime_store_.current().target_temp_c;
   input.measured_temp_c = feedback.temperature_c;
-  input.dt_s = runtime_store_.current().control_period_ms / 1000.0f;
+  input.dt_s = static_cast<float>(elapsed_ms) / 1000.0f;
+  if (input.dt_s <= 0.0f) {
+    input.dt_s = runtime_store_.current().control_period_ms / 1000.0f;
+  }
 
-  const edge::domain::ControllerOutput control =
-      controller_.update(input, runtime_store_.current());
-  actuator_.write_duty(control.pwm_duty);
+  bool safety_output_forced_off = state_.fault_latched;
+  edge::domain::ControllerOutput control{};
+  if (safety_output_forced_off) {
+    control.error_c = input.target_temp_c - input.measured_temp_c;
+    control.control_output = 0.0f;
+    control.pwm_duty = 0;
+    control.pwm_norm = 0.0f;
+    control.saturation_state = edge::domain::SaturationState::kLow;
+    actuator_.write_duty(0);
+  } else {
+    control = controller_.update(input, runtime_store_.current());
+    actuator_.write_duty(control.pwm_duty);
+  }
 
 #if EDGE_BUILD_SIMULATOR
   state_.simulated_temp_c =
@@ -181,7 +260,7 @@ void EdgeTemperatureApp::run_control_tick(unsigned long now_ms) {
 #endif
 
   const edge::domain::TelemetrySnapshot snapshot =
-      build_snapshot(now_ms, feedback, control);
+      build_snapshot(now_ms, feedback, control, safety_output_forced_off);
 
   const String telemetry_json = telemetry_builder_.to_json(snapshot);
   Serial.println(telemetry_json);
@@ -220,7 +299,9 @@ void EdgeTemperatureApp::print_runtime_config_snapshot() const {
 edge::domain::TelemetrySnapshot EdgeTemperatureApp::build_snapshot(
     unsigned long now_ms,
     const edge::domain::TemperatureSample& feedback,
-    const edge::domain::ControllerOutput& control) const {
+    const edge::domain::ControllerOutput& control,
+    bool safety_output_forced_off) const {
+  const auto net_stats = mqtt_.network_stats();
   edge::domain::TelemetrySnapshot snapshot{};
   snapshot.device_id = cfg_.device_id;
   snapshot.uptime_ms = now_ms;
@@ -229,9 +310,16 @@ edge::domain::TelemetrySnapshot EdgeTemperatureApp::build_snapshot(
   snapshot.sensor_temp_c = state_.sensor_temp_c;
   snapshot.simulated_temp_c = state_.simulated_temp_c;
   snapshot.sensor_valid = state_.sensor_valid;
+  snapshot.sensor_status = state_.sensor_valid ? "ok" : "invalid";
   snapshot.using_simulated_feedback =
       feedback.source == edge::domain::FeedbackSourceType::kSimulated;
   snapshot.control_period_ms = runtime_store_.current().control_period_ms;
+  snapshot.actual_dt_ms = state_.last_actual_dt_ms;
+  snapshot.dt_error_ms = state_.last_dt_error_ms;
+  snapshot.wifi_connected = net_stats.wifi_connected;
+  snapshot.mqtt_connected = net_stats.mqtt_connected;
+  snapshot.mqtt_reconnect_count = net_stats.mqtt_reconnect_count;
+  snapshot.mqtt_publish_fail_count = net_stats.mqtt_publish_fail_count;
   snapshot.run_id = run_id_;
   snapshot.control_mode = runtime_store_.current().control_mode;
   snapshot.controller_version = cfg_.controller_version;
@@ -239,6 +327,10 @@ edge::domain::TelemetrySnapshot EdgeTemperatureApp::build_snapshot(
   snapshot.ki = runtime_store_.current().ki;
   snapshot.kd = runtime_store_.current().kd;
   snapshot.system_state = cfg_.system_state;
+  snapshot.safety_output_forced_off = safety_output_forced_off;
+  snapshot.fault_latched = state_.fault_latched;
+  snapshot.fault_reason = state_.fault_reason;
+  snapshot.software_max_safe_temp_c = cfg_.control.software_max_safe_temp_c;
   snapshot.has_pending_params = runtime_store_.has_pending();
   snapshot.pending_params_age_ms = runtime_store_.pending_age_ms(now_ms);
   snapshot.control = control;

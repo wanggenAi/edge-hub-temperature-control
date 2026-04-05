@@ -81,6 +81,7 @@ void MqttGateway::ensure_mqtt(unsigned long now_ms) {
   }
 
   Serial.println("mqtt_status=connected");
+  ++mqtt_reconnect_count_;
   if (mqtt_client_.subscribe(cfg_.params_set_topic)) {
     Serial.print("mqtt_subscribed_topic=");
     Serial.println(cfg_.params_set_topic);
@@ -100,6 +101,7 @@ void MqttGateway::maintain(unsigned long now_ms) {
   }
 
   ensure_mqtt(now_ms);
+  mqtt_connected_cached_ = mqtt_client_.connected();
   if (mqtt_client_.connected()) {
     mqtt_client_.loop();
   }
@@ -108,10 +110,14 @@ void MqttGateway::maintain(unsigned long now_ms) {
 bool MqttGateway::publish_telemetry(const edge::domain::TelemetrySnapshot& snapshot) {
   if (!mqtt_client_.connected()) {
     Serial.println("mqtt_publish_skipped=not_connected");
+    ++mqtt_publish_fail_count_;
     return false;
   }
   const String payload = telemetry_builder_.to_json(snapshot);
   const bool published = mqtt_client_.publish(cfg_.telemetry_topic, payload.c_str());
+  if (!published) {
+    ++mqtt_publish_fail_count_;
+  }
   Serial.print("mqtt_publish_status=");
   Serial.println(published ? "published" : "failed");
   return published;
@@ -125,15 +131,28 @@ bool MqttGateway::publish_ack_json(const String& payload) {
 
   if (!mqtt_client_.connected()) {
     Serial.println("mqtt_ack_status=skipped_not_connected");
+    ++mqtt_publish_fail_count_;
     return false;
   }
 
   const bool published = mqtt_client_.publish(cfg_.params_ack_topic, payload.c_str());
+  if (!published) {
+    ++mqtt_publish_fail_count_;
+  }
   Serial.print("mqtt_ack_status=");
   Serial.println(published ? "published" : "failed");
   return published;
 }
 
 bool MqttGateway::connected() { return mqtt_client_.connected(); }
+
+MqttGateway::NetworkStats MqttGateway::network_stats() const {
+  NetworkStats stats{};
+  stats.wifi_connected = WiFi.status() == WL_CONNECTED;
+  stats.mqtt_connected = mqtt_connected_cached_;
+  stats.mqtt_reconnect_count = mqtt_reconnect_count_;
+  stats.mqtt_publish_fail_count = mqtt_publish_fail_count_;
+  return stats;
+}
 
 }  // namespace edge::comms::mqtt

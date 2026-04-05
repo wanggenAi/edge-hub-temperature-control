@@ -22,6 +22,9 @@ class ParamUpdateHandler {
 
     void (*on_runtime_applied)(bool reset_integral, void* ctx) = nullptr;
     void* on_runtime_applied_ctx = nullptr;
+
+    void (*enrich_ack)(edge::domain::ParameterAckMessage* message, void* ctx) = nullptr;
+    void* enrich_ack_ctx = nullptr;
   };
 
   explicit ParamUpdateHandler(const Dependencies& deps);

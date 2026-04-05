@@ -31,6 +31,10 @@ struct ParameterAckMessage {
   RuntimeControlConfig runtime;
   const char* reason = "";
   unsigned long uptime_ms = 0;
+  bool sensor_valid = false;
+  bool fault_latched = false;
+  const char* fault_reason = "none";
+  float software_max_safe_temp_c = 0.0f;
 };
 
 }  // namespace edge::domain

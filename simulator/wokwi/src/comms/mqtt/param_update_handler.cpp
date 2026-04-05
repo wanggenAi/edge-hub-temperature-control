@@ -11,7 +11,11 @@ void ParamUpdateHandler::publish_ack_message(
   if (deps_.publish_ack == nullptr || deps_.ack_builder == nullptr) {
     return;
   }
-  const String payload = deps_.ack_builder->to_json(message);
+  edge::domain::ParameterAckMessage mutable_message = message;
+  if (deps_.enrich_ack != nullptr) {
+    deps_.enrich_ack(&mutable_message, deps_.enrich_ack_ctx);
+  }
+  const String payload = deps_.ack_builder->to_json(mutable_message);
   deps_.publish_ack(payload, deps_.publish_ack_ctx);
 }
 
