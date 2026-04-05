@@ -464,7 +464,7 @@ export function DeviceDetailPage() {
               }}
             />
 
-            <SignalBox label="Control" value={parameters.control_mode} tone="text-neon" />
+            <SignalBox label="Control" value={formatControlMode(parameters.control_mode)} tone="text-neon" />
             <SignalBox label="Comm" value={device.is_online ? "Online" : "Offline"} tone={device.is_online ? "text-accent" : "text-danger"} />
             <Button className="h-9 px-3 text-xs" variant="ghost" onClick={() => navigate(`/history?deviceId=${device.id}`)}>
               View History
@@ -683,7 +683,7 @@ export function DeviceDetailPage() {
               <MetricCard title="Ki" value={parameters.ki.toFixed(2)} />
               <MetricCard title="Kd" value={parameters.kd.toFixed(2)} />
             </div>
-            <MetricRow label="Mode" value={parameters.control_mode} />
+            <MetricRow label="Mode" value={formatControlMode(parameters.control_mode)} />
 
             <SectionTitle title="Update & Feedback" />
             <form className="space-y-2" onSubmit={saveParameters}>
@@ -716,7 +716,7 @@ export function DeviceDetailPage() {
                 />
               </div>
               <Select
-                value={editing.control_mode || parameters.control_mode}
+                value={editing.control_mode || normalizeControlMode(parameters.control_mode)}
                 onValueChange={(v) => setEditing((s) => ({ ...s, control_mode: v }))}
                 disabled={!canWrite}
               >
@@ -724,6 +724,7 @@ export function DeviceDetailPage() {
                   <SelectValue placeholder="Control Mode" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pid_control">PID Control</SelectItem>
                   <SelectItem value="pi_control">PI Control</SelectItem>
                   <SelectItem value="p_control">P Control</SelectItem>
                 </SelectContent>
@@ -1102,6 +1103,22 @@ function normalizeApiError(error: unknown): string {
     // keep raw message
   }
   return raw;
+}
+
+function normalizeControlMode(mode: string): string {
+  const next = mode.trim().toLowerCase();
+  if (next === "pid" || next === "pid_control") return "pid_control";
+  if (next === "pi" || next === "pi_control") return "pi_control";
+  if (next === "p" || next === "p_control") return "p_control";
+  return "pid_control";
+}
+
+function formatControlMode(mode: string): string {
+  const normalized = normalizeControlMode(mode);
+  if (normalized === "pid_control") return "PID";
+  if (normalized === "pi_control") return "PI";
+  if (normalized === "p_control") return "P";
+  return mode;
 }
 
 function InlineRefTag({ label, weak = false }: { label: string; weak?: boolean }) {

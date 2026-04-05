@@ -213,7 +213,7 @@ def seed_database(db: Session) -> None:
                 kp=2.6 + idx * 0.1,
                 ki=0.35 + idx * 0.05,
                 kd=0.1,
-                control_mode="PID",
+                control_mode="pid_control",
                 target_band=0.5,
                 overshoot_limit_pct=3.0,
                 saturation_warn_ratio=0.3,

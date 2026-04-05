@@ -10,7 +10,7 @@ struct RuntimeControlConfig {
   float ki = 12.0f;
   float kd = 0.0f;
   uint32_t control_period_ms = 1000;
-  char control_mode[32] = "pi_control";
+  char control_mode[32] = "pid_control";
 };
 
 }  // namespace edge::domain

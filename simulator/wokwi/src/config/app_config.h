@@ -56,7 +56,7 @@ struct AppConfig {
   const char* device_id = "edge-node-001";
   const char* controller_version = "pi_tuned_v3_1";
   const char* system_state = "running";
-  const char* default_control_mode = "pi_control";
+  const char* default_control_mode = "pid_control";
   uint8_t text_field_size = 32;
   uint8_t run_id_size = 48;
   bool prefer_simulated_feedback = true;

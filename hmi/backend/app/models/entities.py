@@ -109,7 +109,7 @@ class DeviceParameter(Base):
     kp: Mapped[float] = mapped_column(Float, default=2.8)
     ki: Mapped[float] = mapped_column(Float, default=0.45)
     kd: Mapped[float] = mapped_column(Float, default=0.12)
-    control_mode: Mapped[str] = mapped_column(String(32), default="PID")
+    control_mode: Mapped[str] = mapped_column(String(32), default="pid_control")
     target_band: Mapped[float] = mapped_column(Float, default=0.5)
     overshoot_limit_pct: Mapped[float] = mapped_column(Float, default=3.0)
     saturation_warn_ratio: Mapped[float] = mapped_column(Float, default=0.3)

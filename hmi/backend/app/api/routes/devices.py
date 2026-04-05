@@ -62,6 +62,19 @@ def _tdb() -> str:
     return settings.tdengine_database
 
 
+def _normalize_control_mode(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    mode = str(value).strip().lower()
+    if mode in {"pid", "pid_control"}:
+        return "pid_control"
+    if mode in {"pi", "pi_control"}:
+        return "pi_control"
+    if mode in {"p", "p_control"}:
+        return "p_control"
+    return mode
+
+
 def _load_live_snapshot(device_code: str) -> dict:
     if not tdengine.enabled():
         return {}
@@ -625,7 +638,7 @@ def get_parameters(
             if ack.get("kd") is not None:
                 param.kd = float(ack.get("kd") or param.kd)
             if ack.get("control_mode"):
-                param.control_mode = str(ack.get("control_mode"))
+                param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
             if ack.get("target_temp_c") is not None:
                 device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
         else:
@@ -644,7 +657,7 @@ def get_parameters(
                 if row.get("kd") is not None:
                     param.kd = float(row.get("kd") or param.kd)
                 if row.get("control_mode"):
-                    param.control_mode = str(row.get("control_mode"))
+                    param.control_mode = _normalize_control_mode(str(row.get("control_mode"))) or param.control_mode
                 if row.get("target_temp_c") is not None:
                     device.target_temp = float(row.get("target_temp_c") or device.target_temp)
     return param
@@ -669,6 +682,8 @@ def update_parameters(
         raise HTTPException(status_code=404, detail="Device not found")
 
     payload_data = payload.model_dump(exclude_none=True)
+    if "control_mode" in payload_data:
+        payload_data["control_mode"] = _normalize_control_mode(str(payload_data["control_mode"]))
     if "target_temp" in payload_data:
         device.target_temp = float(payload_data["target_temp"])
         device.updated_at = datetime.utcnow()
@@ -711,7 +726,7 @@ def update_parameters(
     if ack.get("kd") is not None:
         param.kd = float(ack.get("kd") or param.kd)
     if ack.get("control_mode"):
-        param.control_mode = str(ack.get("control_mode"))
+        param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
     if ack.get("target_temp_c") is not None:
         device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
 

@@ -5,7 +5,8 @@
 namespace edge::comms::mqtt {
 
 bool ParamValidator::is_control_mode_supported(const char* control_mode) const {
-  return strcmp(control_mode, "pi_control") == 0 ||
+  return strcmp(control_mode, "pid_control") == 0 ||
+         strcmp(control_mode, "pi_control") == 0 ||
          strcmp(control_mode, "p_control") == 0;
 }
 
