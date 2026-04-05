@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -21,11 +22,13 @@ from app.schemas.alarm import (
     AlarmRuleUpdateIn,
     AlarmRuleUpdateOut,
 )
-from app.services.alarm_rule_cache import sync_rule_to_redis
+from app.services.mqtt_publisher import MqttPublisher
 from app.services.tdengine_client import TdengineClient
 
 router = APIRouter(prefix="/alarms", tags=["alarms"])
 tdengine = TdengineClient()
+mqtt_publisher = MqttPublisher()
+log = logging.getLogger(__name__)
 
 
 def _scoped_base(db: Session, current_user: User):
@@ -351,7 +354,22 @@ def update_alarm_rule(
     rule.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rule)
-    sync_rule_to_redis(rule)
+    try:
+        mqtt_publisher.publish_json(
+            topic="edgehub/config/alarm-rules/updated",
+            payload_obj={
+                "entity": "alarm_rule",
+                "action": "updated",
+                "rule_id": rule.id,
+                "rule_code": rule.rule_code,
+                "scope_type": rule.scope_type,
+                "scope_value": rule.scope_value,
+                "updated_at": rule.updated_at.isoformat(),
+                "updated_by": rule.updated_by,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        log.exception("failed to publish alarm rule update notification rule_id=%s", rule.id)
 
     return AlarmRuleUpdateOut(
         item=AlarmRuleItem(

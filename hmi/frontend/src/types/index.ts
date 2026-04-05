@@ -230,6 +230,37 @@ export interface AlarmRuleUpdateResponse {
   applied: boolean;
 }
 
+export interface StorageRuleItem {
+  id: number;
+  scope_type: "global" | "device" | string;
+  scope_value: string;
+  raw_mode: "full" | "relaxed" | "strict" | "disabled" | string;
+  summary_enabled: boolean;
+  summary_min_samples: number;
+  heartbeat_interval_ms: number;
+  target_temp_deadband: number;
+  sim_temp_deadband: number;
+  sensor_temp_deadband: number;
+  error_deadband: number;
+  integral_error_deadband: number;
+  control_output_deadband: number;
+  pwm_duty_deadband: number;
+  pwm_norm_deadband: number;
+  parameter_deadband: number;
+  enabled: boolean;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface StorageRuleListResponse {
+  items: StorageRuleItem[];
+  total: number;
+}
+
+export interface StorageRuleMutationResponse {
+  item: StorageRuleItem;
+}
+
 export interface SummaryItem {
   id: number;
   device_id: number;

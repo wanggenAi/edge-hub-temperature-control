@@ -203,6 +203,56 @@ Expected result:
 - `data-hub` logs that the TDengine REST writer is initialized
 - telemetry writes are persisted into TDengine
 
+## 8. Retention Cleanup (Simple Age-Based Purge)
+
+To prevent disk growth without introducing archive complexity, use:
+
+- `scripts/tdengine-retention-cleanup.sh`
+
+The script deletes rows older than configured retention windows per super table:
+
+- `telemetry` (default 7 days)
+- `telemetry_summary` (default 30 days)
+- `params_set` (default 30 days)
+- `params_ack` (default 30 days)
+- `device_status` (default 14 days)
+- `alarm_events` (default 90 days)
+
+Dry-run preview:
+
+```bash
+./scripts/tdengine-retention-cleanup.sh
+```
+
+Execute deletion:
+
+```bash
+DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh
+```
+
+Environment variables:
+
+```bash
+export TDENGINE_URL=http://127.0.0.1:6041
+export TDENGINE_DATABASE=edgehub
+export TDENGINE_USERNAME=root
+export TDENGINE_PASSWORD=taosdata
+export TDENGINE_TIMEOUT_SECONDS=15
+
+export RETENTION_TELEMETRY_DAYS=7
+export RETENTION_TELEMETRY_SUMMARY_DAYS=30
+export RETENTION_PARAMS_SET_DAYS=30
+export RETENTION_PARAMS_ACK_DAYS=30
+export RETENTION_DEVICE_STATUS_DAYS=14
+export RETENTION_ALARM_EVENTS_DAYS=90
+```
+
+Cron example (daily):
+
+```cron
+30 2 * * * cd /path/to/edge-hub-temperature-control && DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh >> /var/log/edgehub-tdengine-retention.log 2>&1
+```
+
 Typical initialization log:
 
 ```text

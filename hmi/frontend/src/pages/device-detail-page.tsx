@@ -338,8 +338,7 @@ export function DeviceDetailPage() {
   const yDomain = useMemo<[number, number]>(() => {
     if (!chartData.length) return [targetTemp - 1, targetTemp + 1];
 
-    const values = chartData.map((d) => d.temp);
-    values.push(targetTemp - targetConfig.band, targetTemp + targetConfig.band);
+    const values = chartData.flatMap((d) => [d.temp, d.target, d.target - targetConfig.band, d.target + targetConfig.band]);
     let min = Math.min(...values);
     let max = Math.max(...values);
 
@@ -354,6 +353,36 @@ export function DeviceDetailPage() {
     return [Number((min - margin).toFixed(2)), Number((max + margin).toFixed(2))];
   }, [chartData, targetTemp, targetConfig.band]);
 
+  const targetBandAreas = useMemo(() => {
+    if (!chartData.length) return [] as Array<{ key: string; x1: number; x2: number; y1: number; y2: number }>;
+    const epsilon = 1e-6;
+    const areas: Array<{ key: string; x1: number; x2: number; y1: number; y2: number }> = [];
+    let start = 0;
+    let activeTarget = chartData[0].target;
+
+    for (let i = 1; i < chartData.length; i += 1) {
+      if (Math.abs(chartData[i].target - activeTarget) <= epsilon) continue;
+      areas.push({
+        key: `${start}-${i - 1}-${activeTarget}`,
+        x1: start,
+        x2: i - 1,
+        y1: activeTarget - targetConfig.band,
+        y2: activeTarget + targetConfig.band,
+      });
+      start = i;
+      activeTarget = chartData[i].target;
+    }
+
+    areas.push({
+      key: `${start}-${chartData.length - 1}-${activeTarget}`,
+      x1: start,
+      x2: chartData.length - 1,
+      y1: activeTarget - targetConfig.band,
+      y2: activeTarget + targetConfig.band,
+    });
+    return areas;
+  }, [chartData, targetConfig.band]);
+
   const aiCurrentParams = aiGenerated?.current_params ?? {
     kp: parameters?.kp ?? 0,
     ki: parameters?.ki ?? 0,
@@ -361,6 +390,12 @@ export function DeviceDetailPage() {
   };
   const aiRecommendedParams = aiGenerated?.recommended_params ?? null;
   const aiDelta = aiGenerated?.delta ?? null;
+  const aiNoChangeNeeded = Boolean(
+    aiGenerated &&
+      (aiGenerated.problem_type === "normal" ||
+        (aiDelta && isZeroDelta(aiDelta.kp) && isZeroDelta(aiDelta.ki) && isZeroDelta(aiDelta.kd)))
+  );
+  const aiEvidenceRows = aiGenerated ? buildEvidenceRows(aiGenerated.evidence) : [];
 
   if (loading) return <p className="text-sm text-mute">Loading device detail...</p>;
   if (!device || !parameters) return <p className="text-sm text-danger">Device not found or no permission.</p>;
@@ -468,7 +503,7 @@ export function DeviceDetailPage() {
   }
 
   function openApplyAiConfirm() {
-    if (!aiGenerated || !canWrite || aiApplyBusy) return;
+    if (!aiGenerated || !canWrite || aiApplyBusy || aiNoChangeNeeded) return;
     setAiConfirmOpen(true);
   }
 
@@ -636,12 +671,17 @@ export function DeviceDetailPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 8, right: 18, left: 2, bottom: 0 }}>
                   <CartesianGrid stroke="rgba(41,240,255,0.13)" />
-                  <ReferenceArea
-                    y1={targetTemp - targetConfig.band}
-                    y2={targetTemp + targetConfig.band}
-                    fill="rgba(25,211,152,0.12)"
-                    strokeOpacity={0}
-                  />
+                  {targetBandAreas.map((area) => (
+                    <ReferenceArea
+                      key={area.key}
+                      x1={area.x1}
+                      x2={area.x2}
+                      y1={area.y1}
+                      y2={area.y2}
+                      fill="rgba(25,211,152,0.12)"
+                      strokeOpacity={0}
+                    />
+                  ))}
                   <XAxis
                     dataKey="idx"
                     stroke="#7fa6b8"
@@ -702,8 +742,19 @@ export function DeviceDetailPage() {
                     </span>
                   </div>
                   <div className="mt-1 text-xs text-mute">
-                    Requires Confirmation: <span className={aiGenerated?.requires_confirmation ? "text-warn" : "text-accent"}>{aiGenerated ? String(aiGenerated.requires_confirmation) : "N/A"}</span>
+                    Confirmation:{" "}
+                    <span className={aiGenerated?.requires_confirmation ? "text-warn" : "text-accent"}>
+                      {aiGenerated ? formatConfirmationRequirement(aiGenerated.requires_confirmation) : "N/A"}
+                    </span>
                   </div>
+                  <div className="mt-1 text-xs text-mute">
+                    Expected Effect: <span className="text-text">{aiGenerated ? formatExpectedEffect(aiGenerated.expected_effect) : "N/A"}</span>
+                  </div>
+                  {aiNoChangeNeeded && (
+                    <div className="mt-2 rounded border border-accent/40 bg-accent/10 px-2 py-1 text-xs text-accent">
+                      System currently stable, no parameter adjustment recommended.
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
@@ -739,12 +790,28 @@ export function DeviceDetailPage() {
                 </div>
               </div>
 
+            <div className="mt-2 rounded border border-line/70 bg-panel px-3 py-2">
+              <div className="text-[11px] uppercase tracking-wide text-mute">Evidence / Metrics</div>
+              {!aiGenerated && <div className="mt-1 text-xs text-mute">Generate recommendation to view evidence.</div>}
+              {aiGenerated && aiEvidenceRows.length === 0 && <div className="mt-1 text-xs text-mute">No evidence metrics available.</div>}
+              {aiEvidenceRows.length > 0 && (
+                <div className="mt-1 grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                  {aiEvidenceRows.map((row) => (
+                    <div key={row.key} className="flex items-center justify-between rounded border border-line/60 bg-panel2 px-2 py-1">
+                      <span className="text-mute">{row.label}</span>
+                      <span className="font-semibold text-text">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="ghost" onClick={handleGenerateAiRecommendation} disabled={aiGenerateBusy}>
                 {aiGenerateBusy ? "Generating..." : "Generate Recommendation"}
               </Button>
-              <Button size="sm" variant="accent" onClick={openApplyAiConfirm} disabled={!canWrite || !aiGenerated || aiApplyBusy}>
-                {aiApplyBusy ? "Applying..." : "Apply Recommendation"}
+              <Button size="sm" variant="accent" onClick={openApplyAiConfirm} disabled={!canWrite || !aiGenerated || aiApplyBusy || aiNoChangeNeeded}>
+                {aiApplyBusy ? "Applying..." : aiNoChangeNeeded ? "No Change Needed" : "Apply Recommendation"}
               </Button>
               </div>
             </div>
@@ -1219,6 +1286,63 @@ function normalizeApiError(error: unknown): string {
 
 function withSign(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(4)}`;
+}
+
+function isZeroDelta(value: number): boolean {
+  return Math.abs(value) < 1e-9;
+}
+
+function formatConfirmationRequirement(required: boolean): string {
+  return required ? "Required" : "Not Required";
+}
+
+function formatExpectedEffect(value: string): string {
+  const map: Record<string, string> = {
+    keep_stable: "Keep Stable",
+    speed_up_response: "Speed Up Response",
+    reduce_steady_state_error: "Reduce Steady-state Error",
+    reduce_overshoot: "Reduce Overshoot",
+    reduce_oscillation: "Reduce Oscillation",
+    limited_gain_expected: "Limited Gain Expected",
+  };
+  return map[value] ?? value;
+}
+
+function formatMetricNumber(value: number): string {
+  if (!Number.isFinite(value)) return "-";
+  if (Number.isInteger(value)) return String(value);
+  const fixed = value.toFixed(4);
+  const [intPart, decPart = ""] = fixed.split(".");
+  const trimmed = decPart.replace(/0+$/, "");
+  if (!trimmed) return intPart;
+  if (trimmed.length < 2) return `${intPart}.${decPart.slice(0, 2)}`;
+  return `${intPart}.${trimmed}`;
+}
+
+function formatPercentValue(value: number): string {
+  return `${formatMetricNumber(value)}%`;
+}
+
+function buildEvidenceRows(evidence: Record<string, string | number | boolean | null>): Array<{ key: string; label: string; value: string }> {
+  const fields: Array<{ key: string; label: string; kind: "percent" | "ratio_percent" | "number" }> = [
+    { key: "overshoot_pct", label: "Overshoot %", kind: "percent" },
+    { key: "mean_abs_error", label: "Mean Abs Error", kind: "number" },
+    { key: "error_std", label: "Error Std", kind: "number" },
+    { key: "zero_crossings", label: "Zero Crossings", kind: "number" },
+    { key: "in_band_ratio", label: "In-band Ratio", kind: "ratio_percent" },
+    { key: "settling_sec", label: "Settling Time (s)", kind: "number" },
+    { key: "saturation_ratio", label: "Saturation Ratio", kind: "ratio_percent" },
+    { key: "pwm_mean", label: "PWM Mean", kind: "number" },
+    { key: "pwm_max", label: "PWM Max", kind: "number" },
+    { key: "temp_swing", label: "Temp Swing", kind: "number" },
+  ];
+
+  return fields.flatMap(({ key, label, kind }) => {
+    const raw = evidence[key];
+    if (raw === null || raw === undefined || typeof raw !== "number" || !Number.isFinite(raw)) return [];
+    const value = kind === "percent" ? formatPercentValue(raw) : kind === "ratio_percent" ? formatPercentValue(raw * 100) : formatMetricNumber(raw);
+    return [{ key, label, value }];
+  });
 }
 
 function normalizeControlMode(mode: string): string {

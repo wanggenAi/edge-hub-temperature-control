@@ -160,6 +160,32 @@ class AlarmRule(Base):
     updated_by: Mapped[str] = mapped_column(String(64), default="system")
 
 
+class StorageRule(Base):
+    __tablename__ = "storage_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    scope_type: Mapped[str] = mapped_column(String(16), default="global", index=True)
+    scope_value: Mapped[str] = mapped_column(String(128), default="*", index=True)
+    raw_mode: Mapped[str] = mapped_column(String(16), default="full")
+    summary_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    summary_min_samples: Mapped[int] = mapped_column(Integer, default=3)
+    heartbeat_interval_ms: Mapped[int] = mapped_column(Integer, default=30000)
+    target_temp_deadband: Mapped[float] = mapped_column(Float, default=0.05)
+    sim_temp_deadband: Mapped[float] = mapped_column(Float, default=0.05)
+    sensor_temp_deadband: Mapped[float] = mapped_column(Float, default=0.05)
+    error_deadband: Mapped[float] = mapped_column(Float, default=0.02)
+    integral_error_deadband: Mapped[float] = mapped_column(Float, default=1.0)
+    control_output_deadband: Mapped[float] = mapped_column(Float, default=1.0)
+    pwm_duty_deadband: Mapped[float] = mapped_column(Float, default=1.0)
+    pwm_norm_deadband: Mapped[float] = mapped_column(Float, default=0.01)
+    parameter_deadband: Mapped[float] = mapped_column(Float, default=0.01)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by: Mapped[str] = mapped_column(String(64), default="system")
+
+    __table_args__ = (UniqueConstraint("scope_type", "scope_value", name="uq_storage_rule_scope"),)
+
+
 class AIRecommendation(Base):
     __tablename__ = "ai_recommendations"
 

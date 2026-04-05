@@ -3,6 +3,7 @@ package com.edgehub.datahub.mqtt;
 import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.RawMqttMessage;
 import com.edgehub.datahub.monitoring.DataHubMetrics;
+import com.edgehub.datahub.rules.RuleConfigService;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Queue;
@@ -97,6 +98,8 @@ public final class PahoReactiveMqttSource implements MqttMessageSource {
     client.subscribe("edge/temperature/+/telemetry", qos).waitForCompletion();
     client.subscribe("edge/temperature/+/params/set", qos).waitForCompletion();
     client.subscribe("edge/temperature/+/params/ack", qos).waitForCompletion();
+    client.subscribe(RuleConfigService.ALARM_RULES_UPDATED_TOPIC, qos).waitForCompletion();
+    client.subscribe(RuleConfigService.STORAGE_RULES_UPDATED_TOPIC, qos).waitForCompletion();
     log.info("mqtt subscriptions active reason={} qos={}", reason, qos);
   }
 

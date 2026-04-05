@@ -5,6 +5,8 @@ import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetryPayload;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
 import com.edgehub.datahub.monitoring.DataHubMetrics;
+import com.edgehub.datahub.rules.RuleConfigService;
+import com.edgehub.datahub.rules.StorageRuleDefinition;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
@@ -21,12 +23,14 @@ public final class TelemetrySummaryAggregator {
 
   private final HubProperties.TelemetrySummary properties;
   private final DataHubMetrics metrics;
+  private final RuleConfigService ruleConfigService;
   private final Cache<String, SummaryWindow> pendingWindowsByDevice;
   private final ConcurrentLinkedQueue<TelemetrySteadySummary> evictedSummaries = new ConcurrentLinkedQueue<>();
 
-  public TelemetrySummaryAggregator(HubProperties hubProperties, DataHubMetrics metrics) {
+  public TelemetrySummaryAggregator(HubProperties hubProperties, DataHubMetrics metrics, RuleConfigService ruleConfigService) {
     this.properties = hubProperties.getTelemetrySummary();
     this.metrics = metrics;
+    this.ruleConfigService = ruleConfigService;
     this.pendingWindowsByDevice = Caffeine.newBuilder()
         .maximumSize(Math.max(1L, properties.getMaxActiveWindows()))
         .expireAfterAccess(Duration.ofMillis(Math.max(1000L, properties.getWindowTtlMs())))
@@ -52,19 +56,21 @@ public final class TelemetrySummaryAggregator {
       ParsedHubMessage.TelemetryMessage telemetry,
       TelemetryWriteFilter.FilterDecision decision) {
     List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
-    if (!properties.isEnabled()) {
-      return new SummaryBatch(summaries);
-    }
-
     String deviceId = telemetry.topic().deviceId();
     if (deviceId == null || deviceId.isBlank()) {
+      return new SummaryBatch(summaries);
+    }
+    StorageRuleDefinition storageRule = ruleConfigService.resolveStorageRule(deviceId);
+    if (!storageRule.summaryEnabled()) {
+      pendingWindowsByDevice.invalidate(deviceId);
+      metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
       return new SummaryBatch(summaries);
     }
 
     pendingWindowsByDevice.cleanUp();
 
     if (decision.persist()) {
-      flushCurrentWindow(deviceId, decision.reason()).ifPresent(summaries::add);
+      flushCurrentWindow(deviceId, decision.reason(), storageRule.summaryMinSamples()).ifPresent(summaries::add);
       metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
       return new SummaryBatch(summaries);
     }
@@ -78,26 +84,36 @@ public final class TelemetrySummaryAggregator {
 
   public SummaryBatch flush(String deviceId, String flushReason) {
     List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
-    if (!properties.isEnabled() || deviceId == null || deviceId.isBlank()) {
+    if (deviceId == null || deviceId.isBlank()) {
+      return new SummaryBatch(summaries);
+    }
+    StorageRuleDefinition storageRule = ruleConfigService.resolveStorageRule(deviceId);
+    if (!storageRule.summaryEnabled()) {
+      pendingWindowsByDevice.invalidate(deviceId);
+      metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
       return new SummaryBatch(summaries);
     }
     pendingWindowsByDevice.cleanUp();
-    flushCurrentWindow(deviceId, flushReason).ifPresent(summaries::add);
+    flushCurrentWindow(deviceId, flushReason, storageRule.summaryMinSamples()).ifPresent(summaries::add);
     metrics.updateTelemetrySummaryWindowSize(pendingWindowsByDevice.estimatedSize());
     return new SummaryBatch(summaries);
   }
 
   public List<TelemetrySteadySummary> flushIdle(Instant now) {
     List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
-    if (!properties.isEnabled() || properties.getIdleFlushIntervalMs() <= 0) {
+    if (properties.getIdleFlushIntervalMs() <= 0) {
       return summaries;
     }
 
     pendingWindowsByDevice.cleanUp();
     long idleFlushIntervalMs = properties.getIdleFlushIntervalMs();
-    int minSamples = Math.max(properties.getMinSamples(), 1);
     pendingWindowsByDevice.asMap().forEach((deviceId, window) -> {
       if (window == null) {
+        return;
+      }
+      StorageRuleDefinition storageRule = ruleConfigService.resolveStorageRule(deviceId);
+      if (!storageRule.summaryEnabled()) {
+        pendingWindowsByDevice.invalidate(deviceId);
         return;
       }
       long idleMs = now.toEpochMilli() - window.windowEnd().toEpochMilli();
@@ -107,6 +123,7 @@ public final class TelemetrySummaryAggregator {
       if (!pendingWindowsByDevice.asMap().remove(deviceId, window)) {
         return;
       }
+      int minSamples = Math.max(storageRule.summaryMinSamples(), 1);
       if (window.sampleCount() < minSamples) {
         metrics.recordTelemetrySummaryWindowDiscarded();
         return;
@@ -119,15 +136,16 @@ public final class TelemetrySummaryAggregator {
 
   public List<TelemetrySteadySummary> flushAll(String flushReason) {
     List<TelemetrySteadySummary> summaries = drainEvictedSummaries();
-    if (!properties.isEnabled()) {
-      return summaries;
-    }
-
-    int minSamples = Math.max(properties.getMinSamples(), 1);
     pendingWindowsByDevice.asMap().forEach((deviceId, window) -> {
       if (window == null || !pendingWindowsByDevice.asMap().remove(deviceId, window)) {
         return;
       }
+      StorageRuleDefinition storageRule = ruleConfigService.resolveStorageRule(deviceId);
+      if (!storageRule.summaryEnabled()) {
+        metrics.recordTelemetrySummaryWindowDiscarded();
+        return;
+      }
+      int minSamples = Math.max(storageRule.summaryMinSamples(), 1);
       if (window.sampleCount() < minSamples) {
         metrics.recordTelemetrySummaryWindowDiscarded();
         return;
@@ -138,10 +156,10 @@ public final class TelemetrySummaryAggregator {
     return summaries;
   }
 
-  private Optional<TelemetrySteadySummary> flushCurrentWindow(String deviceId, String flushReason) {
+  private Optional<TelemetrySteadySummary> flushCurrentWindow(String deviceId, String flushReason, int minSamples) {
     SummaryWindow window = pendingWindowsByDevice.asMap().remove(deviceId);
-    int minSamples = Math.max(properties.getMinSamples(), 1);
-    if (window == null || window.sampleCount() < minSamples) {
+    int effectiveMinSamples = Math.max(minSamples, 1);
+    if (window == null || window.sampleCount() < effectiveMinSamples) {
       if (window != null) {
         metrics.recordTelemetrySummaryWindowDiscarded();
       }

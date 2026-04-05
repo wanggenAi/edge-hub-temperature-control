@@ -160,7 +160,7 @@ def main() -> None:
     try:
         devices = db.scalars(select(Device).order_by(Device.id.asc())).all()
         if not devices:
-            print("No devices found. Start backend once to run initial seed.")
+            print("No devices found. Run: python scripts/db_seed.py --rules --demo")
             return
 
         metrics_total = 0

@@ -8,6 +8,7 @@ import { DeviceManagePage } from "@/pages/device-manage-page";
 import { HistoryPage } from "@/pages/history-page";
 import { LoginPage } from "@/pages/login-page";
 import { OverviewPage } from "@/pages/overview-page";
+import { StorageRulesPage } from "@/pages/storage-rules-page";
 import { UsersPage } from "@/pages/users-page";
 import type { Role } from "@/types";
 
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="/alarms" element={<AlarmsPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route element={<RoleGuard roles={["admin"]} />}>
+          <Route path="/storage-rules" element={<StorageRulesPage />} />
           <Route path="/users" element={<UsersPage />} />
         </Route>
       </Route>

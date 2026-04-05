@@ -391,33 +391,35 @@ Verified local workflow:
 docker exec edgehub-tdengine taos -s "SHOW DATABASES; USE edgehub; SHOW STABLES; SHOW TABLES; SELECT COUNT(*) FROM edgehub.telemetry_edge_node_001;"
 ```
 
-## Redis Alarm Cache (Minimal V1)
+## Rule Config Source (PostgreSQL + MQTT + Caffeine)
 
-The data hub can optionally maintain Redis cache entries for alarm workflows:
+Runtime rule/config path:
 
-- active alarm state cache
-- alarm rules cache
-- FSM intermediate state cache
+- PostgreSQL: source of truth (`alarm_rules`, `storage_rules`)
+- MQTT: config change notification
+- Caffeine: local hot cache in data-hub
 
-Redis is cache-only in this design and not the fact storage.
+Config update topics:
+
+- `edgehub/config/alarm-rules/updated`
+- `edgehub/config/storage-rules/updated`
 
 Key properties:
 
-- `datahub.redis.enabled`
-- `datahub.redis.host`
-- `datahub.redis.port`
-- `datahub.redis.password`
-- `datahub.redis.database`
-- `datahub.redis.alarm-key-prefix`
-- `datahub.redis.active-ttl-seconds`
-- `datahub.redis.rules-ttl-seconds`
-- `datahub.redis.fsm-ttl-seconds`
+- `datahub.rule-store.enabled`
+- `datahub.rule-store.jdbc-url`
+- `datahub.rule-store.username`
+- `datahub.rule-store.password`
+- `datahub.rule-store.connect-timeout-seconds`
+- `datahub.rule-store.refresh-interval-ms`
+- `datahub.rule-store.alarm-state-ttl-ms`
 
-Start local Redis with Docker:
+Storage rules can control (global/device scope):
 
-```bash
-docker compose -f ../docker-compose.redis.yml up -d
-```
+- raw persistence mode (`full` / `relaxed` / `strict` / `disabled`)
+- summary on/off
+- summary `min_samples`
+- telemetry filter deadbands and heartbeat interval
 
 ## Build and Run With Gradle Wrapper
 

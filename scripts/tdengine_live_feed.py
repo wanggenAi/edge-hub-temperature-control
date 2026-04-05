@@ -16,17 +16,11 @@ import json
 import math
 import random
 import signal
-import sqlite3
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable
 from urllib.error import URLError
 from urllib.request import Request, urlopen
-
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DB_PATH = REPO_ROOT / "hmi" / "backend" / "app.db"
 
 
 def sanitize_identifier(value: str) -> str:
@@ -75,17 +69,6 @@ class DeviceState:
     kd: float
     phase: float
     tick: int = 0
-
-
-def load_device_codes(db_path: Path) -> list[str]:
-    if not db_path.exists():
-        return []
-    conn = sqlite3.connect(str(db_path))
-    try:
-        rows = conn.execute("select code from devices order by id").fetchall()
-    finally:
-        conn.close()
-    return [str(row[0]) for row in rows if row and row[0]]
 
 
 def build_states(device_codes: Iterable[str]) -> list[DeviceState]:
@@ -158,7 +141,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--devices",
         default="",
-        help="Comma-separated device codes. Empty means auto-load from hmi/backend/app.db",
+        help="Comma-separated device codes. Empty means built-in default device list.",
     )
     return parser.parse_args()
 
@@ -172,8 +155,6 @@ def main() -> None:
         password=args.password,
     )
     device_codes = [x.strip() for x in args.devices.split(",") if x.strip()]
-    if not device_codes:
-        device_codes = load_device_codes(DEFAULT_DB_PATH)
     if not device_codes:
         device_codes = ["TC-101", "TC-102", "TC-201", "TC-202"]
 

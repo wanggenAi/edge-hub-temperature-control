@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import text, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
@@ -43,22 +43,6 @@ DEVICE_DATA = [
     {"code": "TC-301", "name": "Line 3 Mixer", "line": "Line 3", "location": "Zone E", "current_temp": 31.5, "target_temp": 32.0, "pwm_output": 36.0, "is_alarm": False, "is_online": True},
 ]
 
-
-PARAMETER_COLUMN_DEFAULTS: dict[str, str] = {
-    "target_band": "0.5",
-    "overshoot_limit_pct": "3.0",
-    "saturation_warn_ratio": "0.3",
-    "saturation_high_ratio": "0.6",
-    "pwm_saturation_threshold": "85.0",
-    "steady_window_samples": "12",
-}
-
-ALARM_COLUMN_DEFAULTS: dict[str, str] = {
-    "rule_code": "'out_of_band'",
-    "source": "'rule_engine'",
-    "acknowledged": "0",
-    "cleared_at": "NULL",
-}
 
 DEFAULT_ALARM_RULES = [
     {
@@ -124,43 +108,6 @@ DEFAULT_ALARM_RULES = [
 ]
 
 
-def ensure_runtime_schema(db: Session) -> None:
-    """
-    Keep SQLite schema forward-compatible for existing local databases without migrations.
-    """
-    existing_columns = {
-        row[1]
-        for row in db.execute(text("PRAGMA table_info(device_parameters)")).fetchall()
-    }
-    for column, default in PARAMETER_COLUMN_DEFAULTS.items():
-        if column in existing_columns:
-            continue
-        sql_type = "INTEGER" if column == "steady_window_samples" else "FLOAT"
-        db.execute(
-            text(
-                f"ALTER TABLE device_parameters "
-                f"ADD COLUMN {column} {sql_type} NOT NULL DEFAULT {default}"
-            )
-        )
-    alarm_columns = {
-        row[1]
-        for row in db.execute(text("PRAGMA table_info(device_alarms)")).fetchall()
-    }
-    for column, default in ALARM_COLUMN_DEFAULTS.items():
-        if column in alarm_columns:
-            continue
-        sql_type = "DATETIME" if column == "cleared_at" else ("BOOLEAN" if column == "acknowledged" else "TEXT")
-        default_sql = f" DEFAULT {default}" if default != "NULL" else ""
-        nullable_sql = "" if column != "cleared_at" else ""
-        db.execute(
-            text(
-                f"ALTER TABLE device_alarms "
-                f"ADD COLUMN {column} {sql_type}{nullable_sql}{default_sql}"
-            )
-        )
-    db.commit()
-
-
 def seed_alarm_rules(db: Session) -> None:
     existing = {
         code
@@ -173,10 +120,7 @@ def seed_alarm_rules(db: Session) -> None:
     db.commit()
 
 
-def seed_database(db: Session) -> None:
-    ensure_runtime_schema(db)
-    seed_alarm_rules(db)
-
+def seed_demo_data(db: Session) -> None:
     if db.scalar(select(User.id).limit(1)):
         return
 
@@ -335,3 +279,10 @@ def seed_database(db: Session) -> None:
         db.add(UserDevice(user_id=viewer.id, device_id=device.id))
 
     db.commit()
+
+
+def seed_database(db: Session, *, with_default_alarm_rules: bool = True, with_demo_data: bool = False) -> None:
+    if with_default_alarm_rules:
+        seed_alarm_rules(db)
+    if with_demo_data:
+        seed_demo_data(db)

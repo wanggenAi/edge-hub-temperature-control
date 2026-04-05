@@ -16,6 +16,8 @@ import type {
   Parameter,
   SummaryDetailResponse,
   SummaryListResponse,
+  StorageRuleListResponse,
+  StorageRuleMutationResponse,
   UserItem,
 } from "@/types";
 
@@ -214,6 +216,12 @@ export const api = {
     id: number,
     payload: { threshold: string; hold_seconds: number; level: string; enabled: boolean }
   ) => request<AlarmRuleUpdateResponse>(`/alarms/rules/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  storageRules: () => request<StorageRuleListResponse>("/storage-rules"),
+  createStorageRule: (payload: Record<string, unknown>) =>
+    request<StorageRuleMutationResponse>("/storage-rules", { method: "POST", body: JSON.stringify(payload) }),
+  updateStorageRule: (id: number, payload: Record<string, unknown>) =>
+    request<StorageRuleMutationResponse>(`/storage-rules/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteStorageRule: (id: number) => request<{ ok: boolean }>(`/storage-rules/${id}`, { method: "DELETE" }),
   summaryList: (params: { page?: number; page_size?: number; q?: string; device_id?: number } = {}) =>
     request<SummaryListResponse>(
       `/history/summaries?page=${params.page ?? 1}&page_size=${params.page_size ?? 20}&q=${encodeURIComponent(

@@ -5,11 +5,12 @@ import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetryPayload;
-import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.edgehub.datahub.rules.AlarmRuleDefinition;
+import com.edgehub.datahub.rules.RuleConfigService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -19,43 +20,24 @@ import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnProperty(prefix = "datahub.redis", name = "enabled", havingValue = "true")
-public final class AlarmRedisCacheService {
+public final class AlarmRuleEngineService {
 
-  private static final Logger log = LoggerFactory.getLogger(AlarmRedisCacheService.class);
-  private static final String RULES_HASH = "rules";
+  private static final Logger log = LoggerFactory.getLogger(AlarmRuleEngineService.class);
 
-  private final HubProperties.Redis redisProperties;
-  private final StringRedisTemplate redis;
+  private final RuleConfigService ruleConfigService;
   private final ObjectMapper objectMapper;
+  private final Cache<String, FsmStateSnapshot> fsmStateByDeviceRule;
 
-  public AlarmRedisCacheService(HubProperties properties, StringRedisTemplate redis, ObjectMapper objectMapper) {
-    this.redisProperties = properties.getRedis();
-    this.redis = redis;
+  public AlarmRuleEngineService(HubProperties properties, RuleConfigService ruleConfigService, ObjectMapper objectMapper) {
+    this.ruleConfigService = ruleConfigService;
     this.objectMapper = objectMapper;
-  }
-
-  @PostConstruct
-  public void initRulesCache() {
-    try {
-      Map<String, RuleDefinition> defaults = defaultRules();
-      String rulesKey = rulesKey();
-      for (Map.Entry<String, RuleDefinition> entry : defaults.entrySet()) {
-        if (redis.opsForHash().hasKey(rulesKey, entry.getKey())) {
-          continue;
-        }
-        redis.opsForHash().put(rulesKey, entry.getKey(), objectMapper.writeValueAsString(entry.getValue()));
-      }
-      redis.expire(rulesKey, Duration.ofSeconds(Math.max(60L, redisProperties.getRulesTtlSeconds())));
-      log.info("alarm redis rules cache initialized key={} size={}", rulesKey, defaults.size());
-    } catch (Exception e) {
-      log.warn("alarm redis rules cache init failed", e);
-    }
+    this.fsmStateByDeviceRule = Caffeine.newBuilder()
+        .maximumSize(500_000)
+        .expireAfterAccess(Duration.ofMillis(Math.max(60_000L, properties.getRuleStore().getAlarmStateTtlMs())))
+        .build();
   }
 
   public List<AlarmFactEvent> onMessage(ParsedHubMessage message) {
@@ -83,8 +65,8 @@ public final class AlarmRedisCacheService {
           emitted.add(transition.alarmEvent());
         }
       }
-    } catch (Exception e) {
-      log.warn("alarm redis cache update failed for message type={}", message.getClass().getSimpleName(), e);
+    } catch (Exception exception) {
+      log.warn("alarm rule engine update failed messageType={}", message.getClass().getSimpleName(), exception);
     }
     return emitted;
   }
@@ -105,8 +87,8 @@ public final class AlarmRedisCacheService {
       if (transition.alarmEvent() != null) {
         emitted.add(transition.alarmEvent());
       }
-    } catch (Exception e) {
-      log.warn("alarm redis cache update failed for device status device={}", status.deviceId(), e);
+    } catch (Exception exception) {
+      log.warn("alarm rule engine update failed device={}", status.deviceId(), exception);
     }
     return emitted;
   }
@@ -247,12 +229,6 @@ public final class AlarmRedisCacheService {
       emitted.add(dtDeviationResult.alarmEvent());
     }
 
-    // Connectivity note:
-    // telemetry-level wifi_connected/mqtt_connected is only observable while telemetry is still being delivered.
-    // During true network disconnects the device frequently cannot publish telemetry at all.
-    // Therefore, authoritative disconnect detection must rely on last-seen timeout -> device_offline rule,
-    // while wifi/mqtt flags remain available for storage/UI diagnostics.
-
     return emitted;
   }
 
@@ -268,18 +244,23 @@ public final class AlarmRedisCacheService {
     if (deviceId == null || deviceId.isBlank()) {
       return AlarmTransitionResult.noop();
     }
-    Instant observed = observedAt == null ? Instant.now() : observedAt;
-    RuleDefinition rule = ruleOf(ruleCode);
+
+    AlarmRuleDefinition rule = ruleOf(ruleCode);
     if (rule == null || Boolean.FALSE.equals(rule.enabled())) {
       return AlarmTransitionResult.noop();
     }
 
-    int holdSeconds = Math.max(0, rule.hold_seconds() == null ? 0 : rule.hold_seconds());
-    FsmStateSnapshot previous = loadFsmState(deviceId, ruleCode);
-    FsmStateSnapshot next = previous.copy();
+    Instant observed = observedAt == null ? Instant.now() : observedAt;
+    int holdSeconds = Math.max(0, rule.holdSeconds() == null ? 0 : rule.holdSeconds());
 
-    next.deviceId = deviceId;
-    next.ruleCode = ruleCode;
+    String key = fsmKey(deviceId, ruleCode);
+    FsmStateSnapshot previous = fsmStateByDeviceRule.getIfPresent(key);
+    if (previous == null) {
+      previous = new FsmStateSnapshot();
+      previous.deviceId = deviceId;
+      previous.ruleCode = ruleCode;
+    }
+    FsmStateSnapshot next = previous.copy();
     next.lastSignalAt = observed;
     next.lastSource = source;
     next.lastReason = reason;
@@ -339,98 +320,20 @@ public final class AlarmRedisCacheService {
     if (next.state == AlarmState.ACTIVE && next.activeSince == null) {
       next.activeSince = observed;
     }
-
-    upsertActiveState(deviceId, ruleCode, next, signalMatched, source, reason, observed, severity);
-    upsertFsmState(deviceId, ruleCode, next, source, reason, observed);
-
+    fsmStateByDeviceRule.put(key, next);
     return new AlarmTransitionResult(next, event);
   }
 
-  private void upsertActiveState(
-      String deviceId,
-      String ruleCode,
-      FsmStateSnapshot fsm,
-      boolean signalMatched,
-      String source,
-      String reason,
-      Instant observedAt,
-      String severity) {
-    String activeKey = activeKey(deviceId, ruleCode);
-    Map<Object, Object> existing = redis.opsForHash().entries(activeKey);
-    String existingTriggeredAt = stringValue(existing.get("triggered_at"));
-    String nowIso = observedAt.toString();
-    boolean isActive = fsm.state == AlarmState.ACTIVE || fsm.state == AlarmState.PENDING_CLEAR;
+  private String fsmKey(String deviceId, String ruleCode) {
+    return deviceId + ":" + ruleCode;
+  }
 
-    Map<String, String> activeFields = new LinkedHashMap<>();
-    activeFields.put("device_id", deviceId);
-    activeFields.put("rule_code", ruleCode);
-    activeFields.put("state", fsm.state.value);
-    activeFields.put("active", Boolean.toString(isActive));
-    activeFields.put("signal_matched", Boolean.toString(signalMatched));
-    activeFields.put("source", source);
-    activeFields.put("reason", reason);
-    activeFields.put("severity", severity);
-    activeFields.put("updated_at", nowIso);
-
-    if (isActive) {
-      String triggeredAt = existingTriggeredAt;
-      if (fsm.activeSince != null) {
-        triggeredAt = fsm.activeSince.toString();
-      }
-      if (triggeredAt == null || triggeredAt.isBlank()) {
-        triggeredAt = nowIso;
-      }
-      activeFields.put("triggered_at", triggeredAt);
-      activeFields.put("cleared_at", "");
-    } else {
-      if (existingTriggeredAt != null && !existingTriggeredAt.isBlank()) {
-        activeFields.put("triggered_at", existingTriggeredAt);
-      }
-      activeFields.put("cleared_at", nowIso);
+  private long elapsedSeconds(Instant start, Instant end) {
+    if (start == null || end == null) {
+      return 0L;
     }
-
-    redis.opsForHash().putAll(activeKey, activeFields);
-    redis.expire(activeKey, Duration.ofSeconds(Math.max(60L, redisProperties.getActiveTtlSeconds())));
-  }
-
-  private void upsertFsmState(
-      String deviceId,
-      String ruleCode,
-      FsmStateSnapshot fsm,
-      String source,
-      String reason,
-      Instant observedAt) {
-    String fsmKey = fsmKey(deviceId, ruleCode);
-    Map<String, String> fields = new LinkedHashMap<>();
-    fields.put("device_id", deviceId);
-    fields.put("rule_code", ruleCode);
-    fields.put("state", fsm.state.value);
-    putInstant(fields, "first_match_at", fsm.firstMatchAt);
-    putInstant(fields, "first_clear_candidate_at", fsm.firstClearCandidateAt);
-    putInstant(fields, "last_signal_at", observedAt);
-    fields.put("last_source", source);
-    fields.put("last_reason", reason);
-    putInstant(fields, "active_since", fsm.activeSince);
-    putInstant(fields, "last_transition_at", fsm.lastTransitionAt);
-
-    redis.opsForHash().putAll(fsmKey, fields);
-    redis.expire(fsmKey, Duration.ofSeconds(Math.max(60L, redisProperties.getFsmTtlSeconds())));
-  }
-
-  private FsmStateSnapshot loadFsmState(String deviceId, String ruleCode) {
-    Map<Object, Object> map = redis.opsForHash().entries(fsmKey(deviceId, ruleCode));
-    FsmStateSnapshot snapshot = new FsmStateSnapshot();
-    snapshot.deviceId = deviceId;
-    snapshot.ruleCode = ruleCode;
-    snapshot.state = AlarmState.from(stringValue(map.get("state")));
-    snapshot.firstMatchAt = instantOf(stringValue(map.get("first_match_at")));
-    snapshot.firstClearCandidateAt = instantOf(stringValue(map.get("first_clear_candidate_at")));
-    snapshot.lastSignalAt = instantOf(stringValue(map.get("last_signal_at")));
-    snapshot.lastSource = stringValue(map.get("last_source"));
-    snapshot.lastReason = stringValue(map.get("last_reason"));
-    snapshot.activeSince = instantOf(stringValue(map.get("active_since")));
-    snapshot.lastTransitionAt = instantOf(stringValue(map.get("last_transition_at")));
-    return snapshot;
+    long seconds = Duration.between(start, end).getSeconds();
+    return Math.max(0L, seconds);
   }
 
   private AlarmFactEvent buildTriggeredEvent(
@@ -480,14 +383,6 @@ public final class AlarmRedisCacheService {
         toContextJson(context));
   }
 
-  private long elapsedSeconds(Instant start, Instant end) {
-    if (start == null || end == null) {
-      return 0L;
-    }
-    long seconds = Duration.between(start, end).getSeconds();
-    return Math.max(0L, seconds);
-  }
-
   private String toContextJson(Map<String, Object> context) {
     if (context == null || context.isEmpty()) {
       return null;
@@ -500,31 +395,8 @@ public final class AlarmRedisCacheService {
     }
   }
 
-  private void putInstant(Map<String, String> fields, String key, Instant value) {
-    fields.put(key, value == null ? "" : value.toString());
-  }
-
-  private Instant instantOf(String value) {
-    if (value == null || value.isBlank()) {
-      return null;
-    }
-    try {
-      return Instant.parse(value);
-    } catch (Exception ignored) {
-      return null;
-    }
-  }
-
-  private String stringValue(Object value) {
-    if (value == null) {
-      return null;
-    }
-    String text = value.toString();
-    return text.isBlank() ? null : text;
-  }
-
   private double thresholdAsDouble(String ruleCode, double fallback) {
-    RuleDefinition definition = ruleOf(ruleCode);
+    AlarmRuleDefinition definition = ruleOf(ruleCode);
     if (definition == null || definition.threshold() == null) {
       return fallback;
     }
@@ -536,7 +408,7 @@ public final class AlarmRedisCacheService {
   }
 
   private String severityOf(String ruleCode) {
-    RuleDefinition definition = ruleOf(ruleCode);
+    AlarmRuleDefinition definition = ruleOf(ruleCode);
     if (definition == null || definition.severity() == null || definition.severity().isBlank()) {
       return "warning";
     }
@@ -544,52 +416,15 @@ public final class AlarmRedisCacheService {
   }
 
   private String defaultReason(String ruleCode) {
-    RuleDefinition definition = ruleOf(ruleCode);
+    AlarmRuleDefinition definition = ruleOf(ruleCode);
     if (definition == null || definition.name() == null || definition.name().isBlank()) {
       return ruleCode;
     }
     return definition.name();
   }
 
-  private RuleDefinition ruleOf(String ruleCode) {
-    Object raw = redis.opsForHash().get(rulesKey(), ruleCode);
-    if (!(raw instanceof String value) || value.isBlank()) {
-      return defaultRules().get(ruleCode);
-    }
-    try {
-      return objectMapper.readValue(value, RuleDefinition.class);
-    } catch (JsonProcessingException e) {
-      return defaultRules().get(ruleCode);
-    }
-  }
-
-  private String rulesKey() {
-    return redisProperties.getAlarmKeyPrefix() + ":" + RULES_HASH;
-  }
-
-  private String activeKey(String deviceId, String ruleCode) {
-    return redisProperties.getAlarmKeyPrefix() + ":active:" + deviceId + ":" + ruleCode;
-  }
-
-  private String fsmKey(String deviceId, String ruleCode) {
-    return redisProperties.getAlarmKeyPrefix() + ":fsm:" + deviceId + ":" + ruleCode;
-  }
-
-  private Map<String, RuleDefinition> defaultRules() {
-    Map<String, RuleDefinition> map = new LinkedHashMap<>();
-    map.put("out_of_band", new RuleDefinition("Out of Band", "temperature_error", ">", "0.5", 30, "warning", true));
-    map.put("sensor_invalid", new RuleDefinition("Sensor Invalid", "sensor_valid", "==", "false", 10, "critical", true));
-    map.put("high_saturation", new RuleDefinition("High Saturation", "pwm_output", ">=", "85", 60, "warning", true));
-    map.put("fault_latched", new RuleDefinition("Fault Latched", "fault_latched", "==", "true", 0, "critical", true));
-    map.put("safety_output_forced_off", new RuleDefinition(
-        "Safety Output Forced Off", "safety_output_forced_off", "==", "true", 0, "critical", true));
-    map.put("max_safe_temp_exceeded", new RuleDefinition(
-        "Software Max Safe Temp Exceeded", "sensor_temp_c", ">", "dynamic_from_payload", 0, "critical", true));
-    map.put("control_dt_deviation", new RuleDefinition(
-        "Control Dt Deviation", "dt_error_ms", ">=", "200", 20, "warning", true));
-    map.put("param_apply_failed", new RuleDefinition("Param Apply Failed", "params_ack", "==", "failed", 5, "warning", true));
-    map.put("device_offline", new RuleDefinition("Device Offline", "telemetry_gap", ">", "60", 60, "critical", true));
-    return map;
+  private AlarmRuleDefinition ruleOf(String ruleCode) {
+    return ruleConfigService.resolveAlarmRule(ruleCode);
   }
 
   private enum AlarmState {
@@ -602,18 +437,6 @@ public final class AlarmRedisCacheService {
 
     AlarmState(String value) {
       this.value = value;
-    }
-
-    private static AlarmState from(String value) {
-      if (value == null || value.isBlank()) {
-        return INACTIVE;
-      }
-      for (AlarmState state : values()) {
-        if (state.value.equalsIgnoreCase(value)) {
-          return state;
-        }
-      }
-      return INACTIVE;
     }
   }
 
@@ -647,17 +470,7 @@ public final class AlarmRedisCacheService {
 
   private record AlarmTransitionResult(FsmStateSnapshot state, AlarmFactEvent alarmEvent) {
     private static AlarmTransitionResult noop() {
-      return new AlarmTransitionResult(new FsmStateSnapshot(), null);
+      return new AlarmTransitionResult(null, null);
     }
   }
-
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record RuleDefinition(
-      String name,
-      String target,
-      String operator,
-      String threshold,
-      @JsonAlias({"holdSeconds"}) Integer hold_seconds,
-      String severity,
-      Boolean enabled) {}
 }

@@ -93,3 +93,50 @@ python scripts/mqtt_test_client.py --mode staged
 ```
 
 Documentation sync date: 2026-04-04.
+
+## TDengine Retention Cleanup
+
+Use `scripts/tdengine-retention-cleanup.sh` to purge old TDengine rows by age.
+
+Default retention:
+
+- telemetry: 7 days
+- telemetry_summary: 30 days
+- params_set: 30 days
+- params_ack: 30 days
+- device_status: 14 days
+- alarm_events: 90 days
+
+Dry-run preview (default):
+
+```bash
+./scripts/tdengine-retention-cleanup.sh
+```
+
+Actual deletion:
+
+```bash
+DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh
+```
+
+Example custom env vars:
+
+```bash
+export TDENGINE_URL=http://127.0.0.1:6041
+export TDENGINE_DATABASE=edgehub
+export TDENGINE_USERNAME=root
+export TDENGINE_PASSWORD=taosdata
+
+export RETENTION_TELEMETRY_DAYS=7
+export RETENTION_TELEMETRY_SUMMARY_DAYS=30
+export RETENTION_PARAMS_SET_DAYS=30
+export RETENTION_PARAMS_ACK_DAYS=30
+export RETENTION_DEVICE_STATUS_DAYS=14
+export RETENTION_ALARM_EVENTS_DAYS=90
+```
+
+Cron example (daily 02:30 UTC):
+
+```cron
+30 2 * * * cd /path/to/edge-hub-temperature-control && DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh >> /var/log/edgehub-tdengine-retention.log 2>&1
+```

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: edgehub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: edgehub
+      POSTGRES_USER: edgehub
+      POSTGRES_PASSWORD: edgehub
+    ports:
+      - "5432:5432"
+    volumes:
+      - edgehub_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edgehub -d edgehub"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  edgehub_postgres_data:

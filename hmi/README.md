@@ -13,6 +13,7 @@ hmi/
 │   │   │       ├── users.py
 │   │   │       ├── devices.py
 │   │   │       ├── alarms.py
+│   │   │       ├── storage_rules.py
 │   │   │       └── history.py
 │   │   ├── core/
 │   │   │   ├── config.py
@@ -49,11 +50,22 @@ hmi/
 
 ## Backend Run
 
+Start PostgreSQL first:
+
+```bash
+cd ..
+docker compose -f docker-compose.postgresql.yml up -d
+```
+
+Then run backend:
+
 ```bash
 cd hmi/backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python scripts/db_migrate.py
+python scripts/db_seed.py --rules
 uvicorn app.main:app --reload
 ```
 
@@ -84,19 +96,17 @@ Frontend: `http://127.0.0.1:5173`
 - Device overview page
 - Device management page (search + pagination + create + edit + delete)
 - Alarm center page (global alarm list, time/level ordered, search)
+- Storage rules admin page (global/device scoped raw + summary persistence controls)
 - History page (summary window list + click-through detail metrics)
 - Single device detail page (trend + control-performance panels + gauges + status assessment)
 - Alarm acknowledge action (admin/operator)
 - AI suggestion apply action (admin/operator)
 - Admin user management page (create/edit role/status/delete)
-- SQLite with startup seed data
+- PostgreSQL-ready relational backend with Alembic migrations
 
 ## TDengine + MQTT Integration
 
-HMI backend supports two data modes:
-
-- `DATA_SOURCE_MODE=sqlite`: legacy/demo mode (default)
-- `DATA_SOURCE_MODE=tdengine`: read telemetry/alarm/history from TDengine
+HMI backend uses `DATA_SOURCE_MODE=tdengine` for telemetry/alarm/history reads from TDengine.
 
 To enable end-to-end integration:
 
@@ -126,7 +136,65 @@ Notes:
 
 - Device detail/history/alarm pages will read from TDengine when enabled.
 - Parameter updates from HMI are published to MQTT `params/set` topic.
-- SQLite user/auth/rbac remains active in both modes.
+- PostgreSQL is used for HMI relational control-plane data (auth/rbac/devices/parameters/rules).
+
+## Database Modes (Relational Control Plane)
+
+HMI backend relational/business data (users, rbac, devices, parameters, alarm rules) is managed by SQLAlchemy + Alembic on PostgreSQL.
+
+Telemetry/time-series responsibilities are unchanged:
+
+- TDengine remains the source for telemetry/history/alarm time-series views when enabled.
+- Relational DB is for control-plane/business tables.
+
+### Recommended Production `.env`
+
+```env
+DATABASE_URL=postgresql+psycopg://edgehub:edgehub@127.0.0.1:5432/edgehub
+DATA_SOURCE_MODE=tdengine
+TDENGINE_ENABLED=true
+RUN_DB_MIGRATIONS_ON_STARTUP=false
+SEED_DEFAULT_ALARM_RULES_ON_STARTUP=false
+SEED_DEMO_DATA_ON_STARTUP=false
+```
+
+## Migrations And Seed
+
+### Install deps
+
+```bash
+cd hmi/backend
+pip install -r requirements.txt
+```
+
+### Run migrations (preferred)
+
+```bash
+cd hmi/backend
+alembic upgrade head
+# or
+python scripts/db_migrate.py
+```
+
+### Seed default alarm rules only (idempotent)
+
+```bash
+cd hmi/backend
+python scripts/db_seed.py --rules
+```
+
+### Seed demo data (optional, local only)
+
+```bash
+cd hmi/backend
+python scripts/db_seed.py --rules --demo
+```
+
+Notes:
+
+- Startup does not perform runtime schema patching.
+- Use Alembic for schema evolution in all environments.
+- In production, keep startup migration/seed flags disabled and run migration in deployment pipeline.
 
 ## API Snapshot
 
@@ -154,6 +222,13 @@ Notes:
   - `POST /devices/{id}/ai-recommendation/apply`
 - Alarm Center
   - `GET /alarms?page=&page_size=&q=` (latest first, severity assist sort)
+  - `GET /alarms/rules`
+  - `PUT /alarms/rules/{rule_id}`
+- Storage Rules (admin)
+  - `GET /storage-rules`
+  - `POST /storage-rules`
+  - `PUT /storage-rules/{id}`
+  - `DELETE /storage-rules/{id}`
 - History (summary window + detail)
   - `GET /history/summaries?page=&page_size=&q=&device_id=`
   - `GET /history/summaries/{id}`

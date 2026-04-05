@@ -48,7 +48,13 @@ class MqttPublisher:
         }
         payload_obj = {k: v for k, v in payload_obj.items() if v is not None}
         payload = json.dumps(payload_obj, ensure_ascii=True, separators=(",", ":"))
+        return self.publish_raw(topic=topic, payload=payload)
 
+    def publish_json(self, *, topic: str, payload_obj: dict) -> PublishResult:
+        payload = json.dumps(payload_obj, ensure_ascii=True, separators=(",", ":"))
+        return self.publish_raw(topic=topic, payload=payload)
+
+    def publish_raw(self, *, topic: str, payload: str) -> PublishResult:
         if not self.enabled():
             return PublishResult(topic=topic, payload=payload, enabled=False)
 

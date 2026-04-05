@@ -12,7 +12,7 @@ public class HubProperties {
   private final TelemetryFilter telemetryFilter = new TelemetryFilter();
   private final TelemetrySummary telemetrySummary = new TelemetrySummary();
   private final DeviceStatus deviceStatus = new DeviceStatus();
-  private final Redis redis = new Redis();
+  private final RuleStore ruleStore = new RuleStore();
   private final Monitoring monitoring = new Monitoring();
   private int bufferSize = 2048;
   private int processingConcurrency = 8;
@@ -57,8 +57,8 @@ public class HubProperties {
     return deviceStatus;
   }
 
-  public Redis getRedis() {
-    return redis;
+  public RuleStore getRuleStore() {
+    return ruleStore;
   }
 
   public int getProcessingConcurrency() {
@@ -533,17 +533,14 @@ public class HubProperties {
     }
   }
 
-  public static class Redis {
-    private boolean enabled = false;
-    private String host = "127.0.0.1";
-    private int port = 6379;
-    private String password = "";
-    private int database = 0;
-    private long connectTimeoutMs = 2000;
-    private String alarmKeyPrefix = "datahub:alarm";
-    private long activeTtlSeconds = 172800;
-    private long rulesTtlSeconds = 172800;
-    private long fsmTtlSeconds = 172800;
+  public static class RuleStore {
+    private boolean enabled = true;
+    private String jdbcUrl = "jdbc:postgresql://127.0.0.1:5432/edgehub";
+    private String username = "edgehub";
+    private String password = "edgehub";
+    private int connectTimeoutSeconds = 5;
+    private long refreshIntervalMs = 300000;
+    private long alarmStateTtlMs = 172800000;
 
     public boolean isEnabled() {
       return enabled;
@@ -553,20 +550,20 @@ public class HubProperties {
       this.enabled = enabled;
     }
 
-    public String getHost() {
-      return host;
+    public String getJdbcUrl() {
+      return jdbcUrl;
     }
 
-    public void setHost(String host) {
-      this.host = host;
+    public void setJdbcUrl(String jdbcUrl) {
+      this.jdbcUrl = jdbcUrl;
     }
 
-    public int getPort() {
-      return port;
+    public String getUsername() {
+      return username;
     }
 
-    public void setPort(int port) {
-      this.port = port;
+    public void setUsername(String username) {
+      this.username = username;
     }
 
     public String getPassword() {
@@ -577,52 +574,28 @@ public class HubProperties {
       this.password = password;
     }
 
-    public int getDatabase() {
-      return database;
+    public int getConnectTimeoutSeconds() {
+      return connectTimeoutSeconds;
     }
 
-    public void setDatabase(int database) {
-      this.database = database;
+    public void setConnectTimeoutSeconds(int connectTimeoutSeconds) {
+      this.connectTimeoutSeconds = connectTimeoutSeconds;
     }
 
-    public long getConnectTimeoutMs() {
-      return connectTimeoutMs;
+    public long getRefreshIntervalMs() {
+      return refreshIntervalMs;
     }
 
-    public void setConnectTimeoutMs(long connectTimeoutMs) {
-      this.connectTimeoutMs = connectTimeoutMs;
+    public void setRefreshIntervalMs(long refreshIntervalMs) {
+      this.refreshIntervalMs = refreshIntervalMs;
     }
 
-    public String getAlarmKeyPrefix() {
-      return alarmKeyPrefix;
+    public long getAlarmStateTtlMs() {
+      return alarmStateTtlMs;
     }
 
-    public void setAlarmKeyPrefix(String alarmKeyPrefix) {
-      this.alarmKeyPrefix = alarmKeyPrefix;
-    }
-
-    public long getActiveTtlSeconds() {
-      return activeTtlSeconds;
-    }
-
-    public void setActiveTtlSeconds(long activeTtlSeconds) {
-      this.activeTtlSeconds = activeTtlSeconds;
-    }
-
-    public long getRulesTtlSeconds() {
-      return rulesTtlSeconds;
-    }
-
-    public void setRulesTtlSeconds(long rulesTtlSeconds) {
-      this.rulesTtlSeconds = rulesTtlSeconds;
-    }
-
-    public long getFsmTtlSeconds() {
-      return fsmTtlSeconds;
-    }
-
-    public void setFsmTtlSeconds(long fsmTtlSeconds) {
-      this.fsmTtlSeconds = fsmTtlSeconds;
+    public void setAlarmStateTtlMs(long alarmStateTtlMs) {
+      this.alarmStateTtlMs = alarmStateTtlMs;
     }
   }
 

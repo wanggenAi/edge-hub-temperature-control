@@ -11,6 +11,7 @@ import type {
   Device,
   Metric,
   Parameter,
+  StorageRuleItem,
   SummaryDetailResponse,
   SummaryItem,
   UserItem,
@@ -448,5 +449,29 @@ export function useSummaryHistory(initialPage = 1, initialDeviceId?: number) {
     setDeviceId,
     loadDetail,
     reload,
+  };
+}
+
+export function useStorageRules() {
+  const [items, setItems] = useState<StorageRuleItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    api
+      .storageRules()
+      .then((res) => setItems(res.items))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(reload, [reload]);
+
+  return {
+    items,
+    loading,
+    reload,
+    createRule: (payload: Record<string, unknown>) => api.createStorageRule(payload),
+    updateRule: (id: number, payload: Record<string, unknown>) => api.updateStorageRule(id, payload),
+    deleteRule: (id: number) => api.deleteStorageRule(id),
   };
 }

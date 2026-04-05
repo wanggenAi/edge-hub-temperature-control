@@ -4,6 +4,8 @@ import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetryPayload;
 import com.edgehub.datahub.monitoring.DataHubMetrics;
+import com.edgehub.datahub.rules.RuleConfigService;
+import com.edgehub.datahub.rules.StorageRuleDefinition;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
@@ -21,11 +23,13 @@ public final class TelemetryWriteFilter {
 
   private final HubProperties.TelemetryFilter properties;
   private final DataHubMetrics metrics;
+  private final RuleConfigService ruleConfigService;
   private final Cache<String, DeviceState> lastPersistedByDevice;
 
-  public TelemetryWriteFilter(HubProperties hubProperties, DataHubMetrics metrics) {
+  public TelemetryWriteFilter(HubProperties hubProperties, DataHubMetrics metrics, RuleConfigService ruleConfigService) {
     this.properties = hubProperties.getTelemetryFilter();
     this.metrics = metrics;
+    this.ruleConfigService = ruleConfigService;
     this.lastPersistedByDevice = Caffeine.newBuilder()
         .maximumSize(Math.max(1L, properties.getMaxActiveDevices()))
         .expireAfterAccess(Duration.ofMillis(Math.max(1000L, properties.getStateTtlMs())))
@@ -40,13 +44,17 @@ public final class TelemetryWriteFilter {
   }
 
   public FilterDecision evaluate(ParsedHubMessage.TelemetryMessage telemetry) {
-    if (!properties.isEnabled()) {
-      return FilterDecision.persist("filter_disabled");
-    }
-
     String deviceId = telemetry.topic().deviceId();
     if (deviceId == null || deviceId.isBlank()) {
       return FilterDecision.persist("missing_device_id");
+    }
+    StorageRuleDefinition storageRule = ruleConfigService.resolveStorageRule(deviceId);
+    if (!storageRule.enabled()) {
+      return FilterDecision.persist("filter_disabled");
+    }
+    if ("disabled".equalsIgnoreCase(storageRule.rawMode())) {
+      metrics.recordTelemetrySkipped();
+      return FilterDecision.skip("raw_mode_disabled");
     }
 
     lastPersistedByDevice.cleanUp();
@@ -57,12 +65,12 @@ public final class TelemetryWriteFilter {
         return DeviceState.from(telemetry);
       }
 
-      if (heartbeatDue(existing.persistedAt(), telemetry.receivedAt())) {
+      if (heartbeatDue(existing.persistedAt(), telemetry.receivedAt(), storageRule.heartbeatIntervalMs())) {
         holder.decision = FilterDecision.persist("heartbeat");
         return DeviceState.from(telemetry);
       }
 
-      String changeReason = detectMeaningfulChange(existing.payload(), telemetry.payload());
+      String changeReason = detectMeaningfulChange(existing.payload(), telemetry.payload(), storageRule);
       if (changeReason != null) {
         holder.decision = FilterDecision.persist(changeReason);
         return DeviceState.from(telemetry);
@@ -94,7 +102,7 @@ public final class TelemetryWriteFilter {
   }
 
   public void invalidate(String deviceId, String reason) {
-    if (!properties.isEnabled() || deviceId == null || deviceId.isBlank()) {
+    if (deviceId == null || deviceId.isBlank()) {
       return;
     }
     lastPersistedByDevice.invalidate(deviceId);
@@ -104,15 +112,17 @@ public final class TelemetryWriteFilter {
     }
   }
 
-  private boolean heartbeatDue(Instant lastPersistedAt, Instant receivedAt) {
-    long heartbeatIntervalMs = properties.getHeartbeatIntervalMs();
+  private boolean heartbeatDue(Instant lastPersistedAt, Instant receivedAt, long heartbeatIntervalMs) {
     if (heartbeatIntervalMs <= 0) {
       return false;
     }
     return receivedAt.toEpochMilli() - lastPersistedAt.toEpochMilli() >= heartbeatIntervalMs;
   }
 
-  private String detectMeaningfulChange(TelemetryPayload previous, TelemetryPayload current) {
+  private String detectMeaningfulChange(
+      TelemetryPayload previous,
+      TelemetryPayload current,
+      StorageRuleDefinition storageRule) {
     if (!Objects.equals(previous.run_id(), current.run_id())) {
       return "run_id_changed";
     }
@@ -137,37 +147,37 @@ public final class TelemetryWriteFilter {
     if (previous.has_pending_params() != current.has_pending_params()) {
       return "pending_params_flag_changed";
     }
-    if (changed(previous.target_temp_c(), current.target_temp_c(), properties.getTargetTempDeadband())) {
+    if (changed(previous.target_temp_c(), current.target_temp_c(), storageRule.targetTempDeadband())) {
       return "target_temp_changed";
     }
-    if (changed(previous.sim_temp_c(), current.sim_temp_c(), properties.getSimTempDeadband())) {
+    if (changed(previous.sim_temp_c(), current.sim_temp_c(), storageRule.simTempDeadband())) {
       return "sim_temp_changed";
     }
-    if (changedNullable(previous.sensor_temp_c(), current.sensor_temp_c(), properties.getSensorTempDeadband())) {
+    if (changedNullable(previous.sensor_temp_c(), current.sensor_temp_c(), storageRule.sensorTempDeadband())) {
       return "sensor_temp_changed";
     }
-    if (changed(previous.error_c(), current.error_c(), properties.getErrorDeadband())) {
+    if (changed(previous.error_c(), current.error_c(), storageRule.errorDeadband())) {
       return "error_changed";
     }
-    if (changed(previous.integral_error(), current.integral_error(), properties.getIntegralErrorDeadband())) {
+    if (changed(previous.integral_error(), current.integral_error(), storageRule.integralErrorDeadband())) {
       return "integral_error_changed";
     }
-    if (changed(previous.control_output(), current.control_output(), properties.getControlOutputDeadband())) {
+    if (changed(previous.control_output(), current.control_output(), storageRule.controlOutputDeadband())) {
       return "control_output_changed";
     }
-    if (changed(previous.pwm_duty(), current.pwm_duty(), properties.getPwmDutyDeadband())) {
+    if (changed(previous.pwm_duty(), current.pwm_duty(), storageRule.pwmDutyDeadband())) {
       return "pwm_duty_changed";
     }
-    if (changed(previous.pwm_norm(), current.pwm_norm(), properties.getPwmNormDeadband())) {
+    if (changed(previous.pwm_norm(), current.pwm_norm(), storageRule.pwmNormDeadband())) {
       return "pwm_norm_changed";
     }
-    if (changed(previous.kp(), current.kp(), properties.getParameterDeadband())) {
+    if (changed(previous.kp(), current.kp(), storageRule.parameterDeadband())) {
       return "kp_changed";
     }
-    if (changed(previous.ki(), current.ki(), properties.getParameterDeadband())) {
+    if (changed(previous.ki(), current.ki(), storageRule.parameterDeadband())) {
       return "ki_changed";
     }
-    if (changed(previous.kd(), current.kd(), properties.getParameterDeadband())) {
+    if (changed(previous.kd(), current.kd(), storageRule.parameterDeadband())) {
       return "kd_changed";
     }
     return null;

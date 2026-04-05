@@ -30,8 +30,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-json'
     implementation 'org.springframework.boot:spring-boot-starter-log4j2'
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'com.github.ben-manes.caffeine:caffeine'
+    implementation 'org.postgresql:postgresql:42.7.5'
     implementation "io.projectreactor:reactor-core:${reactorVersion}"
     implementation "org.eclipse.paho:org.eclipse.paho.client.mqttv3:${pahoVersion}"
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
