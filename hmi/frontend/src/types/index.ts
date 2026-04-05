@@ -35,6 +35,32 @@ export interface Metric {
   is_alarm: boolean;
 }
 
+export interface MetricWindowStats {
+  samples: number;
+  in_band_ratio: number;
+  total_stable_sec: number;
+  longest_stable_sec: number;
+  since_last_stable_sec?: number | null;
+  has_stable_window: boolean;
+}
+
+export interface ControlEvaluation {
+  current_temp: number;
+  target_temp: number;
+  pwm_output: number;
+  error: number;
+  in_band: boolean;
+  steady: boolean;
+  steady_window_samples: number;
+  steady_in_band_samples: number;
+  observed_settling_sec?: number | null;
+  overshoot_pct: number;
+  saturation_ratio: number;
+  saturation_risk: "Low" | "Medium" | "High" | string;
+  tune_advice: "Keep" | "Tune" | string;
+  result: "On Target" | "Critical" | "Not Met" | string;
+}
+
 export interface Parameter {
   id: number;
   device_id: number;

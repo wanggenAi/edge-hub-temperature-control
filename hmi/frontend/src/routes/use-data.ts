@@ -34,9 +34,19 @@ export function useDevices() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(() => {
-    setLoading(true);
-    api.devices().then(setDevices).catch((e) => setError(String(e))).finally(() => setLoading(false));
+  const reload = useCallback((opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
+    api
+      .devices()
+      .then((rows) => {
+        setDevices(rows);
+        setError(null);
+      })
+      .catch((e) => setError(String(e)))
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   }, []);
 
   useEffect(reload, [reload]);
@@ -76,12 +86,8 @@ export function useDevices() {
     };
   }, []);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      reload();
-    }, 30000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
+  // Keep hook order stable during fast-refresh while polling is intentionally disabled.
+  useEffect(() => {}, []);
 
   return { devices, loading, error, reload };
 }
@@ -94,9 +100,10 @@ export function useDeviceDetail(deviceId: number) {
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const reload = useCallback(() => {
+  const reload = useCallback((opts?: { silent?: boolean }) => {
     if (!deviceId) return;
-    setLoading(true);
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
     Promise.all([
       api.device(deviceId),
       api.metrics(deviceId),
@@ -111,7 +118,9 @@ export function useDeviceDetail(deviceId: number) {
         setAlarms(a);
         setRecommendation(r);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   }, [deviceId]);
 
   useEffect(reload, [reload]);
@@ -178,13 +187,8 @@ export function useDeviceDetail(deviceId: number) {
     };
   }, [deviceId]);
 
-  useEffect(() => {
-    if (!deviceId) return;
-    const timer = window.setInterval(() => {
-      reload();
-    }, 20000);
-    return () => window.clearInterval(timer);
-  }, [deviceId, reload]);
+  // Keep hook order stable during fast-refresh while polling is intentionally disabled.
+  useEffect(() => {}, [deviceId]);
 
   return {
     device,
@@ -194,7 +198,7 @@ export function useDeviceDetail(deviceId: number) {
     recommendation,
     loading,
     reload,
-    updateParameters: (payload: Partial<Parameter>) => api.updateParameters(deviceId, payload),
+    updateParameters: (payload: Partial<Parameter> & { target_temp?: number }) => api.updateParameters(deviceId, payload),
     acknowledgeAlarm: (alarmId: number) => api.acknowledgeAlarm(deviceId, alarmId),
     applyAiRecommendation: () => api.applyAiRecommendation(deviceId),
   };

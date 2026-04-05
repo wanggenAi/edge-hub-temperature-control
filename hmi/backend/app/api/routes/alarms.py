@@ -75,17 +75,26 @@ def list_active_alarms(
                 page_size=page_size,
             )
         sql = (
-            f"SELECT e.device_id, e.rule_code, e.severity, e.source, e.reason, e.ts, e.alarm_event_type AS event_type "
-            f"FROM {_tdb()}.alarm_events e "
-            f"INNER JOIN (SELECT device_id, rule_code, MAX(ts) AS max_ts FROM {_tdb()}.alarm_events GROUP BY device_id, rule_code) latest "
-            f"ON e.device_id=latest.device_id AND e.rule_code=latest.rule_code AND e.ts=latest.max_ts "
-            f"ORDER BY e.ts DESC LIMIT 2000"
+            f"SELECT device_id, rule_code, severity, source, reason, ts, alarm_event_type AS alarm_ev_type "
+            f"FROM {_tdb()}.alarm_events "
+            f"ORDER BY ts DESC LIMIT 5000"
         )
         result = tdengine.query(sql)
-        all_items: list[ActiveAlarmItem] = []
-        for idx, row_raw in enumerate(result.rows):
+        latest_by_key: dict[tuple[str, str], dict] = {}
+        for row_raw in result.rows:
             row = tdengine.row_to_dict(result.columns, row_raw)
-            if str(row.get("event_type") or "").lower() != "triggered":
+            device_code = str(row.get("device_id") or "")
+            rule_code = str(row.get("rule_code") or "")
+            if not device_code or not rule_code:
+                continue
+            key = (device_code, rule_code)
+            # Result is already ordered by ts DESC, keep first as latest.
+            if key not in latest_by_key:
+                latest_by_key[key] = row
+
+        all_items: list[ActiveAlarmItem] = []
+        for idx, row in enumerate(latest_by_key.values()):
+            if str(row.get("alarm_ev_type") or "").lower() != "triggered":
                 continue
             device_code = str(row.get("device_id") or "")
             device = device_map.get(device_code)
@@ -202,7 +211,7 @@ def list_alarm_history(
             return AlarmHistoryResponse(items=[], total=0, page=page, page_size=page_size)
         since = datetime.utcnow() - (timedelta(hours=24) if range_key == "24h" else timedelta(days=7))
         sql = (
-            f"SELECT ts, device_id, rule_code, severity, source, reason, alarm_event_type AS event_type, duration_seconds "
+            f"SELECT ts, device_id, rule_code, severity, source, reason, alarm_event_type AS alarm_ev_type, duration_seconds "
             f"FROM {_tdb()}.alarm_events WHERE ts >= {int(since.timestamp() * 1000)} ORDER BY ts DESC LIMIT 5000"
         )
         result = tdengine.query(sql)
@@ -228,7 +237,7 @@ def list_alarm_history(
                 text = f"{device.code} {device.name} {rule} {row.get('reason') or ''}".lower()
                 if q.strip().lower() not in text:
                     continue
-            ev_type = str(row.get("event_type") or "").lower()
+            ev_type = str(row.get("alarm_ev_type") or "").lower()
             items_all.append(
                 AlarmHistoryItem(
                     id=idx + 1,

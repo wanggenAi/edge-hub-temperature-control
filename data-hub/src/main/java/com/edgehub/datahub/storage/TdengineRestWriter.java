@@ -7,10 +7,19 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.StringJoiner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import jakarta.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +53,12 @@ public final class TdengineRestWriter implements TdengineWriter {
   private final URI sqlEndpoint;
   private final Mono<Void> ensureInitialized;
   private final AtomicBoolean initializedLogged = new AtomicBoolean();
+  private final boolean telemetryBatchEnabled;
+  private final int telemetryBatchMaxRows;
+  private final long telemetryBatchMaxDelayMs;
+  private final Object telemetryBatchLock = new Object();
+  private final Map<String, TelemetryBatchBucket> telemetryBatchBuckets = new HashMap<>();
+  private final ScheduledExecutorService telemetryBatchFlushExecutor;
 
   public TdengineRestWriter(HubProperties hubProperties, ObjectMapper objectMapper) {
     this.properties = hubProperties.getStorage().getTdengine();
@@ -55,53 +70,43 @@ public final class TdengineRestWriter implements TdengineWriter {
     this.authorizationHeader = "Basic " + Base64.getEncoder().encodeToString(
         (properties.getUsername() + ":" + properties.getPassword()).getBytes(StandardCharsets.UTF_8));
     this.sqlEndpoint = URI.create(normalizeBaseUrl(properties.getUrl()) + "/rest/sql");
+    this.telemetryBatchEnabled = properties.isTelemetryBatchEnabled();
+    this.telemetryBatchMaxRows = Math.max(1, properties.getTelemetryBatchMaxRows());
+    this.telemetryBatchMaxDelayMs = Math.max(100L, properties.getTelemetryBatchMaxDelayMs());
     this.ensureInitialized = Mono.defer(this::initializeSchema)
         .subscribeOn(Schedulers.boundedElastic())
         .cache();
+    if (telemetryBatchEnabled) {
+      this.telemetryBatchFlushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "tdengine-telemetry-batch-flusher");
+        t.setDaemon(true);
+        return t;
+      });
+      long flushIntervalMs = Math.max(100L, telemetryBatchMaxDelayMs / 2L);
+      this.telemetryBatchFlushExecutor.scheduleWithFixedDelay(
+          this::flushEligibleTelemetryBatchesSafely,
+          flushIntervalMs,
+          flushIntervalMs,
+          TimeUnit.MILLISECONDS);
+    } else {
+      this.telemetryBatchFlushExecutor = null;
+    }
+    log.info(
+        "tdengine telemetry batch mode enabled={} maxRows={} maxDelayMs={}",
+        telemetryBatchEnabled,
+        telemetryBatchMaxRows,
+        telemetryBatchMaxDelayMs);
   }
 
   @Override
   public Mono<Void> writeTelemetry(ParsedHubMessage.TelemetryMessage telemetry) {
     String tableName = tableName("telemetry", telemetry.topic().deviceId());
-    String sql = "INSERT INTO " + qualifiedTableName(tableName)
-        + " USING " + qualifiedTableName("telemetry")
-        + " TAGS (" + stringValue(telemetry.topic().deviceId()) + ", " + stringValue(telemetry.topic().rawTopic()) + ")"
-        + " (ts, uptime_ms, target_temp_c, sim_temp_c, sensor_temp_c, error_c, integral_error, control_output, pwm_duty, pwm_norm, control_period_ms, saturation_state, sensor_valid, run_id, control_mode, controller_version, kp, ki, kd, system_state, sensor_status, actual_dt_ms, dt_error_ms, wifi_connected, mqtt_connected, mqtt_reconnect_count, mqtt_publish_fail_count, safety_output_forced_off, fault_latched, fault_reason, software_max_safe_temp_c, has_pending_params, pending_params_age_ms)"
-        + " VALUES ("
-        + telemetry.receivedAt().toEpochMilli() + ", "
-        + telemetry.payload().uptime_ms() + ", "
-        + numericValue(telemetry.payload().target_temp_c()) + ", "
-        + numericValue(telemetry.payload().sim_temp_c()) + ", "
-        + numericValue(telemetry.payload().sensor_temp_c()) + ", "
-        + numericValue(telemetry.payload().error_c()) + ", "
-        + numericValue(telemetry.payload().integral_error()) + ", "
-        + numericValue(telemetry.payload().control_output()) + ", "
-        + telemetry.payload().pwm_duty() + ", "
-        + numericValue(telemetry.payload().pwm_norm()) + ", "
-        + telemetry.payload().control_period_ms() + ", "
-        + stringValue(telemetry.payload().saturation_state()) + ", "
-        + booleanValue(telemetry.payload().sensor_valid()) + ", "
-        + stringValue(telemetry.payload().run_id()) + ", "
-        + stringValue(telemetry.payload().control_mode()) + ", "
-        + stringValue(telemetry.payload().controller_version()) + ", "
-        + numericValue(telemetry.payload().kp()) + ", "
-        + numericValue(telemetry.payload().ki()) + ", "
-        + numericValue(telemetry.payload().kd()) + ", "
-        + stringValue(telemetry.payload().system_state()) + ", "
-        + stringValue(telemetry.payload().sensor_status()) + ", "
-        + numericValue(telemetry.payload().actual_dt_ms()) + ", "
-        + numericValue(telemetry.payload().dt_error_ms()) + ", "
-        + booleanValue(telemetry.payload().wifi_connected()) + ", "
-        + booleanValue(telemetry.payload().mqtt_connected()) + ", "
-        + numericValue(telemetry.payload().mqtt_reconnect_count()) + ", "
-        + numericValue(telemetry.payload().mqtt_publish_fail_count()) + ", "
-        + booleanValue(telemetry.payload().safety_output_forced_off()) + ", "
-        + booleanValue(telemetry.payload().fault_latched()) + ", "
-        + stringValue(telemetry.payload().fault_reason()) + ", "
-        + numericValue(telemetry.payload().software_max_safe_temp_c()) + ", "
-        + booleanValue(telemetry.payload().has_pending_params()) + ", "
-        + telemetry.payload().pending_params_age_ms()
-        + ")";
+    if (telemetryBatchEnabled) {
+      return ensureInitialized.then(Mono.fromRunnable(() -> enqueueTelemetry(telemetry))
+          .subscribeOn(Schedulers.boundedElastic())
+          .then());
+    }
+    String sql = buildTelemetryInsertStatement(tableName, telemetry.topic().deviceId(), telemetry.topic().rawTopic(), telemetry);
     String logMessage =
         "tdengine.telemetry_written device=%s runId=%s table=%s uptimeMs=%s targetTemp=%s simTemp=%s sensorTemp=%s controlPeriodMs=%s saturationState=%s sensorValid=%s mqttConnected=%s faultLatched=%s"
         .formatted(
@@ -295,6 +300,156 @@ public final class TdengineRestWriter implements TdengineWriter {
             alarmFactEvent.severity(),
             alarmFactEvent.source());
     return executeWrite(sql, "alarm_event", alarmFactEvent.deviceId(), logMessage);
+  }
+
+  private void enqueueTelemetry(ParsedHubMessage.TelemetryMessage telemetry) {
+    TelemetryFlushBatch immediateBatch = null;
+    long now = System.currentTimeMillis();
+    String tableName = tableName("telemetry", telemetry.topic().deviceId());
+    synchronized (telemetryBatchLock) {
+      TelemetryBatchBucket bucket = telemetryBatchBuckets.computeIfAbsent(
+          tableName,
+          key -> new TelemetryBatchBucket(tableName, telemetry.topic().deviceId(), telemetry.topic().rawTopic(), now));
+      if (!bucket.rawTopic.equals(telemetry.topic().rawTopic())) {
+        log.warn(
+            "telemetry batch bucket topic changed table={} existingTopic={} incomingTopic={} device={}",
+            qualifiedTableName(tableName),
+            bucket.rawTopic,
+            telemetry.topic().rawTopic(),
+            telemetry.topic().deviceId());
+      }
+      bucket.rows.add(telemetry);
+      if (bucket.rows.size() >= telemetryBatchMaxRows) {
+        telemetryBatchBuckets.remove(tableName);
+        immediateBatch = bucket.toFlushBatch();
+      }
+    }
+    if (immediateBatch != null) {
+      flushTelemetryBatch(immediateBatch, "size");
+    }
+  }
+
+  private void flushEligibleTelemetryBatchesSafely() {
+    try {
+      flushEligibleTelemetryBatches(false);
+    } catch (Exception exception) {
+      log.error("telemetry batch periodic flush failed", exception);
+    }
+  }
+
+  private void flushEligibleTelemetryBatches(boolean flushAll) {
+    if (!telemetryBatchEnabled) {
+      return;
+    }
+    List<TelemetryFlushBatch> ready = new ArrayList<>();
+    long now = System.currentTimeMillis();
+    synchronized (telemetryBatchLock) {
+      List<String> keysToRemove = new ArrayList<>();
+      for (Map.Entry<String, TelemetryBatchBucket> entry : telemetryBatchBuckets.entrySet()) {
+        TelemetryBatchBucket bucket = entry.getValue();
+        long ageMs = Math.max(0L, now - bucket.oldestEnqueueMs);
+        if (flushAll || ageMs >= telemetryBatchMaxDelayMs || bucket.rows.size() >= telemetryBatchMaxRows) {
+          ready.add(bucket.toFlushBatch());
+          keysToRemove.add(entry.getKey());
+        }
+      }
+      keysToRemove.forEach(telemetryBatchBuckets::remove);
+    }
+    for (TelemetryFlushBatch batch : ready) {
+      flushTelemetryBatch(batch, flushAll ? "shutdown" : "age");
+    }
+  }
+
+  private void flushTelemetryBatch(TelemetryFlushBatch batch, String reason) {
+    if (batch.rows().isEmpty()) {
+      return;
+    }
+    String sql = buildTelemetryBatchInsertStatements(batch);
+    try {
+      executeSql(sql);
+      if (properties.isLogEachWrite()) {
+        log.info(
+            "tdengine.telemetry_batch_written device={} table={} size={} reason={} batchEnabled={}",
+            batch.deviceId(),
+            qualifiedTableName(batch.tableName()),
+            batch.rows().size(),
+            reason,
+            telemetryBatchEnabled);
+      } else {
+        log.debug(
+            "tdengine telemetry batch persisted device={} table={} size={} reason={}",
+            batch.deviceId(),
+            qualifiedTableName(batch.tableName()),
+            batch.rows().size(),
+            reason);
+      }
+    } catch (Exception exception) {
+      log.error(
+          "tdengine telemetry batch failed device={} table={} size={} reason={} cause={}",
+          batch.deviceId(),
+          qualifiedTableName(batch.tableName()),
+          batch.rows().size(),
+          reason,
+          exception.getMessage(),
+          exception);
+      throw exception;
+    }
+  }
+
+  private String buildTelemetryBatchInsertStatements(TelemetryFlushBatch batch) {
+    StringJoiner sqlJoiner = new StringJoiner("; ");
+    for (ParsedHubMessage.TelemetryMessage telemetry : batch.rows()) {
+      sqlJoiner.add(buildTelemetryInsertStatement(batch.tableName(), batch.deviceId(), batch.rawTopic(), telemetry));
+    }
+    return sqlJoiner.toString();
+  }
+
+  private String buildTelemetryInsertStatement(
+      String tableName,
+      String deviceId,
+      String rawTopic,
+      ParsedHubMessage.TelemetryMessage telemetry) {
+    return "INSERT INTO " + qualifiedTableName(tableName)
+        + " USING " + qualifiedTableName("telemetry")
+        + " TAGS (" + stringValue(deviceId) + ", " + stringValue(rawTopic) + ")"
+        + " (ts, uptime_ms, target_temp_c, sim_temp_c, sensor_temp_c, error_c, integral_error, control_output, pwm_duty, pwm_norm, control_period_ms, saturation_state, sensor_valid, run_id, control_mode, controller_version, kp, ki, kd, system_state, sensor_status, actual_dt_ms, dt_error_ms, wifi_connected, mqtt_connected, mqtt_reconnect_count, mqtt_publish_fail_count, safety_output_forced_off, fault_latched, fault_reason, software_max_safe_temp_c, has_pending_params, pending_params_age_ms)"
+        + " VALUES (" + buildTelemetryValuesClause(telemetry) + ")";
+  }
+
+  private String buildTelemetryValuesClause(ParsedHubMessage.TelemetryMessage telemetry) {
+    return telemetry.receivedAt().toEpochMilli() + ", "
+        + telemetry.payload().uptime_ms() + ", "
+        + numericValue(telemetry.payload().target_temp_c()) + ", "
+        + numericValue(telemetry.payload().sim_temp_c()) + ", "
+        + numericValue(telemetry.payload().sensor_temp_c()) + ", "
+        + numericValue(telemetry.payload().error_c()) + ", "
+        + numericValue(telemetry.payload().integral_error()) + ", "
+        + numericValue(telemetry.payload().control_output()) + ", "
+        + telemetry.payload().pwm_duty() + ", "
+        + numericValue(telemetry.payload().pwm_norm()) + ", "
+        + telemetry.payload().control_period_ms() + ", "
+        + stringValue(telemetry.payload().saturation_state()) + ", "
+        + booleanValue(telemetry.payload().sensor_valid()) + ", "
+        + stringValue(telemetry.payload().run_id()) + ", "
+        + stringValue(telemetry.payload().control_mode()) + ", "
+        + stringValue(telemetry.payload().controller_version()) + ", "
+        + numericValue(telemetry.payload().kp()) + ", "
+        + numericValue(telemetry.payload().ki()) + ", "
+        + numericValue(telemetry.payload().kd()) + ", "
+        + stringValue(telemetry.payload().system_state()) + ", "
+        + stringValue(telemetry.payload().sensor_status()) + ", "
+        + numericValue(telemetry.payload().actual_dt_ms()) + ", "
+        + numericValue(telemetry.payload().dt_error_ms()) + ", "
+        + booleanValue(telemetry.payload().wifi_connected()) + ", "
+        + booleanValue(telemetry.payload().mqtt_connected()) + ", "
+        + numericValue(telemetry.payload().mqtt_reconnect_count()) + ", "
+        + numericValue(telemetry.payload().mqtt_publish_fail_count()) + ", "
+        + booleanValue(telemetry.payload().safety_output_forced_off()) + ", "
+        + booleanValue(telemetry.payload().fault_latched()) + ", "
+        + stringValue(telemetry.payload().fault_reason()) + ", "
+        + numericValue(telemetry.payload().software_max_safe_temp_c()) + ", "
+        + booleanValue(telemetry.payload().has_pending_params()) + ", "
+        + telemetry.payload().pending_params_age_ms();
   }
 
   private Mono<Void> executeWrite(String sql, String eventType, String deviceId, String successLogMessage) {
@@ -594,6 +749,44 @@ public final class TdengineRestWriter implements TdengineWriter {
 
   private String timestampValue(java.time.Instant value) {
     return value == null ? "NULL" : Long.toString(value.toEpochMilli());
+  }
+
+  @PreDestroy
+  void shutdown() {
+    if (telemetryBatchFlushExecutor != null) {
+      telemetryBatchFlushExecutor.shutdownNow();
+    }
+    try {
+      flushEligibleTelemetryBatches(true);
+    } catch (Exception exception) {
+      log.error("telemetry batch shutdown flush failed", exception);
+    }
+  }
+
+  private static final class TelemetryBatchBucket {
+    private final String tableName;
+    private final String deviceId;
+    private final String rawTopic;
+    private final long oldestEnqueueMs;
+    private final List<ParsedHubMessage.TelemetryMessage> rows = new ArrayList<>();
+
+    private TelemetryBatchBucket(String tableName, String deviceId, String rawTopic, long oldestEnqueueMs) {
+      this.tableName = tableName;
+      this.deviceId = deviceId;
+      this.rawTopic = rawTopic;
+      this.oldestEnqueueMs = oldestEnqueueMs;
+    }
+
+    private TelemetryFlushBatch toFlushBatch() {
+      return new TelemetryFlushBatch(tableName, deviceId, rawTopic, List.copyOf(rows));
+    }
+  }
+
+  private record TelemetryFlushBatch(
+      String tableName,
+      String deviceId,
+      String rawTopic,
+      List<ParsedHubMessage.TelemetryMessage> rows) {
   }
 
   private String normalizeBaseUrl(String url) {

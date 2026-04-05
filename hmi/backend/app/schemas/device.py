@@ -69,6 +69,32 @@ class MetricOut(BaseModel):
         from_attributes = True
 
 
+class MetricWindowStatsOut(BaseModel):
+    samples: int
+    in_band_ratio: float
+    total_stable_sec: int
+    longest_stable_sec: int
+    since_last_stable_sec: Optional[int] = None
+    has_stable_window: bool
+
+
+class ControlEvalOut(BaseModel):
+    current_temp: float
+    target_temp: float
+    pwm_output: float
+    error: float
+    in_band: bool
+    steady: bool
+    steady_window_samples: int
+    steady_in_band_samples: int
+    observed_settling_sec: Optional[float] = None
+    overshoot_pct: float
+    saturation_ratio: float
+    saturation_risk: str
+    tune_advice: str
+    result: str
+
+
 class ParameterOut(BaseModel):
     id: int
     device_id: int
@@ -92,6 +118,7 @@ class ParameterOut(BaseModel):
 
 
 class ParameterUpdate(BaseModel):
+    target_temp: Optional[float] = None
     kp: Optional[float] = None
     ki: Optional[float] = None
     kd: Optional[float] = None

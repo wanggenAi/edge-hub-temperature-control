@@ -183,6 +183,9 @@ public class HubProperties {
     private String password = "taosdata";
     private boolean autoCreate = true;
     private boolean logEachWrite = true;
+    private boolean telemetryBatchEnabled = true;
+    private int telemetryBatchMaxRows = 50;
+    private long telemetryBatchMaxDelayMs = 500;
     private int connectTimeoutSeconds = 5;
     private int requestTimeoutSeconds = 10;
 
@@ -232,6 +235,30 @@ public class HubProperties {
 
     public void setLogEachWrite(boolean logEachWrite) {
       this.logEachWrite = logEachWrite;
+    }
+
+    public boolean isTelemetryBatchEnabled() {
+      return telemetryBatchEnabled;
+    }
+
+    public void setTelemetryBatchEnabled(boolean telemetryBatchEnabled) {
+      this.telemetryBatchEnabled = telemetryBatchEnabled;
+    }
+
+    public int getTelemetryBatchMaxRows() {
+      return telemetryBatchMaxRows;
+    }
+
+    public void setTelemetryBatchMaxRows(int telemetryBatchMaxRows) {
+      this.telemetryBatchMaxRows = telemetryBatchMaxRows;
+    }
+
+    public long getTelemetryBatchMaxDelayMs() {
+      return telemetryBatchMaxDelayMs;
+    }
+
+    public void setTelemetryBatchMaxDelayMs(long telemetryBatchMaxDelayMs) {
+      this.telemetryBatchMaxDelayMs = telemetryBatchMaxDelayMs;
     }
 
     public int getConnectTimeoutSeconds() {

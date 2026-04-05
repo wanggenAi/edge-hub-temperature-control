@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { useDeviceDetail } from "@/routes/use-data";
-import type { Device } from "@/types";
+import type { ControlEvaluation, Device, MetricWindowStats } from "@/types";
 
 type TargetConfig = {
   band: number;
@@ -40,6 +40,23 @@ const DEFAULT_TARGET_CONFIG: TargetConfig = {
   saturationHigh: 0.6,
   overshootLimit: 3,
   steadyWindow: 12,
+};
+
+const EMPTY_CONTROL_EVAL: ControlEvaluation = {
+  current_temp: 0,
+  target_temp: 0,
+  pwm_output: 0,
+  error: 0,
+  in_band: false,
+  steady: false,
+  steady_window_samples: 0,
+  steady_in_band_samples: 0,
+  observed_settling_sec: null,
+  overshoot_pct: 0,
+  saturation_ratio: 0,
+  saturation_risk: "Low",
+  tune_advice: "Tune",
+  result: "Critical",
 };
 
 type EffectState = "Pending" | "Improved" | "No Change" | "Worse";
@@ -62,6 +79,7 @@ export function DeviceDetailPage() {
     ackStatus: "Acked",
     appliedStatus: "Applied",
     effect: "No Change" as EffectState,
+    reason: "-" as string,
   });
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -78,6 +96,17 @@ export function DeviceDetailPage() {
     toDatetimeLocalValue(new Date(Date.now() - 6 * 60 * 60 * 1000))
   );
   const [historyCustomEnd, setHistoryCustomEnd] = useState(() => toDatetimeLocalValue(new Date()));
+  const [historyRangeStats, setHistoryRangeStats] = useState<MetricWindowStats>({
+    samples: 0,
+    in_band_ratio: 0,
+    total_stable_sec: 0,
+    longest_stable_sec: 0,
+    since_last_stable_sec: null,
+    has_stable_window: false,
+  });
+  const [historyStatsLoading, setHistoryStatsLoading] = useState(true);
+  const [controlEval, setControlEval] = useState<ControlEvaluation>(EMPTY_CONTROL_EVAL);
+  const [controlEvalLoading, setControlEvalLoading] = useState(true);
 
   useEffect(() => {
     if (!parameters) return;
@@ -107,77 +136,82 @@ export function DeviceDetailPage() {
     return () => clearTimeout(timer);
   }, [pickerOpen, pickerQuery, device]);
 
-  const evalSnapshot = useMemo(() => {
-    const latest = metrics.length ? metrics[metrics.length - 1] : null;
-    return {
-      currentTemp: latest?.current_temp ?? device?.current_temp ?? 0,
-      targetTemp: latest?.target_temp ?? device?.target_temp ?? 0,
+  useEffect(() => {
+    if (!deviceId) return;
+    let cancelled = false;
+
+    const loadControlEval = () => {
+      const now = Date.now();
+      return api
+        .controlEval(deviceId, {
+          start_ms: now - 6 * 60 * 60 * 1000,
+          end_ms: now,
+          band: targetConfig.band,
+          steady_window: targetConfig.steadyWindow,
+          pwm_threshold: targetConfig.pwmThreshold,
+          saturation_warn: targetConfig.saturationWarn,
+          saturation_high: targetConfig.saturationHigh,
+          overshoot_limit: targetConfig.overshootLimit,
+          limit: 20000,
+        })
+        .then((res) => {
+          if (cancelled) return;
+          setControlEval(res);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setControlEval(EMPTY_CONTROL_EVAL);
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setControlEvalLoading(false);
+        });
     };
-  }, [metrics, device]);
 
-  const derived = useMemo(() => {
-    if (!metrics.length || !device) {
-      return {
-        error: 0,
-        inBand: false,
-        steady: false,
-        steadyWindowSamples: 0,
-        observedSettlingSec: null as number | null,
-        overshootPct: 0,
-        saturationRatio: 0,
-        saturationRisk: "Low",
-        tuneAdvice: "Keep",
-        result: "Critical" as TargetResult,
-        steadyStartIdx: -1,
-      };
-    }
+    setControlEvalLoading(true);
+    void loadControlEval();
+    const timer = window.setInterval(() => {
+      void loadControlEval();
+    }, 4000);
 
-    const error = evalSnapshot.currentTemp - evalSnapshot.targetTemp;
-    const inBand = Math.abs(error) <= targetConfig.band;
-    const steadyWindow = metrics.slice(-targetConfig.steadyWindow);
-
-    const overshootPct = metrics
-      .map((m) => Math.max(0, ((m.current_temp - m.target_temp) / Math.max(m.target_temp, 0.001)) * 100))
-      .reduce((a, b) => Math.max(a, b), 0);
-
-    const saturationRatio = steadyWindow.filter((m) => m.pwm_output >= targetConfig.pwmThreshold).length / Math.max(steadyWindow.length, 1);
-    const saturationRisk =
-      saturationRatio >= targetConfig.saturationHigh ? "High" : saturationRatio >= targetConfig.saturationWarn ? "Medium" : "Low";
-
-    const steady = steadyWindow.length > 0 && steadyWindow.every((m) => Math.abs(m.error) <= targetConfig.band);
-    const steadyStartIdx = steady ? Math.max(0, metrics.length - steadyWindow.length) : -1;
-    let settleIdx = -1;
-    for (let i = 0; i < metrics.length; i += 1) {
-      const tailInBand = metrics.slice(i).every((m) => Math.abs(m.error) <= targetConfig.band);
-      if (tailInBand) {
-        settleIdx = i;
-        break;
-      }
-    }
-    const observedSettlingSec =
-      settleIdx > 0
-        ? Math.max(0, (new Date(metrics[settleIdx].timestamp).getTime() - new Date(metrics[0].timestamp).getTime()) / 1000)
-        : null;
-    const tuneAdvice = inBand && steady && saturationRisk === "Low" ? "Keep" : "Tune";
-
-    let result: TargetResult = "Not Met";
-    if (inBand && steady && saturationRisk === "Low") result = "On Target";
-    else if (inBand || saturationRisk !== "High") result = "Critical";
-
-    return {
-      error,
-      inBand,
-      steady,
-      steadyWindowSamples: steadyWindow.length,
-      observedSettlingSec,
-      overshootPct,
-      saturationRatio,
-      saturationRisk,
-      tuneAdvice,
-      result,
-      steadyStartIdx,
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [device, metrics, targetConfig, evalSnapshot]);
+  }, [
+    deviceId,
+    targetConfig.band,
+    targetConfig.steadyWindow,
+    targetConfig.pwmThreshold,
+    targetConfig.saturationWarn,
+    targetConfig.saturationHigh,
+    targetConfig.overshootLimit,
+  ]);
+
+  const evalSnapshot = useMemo(
+    () => ({
+      currentTemp: controlEval.current_temp || metrics[metrics.length - 1]?.current_temp || device?.current_temp || 0,
+      targetTemp: controlEval.target_temp || metrics[metrics.length - 1]?.target_temp || device?.target_temp || 0,
+    }),
+    [controlEval.current_temp, controlEval.target_temp, metrics, device]
+  );
+
+  const derived = useMemo(
+    () => ({
+      error: controlEval.error,
+      inBand: controlEval.in_band,
+      steady: controlEval.steady,
+      steadyWindowSamples: controlEval.steady_window_samples,
+      steadyInBandSamples: controlEval.steady_in_band_samples,
+      observedSettlingSec: controlEval.observed_settling_sec ?? null,
+      overshootPct: controlEval.overshoot_pct,
+      saturationRatio: controlEval.saturation_ratio,
+      saturationRisk: controlEval.saturation_risk,
+      tuneAdvice: controlEval.tune_advice,
+      result: controlEval.result as TargetResult,
+    }),
+    [controlEval]
+  );
 
   const chartData = useMemo(
     () =>
@@ -191,10 +225,10 @@ export function DeviceDetailPage() {
   );
 
   const targetTemp = evalSnapshot.targetTemp;
-  const latestPwm = metrics[metrics.length - 1]?.pwm_output ?? device?.pwm_output ?? 0;
-  const historyRangeMetrics = useMemo(() => {
-    if (!metrics.length) return [];
-
+  const latestPwm = controlEval.pwm_output || metrics[metrics.length - 1]?.pwm_output || device?.pwm_output || 0;
+  useEffect(() => {
+    if (!deviceId) return;
+    setHistoryStatsLoading(true);
     const now = Date.now();
     let startMs = 0;
     let endMs = now;
@@ -204,86 +238,43 @@ export function DeviceDetailPage() {
     if (historyRangePreset === "custom") {
       const parsedStart = new Date(historyCustomStart).getTime();
       const parsedEnd = new Date(historyCustomEnd).getTime();
-      if (!Number.isFinite(parsedStart) || !Number.isFinite(parsedEnd) || parsedStart >= parsedEnd) return [];
+      if (!Number.isFinite(parsedStart) || !Number.isFinite(parsedEnd) || parsedStart >= parsedEnd) {
+        setHistoryRangeStats({
+          samples: 0,
+          in_band_ratio: 0,
+          total_stable_sec: 0,
+          longest_stable_sec: 0,
+          since_last_stable_sec: null,
+          has_stable_window: false,
+        });
+        setHistoryStatsLoading(false);
+        return;
+      }
       startMs = parsedStart;
       endMs = parsedEnd;
     }
 
-    return metrics.filter((m) => {
-      const ts = new Date(m.timestamp).getTime();
-      return ts >= startMs && ts <= endMs;
-    });
-  }, [historyRangePreset, historyCustomEnd, historyCustomStart, metrics]);
-
-  const historyRangeStats = useMemo(() => {
-    const points = historyRangeMetrics;
-    if (points.length < 2) {
-      return {
-        samples: points.length,
-        inBandRatio: 0,
-        totalStableSec: 0,
-        longestStableSec: 0,
-        sinceLastStableSec: null as number | null,
-        hasStableWindow: false,
-      };
-    }
-
-    const stepSec = Math.max(
-      1,
-      Math.round(
-        points
-          .slice(1)
-          .map((p, idx) => (new Date(p.timestamp).getTime() - new Date(points[idx].timestamp).getTime()) / 1000)
-          .reduce((sum, x) => sum + Math.max(0, x), 0) / Math.max(1, points.length - 1)
+    api
+      .metricsStats(deviceId, {
+        start_ms: Math.floor(startMs),
+        end_ms: Math.floor(endMs),
+        band: targetConfig.band,
+        steady_window: targetConfig.steadyWindow,
+        limit: 20000,
+      })
+      .then((stats) => setHistoryRangeStats(stats))
+      .catch(() =>
+        setHistoryRangeStats({
+          samples: 0,
+          in_band_ratio: 0,
+          total_stable_sec: 0,
+          longest_stable_sec: 0,
+          since_last_stable_sec: null,
+          has_stable_window: false,
+        })
       )
-    );
-
-    let inBandCount = 0;
-    let totalStableSec = 0;
-    let longestStableSec = 0;
-    let lastStableEndMs: number | null = null;
-    let runStart = -1;
-
-    for (let i = 0; i < points.length; i += 1) {
-      const inBand = Math.abs(points[i].error) <= targetConfig.band;
-      if (inBand) {
-        inBandCount += 1;
-        if (runStart < 0) runStart = i;
-      } else if (runStart >= 0) {
-        const runLen = i - runStart;
-        if (runLen >= targetConfig.steadyWindow) {
-          const startMs = new Date(points[runStart].timestamp).getTime();
-          const endMs = new Date(points[i - 1].timestamp).getTime();
-          const sec = Math.max(stepSec, Math.round((endMs - startMs) / 1000) + stepSec);
-          totalStableSec += sec;
-          if (sec > longestStableSec) longestStableSec = sec;
-          lastStableEndMs = endMs;
-        }
-        runStart = -1;
-      }
-    }
-
-    if (runStart >= 0) {
-      const runLen = points.length - runStart;
-      if (runLen >= targetConfig.steadyWindow) {
-        const startMs = new Date(points[runStart].timestamp).getTime();
-        const endMs = new Date(points[points.length - 1].timestamp).getTime();
-        const sec = Math.max(stepSec, Math.round((endMs - startMs) / 1000) + stepSec);
-        totalStableSec += sec;
-        if (sec > longestStableSec) longestStableSec = sec;
-        lastStableEndMs = endMs;
-      }
-    }
-
-    return {
-      samples: points.length,
-      inBandRatio: inBandCount / points.length,
-      totalStableSec,
-      longestStableSec,
-      sinceLastStableSec: lastStableEndMs ? Math.max(0, Math.round((Date.now() - lastStableEndMs) / 1000)) : null,
-      hasStableWindow: totalStableSec > 0,
-    };
-  }, [historyRangeMetrics, targetConfig.band, targetConfig.steadyWindow]);
+      .finally(() => setHistoryStatsLoading(false));
+  }, [deviceId, historyRangePreset, historyCustomStart, historyCustomEnd, targetConfig.band, targetConfig.steadyWindow]);
   const targetEvalRows = useMemo(
     () => [
       {
@@ -301,7 +292,7 @@ export function DeviceDetailPage() {
         title: "Steady State",
         field: "steady_window_samples",
         target: `${targetConfig.steadyWindow} samples in band`,
-        current: `${derived.steadyWindowSamples}/${targetConfig.steadyWindow} samples in band`,
+        current: `${derived.steadyInBandSamples}/${targetConfig.steadyWindow} samples in band`,
         rule: `All last ${targetConfig.steadyWindow} samples must stay in band`,
         why: derived.steady ? "Recent samples are stable in target band." : "Recent samples still fluctuate outside band.",
         status: (derived.steady ? "Pass" : derived.inBand ? "Warn" : "Fail") as EvalStatus,
@@ -379,35 +370,53 @@ export function DeviceDetailPage() {
       ackStatus: "Acked",
       appliedStatus: "Pending",
       effect: "Pending",
+      reason: "-",
     });
 
-    if (editing.target_temp) {
-      await api.updateDevice(deviceId, { target_temp: Number(editing.target_temp) });
+    try {
+      await updateParameters({
+        target_temp: editing.target_temp ? Number(editing.target_temp) : undefined,
+        kp: editing.kp ? Number(editing.kp) : undefined,
+        ki: editing.ki ? Number(editing.ki) : undefined,
+        kd: editing.kd ? Number(editing.kd) : undefined,
+        control_mode: editing.control_mode || undefined,
+        target_band: targetConfig.band,
+        overshoot_limit_pct: targetConfig.overshootLimit,
+        saturation_warn_ratio: targetConfig.saturationWarn,
+        saturation_high_ratio: targetConfig.saturationHigh,
+        pwm_saturation_threshold: targetConfig.pwmThreshold,
+        steady_window_samples: targetConfig.steadyWindow,
+      });
+      setEditing({ kp: "", ki: "", kd: "", target_temp: "", control_mode: "" });
+      await reload();
+      const after = await api.device(deviceId);
+      const nextErr = Math.abs(after.current_temp - after.target_temp);
+      const effect: EffectState = nextErr < prevErr ? "Improved" : nextErr > prevErr ? "Worse" : "No Change";
+      setFeedback({
+        lastUpdate: new Date().toLocaleTimeString(),
+        ackStatus: "Acked",
+        appliedStatus: "Applied",
+        effect,
+        reason: "-",
+      });
+    } catch (error) {
+      const message = normalizeApiError(error);
+      const lower = message.toLowerCase();
+      const applyStatus = lower.includes("ack timeout")
+        ? "Ack Timeout"
+        : lower.includes("ack failed")
+          ? "Ack Failed"
+          : lower.includes("mqtt publish")
+            ? "Publish Failed"
+            : "Apply Failed";
+      setFeedback({
+        lastUpdate: new Date().toLocaleTimeString(),
+        ackStatus: "Failed",
+        appliedStatus: applyStatus,
+        effect: "No Change",
+        reason: message,
+      });
     }
-
-    await updateParameters({
-      kp: editing.kp ? Number(editing.kp) : undefined,
-      ki: editing.ki ? Number(editing.ki) : undefined,
-      kd: editing.kd ? Number(editing.kd) : undefined,
-      control_mode: editing.control_mode || undefined,
-      target_band: targetConfig.band,
-      overshoot_limit_pct: targetConfig.overshootLimit,
-      saturation_warn_ratio: targetConfig.saturationWarn,
-      saturation_high_ratio: targetConfig.saturationHigh,
-      pwm_saturation_threshold: targetConfig.pwmThreshold,
-      steady_window_samples: targetConfig.steadyWindow,
-    });
-    setEditing({ kp: "", ki: "", kd: "", target_temp: "", control_mode: "" });
-    await reload();
-    const after = await api.device(deviceId);
-    const nextErr = Math.abs(after.current_temp - after.target_temp);
-    const effect: EffectState = nextErr < prevErr ? "Improved" : nextErr > prevErr ? "Worse" : "No Change";
-    setFeedback({
-      lastUpdate: new Date().toLocaleTimeString(),
-      ackStatus: "Acked",
-      appliedStatus: "Applied",
-      effect,
-    });
   }
 
   async function executeSaveTargetsOnly() {
@@ -426,6 +435,7 @@ export function DeviceDetailPage() {
       lastUpdate: new Date().toLocaleTimeString(),
       ackStatus: "Acked",
       appliedStatus: "Applied",
+      reason: "-",
     }));
   }
 
@@ -515,18 +525,28 @@ export function DeviceDetailPage() {
               )}
 
               <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard title="Stable Time in Range" value={formatDuration(historyRangeStats.totalStableSec)} />
+                <MetricCard title="Stable Time in Range" value={formatDuration(historyRangeStats.total_stable_sec)} loading={historyStatsLoading} />
                 <MetricCard
                   title="Since Last Stable"
-                  value={historyRangeStats.sinceLastStableSec == null ? "N/A" : formatDuration(historyRangeStats.sinceLastStableSec)}
+                  value={
+                    historyRangeStats.since_last_stable_sec == null ? "N/A" : formatDuration(historyRangeStats.since_last_stable_sec)
+                  }
+                  loading={historyStatsLoading}
                 />
-                <MetricCard title="Longest Stable Run" value={formatDuration(historyRangeStats.longestStableSec)} />
-                <MetricCard title="In-Band Ratio" value={`${(historyRangeStats.inBandRatio * 100).toFixed(1)}%`} />
+                <MetricCard title="Longest Stable Run" value={formatDuration(historyRangeStats.longest_stable_sec)} loading={historyStatsLoading} />
+                <MetricCard title="In-Band Ratio" value={`${(historyRangeStats.in_band_ratio * 100).toFixed(1)}%`} loading={historyStatsLoading} />
               </div>
+              {controlEvalLoading && <div className="mt-2 text-xs text-mute">Updating real-time control evaluation...</div>}
 
               <div className="mt-2 text-xs text-mute">
-                Samples: {historyRangeStats.samples} · Rule: stable requires at least {targetConfig.steadyWindow} consecutive samples within ±
-                {targetConfig.band.toFixed(2)}°C.
+                {historyStatsLoading ? (
+                  <span className="inline-block h-4 w-[360px] animate-pulse rounded bg-panel2" />
+                ) : (
+                  <>
+                    Samples: {historyRangeStats.samples} · Rule: stable requires at least {targetConfig.steadyWindow} consecutive samples within ±
+                    {targetConfig.band.toFixed(2)}°C.
+                  </>
+                )}
               </div>
             </div>
 
@@ -704,9 +724,8 @@ export function DeviceDetailPage() {
                   <SelectValue placeholder="Control Mode" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PID">PID</SelectItem>
-                  <SelectItem value="PI">PI</SelectItem>
-                  <SelectItem value="P">P</SelectItem>
+                  <SelectItem value="pi_control">PI Control</SelectItem>
+                  <SelectItem value="p_control">P Control</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="accent" className="w-full" type="submit" disabled={!canWrite}>
@@ -718,6 +737,7 @@ export function DeviceDetailPage() {
               <FeedbackRow label="Last Update" value={feedback.lastUpdate} />
               <FeedbackRow label="Ack Status" value={feedback.ackStatus} />
               <FeedbackRow label="Apply Status" value={feedback.appliedStatus} />
+              <FeedbackRow label="Reason" value={feedback.reason} />
               <FeedbackRow label="Effect" value={feedback.effect} tone={feedbackTone(feedback.effect)} />
             </div>
 
@@ -1040,11 +1060,11 @@ function MetricRow({ label, value, tone = "default" }: { label: string; value: s
   );
 }
 
-function MetricCard({ title, value }: { title: string; value: string }) {
+function MetricCard({ title, value, loading = false }: { title: string; value: string; loading?: boolean }) {
   return (
     <div className="rounded border border-line/70 bg-panel2 p-2 text-center">
       <div className="text-xs text-mute">{title}</div>
-      <div className="text-base font-semibold text-neon">{value}</div>
+      {loading ? <div className="mx-auto mt-1 h-6 w-20 animate-pulse rounded bg-neon/15" /> : <div className="text-base font-semibold text-neon">{value}</div>}
     </div>
   );
 }
@@ -1069,6 +1089,19 @@ function feedbackTone(effect: EffectState): "default" | "ok" | "warn" | "danger"
   if (effect === "Worse") return "danger";
   if (effect === "Pending") return "warn";
   return "default";
+}
+
+function normalizeApiError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  try {
+    const parsed = JSON.parse(raw) as { detail?: string };
+    if (parsed && typeof parsed.detail === "string" && parsed.detail.trim()) {
+      return parsed.detail.trim();
+    }
+  } catch {
+    // keep raw message
+  }
+  return raw;
 }
 
 function InlineRefTag({ label, weak = false }: { label: string; weak?: boolean }) {

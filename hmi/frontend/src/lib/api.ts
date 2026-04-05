@@ -6,9 +6,11 @@ import type {
   AlarmRuleListResponse,
   AlarmRuleUpdateResponse,
   ActiveAlarmResponse,
+  ControlEvaluation,
   Device,
   Me,
   Metric,
+  MetricWindowStats,
   PagedDevices,
   Parameter,
   SummaryDetailResponse,
@@ -99,9 +101,55 @@ export const api = {
   updateDevice: (id: number, payload: Record<string, unknown>) =>
     request<Device>(`/devices/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   deleteDevice: (id: number) => request<{ ok: boolean }>(`/devices/${id}`, { method: "DELETE" }),
-  metrics: (id: number) => request<Metric[]>(`/devices/${id}/metrics`),
+  metrics: (id: number, params: { start_ms?: number; end_ms?: number; limit?: number } = {}) => {
+    const sp = new URLSearchParams();
+    if (typeof params.start_ms === "number") sp.set("start_ms", String(params.start_ms));
+    if (typeof params.end_ms === "number") sp.set("end_ms", String(params.end_ms));
+    if (typeof params.limit === "number") sp.set("limit", String(params.limit));
+    const suffix = sp.toString() ? `?${sp.toString()}` : "";
+    return request<Metric[]>(`/devices/${id}/metrics${suffix}`);
+  },
+  metricsStats: (
+    id: number,
+    params: { start_ms: number; end_ms: number; band: number; steady_window: number; limit?: number }
+  ) => {
+    const sp = new URLSearchParams();
+    sp.set("start_ms", String(params.start_ms));
+    sp.set("end_ms", String(params.end_ms));
+    sp.set("band", String(params.band));
+    sp.set("steady_window", String(params.steady_window));
+    if (typeof params.limit === "number") sp.set("limit", String(params.limit));
+    return request<MetricWindowStats>(`/devices/${id}/metrics/stats?${sp.toString()}`);
+  },
+  controlEval: (
+    id: number,
+    params: {
+      start_ms?: number;
+      end_ms?: number;
+      band?: number;
+      steady_window?: number;
+      pwm_threshold?: number;
+      saturation_warn?: number;
+      saturation_high?: number;
+      overshoot_limit?: number;
+      limit?: number;
+    } = {}
+  ) => {
+    const sp = new URLSearchParams();
+    if (typeof params.start_ms === "number") sp.set("start_ms", String(params.start_ms));
+    if (typeof params.end_ms === "number") sp.set("end_ms", String(params.end_ms));
+    if (typeof params.band === "number") sp.set("band", String(params.band));
+    if (typeof params.steady_window === "number") sp.set("steady_window", String(params.steady_window));
+    if (typeof params.pwm_threshold === "number") sp.set("pwm_threshold", String(params.pwm_threshold));
+    if (typeof params.saturation_warn === "number") sp.set("saturation_warn", String(params.saturation_warn));
+    if (typeof params.saturation_high === "number") sp.set("saturation_high", String(params.saturation_high));
+    if (typeof params.overshoot_limit === "number") sp.set("overshoot_limit", String(params.overshoot_limit));
+    if (typeof params.limit === "number") sp.set("limit", String(params.limit));
+    const suffix = sp.toString() ? `?${sp.toString()}` : "";
+    return request<ControlEvaluation>(`/devices/${id}/control-eval${suffix}`);
+  },
   parameters: (id: number) => request<Parameter>(`/devices/${id}/parameters`),
-  updateParameters: (id: number, payload: Partial<Parameter>) =>
+  updateParameters: (id: number, payload: Partial<Parameter> & { target_temp?: number }) =>
     request<Parameter>(`/devices/${id}/parameters`, {
       method: "PUT",
       body: JSON.stringify(payload),
