@@ -13,4 +13,8 @@ public record ParameterAckPayload(
     long control_period_ms,
     String control_mode,
     String reason,
-    long uptime_ms) {}
+    long uptime_ms,
+    Boolean sensor_valid,
+    Boolean fault_latched,
+    String fault_reason,
+    Double software_max_safe_temp_c) {}

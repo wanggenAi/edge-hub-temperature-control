@@ -66,7 +66,7 @@ public final class TdengineRestWriter implements TdengineWriter {
     String sql = "INSERT INTO " + qualifiedTableName(tableName)
         + " USING " + qualifiedTableName("telemetry")
         + " TAGS (" + stringValue(telemetry.topic().deviceId()) + ", " + stringValue(telemetry.topic().rawTopic()) + ")"
-        + " (ts, uptime_ms, target_temp_c, sim_temp_c, sensor_temp_c, error_c, integral_error, control_output, pwm_duty, pwm_norm, control_period_ms, saturation_state, sensor_valid, run_id, control_mode, controller_version, kp, ki, kd, system_state, has_pending_params, pending_params_age_ms)"
+        + " (ts, uptime_ms, target_temp_c, sim_temp_c, sensor_temp_c, error_c, integral_error, control_output, pwm_duty, pwm_norm, control_period_ms, saturation_state, sensor_valid, run_id, control_mode, controller_version, kp, ki, kd, system_state, sensor_status, actual_dt_ms, dt_error_ms, wifi_connected, mqtt_connected, mqtt_reconnect_count, mqtt_publish_fail_count, safety_output_forced_off, fault_latched, fault_reason, software_max_safe_temp_c, has_pending_params, pending_params_age_ms)"
         + " VALUES ("
         + telemetry.receivedAt().toEpochMilli() + ", "
         + telemetry.payload().uptime_ms() + ", "
@@ -88,10 +88,22 @@ public final class TdengineRestWriter implements TdengineWriter {
         + numericValue(telemetry.payload().ki()) + ", "
         + numericValue(telemetry.payload().kd()) + ", "
         + stringValue(telemetry.payload().system_state()) + ", "
+        + stringValue(telemetry.payload().sensor_status()) + ", "
+        + numericValue(telemetry.payload().actual_dt_ms()) + ", "
+        + numericValue(telemetry.payload().dt_error_ms()) + ", "
+        + booleanValue(telemetry.payload().wifi_connected()) + ", "
+        + booleanValue(telemetry.payload().mqtt_connected()) + ", "
+        + numericValue(telemetry.payload().mqtt_reconnect_count()) + ", "
+        + numericValue(telemetry.payload().mqtt_publish_fail_count()) + ", "
+        + booleanValue(telemetry.payload().safety_output_forced_off()) + ", "
+        + booleanValue(telemetry.payload().fault_latched()) + ", "
+        + stringValue(telemetry.payload().fault_reason()) + ", "
+        + numericValue(telemetry.payload().software_max_safe_temp_c()) + ", "
         + booleanValue(telemetry.payload().has_pending_params()) + ", "
         + telemetry.payload().pending_params_age_ms()
         + ")";
-    String logMessage = "tdengine.telemetry_written device=%s runId=%s table=%s uptimeMs=%s targetTemp=%s simTemp=%s sensorTemp=%s controlPeriodMs=%s saturationState=%s sensorValid=%s"
+    String logMessage =
+        "tdengine.telemetry_written device=%s runId=%s table=%s uptimeMs=%s targetTemp=%s simTemp=%s sensorTemp=%s controlPeriodMs=%s saturationState=%s sensorValid=%s mqttConnected=%s faultLatched=%s"
         .formatted(
             telemetry.topic().deviceId(),
             telemetry.payload().run_id(),
@@ -102,7 +114,9 @@ public final class TdengineRestWriter implements TdengineWriter {
             telemetry.payload().sensor_temp_c(),
             telemetry.payload().control_period_ms(),
             telemetry.payload().saturation_state(),
-            telemetry.payload().sensor_valid());
+            telemetry.payload().sensor_valid(),
+            telemetry.payload().mqtt_connected(),
+            telemetry.payload().fault_latched());
     return executeWrite(sql, "telemetry", telemetry.topic().deviceId(), logMessage);
   }
 
@@ -200,6 +214,7 @@ public final class TdengineRestWriter implements TdengineWriter {
         + " USING " + qualifiedTableName("params_ack")
         + " TAGS (" + stringValue(parameterAck.topic().deviceId()) + ", " + stringValue(parameterAck.topic().rawTopic())
         + ")"
+        + " (ts, ack_type, success, applied_immediately, has_pending_params, target_temp_c, kp, ki, kd, control_period_ms, control_mode, reason, uptime_ms, sensor_valid, fault_latched, fault_reason, software_max_safe_temp_c)"
         + " VALUES ("
         + parameterAck.receivedAt().toEpochMilli() + ", "
         + stringValue(payload.ack_type()) + ", "
@@ -213,15 +228,20 @@ public final class TdengineRestWriter implements TdengineWriter {
         + payload.control_period_ms() + ", "
         + stringValue(payload.control_mode()) + ", "
         + stringValue(payload.reason()) + ", "
-        + payload.uptime_ms()
+        + payload.uptime_ms() + ", "
+        + booleanValue(payload.sensor_valid()) + ", "
+        + booleanValue(payload.fault_latched()) + ", "
+        + stringValue(payload.fault_reason()) + ", "
+        + numericValue(payload.software_max_safe_temp_c())
         + ")";
-    String logMessage = "tdengine.params_ack_written device=%s table=%s ackType=%s success=%s reason=%s"
+    String logMessage = "tdengine.params_ack_written device=%s table=%s ackType=%s success=%s reason=%s faultLatched=%s"
         .formatted(
             parameterAck.topic().deviceId(),
             qualifiedTableName(tableName),
             payload.ack_type(),
             payload.success(),
-            payload.reason());
+            payload.reason(),
+            payload.fault_latched());
     return executeWrite(sql, "params_ack", parameterAck.topic().deviceId(), logMessage);
   }
 
@@ -317,6 +337,17 @@ public final class TdengineRestWriter implements TdengineWriter {
                 ki DOUBLE,
                 kd DOUBLE,
                 system_state VARCHAR(64),
+                sensor_status VARCHAR(32),
+                actual_dt_ms BIGINT,
+                dt_error_ms BIGINT,
+                wifi_connected BOOL,
+                mqtt_connected BOOL,
+                mqtt_reconnect_count BIGINT,
+                mqtt_publish_fail_count BIGINT,
+                safety_output_forced_off BOOL,
+                fault_latched BOOL,
+                fault_reason VARCHAR(255),
+                software_max_safe_temp_c DOUBLE,
                 has_pending_params BOOL,
                 pending_params_age_ms BIGINT
               ) TAGS (
@@ -392,7 +423,11 @@ public final class TdengineRestWriter implements TdengineWriter {
                 control_period_ms BIGINT,
                 control_mode VARCHAR(64),
                 reason VARCHAR(255),
-                uptime_ms BIGINT
+                uptime_ms BIGINT,
+                sensor_valid BOOL,
+                fault_latched BOOL,
+                fault_reason VARCHAR(255),
+                software_max_safe_temp_c DOUBLE
               ) TAGS (
                 device_id BINARY(128),
                 mqtt_topic BINARY(255)
@@ -429,6 +464,7 @@ public final class TdengineRestWriter implements TdengineWriter {
       ddl.forEach(this::executeSql);
       ensureTelemetrySchemaCompatibility();
       ensureTelemetrySummarySchemaCompatibility();
+      ensureParamsAckSchemaCompatibility();
       if (initializedLogged.compareAndSet(false, true)) {
         log.info(
             "tdengine rest writer initialized url={} database={} autoCreate={}",
@@ -475,11 +511,29 @@ public final class TdengineRestWriter implements TdengineWriter {
     ensureColumnExists("telemetry", "saturation_state", "VARCHAR(32)");
     ensureColumnExists("telemetry", "sensor_valid", "BOOL");
     ensureColumnExists("telemetry", "run_id", "VARCHAR(128)");
+    ensureColumnExists("telemetry", "sensor_status", "VARCHAR(32)");
+    ensureColumnExists("telemetry", "actual_dt_ms", "BIGINT");
+    ensureColumnExists("telemetry", "dt_error_ms", "BIGINT");
+    ensureColumnExists("telemetry", "wifi_connected", "BOOL");
+    ensureColumnExists("telemetry", "mqtt_connected", "BOOL");
+    ensureColumnExists("telemetry", "mqtt_reconnect_count", "BIGINT");
+    ensureColumnExists("telemetry", "mqtt_publish_fail_count", "BIGINT");
+    ensureColumnExists("telemetry", "safety_output_forced_off", "BOOL");
+    ensureColumnExists("telemetry", "fault_latched", "BOOL");
+    ensureColumnExists("telemetry", "fault_reason", "VARCHAR(255)");
+    ensureColumnExists("telemetry", "software_max_safe_temp_c", "DOUBLE");
   }
 
   private void ensureTelemetrySummarySchemaCompatibility() {
     ensureColumnExists("telemetry_summary", "run_id", "VARCHAR(128)");
     ensureColumnExists("telemetry_summary", "control_period_ms", "BIGINT");
+  }
+
+  private void ensureParamsAckSchemaCompatibility() {
+    ensureColumnExists("params_ack", "sensor_valid", "BOOL");
+    ensureColumnExists("params_ack", "fault_latched", "BOOL");
+    ensureColumnExists("params_ack", "fault_reason", "VARCHAR(255)");
+    ensureColumnExists("params_ack", "software_max_safe_temp_c", "DOUBLE");
   }
 
   private void ensureColumnExists(String stableName, String columnName, String columnDefinition) {

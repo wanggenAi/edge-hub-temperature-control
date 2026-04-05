@@ -65,6 +65,11 @@ public final class AlarmRedisCacheService {
         emitted.addAll(onTelemetry(telemetry.topic().deviceId(), telemetry.receivedAt(), telemetry.payload()));
       } else if (message instanceof ParsedHubMessage.ParameterAckMessage ack) {
         boolean matched = !ack.payload().success();
+        Map<String, Object> ackContext = new LinkedHashMap<>();
+        ackContext.put("ack_type", ack.payload().ack_type());
+        ackContext.put("reason", ack.payload().reason());
+        ackContext.put("fault_latched", ack.payload().fault_latched());
+        ackContext.put("fault_reason", ack.payload().fault_reason());
         AlarmTransitionResult transition = processRuleSignal(
             ack.topic().deviceId(),
             "param_apply_failed",
@@ -73,7 +78,7 @@ public final class AlarmRedisCacheService {
             matched ? defaultReason("param_apply_failed") : "ack success",
             ack.receivedAt(),
             severityOf("param_apply_failed"),
-            null);
+            ackContext);
         if (transition.alarmEvent() != null) {
           emitted.add(transition.alarmEvent());
         }
@@ -122,12 +127,17 @@ public final class AlarmRedisCacheService {
         outOfBand ? defaultReason("out_of_band") : "back in target band",
         observedAt,
         severityOf("out_of_band"),
-        null);
+        Map.of("error_c", payload.error_c(), "threshold", outBandThreshold));
     if (outBandResult.alarmEvent() != null) {
       emitted.add(outBandResult.alarmEvent());
     }
 
-    boolean sensorInvalid = payload.sensor_valid() != null && !payload.sensor_valid();
+    boolean sensorInvalid = (payload.sensor_valid() != null && !payload.sensor_valid())
+        || (payload.sensor_status() != null && !"ok".equalsIgnoreCase(payload.sensor_status()));
+    Map<String, Object> sensorContext = new LinkedHashMap<>();
+    sensorContext.put("sensor_valid", payload.sensor_valid());
+    sensorContext.put("sensor_status", payload.sensor_status());
+    sensorContext.put("sensor_temp_c", payload.sensor_temp_c());
     AlarmTransitionResult sensorResult = processRuleSignal(
         deviceId,
         "sensor_invalid",
@@ -136,7 +146,7 @@ public final class AlarmRedisCacheService {
         sensorInvalid ? defaultReason("sensor_invalid") : "sensor valid",
         observedAt,
         severityOf("sensor_invalid"),
-        null);
+        sensorContext);
     if (sensorResult.alarmEvent() != null) {
       emitted.add(sensorResult.alarmEvent());
     }
@@ -160,6 +170,115 @@ public final class AlarmRedisCacheService {
         saturationContext);
     if (saturationResult.alarmEvent() != null) {
       emitted.add(saturationResult.alarmEvent());
+    }
+
+    boolean faultLatched = Boolean.TRUE.equals(payload.fault_latched());
+    Map<String, Object> faultContext = new LinkedHashMap<>();
+    faultContext.put("fault_latched", payload.fault_latched());
+    faultContext.put("fault_reason", payload.fault_reason());
+    faultContext.put("software_max_safe_temp_c", payload.software_max_safe_temp_c());
+    AlarmTransitionResult faultLatchedResult = processRuleSignal(
+        deviceId,
+        "fault_latched",
+        faultLatched,
+        "safety",
+        faultLatched ? defaultReason("fault_latched") : "fault latch cleared",
+        observedAt,
+        severityOf("fault_latched"),
+        faultContext);
+    if (faultLatchedResult.alarmEvent() != null) {
+      emitted.add(faultLatchedResult.alarmEvent());
+    }
+
+    boolean forcedOff = Boolean.TRUE.equals(payload.safety_output_forced_off());
+    Map<String, Object> forcedOffContext = new LinkedHashMap<>();
+    forcedOffContext.put("safety_output_forced_off", payload.safety_output_forced_off());
+    forcedOffContext.put("fault_reason", payload.fault_reason());
+    AlarmTransitionResult forcedOffResult = processRuleSignal(
+        deviceId,
+        "safety_output_forced_off",
+        forcedOff,
+        "safety",
+        forcedOff ? defaultReason("safety_output_forced_off") : "safety output released",
+        observedAt,
+        severityOf("safety_output_forced_off"),
+        forcedOffContext);
+    if (forcedOffResult.alarmEvent() != null) {
+      emitted.add(forcedOffResult.alarmEvent());
+    }
+
+    boolean maxSafeExceeded = false;
+    if (payload.sensor_temp_c() != null && payload.software_max_safe_temp_c() != null) {
+      maxSafeExceeded = payload.sensor_temp_c() > payload.software_max_safe_temp_c();
+    }
+    Map<String, Object> maxSafeContext = new LinkedHashMap<>();
+    maxSafeContext.put("sensor_temp_c", payload.sensor_temp_c());
+    maxSafeContext.put("software_max_safe_temp_c", payload.software_max_safe_temp_c());
+    AlarmTransitionResult maxSafeResult = processRuleSignal(
+        deviceId,
+        "max_safe_temp_exceeded",
+        maxSafeExceeded,
+        "safety",
+        maxSafeExceeded ? defaultReason("max_safe_temp_exceeded") : "temperature below software max safe threshold",
+        observedAt,
+        severityOf("max_safe_temp_exceeded"),
+        maxSafeContext);
+    if (maxSafeResult.alarmEvent() != null) {
+      emitted.add(maxSafeResult.alarmEvent());
+    }
+
+    long dtErrorAbs = Math.abs(payload.dt_error_ms() == null ? 0L : payload.dt_error_ms());
+    double dtThresholdMs = thresholdAsDouble("control_dt_deviation", 200d);
+    boolean dtDeviation = dtErrorAbs >= dtThresholdMs;
+    Map<String, Object> dtContext = new LinkedHashMap<>();
+    dtContext.put("actual_dt_ms", payload.actual_dt_ms());
+    dtContext.put("dt_error_ms", payload.dt_error_ms());
+    dtContext.put("threshold_ms", dtThresholdMs);
+    AlarmTransitionResult dtDeviationResult = processRuleSignal(
+        deviceId,
+        "control_dt_deviation",
+        dtDeviation,
+        "control_loop",
+        dtDeviation ? defaultReason("control_dt_deviation") : "control dt recovered",
+        observedAt,
+        severityOf("control_dt_deviation"),
+        dtContext);
+    if (dtDeviationResult.alarmEvent() != null) {
+      emitted.add(dtDeviationResult.alarmEvent());
+    }
+
+    boolean mqttDisconnected = payload.mqtt_connected() != null && !payload.mqtt_connected();
+    Map<String, Object> mqttContext = new LinkedHashMap<>();
+    mqttContext.put("mqtt_connected", payload.mqtt_connected());
+    mqttContext.put("mqtt_reconnect_count", payload.mqtt_reconnect_count());
+    mqttContext.put("mqtt_publish_fail_count", payload.mqtt_publish_fail_count());
+    AlarmTransitionResult mqttResult = processRuleSignal(
+        deviceId,
+        "mqtt_disconnected",
+        mqttDisconnected,
+        "telemetry",
+        mqttDisconnected ? defaultReason("mqtt_disconnected") : "mqtt connected",
+        observedAt,
+        severityOf("mqtt_disconnected"),
+        mqttContext);
+    if (mqttResult.alarmEvent() != null) {
+      emitted.add(mqttResult.alarmEvent());
+    }
+
+    boolean wifiDisconnected = payload.wifi_connected() != null && !payload.wifi_connected();
+    Map<String, Object> wifiContext = new LinkedHashMap<>();
+    wifiContext.put("wifi_connected", payload.wifi_connected());
+    AlarmTransitionResult wifiResult = processRuleSignal(
+        deviceId,
+        "wifi_disconnected",
+        wifiDisconnected,
+        "telemetry",
+        wifiDisconnected ? defaultReason("wifi_disconnected") : "wifi connected",
+        observedAt,
+        severityOf("wifi_disconnected"),
+        wifiContext);
+    if (wifiResult.alarmEvent() != null) {
+      emitted.add(wifiResult.alarmEvent());
     }
 
     return emitted;
@@ -489,6 +608,15 @@ public final class AlarmRedisCacheService {
     map.put("out_of_band", new RuleDefinition("Out of Band", "temperature_error", ">", "0.5", 30, "warning", true));
     map.put("sensor_invalid", new RuleDefinition("Sensor Invalid", "sensor_valid", "==", "false", 10, "critical", true));
     map.put("high_saturation", new RuleDefinition("High Saturation", "pwm_output", ">=", "85", 60, "warning", true));
+    map.put("fault_latched", new RuleDefinition("Fault Latched", "fault_latched", "==", "true", 0, "critical", true));
+    map.put("safety_output_forced_off", new RuleDefinition(
+        "Safety Output Forced Off", "safety_output_forced_off", "==", "true", 0, "critical", true));
+    map.put("max_safe_temp_exceeded", new RuleDefinition(
+        "Software Max Safe Temp Exceeded", "sensor_temp_c", ">", "dynamic_from_payload", 0, "critical", true));
+    map.put("control_dt_deviation", new RuleDefinition(
+        "Control Dt Deviation", "dt_error_ms", ">=", "200", 20, "warning", true));
+    map.put("mqtt_disconnected", new RuleDefinition("MQTT Disconnected", "mqtt_connected", "==", "false", 20, "warning", true));
+    map.put("wifi_disconnected", new RuleDefinition("WiFi Disconnected", "wifi_connected", "==", "false", 20, "warning", true));
     map.put("param_apply_failed", new RuleDefinition("Param Apply Failed", "params_ack", "==", "failed", 5, "warning", true));
     map.put("device_offline", new RuleDefinition("Device Offline", "telemetry_gap", ">", "60", 60, "critical", true));
     return map;
