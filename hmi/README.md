@@ -91,6 +91,43 @@ Frontend: `http://127.0.0.1:5173`
 - Admin user management page (create/edit role/status/delete)
 - SQLite with startup seed data
 
+## TDengine + MQTT Integration
+
+HMI backend supports two data modes:
+
+- `DATA_SOURCE_MODE=sqlite`: legacy/demo mode (default)
+- `DATA_SOURCE_MODE=tdengine`: read telemetry/alarm/history from TDengine
+
+To enable end-to-end integration:
+
+1. Configure backend `.env`:
+
+```env
+DATA_SOURCE_MODE=tdengine
+TDENGINE_ENABLED=true
+TDENGINE_URL=http://127.0.0.1:6041
+TDENGINE_DATABASE=edgehub
+TDENGINE_USERNAME=root
+TDENGINE_PASSWORD=taosdata
+
+MQTT_PUBLISH_ENABLED=true
+MQTT_BROKER_HOST=127.0.0.1
+MQTT_BROKER_PORT=1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT_PARAMS_SET_TOPIC_TEMPLATE=edge/temperature/{device_id}/params/set
+```
+
+2. Keep `data-hub` running with MQTT ingest + TDengine write.
+
+3. Start backend and frontend as usual.
+
+Notes:
+
+- Device detail/history/alarm pages will read from TDengine when enabled.
+- Parameter updates from HMI are published to MQTT `params/set` topic.
+- SQLite user/auth/rbac remains active in both modes.
+
 ## API Snapshot
 
 - Auth

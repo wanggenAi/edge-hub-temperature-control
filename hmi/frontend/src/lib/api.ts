@@ -16,8 +16,27 @@ import type {
   UserItem,
 } from "@/types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 const REQUEST_TIMEOUT_MS = 12000;
+
+function toWsBase(httpBase: string): string {
+  if (httpBase.startsWith("https://")) return `wss://${httpBase.slice("https://".length)}`;
+  if (httpBase.startsWith("http://")) return `ws://${httpBase.slice("http://".length)}`;
+  return httpBase;
+}
+
+export function buildDeviceStreamUrl(deviceId?: number): string | null {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  const wsBaseRaw = import.meta.env.VITE_WS_BASE_URL ?? toWsBase(API_BASE);
+  const wsBase = wsBaseRaw.endsWith("/") ? wsBaseRaw : `${wsBaseRaw}/`;
+  const url = new URL("stream/devices", wsBase);
+  url.searchParams.set("token", token);
+  if (typeof deviceId === "number" && Number.isFinite(deviceId) && deviceId > 0) {
+    url.searchParams.set("device_id", String(deviceId));
+  }
+  return url.toString();
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("token");

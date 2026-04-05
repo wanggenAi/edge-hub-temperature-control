@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { api } from "@/lib/api";
+import { api, buildDeviceStreamUrl } from "@/lib/api";
 import type {
   AIRecommendation,
   Alarm,
@@ -16,6 +16,19 @@ import type {
   UserItem,
 } from "@/types";
 
+type DeviceSnapshot = Device & { snapshot_ts?: string | null };
+type DeviceStreamMessage = {
+  type: "device_snapshot";
+  emitted_at: string;
+  devices: DeviceSnapshot[];
+};
+
+function isDeviceStreamMessage(value: unknown): value is DeviceStreamMessage {
+  if (!value || typeof value !== "object") return false;
+  const msg = value as Partial<DeviceStreamMessage>;
+  return msg.type === "device_snapshot" && Array.isArray(msg.devices);
+}
+
 export function useDevices() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +40,48 @@ export function useDevices() {
   }, []);
 
   useEffect(reload, [reload]);
+
+  useEffect(() => {
+    let closed = false;
+    let reconnectTimer: number | null = null;
+    let socket: WebSocket | null = null;
+
+    const connect = () => {
+      const wsUrl = buildDeviceStreamUrl();
+      if (!wsUrl) return;
+      socket = new WebSocket(wsUrl);
+      socket.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data) as unknown;
+          if (!isDeviceStreamMessage(parsed)) return;
+          setDevices(parsed.devices);
+          setError(null);
+          setLoading(false);
+        } catch {
+          // ignore malformed event and keep stream alive
+        }
+      };
+      socket.onclose = () => {
+        if (closed) return;
+        reconnectTimer = window.setTimeout(connect, 2000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer != null) window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      reload();
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
 
   return { devices, loading, error, reload };
 }
@@ -60,6 +115,76 @@ export function useDeviceDetail(deviceId: number) {
   }, [deviceId]);
 
   useEffect(reload, [reload]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    let closed = false;
+    let reconnectTimer: number | null = null;
+    let socket: WebSocket | null = null;
+
+    const connect = () => {
+      const wsUrl = buildDeviceStreamUrl(deviceId);
+      if (!wsUrl) return;
+      socket = new WebSocket(wsUrl);
+      socket.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data) as unknown;
+          if (!isDeviceStreamMessage(parsed) || parsed.devices.length === 0) return;
+          const snapshot = parsed.devices[0];
+          setDevice(snapshot);
+          setMetrics((prev) => {
+            const metricTs = snapshot.snapshot_ts ?? parsed.emitted_at;
+            const nextMetric: Metric = {
+              id: prev.length > 0 ? prev[prev.length - 1].id + 1 : 1,
+              timestamp: metricTs,
+              current_temp: snapshot.current_temp,
+              target_temp: snapshot.target_temp,
+              error: snapshot.current_temp - snapshot.target_temp,
+              pwm_output: snapshot.pwm_output,
+              status: "active",
+              in_spec: Math.abs(snapshot.current_temp - snapshot.target_temp) <= 0.5,
+              is_alarm: snapshot.is_alarm,
+            };
+            const last = prev[prev.length - 1];
+            if (
+              last &&
+              last.timestamp === nextMetric.timestamp &&
+              last.current_temp === nextMetric.current_temp &&
+              last.target_temp === nextMetric.target_temp &&
+              last.pwm_output === nextMetric.pwm_output &&
+              last.is_alarm === nextMetric.is_alarm
+            ) {
+              return prev;
+            }
+            return [...prev, nextMetric].slice(-1000);
+          });
+          setLoading(false);
+        } catch {
+          // ignore malformed event and keep stream alive
+        }
+      };
+      socket.onclose = () => {
+        if (closed) return;
+        reconnectTimer = window.setTimeout(connect, 1500);
+      };
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer != null) window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    const timer = window.setInterval(() => {
+      reload();
+    }, 20000);
+    return () => window.clearInterval(timer);
+  }, [deviceId, reload]);
 
   return {
     device,

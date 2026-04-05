@@ -16,6 +16,7 @@ from app.api.deps import (
     require_device_access,
     require_roles,
 )
+from app.core.config import settings
 from app.models.entities import AIRecommendation, Device, DeviceAlarm, DeviceMetric, DeviceParameter, User, UserDevice
 from app.schemas.device import (
     AIRecommendationOut,
@@ -28,8 +29,12 @@ from app.schemas.device import (
     ParameterOut,
     ParameterUpdate,
 )
+from app.services.mqtt_publisher import MqttPublisher
+from app.services.tdengine_client import TdengineClient
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+tdengine = TdengineClient()
+mqtt_publisher = MqttPublisher()
 
 
 def parse_ai_gain_suggestion(suggestion: str) -> dict[str, float]:
@@ -50,6 +55,42 @@ def query_accessible_devices(db: Session, current_user: User):
     return select(Device).where(Device.id.in_(device_ids))
 
 
+def _tdb() -> str:
+    return settings.tdengine_database
+
+
+def _load_live_snapshot(device_code: str) -> dict:
+    if not tdengine.enabled():
+        return {}
+    sql = (
+        f"SELECT ts, sensor_temp_c, target_temp_c, pwm_duty, fault_latched "
+        f"FROM {_tdb()}.telemetry WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
+    )
+    result = tdengine.query(sql)
+    if not result.rows:
+        return {}
+    row = tdengine.row_to_dict(result.columns, result.rows[0])
+    return {
+        "current_temp": float(row.get("sensor_temp_c") or 0.0),
+        "target_temp": float(row.get("target_temp_c") or 0.0),
+        "pwm_output": float(row.get("pwm_duty") or 0.0),
+        "is_alarm": bool(row.get("fault_latched") or False),
+        "is_online": True,
+    }
+
+
+def _apply_live_snapshot(device: Device) -> Device:
+    snap = _load_live_snapshot(device.code)
+    if not snap:
+        return device
+    device.current_temp = snap["current_temp"]
+    device.target_temp = snap["target_temp"]
+    device.pwm_output = snap["pwm_output"]
+    device.is_alarm = snap["is_alarm"]
+    device.is_online = snap["is_online"]
+    return device
+
+
 @router.get("", response_model=list[DeviceOut])
 def list_devices(
     db: Session = Depends(get_db_dep),
@@ -67,7 +108,8 @@ def list_devices(
                 Device.location.ilike(like),
             )
         )
-    return db.scalars(query.order_by(Device.updated_at.desc())).all()
+    rows = db.scalars(query.order_by(Device.updated_at.desc())).all()
+    return [_apply_live_snapshot(row) for row in rows]
 
 
 @router.get("/manage", response_model=DeviceListResponse)
@@ -96,6 +138,7 @@ def list_devices_paginated(
     items = db.scalars(
         query.order_by(Device.updated_at.desc()).offset((page - 1) * page_size).limit(page_size)
     ).all()
+    items = [_apply_live_snapshot(row) for row in items]
 
     return DeviceListResponse(items=items, total=total, page=page, page_size=page_size)
 
@@ -110,7 +153,7 @@ def get_device(
     device = db.scalar(select(Device).where(Device.id == device_id))
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    return device
+    return _apply_live_snapshot(device)
 
 
 @router.post("", response_model=DeviceOut)
@@ -179,6 +222,32 @@ def get_metrics(
     current_user: User = Depends(get_current_user),
 ) -> list[DeviceMetric]:
     require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if tdengine.enabled():
+        sql = (
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, sensor_valid, fault_latched "
+            f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' ORDER BY ts ASC LIMIT 1000"
+        )
+        result = tdengine.query(sql)
+        metrics: list[MetricOut] = []
+        for idx, row_raw in enumerate(result.rows):
+            row = tdengine.row_to_dict(result.columns, row_raw)
+            metrics.append(
+                MetricOut(
+                    id=idx + 1,
+                    timestamp=tdengine.to_datetime(row.get("ts")),
+                    current_temp=float(row.get("sensor_temp_c") or 0.0),
+                    target_temp=float(row.get("target_temp_c") or 0.0),
+                    error=float(row.get("error_c") or 0.0),
+                    pwm_output=float(row.get("pwm_duty") or 0.0),
+                    status="active",
+                    in_spec=abs(float(row.get("error_c") or 0.0)) <= 0.5,
+                    is_alarm=bool(row.get("fault_latched") or (row.get("sensor_valid") is False)),
+                )
+            )
+        return metrics
     return db.scalars(
         select(DeviceMetric).where(DeviceMetric.device_id == device_id).order_by(DeviceMetric.timestamp.asc())
     ).all()
@@ -206,13 +275,28 @@ def update_parameters(
 ) -> DeviceParameter:
     require_device_access(device_id, db, current_user)
     param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    device = db.scalar(select(Device).where(Device.id == device_id))
     if not param:
         raise HTTPException(status_code=404, detail="Parameters not found")
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
 
     for key, value in payload.model_dump(exclude_none=True).items():
         setattr(param, key, value)
     param.updated_by = current_user.username
     param.updated_at = datetime.utcnow()
+
+    # Publish runtime parameter update to device MQTT params/set topic.
+    mqtt_publisher.publish_params_set(
+        device_id=device.code,
+        target_temp_c=device.target_temp,
+        kp=param.kp,
+        ki=param.ki,
+        kd=param.kd,
+        control_mode=param.control_mode,
+        control_period_ms=param.sampling_period_ms,
+        apply_immediately=True,
+    )
 
     db.commit()
     db.refresh(param)
@@ -226,6 +310,29 @@ def get_alarms(
     current_user: User = Depends(get_current_user),
 ) -> list[DeviceAlarm]:
     require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if tdengine.enabled():
+        sql = (
+            f"SELECT ts, rule_code, severity, source, reason, alarm_event_type AS event_type "
+            f"FROM {_tdb()}.alarm_events WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 200"
+        )
+        result = tdengine.query(sql)
+        rows: list[AlarmOut] = []
+        for idx, row_raw in enumerate(result.rows):
+            row = tdengine.row_to_dict(result.columns, row_raw)
+            rows.append(
+                AlarmOut(
+                    id=idx + 1,
+                    level=str(row.get("severity") or "warning"),
+                    title=str(row.get("rule_code") or "alarm"),
+                    message=str(row.get("reason") or ""),
+                    is_active=str(row.get("event_type") or "").lower() != "cleared",
+                    created_at=tdengine.to_datetime(row.get("ts")),
+                )
+            )
+        return rows
     return db.scalars(
         select(DeviceAlarm).where(DeviceAlarm.device_id == device_id).order_by(DeviceAlarm.created_at.desc())
     ).all()

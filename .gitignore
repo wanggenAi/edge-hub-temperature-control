@@ -20,6 +20,8 @@ out/
 # Local environment and secrets
 .env
 .env.*
+hmi/backend/.env
+hmi/backend/.env.*
 *.local
 scripts/mqtt_client_config.json
 data-hub/config/application.properties

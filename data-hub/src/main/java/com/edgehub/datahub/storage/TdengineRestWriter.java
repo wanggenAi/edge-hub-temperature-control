@@ -275,6 +275,7 @@ public final class TdengineRestWriter implements TdengineWriter {
     String sql = "INSERT INTO " + qualifiedTableName(tableName)
         + " USING " + qualifiedTableName("alarm_events")
         + " TAGS (" + stringValue(alarmFactEvent.deviceId()) + ", " + stringValue(alarmFactEvent.ruleCode()) + ")"
+        + " (ts, severity, source, reason, alarm_event_type, triggered_at, duration_seconds, context_json)"
         + " VALUES ("
         + alarmFactEvent.eventTime().toEpochMilli() + ", "
         + stringValue(alarmFactEvent.severity()) + ", "
@@ -452,7 +453,7 @@ public final class TdengineRestWriter implements TdengineWriter {
                 severity VARCHAR(16),
                 source VARCHAR(32),
                 reason VARCHAR(255),
-                event_type VARCHAR(16),
+                alarm_event_type VARCHAR(16),
                 triggered_at TIMESTAMP,
                 duration_seconds BIGINT,
                 context_json VARCHAR(2048)

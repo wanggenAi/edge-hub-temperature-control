@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import alarms, auth, devices, history, users
+from app.api.routes import alarms, auth, devices, history, stream, users
 from app.core.config import settings
 from app.db.session import Base, SessionLocal, engine
 from app.services.seed import seed_database
@@ -39,3 +39,4 @@ app.include_router(users.router)
 app.include_router(devices.router)
 app.include_router(alarms.router)
 app.include_router(history.router)
+app.include_router(stream.router)
