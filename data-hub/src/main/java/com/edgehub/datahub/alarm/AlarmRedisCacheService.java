@@ -247,39 +247,11 @@ public final class AlarmRedisCacheService {
       emitted.add(dtDeviationResult.alarmEvent());
     }
 
-    boolean mqttDisconnected = payload.mqtt_connected() != null && !payload.mqtt_connected();
-    Map<String, Object> mqttContext = new LinkedHashMap<>();
-    mqttContext.put("mqtt_connected", payload.mqtt_connected());
-    mqttContext.put("mqtt_reconnect_count", payload.mqtt_reconnect_count());
-    mqttContext.put("mqtt_publish_fail_count", payload.mqtt_publish_fail_count());
-    AlarmTransitionResult mqttResult = processRuleSignal(
-        deviceId,
-        "mqtt_disconnected",
-        mqttDisconnected,
-        "telemetry",
-        mqttDisconnected ? defaultReason("mqtt_disconnected") : "mqtt connected",
-        observedAt,
-        severityOf("mqtt_disconnected"),
-        mqttContext);
-    if (mqttResult.alarmEvent() != null) {
-      emitted.add(mqttResult.alarmEvent());
-    }
-
-    boolean wifiDisconnected = payload.wifi_connected() != null && !payload.wifi_connected();
-    Map<String, Object> wifiContext = new LinkedHashMap<>();
-    wifiContext.put("wifi_connected", payload.wifi_connected());
-    AlarmTransitionResult wifiResult = processRuleSignal(
-        deviceId,
-        "wifi_disconnected",
-        wifiDisconnected,
-        "telemetry",
-        wifiDisconnected ? defaultReason("wifi_disconnected") : "wifi connected",
-        observedAt,
-        severityOf("wifi_disconnected"),
-        wifiContext);
-    if (wifiResult.alarmEvent() != null) {
-      emitted.add(wifiResult.alarmEvent());
-    }
+    // Connectivity note:
+    // telemetry-level wifi_connected/mqtt_connected is only observable while telemetry is still being delivered.
+    // During true network disconnects the device frequently cannot publish telemetry at all.
+    // Therefore, authoritative disconnect detection must rely on last-seen timeout -> device_offline rule,
+    // while wifi/mqtt flags remain available for storage/UI diagnostics.
 
     return emitted;
   }
@@ -615,8 +587,6 @@ public final class AlarmRedisCacheService {
         "Software Max Safe Temp Exceeded", "sensor_temp_c", ">", "dynamic_from_payload", 0, "critical", true));
     map.put("control_dt_deviation", new RuleDefinition(
         "Control Dt Deviation", "dt_error_ms", ">=", "200", 20, "warning", true));
-    map.put("mqtt_disconnected", new RuleDefinition("MQTT Disconnected", "mqtt_connected", "==", "false", 20, "warning", true));
-    map.put("wifi_disconnected", new RuleDefinition("WiFi Disconnected", "wifi_connected", "==", "false", 20, "warning", true));
     map.put("param_apply_failed", new RuleDefinition("Param Apply Failed", "params_ack", "==", "failed", 5, "warning", true));
     map.put("device_offline", new RuleDefinition("Device Offline", "telemetry_gap", ">", "60", 60, "critical", true));
     return map;
