@@ -33,11 +33,22 @@ from app.schemas.device import (
     ParameterUpdate,
 )
 from app.services.mqtt_publisher import MqttPublisher
+from app.services.ai.recommendation_service import RecommendationService
+from app.services.ai.schemas import (
+    CurrentState,
+    DeviceIdentity,
+    HistoryPoint,
+    HistoryWindow,
+    PIDParams,
+    RecommendationGenerateInput,
+    RecommendationGenerateOutput,
+)
 from app.services.tdengine_client import TdengineClient
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
+recommendation_service = RecommendationService()
 
 
 def parse_ai_gain_suggestion(suggestion: str) -> dict[str, float]:
@@ -280,6 +291,81 @@ def _calc_control_eval(
         saturation_risk=saturation_risk,
         tune_advice=tune_advice,
         result=result,
+    )
+
+
+def _build_recommendation_input(
+    *,
+    db: Session,
+    device: Device,
+    params: DeviceParameter,
+    start_ms: int,
+    end_ms: int,
+    limit: int,
+) -> RecommendationGenerateInput:
+    points: list[HistoryPoint] = []
+    if tdengine.enabled():
+        sql = (
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty "
+            f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' "
+            f"AND ts >= {int(start_ms)} AND ts <= {int(end_ms)} "
+            f"ORDER BY ts ASC LIMIT {int(limit)}"
+        )
+        result = tdengine.query(sql)
+        for row_raw in result.rows:
+            row = tdengine.row_to_dict(result.columns, row_raw)
+            points.append(
+                HistoryPoint(
+                    ts_ms=_ts_value_to_ms(row.get("ts")),
+                    current_temp=float(row.get("sensor_temp_c") or 0.0),
+                    target_temp=float(row.get("target_temp_c") or 0.0),
+                    error=float(row.get("error_c") or 0.0),
+                    pwm_output=float(row.get("pwm_duty") or 0.0),
+                )
+            )
+    else:
+        rows = db.execute(
+            select(
+                DeviceMetric.timestamp,
+                DeviceMetric.current_temp,
+                DeviceMetric.target_temp,
+                DeviceMetric.error,
+                DeviceMetric.pwm_output,
+            )
+            .where(
+                DeviceMetric.device_id == device.id,
+                DeviceMetric.timestamp >= datetime.utcfromtimestamp(start_ms / 1000.0),
+                DeviceMetric.timestamp <= datetime.utcfromtimestamp(end_ms / 1000.0),
+            )
+            .order_by(DeviceMetric.timestamp.asc())
+            .limit(limit)
+        ).all()
+        for ts, temp, target, err, pwm in rows:
+            points.append(
+                HistoryPoint(
+                    ts_ms=int(ts.timestamp() * 1000),
+                    current_temp=float(temp or 0.0),
+                    target_temp=float(target or 0.0),
+                    error=float(err or 0.0),
+                    pwm_output=float(pwm or 0.0),
+                )
+            )
+
+    return RecommendationGenerateInput(
+        device=DeviceIdentity(id=device.id, code=device.code, name=device.name),
+        current_state=CurrentState(
+            current_temp=float(device.current_temp or 0.0),
+            target_temp=float(device.target_temp or 0.0),
+            pwm_output=float(device.pwm_output or 0.0),
+        ),
+        current_params=PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd)),
+        history_window=HistoryWindow(start_ms=start_ms, end_ms=end_ms, points=points),
+        target_band=float(params.target_band),
+        steady_window_samples=int(params.steady_window_samples),
+        overshoot_limit_pct=float(params.overshoot_limit_pct),
+        pwm_saturation_threshold=float(params.pwm_saturation_threshold),
+        saturation_warn_ratio=float(params.saturation_warn_ratio),
+        saturation_high_ratio=float(params.saturation_high_ratio),
     )
 
 
@@ -785,6 +871,62 @@ def get_ai_recommendation(
     if not rec:
         raise HTTPException(status_code=404, detail="AI recommendation not found")
     return rec
+
+
+@router.post("/{device_id}/ai-recommendation/generate", response_model=RecommendationGenerateOutput)
+def generate_ai_recommendation(
+    device_id: int,
+    window_minutes: int = Query(default=60, ge=5, le=24 * 60),
+    end_ms: Optional[int] = Query(default=None, ge=0),
+    limit: int = Query(default=20000, ge=1, le=200000),
+    db: Session = Depends(get_db_dep),
+    current_user: User = Depends(get_current_user),
+) -> RecommendationGenerateOutput:
+    require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    _apply_live_snapshot(device)
+
+    params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    if not params:
+        raise HTTPException(status_code=404, detail="Parameters not found")
+
+    end_ms_final = int(end_ms if end_ms is not None else datetime.utcnow().timestamp() * 1000)
+    start_ms_final = int(end_ms_final - max(1, window_minutes) * 60 * 1000)
+    if start_ms_final > end_ms_final:
+        raise HTTPException(status_code=400, detail="start_ms must be <= end_ms")
+
+    request_payload = _build_recommendation_input(
+        db=db,
+        device=device,
+        params=params,
+        start_ms=start_ms_final,
+        end_ms=end_ms_final,
+        limit=limit,
+    )
+    generated = recommendation_service.generate(request_payload)
+
+    reason = f"{generated.problem_type.value}; effect={generated.expected_effect.value}"
+    suggestion = (
+        f"Kp: {generated.delta.kp:+.4f}, "
+        f"Ki: {generated.delta.ki:+.4f}, "
+        f"Kd: {generated.delta.kd:+.4f}"
+    )
+    risk = f"{generated.risk_level.value}; requires_confirmation={generated.requires_confirmation}"
+    rec = AIRecommendation(
+        device_id=device_id,
+        reason=reason,
+        suggestion=suggestion,
+        confidence=float(generated.confidence),
+        risk=risk,
+        last_run_at=generated.generated_at,
+    )
+    db.add(rec)
+    db.commit()
+
+    return generated
 
 
 @router.post("/{device_id}/alarms/{alarm_id}/ack")
