@@ -147,6 +147,9 @@ public final class RuleConfigService {
         version,
         alarmLoaded.size(),
         storageLoaded.size());
+    if (STORAGE_RULES_UPDATED_TOPIC.equals(reason.replace("mqtt:", ""))) {
+      logStorageRuleSnapshot(version, storageLoaded);
+    }
   }
 
   private void loadDefaultsOnly(String reason) {
@@ -268,6 +271,32 @@ public final class RuleConfigService {
 
   private String text(String value) {
     return value == null ? null : value.trim();
+  }
+
+  private void logStorageRuleSnapshot(long version, Map<String, StorageRuleDefinition> storageLoaded) {
+    if (storageLoaded.isEmpty()) {
+      log.info("rule-store storage snapshot version={} empty", version);
+      return;
+    }
+    storageLoaded.values().forEach(rule -> log.info(
+        "storage-rule effective version={} scope={}:{} rawMode={} enabled={} summaryEnabled={} summaryMinSamples={} heartbeatMs={} deadband[target={} sim={} sensor={} error={} iError={} ctrlOut={} pwmDuty={} pwmNorm={} param={}]",
+        version,
+        rule.scopeType(),
+        rule.scopeValue(),
+        rule.rawMode(),
+        rule.enabled(),
+        rule.summaryEnabled(),
+        rule.summaryMinSamples(),
+        rule.heartbeatIntervalMs(),
+        rule.targetTempDeadband(),
+        rule.simTempDeadband(),
+        rule.sensorTempDeadband(),
+        rule.errorDeadband(),
+        rule.integralErrorDeadband(),
+        rule.controlOutputDeadband(),
+        rule.pwmDutyDeadband(),
+        rule.pwmNormDeadband(),
+        rule.parameterDeadband()));
   }
 
   private StorageRuleDefinition applyRawModeDefaults(StorageRuleDefinition source) {
