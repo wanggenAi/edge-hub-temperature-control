@@ -2,9 +2,11 @@
 
 This directory contains the first-stage offline pipeline from TDengine raw time-series to cleaned training windows.
 
-Current scope (Phase 1 only):
+Current scope (Phase 1 + Phase 2 data prep):
 - Export TDengine raw tables to parquet
 - Build cleaned sliding-window samples from telemetry parquet
+- Extract feature rows from window samples
+- Generate rule-based pseudo labels
 
 Out of scope for this phase:
 - Model training
@@ -21,9 +23,13 @@ ml/
   scripts/
     export_tdengine_data.py
     build_training_windows.py
+    extract_features.py
+    label_samples.py
   data/
     raw/
     cleaned/
+    features/
+    datasets/
 ```
 
 ## Prerequisites
@@ -40,9 +46,12 @@ Default config: `ml/configs/training_data.yaml`
 
 Contains:
 - TDengine REST connection settings
-- export table list
+- export table mapping (`name`, `time_column`, `device_column`, `order_by`)
 - window length/stride/min points
 - parameter stability thresholds
+- sampling quality thresholds (`max_gap_ms`, `max_mean_actual_dt_ms`, `min_sampling_ratio`)
+- feature extraction defaults (`target_band`, `saturation_pwm_threshold`)
+- pseudo-label thresholds for `problem_type`
 - retained point columns for `points` JSON payload
 
 ## Step 1: Export TDengine Raw Data
@@ -68,7 +77,12 @@ python ml/scripts/export_tdengine_data.py \
 
 Notes:
 - `--device-id` is repeatable.
-- Filters are applied with `device_id`, `ts >= start_ms`, `ts <= end_ms`.
+- Filters are applied using per-table config columns:
+  - device filter -> configured `device_column`
+  - time range -> configured `time_column`
+  - ordering -> configured `order_by`
+- If a table is missing mapping config, defaults are used:
+  - `device_column=device_id`, `time_column=ts`, `order_by=ts`
 - Output parquet files are written under `ml/data/raw/`.
 
 ## Step 2: Build Cleaned Training Windows
@@ -83,6 +97,12 @@ Cleaning rules:
 - drop rows where `fault_latched == true`
 - drop rows with obvious missing values (`device_id`, `run_id`, `target_temp_c`, `sensor_temp_c`, `control_mode`, `kp`, `ki`, `kd`, timestamp)
 - require parameter stability within window (`kp/ki/kd` max delta threshold + single `control_mode`)
+- normalize null-ish string IDs/modes (`nan`, `None`, blank) to stable tokens
+
+Sampling quality checks:
+- reject windows with excessive max timestamp gap (`quality.max_gap_ms`)
+- optionally reject windows with large mean `actual_dt_ms` (`quality.max_mean_actual_dt_ms`, skipped if column is absent)
+- reject windows with low effective sampling ratio (`quality.min_sampling_ratio`)
 
 Window rules:
 - default window length: 30 minutes
@@ -108,6 +128,65 @@ Output:
 
 ```bash
 python ml/scripts/build_training_windows.py \
+  --config ml/configs/training_data.yaml
+```
+
+## Step 3: Extract Features
+
+Script: `ml/scripts/extract_features.py`
+
+Input:
+- `ml/data/cleaned/training_windows.parquet`
+
+Output:
+- `ml/data/features/training_features.parquet`
+
+Each output row corresponds to one training window and includes:
+- base columns (`device_id`, `run_id`, window range, params)
+- temp/error statistics
+- control output statistics
+- dynamic metrics (`zero_crossings`, `in_band_ratio`, `overshoot`, `settling_sec`)
+- sampling quality stats
+- state ratios and dominant state
+
+### Example
+
+```bash
+python ml/scripts/extract_features.py \
+  --config ml/configs/training_data.yaml
+```
+
+## Step 4: Generate Rule Labels (Pseudo Labels)
+
+Script: `ml/scripts/label_samples.py`
+
+Input:
+- `ml/data/features/training_features.parquet`
+
+Output:
+- `ml/data/datasets/labeled_samples.parquet`
+
+Adds:
+- `problem_type`
+- `label_version`
+- `labeled_at`
+
+Supported `problem_type` classes:
+- `normal`
+- `slow_response`
+- `steady_state_error`
+- `overshoot_high`
+- `oscillation`
+- `saturation_limited`
+
+Important:
+- These are rules-based pseudo labels for Phase-2 data preparation.
+- They are not model predictions and not production ground truth.
+
+### Example
+
+```bash
+python ml/scripts/label_samples.py \
   --config ml/configs/training_data.yaml
 ```
 

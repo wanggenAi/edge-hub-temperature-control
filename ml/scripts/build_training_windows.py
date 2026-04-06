@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 import yaml
@@ -63,6 +63,13 @@ def is_true_like(v: Any) -> bool:
     return False
 
 
+def normalize_string_identifier(series: pd.Series, *, unknown_token: str) -> pd.Series:
+    """Normalize ID-like text fields and collapse null-ish placeholders."""
+    out = series.fillna("").astype(str).str.strip()
+    nullish = {"", "nan", "none", "null", "<na>", "nat"}
+    return out.apply(lambda x: unknown_token if str(x).strip().lower() in nullish else str(x).strip())
+
+
 def clean_telemetry(df: pd.DataFrame) -> pd.DataFrame:
     out = normalize_ts_ms(df)
 
@@ -83,9 +90,10 @@ def clean_telemetry(df: pd.DataFrame) -> pd.DataFrame:
     out = out[~out["fault_latched"].map(is_true_like)]
     out = out.dropna(subset=required_notna)
 
-    out["run_id"] = out["run_id"].astype(str).str.strip().replace("", "__unknown_run__")
-    out["device_id"] = out["device_id"].astype(str).str.strip()
-    out["control_mode"] = out["control_mode"].astype(str).str.strip()
+    # Robust null-ish handling: avoid "nan"/"None" leaking from astype(str).
+    out["run_id"] = normalize_string_identifier(out["run_id"], unknown_token="__unknown_run__")
+    out["device_id"] = normalize_string_identifier(out["device_id"], unknown_token="__unknown_device__")
+    out["control_mode"] = normalize_string_identifier(out["control_mode"], unknown_token="__unknown_mode__")
 
     for c in ["ts_ms", "target_temp_c", "sensor_temp_c", "kp", "ki", "kd"]:
         out[c] = pd.to_numeric(out[c], errors="coerce")
@@ -149,6 +157,59 @@ def summarize_window(window_df: pd.DataFrame, keep_cols: List[str]) -> Dict[str,
     }
 
 
+def is_window_sampling_healthy(
+    window_df: pd.DataFrame,
+    *,
+    window_ms: int,
+    quality_cfg: Dict[str, float],
+) -> bool:
+    """Sampling quality gates: max gap, optional mean actual_dt, and sampling ratio."""
+    if window_df.empty:
+        return False
+
+    ts = pd.to_numeric(window_df["ts_ms"], errors="coerce").dropna().astype("int64")
+    if len(ts) < 2:
+        return False
+
+    ts_diffs = ts.diff().dropna()
+    if ts_diffs.empty:
+        return False
+
+    max_gap_ms = int(quality_cfg.get("max_gap_ms", 0))
+    if max_gap_ms > 0 and int(ts_diffs.max()) > max_gap_ms:
+        return False
+
+    max_mean_actual_dt_ms = int(quality_cfg.get("max_mean_actual_dt_ms", 0))
+    if max_mean_actual_dt_ms > 0 and "actual_dt_ms" in window_df.columns:
+        actual_dt = pd.to_numeric(window_df["actual_dt_ms"], errors="coerce")
+        actual_dt = actual_dt[actual_dt > 0]
+        if not actual_dt.empty and float(actual_dt.mean()) > float(max_mean_actual_dt_ms):
+            return False
+
+    min_sampling_ratio = float(quality_cfg.get("min_sampling_ratio", 0.0))
+    if min_sampling_ratio > 0.0:
+        # Expected interval prefers actual_dt_ms mean when available, else timestamp median gap.
+        expected_interval_ms = None
+        if "actual_dt_ms" in window_df.columns:
+            actual_dt = pd.to_numeric(window_df["actual_dt_ms"], errors="coerce")
+            actual_dt = actual_dt[actual_dt > 0]
+            if not actual_dt.empty:
+                expected_interval_ms = float(actual_dt.mean())
+        if expected_interval_ms is None:
+            expected_interval_ms = float(ts_diffs.median())
+
+        if expected_interval_ms <= 0:
+            return False
+
+        expected_points = max(1.0, float(window_ms) / expected_interval_ms)
+        observed_points = float(len(window_df))
+        ratio = observed_points / expected_points
+        if ratio < min_sampling_ratio:
+            return False
+
+    return True
+
+
 def build_windows(
     telemetry: pd.DataFrame,
     *,
@@ -157,6 +218,7 @@ def build_windows(
     min_points_per_window: int,
     thresholds: Dict[str, float],
     keep_cols: List[str],
+    quality_cfg: Dict[str, float],
 ) -> pd.DataFrame:
     window_ms = int(window_minutes) * 60 * 1000
     stride_ms = int(stride_minutes) * 60 * 1000
@@ -176,7 +238,11 @@ def build_windows(
         while start + window_ms <= t_max:
             end = start + window_ms
             w = g[(g["ts_ms"] >= start) & (g["ts_ms"] < end)]
-            if len(w) >= min_points_per_window and stable_params(w, thresholds):
+            if (
+                len(w) >= min_points_per_window
+                and stable_params(w, thresholds)
+                and is_window_sampling_healthy(w, window_ms=window_ms, quality_cfg=quality_cfg)
+            ):
                 samples.append(summarize_window(w, keep_cols))
             start += stride_ms
 
@@ -201,7 +267,10 @@ def build_windows(
     return out
 
 
-def resolve_window_cfg(cfg: Dict[str, Any], args: argparse.Namespace) -> Tuple[Path, Path, str, int, int, int, Dict[str, float], List[str]]:
+def resolve_window_cfg(
+    cfg: Dict[str, Any],
+    args: argparse.Namespace,
+) -> Tuple[Path, Path, str, int, int, int, Dict[str, float], Dict[str, float], List[str]]:
     wcfg = cfg.get("windowing", {})
     input_path = Path(args.input or wcfg.get("input_parquet") or "ml/data/raw/telemetry.parquet")
     output_dir = Path(args.output_dir or wcfg.get("output_dir") or "ml/data/cleaned")
@@ -216,6 +285,12 @@ def resolve_window_cfg(cfg: Dict[str, Any], args: argparse.Namespace) -> Tuple[P
         "kp_max_delta": float(thresholds_raw.get("kp_max_delta", 0.05)),
         "ki_max_delta": float(thresholds_raw.get("ki_max_delta", 0.02)),
         "kd_max_delta": float(thresholds_raw.get("kd_max_delta", 0.02)),
+    }
+    quality_raw = wcfg.get("quality", {}) if isinstance(wcfg.get("quality", {}), dict) else {}
+    quality_cfg: Dict[str, float] = {
+        "max_gap_ms": float(quality_raw.get("max_gap_ms", 120000)),
+        "max_mean_actual_dt_ms": float(quality_raw.get("max_mean_actual_dt_ms", 30000)),
+        "min_sampling_ratio": float(quality_raw.get("min_sampling_ratio", 0.6)),
     }
 
     keep_cols_cfg = wcfg.get("points_keep_columns")
@@ -232,6 +307,7 @@ def resolve_window_cfg(cfg: Dict[str, Any], args: argparse.Namespace) -> Tuple[P
         stride_minutes,
         min_points_per_window,
         thresholds,
+        quality_cfg,
         keep_cols,
     )
 
@@ -248,6 +324,7 @@ def main() -> None:
         stride_minutes,
         min_points_per_window,
         thresholds,
+        quality_cfg,
         keep_cols,
     ) = resolve_window_cfg(cfg, args)
 
@@ -262,6 +339,7 @@ def main() -> None:
         stride_minutes=stride_minutes,
         min_points_per_window=min_points_per_window,
         thresholds=thresholds,
+        quality_cfg=quality_cfg,
         keep_cols=keep_cols,
     )
 
