@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     mqtt_params_set_topic_template: str = "edge/temperature/{device_id}/params/set"
     mqtt_publish_qos: int = 1
     mqtt_publish_retain: bool = False
+    recommendation_generate_cooldown_sec: int = 30
+    recommendation_generate_new_record_after_sec: int = 600
+    recommendation_float_tolerance: float = 0.001
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

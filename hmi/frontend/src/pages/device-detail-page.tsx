@@ -50,6 +50,7 @@ const DEFAULT_TARGET_CONFIG: TargetConfig = {
 };
 const CHART_RENDER_MAX_POINTS = 300;
 const PREVIEW_CHART_MAX_POINTS = 240;
+const GENERATE_CLICK_DEBOUNCE_MS = 1200;
 
 const EMPTY_CONTROL_EVAL: ControlEvaluation = {
   current_temp: 0,
@@ -126,6 +127,7 @@ export function DeviceDetailPage() {
   const [controlEval, setControlEval] = useState<ControlEvaluation>(EMPTY_CONTROL_EVAL);
   const [controlEvalLoading, setControlEvalLoading] = useState(true);
   const recoveredRecommendationKeyRef = useRef<string | null>(null);
+  const aiGenerateClickRef = useRef(0);
   const chartTimeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(undefined, {
@@ -611,12 +613,25 @@ export function DeviceDetailPage() {
   }
 
   async function handleGenerateAiRecommendation() {
+    if (aiGenerateBusy) return;
+    const nowMs = Date.now();
+    if (nowMs - aiGenerateClickRef.current < GENERATE_CLICK_DEBOUNCE_MS) return;
+    aiGenerateClickRef.current = nowMs;
+
     setAiGenerateBusy(true);
     try {
       const generated = await api.generateAiRecommendation(deviceId, { window_minutes: 60 });
       setAiGenerated(generated);
       setAiRecoveredFromStorage(false);
-      setAiApplyResult({ ackStatus: "Generated", applyStatus: "Pending", detail: "Recommendation generated. Awaiting confirmation." });
+      if (generated.reused_existing) {
+        setAiApplyResult({
+          ackStatus: "Reused",
+          applyStatus: "Ready",
+          detail: "Recommendation unchanged, latest result reused.",
+        });
+      } else {
+        setAiApplyResult({ ackStatus: "Generated", applyStatus: "Pending", detail: "Recommendation generated. Awaiting confirmation." });
+      }
       await reload({ silent: true });
     } catch (error) {
       const message = normalizeApiError(error);

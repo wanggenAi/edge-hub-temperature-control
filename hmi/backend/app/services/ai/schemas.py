@@ -78,6 +78,12 @@ class RecommendationGenerateOutput(BaseModel):
     expected_effect: ExpectedEffect
     evidence: dict[str, Union[float, int, str, bool, None]]
     generated_at: datetime
+    recommendation_id: Optional[int] = None
+    is_new_record: bool = True
+    reused_existing: bool = False
+    reused_recommendation_id: Optional[int] = None
+    fingerprint: Optional[str] = None
+    history_state: Optional[str] = None
 
 
 class PreviewCurvePoint(BaseModel):

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import json
 import re
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from app.services.ai.feature_extractor import extract_features
 from app.services.ai.problem_classifier import classify_problem
@@ -13,6 +14,19 @@ from app.services.ai.tuning_engine import build_recommendation
 
 class RecommendationService:
     _LEGACY_GAIN_PATTERN = re.compile(r"(Kp|Ki|Kd)\s*:\s*([+-]?\d+(?:\.\d+)?)")
+    _FLOAT_PRECISION = 4
+
+    @classmethod
+    def _round(cls, value: float) -> float:
+        return round(float(value), cls._FLOAT_PRECISION)
+
+    @classmethod
+    def _normalize_pid(cls, params: PIDParams) -> dict[str, float]:
+        return {
+            "kp": cls._round(params.kp),
+            "ki": cls._round(params.ki),
+            "kd": cls._round(params.kd),
+        }
 
     def generate(self, payload: RecommendationGenerateInput) -> RecommendationGenerateOutput:
         features = extract_features(payload)
@@ -53,11 +67,70 @@ class RecommendationService:
             generated_at=datetime.utcnow(),
         )
 
-    def to_storage_fields(self, output: RecommendationGenerateOutput) -> tuple[str, str, str]:
+    def build_recommendation_fingerprint(self, output: RecommendationGenerateOutput) -> str:
+        canonical = {
+            "problem_type": output.problem_type.value,
+            "expected_effect": output.expected_effect.value,
+            "risk_level": output.risk_level.value,
+            "requires_confirmation": bool(output.requires_confirmation),
+            "current_params": self._normalize_pid(output.current_params),
+            "recommended_params": self._normalize_pid(output.recommended_params),
+            "delta": self._normalize_pid(output.delta),
+        }
+        serialized = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def _is_close(cls, left: float, right: float, tolerance: float) -> bool:
+        return abs(float(left) - float(right)) <= tolerance
+
+    def is_effectively_same_recommendation(
+        self,
+        current: RecommendationGenerateOutput,
+        previous: RecommendationGenerateOutput,
+        *,
+        tolerance: float,
+    ) -> bool:
+        if current.problem_type.value != previous.problem_type.value:
+            return False
+        if current.expected_effect.value != previous.expected_effect.value:
+            return False
+        if current.risk_level.value != previous.risk_level.value:
+            return False
+        if bool(current.requires_confirmation) != bool(previous.requires_confirmation):
+            return False
+
+        current_current = self._normalize_pid(current.current_params)
+        previous_current = self._normalize_pid(previous.current_params)
+        current_recommended = self._normalize_pid(current.recommended_params)
+        previous_recommended = self._normalize_pid(previous.recommended_params)
+        current_delta = self._normalize_pid(current.delta)
+        previous_delta = self._normalize_pid(previous.delta)
+        for key in ("kp", "ki", "kd"):
+            if not self._is_close(current_current[key], previous_current[key], tolerance):
+                return False
+            if not self._is_close(current_recommended[key], previous_recommended[key], tolerance):
+                return False
+            if not self._is_close(current_delta[key], previous_delta[key], tolerance):
+                return False
+        return True
+
+    def to_storage_fields(
+        self,
+        output: RecommendationGenerateOutput,
+        *,
+        fingerprint: Optional[str] = None,
+        history_state: str = "generated",
+        reused_count: int = 0,
+        last_accessed_at: Optional[datetime] = None,
+    ) -> tuple[str, str, str]:
         reason = f"{output.problem_type.value}; effect={output.expected_effect.value}"
         risk = f"{output.risk_level.value}; requires_confirmation={output.requires_confirmation}"
-        recommended = output.recommended_params.model_dump(mode="json")
-        delta = output.delta.model_dump(mode="json")
+        recommended = self._normalize_pid(output.recommended_params)
+        delta = self._normalize_pid(output.delta)
+        current = self._normalize_pid(output.current_params)
+        fp = fingerprint or self.build_recommendation_fingerprint(output)
+        accessed_at = (last_accessed_at or output.generated_at).isoformat(timespec="seconds")
         suggestion = json.dumps(
             {
                 "f": "ai_rec",
@@ -68,21 +141,221 @@ class RecommendationService:
                     "r": output.risk_level.value,
                     "c": round(output.confidence, 4),
                     "rc": output.requires_confirmation,
-                    "rp": {
-                        "kp": round(float(recommended["kp"]), 4),
-                        "ki": round(float(recommended["ki"]), 4),
-                        "kd": round(float(recommended["kd"]), 4),
-                    },
-                    "d": {
-                        "kp": round(float(delta["kp"]), 4),
-                        "ki": round(float(delta["ki"]), 4),
-                        "kd": round(float(delta["kd"]), 4),
-                    },
+                    "cp": current,
+                    "rp": recommended,
+                    "d": delta,
+                    # Metadata keeps recommendation history semantics without schema migration.
+                    "m": {"fp": fp, "hs": history_state, "rc": int(max(0, reused_count)), "la": accessed_at},
                 },
             },
             separators=(",", ":"),
         )
         return reason, suggestion, risk
+
+    def read_storage_metadata(self, suggestion: str) -> dict[str, Any]:
+        if not suggestion:
+            return {}
+        try:
+            body = json.loads(suggestion)
+        except (TypeError, ValueError):
+            return {}
+        if not isinstance(body, dict) or body.get("f") != "ai_rec":
+            return {}
+        payload = body.get("p")
+        if not isinstance(payload, dict):
+            return {}
+        meta = payload.get("m")
+        if not isinstance(meta, dict):
+            return {}
+        return dict(meta)
+
+    def update_storage_metadata(
+        self,
+        suggestion: str,
+        *,
+        history_state: Optional[str] = None,
+        fingerprint: Optional[str] = None,
+        increment_reused_count: bool = False,
+        last_accessed_at: Optional[datetime] = None,
+    ) -> str:
+        if not suggestion:
+            return suggestion
+        try:
+            body = json.loads(suggestion)
+        except (TypeError, ValueError):
+            return suggestion
+        if not isinstance(body, dict) or body.get("f") != "ai_rec":
+            return suggestion
+        payload = body.get("p")
+        if not isinstance(payload, dict):
+            return suggestion
+        meta = payload.get("m")
+        if not isinstance(meta, dict):
+            meta = {}
+        next_meta = dict(meta)
+        if history_state:
+            next_meta["hs"] = history_state
+        if fingerprint:
+            next_meta["fp"] = fingerprint
+        if increment_reused_count:
+            current_count = int(next_meta.get("rc") or 0)
+            next_meta["rc"] = max(0, current_count) + 1
+        if last_accessed_at:
+            next_meta["la"] = last_accessed_at.isoformat(timespec="seconds")
+        payload["m"] = next_meta
+        body["p"] = payload
+        return json.dumps(body, separators=(",", ":"))
+
+    def build_output_from_storage(
+        self,
+        *,
+        reason: str,
+        suggestion: str,
+        risk: str,
+        confidence: float,
+        generated_at: datetime,
+        fallback_current_params: PIDParams,
+    ) -> Optional[RecommendationGenerateOutput]:
+        parsed = self.parse_suggestion_payload(suggestion)
+        if not parsed:
+            return None
+        recommended = parsed.get("recommended_params")
+        if not isinstance(recommended, dict):
+            return None
+        delta = parsed.get("delta")
+        if not isinstance(delta, dict):
+            delta = {
+                "kp": self._round(float(recommended.get("kp", fallback_current_params.kp)) - float(fallback_current_params.kp)),
+                "ki": self._round(float(recommended.get("ki", fallback_current_params.ki)) - float(fallback_current_params.ki)),
+                "kd": self._round(float(recommended.get("kd", fallback_current_params.kd)) - float(fallback_current_params.kd)),
+            }
+        current = parsed.get("current_params")
+        if not isinstance(current, dict):
+            current = self._normalize_pid(fallback_current_params)
+
+        reason_problem, reason_effect = self.parse_reason_fields(reason)
+        risk_level, requires_confirmation = self.parse_risk_fields(risk)
+        problem_type = parsed.get("problem_type") or reason_problem or "normal"
+        expected_effect = parsed.get("expected_effect") or reason_effect or "keep_stable"
+        risk_text = parsed.get("risk_level") or risk_level or "Low"
+        requires = parsed.get("requires_confirmation")
+        if requires is None:
+            requires = bool(requires_confirmation) if requires_confirmation is not None else False
+        evidence = parsed.get("evidence") if isinstance(parsed.get("evidence"), dict) else {}
+
+        try:
+            output = RecommendationGenerateOutput(
+                problem_type=problem_type,
+                confidence=self._round(float(confidence)),
+                risk_level=risk_text,
+                requires_confirmation=bool(requires),
+                current_params=PIDParams(
+                    kp=float(current.get("kp", fallback_current_params.kp)),
+                    ki=float(current.get("ki", fallback_current_params.ki)),
+                    kd=float(current.get("kd", fallback_current_params.kd)),
+                ),
+                recommended_params=PIDParams(
+                    kp=float(recommended.get("kp", fallback_current_params.kp)),
+                    ki=float(recommended.get("ki", fallback_current_params.ki)),
+                    kd=float(recommended.get("kd", fallback_current_params.kd)),
+                ),
+                delta=PIDParams(
+                    kp=float(delta.get("kp", 0.0)),
+                    ki=float(delta.get("ki", 0.0)),
+                    kd=float(delta.get("kd", 0.0)),
+                ),
+                expected_effect=expected_effect,
+                evidence=evidence,
+                generated_at=generated_at,
+            )
+            meta = self.read_storage_metadata(suggestion)
+            if isinstance(meta.get("fp"), str):
+                output.fingerprint = str(meta.get("fp"))
+            if isinstance(meta.get("hs"), str):
+                output.history_state = str(meta.get("hs"))
+            return output
+        except Exception:
+            return None
+
+    @staticmethod
+    def parse_reason_fields(reason: str) -> tuple[Optional[str], Optional[str]]:
+        if not reason:
+            return None, None
+        text = reason.strip()
+        if not text:
+            return None, None
+        effect_match = re.search(r"effect=([a-z_]+)", text, flags=re.IGNORECASE)
+        prefix = text.split(";")[0].strip() if ";" in text else text
+        problem = prefix if prefix and "=" not in prefix else None
+        return problem, effect_match.group(1) if effect_match else None
+
+    @staticmethod
+    def parse_risk_fields(risk: str) -> tuple[Optional[str], Optional[bool]]:
+        if not risk:
+            return None, None
+        text = risk.strip()
+        if not text:
+            return None, None
+        level_match = re.search(r"^(Low|Medium|High)\b", text, flags=re.IGNORECASE)
+        confirm_match = re.search(r"requires_confirmation\s*=\s*(true|false)", text, flags=re.IGNORECASE)
+        level = level_match.group(1).capitalize() if level_match else None
+        confirm = None
+        if confirm_match:
+            confirm = confirm_match.group(1).lower() == "true"
+        return level, confirm
+
+    def parse_suggestion_payload(self, suggestion: str) -> Optional[dict[str, Any]]:
+        if not suggestion:
+            return None
+        try:
+            body = json.loads(suggestion)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(body, dict):
+            return None
+        parsed: dict[str, Any] = {}
+
+        if body.get("f") == "ai_rec" and isinstance(body.get("p"), dict):
+            payload = body["p"]
+            if isinstance(payload.get("t"), str):
+                parsed["problem_type"] = payload.get("t")
+            if isinstance(payload.get("e"), str):
+                parsed["expected_effect"] = payload.get("e")
+            if isinstance(payload.get("r"), str):
+                parsed["risk_level"] = payload.get("r")
+            if isinstance(payload.get("rc"), bool):
+                parsed["requires_confirmation"] = payload.get("rc")
+            if isinstance(payload.get("evidence"), dict):
+                parsed["evidence"] = payload.get("evidence")
+            if isinstance(payload.get("cp"), dict):
+                parsed["current_params"] = payload.get("cp")
+            if isinstance(payload.get("rp"), dict):
+                parsed["recommended_params"] = payload.get("rp")
+            if isinstance(payload.get("d"), dict):
+                parsed["delta"] = payload.get("d")
+            return parsed
+
+        payload_obj = body.get("payload") if isinstance(body.get("payload"), dict) else body
+        if isinstance(payload_obj, dict):
+            if isinstance(payload_obj.get("problem_type"), str):
+                parsed["problem_type"] = payload_obj.get("problem_type")
+            if isinstance(payload_obj.get("expected_effect"), str):
+                parsed["expected_effect"] = payload_obj.get("expected_effect")
+            if isinstance(payload_obj.get("risk_level"), str):
+                parsed["risk_level"] = payload_obj.get("risk_level")
+            if isinstance(payload_obj.get("requires_confirmation"), bool):
+                parsed["requires_confirmation"] = payload_obj.get("requires_confirmation")
+            if isinstance(payload_obj.get("evidence"), dict):
+                parsed["evidence"] = payload_obj.get("evidence")
+            if isinstance(payload_obj.get("current_params"), dict):
+                parsed["current_params"] = payload_obj.get("current_params")
+            if isinstance(payload_obj.get("recommended_params"), dict):
+                parsed["recommended_params"] = payload_obj.get("recommended_params")
+            if isinstance(payload_obj.get("delta"), dict):
+                parsed["delta"] = payload_obj.get("delta")
+            if parsed:
+                return parsed
+        return None
 
     def parse_recommended_params(self, suggestion: str, current_params: PIDParams) -> Optional[PIDParams]:
         if not suggestion:

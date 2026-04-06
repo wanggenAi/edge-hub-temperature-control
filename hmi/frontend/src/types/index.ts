@@ -122,6 +122,12 @@ export interface AIGeneratedRecommendation {
     | string;
   evidence: Record<string, string | number | boolean | null>;
   generated_at: string;
+  recommendation_id?: number;
+  is_new_record?: boolean;
+  reused_existing?: boolean;
+  reused_recommendation_id?: number | null;
+  fingerprint?: string | null;
+  history_state?: "generated" | "previewed" | "applied" | "dismissed" | "expired" | "reused" | string | null;
 }
 
 export interface AIPreviewCurvePoint {

@@ -935,8 +935,70 @@ def generate_ai_recommendation(
         limit=limit,
     )
     generated = recommendation_service.generate(request_payload)
+    generated_fp = recommendation_service.build_recommendation_fingerprint(generated)
+    generated.fingerprint = generated_fp
 
-    reason, suggestion, risk = recommendation_service.to_storage_fields(generated)
+    latest = db.scalar(
+        select(AIRecommendation)
+        .where(AIRecommendation.device_id == device_id)
+        .order_by(AIRecommendation.last_run_at.desc())
+    )
+    previous_output = None
+    elapsed_sec = None
+    if latest:
+        previous_output = recommendation_service.build_output_from_storage(
+            reason=latest.reason,
+            suggestion=latest.suggestion,
+            risk=latest.risk,
+            confidence=float(latest.confidence),
+            generated_at=latest.last_run_at,
+            fallback_current_params=generated.current_params,
+        )
+        elapsed_sec = max(0.0, (generated.generated_at - latest.last_run_at).total_seconds())
+
+    tolerance = max(0.0, float(settings.recommendation_float_tolerance))
+    cooldown_sec = max(0, int(settings.recommendation_generate_cooldown_sec))
+    new_record_after_sec = max(cooldown_sec, int(settings.recommendation_generate_new_record_after_sec))
+    same_as_latest = bool(
+        previous_output
+        and recommendation_service.is_effectively_same_recommendation(
+            generated,
+            previous_output,
+            tolerance=tolerance,
+        )
+    )
+    within_new_record_window = elapsed_sec is not None and elapsed_sec < float(new_record_after_sec)
+    should_reuse = bool(latest and same_as_latest and within_new_record_window)
+    if should_reuse and latest and previous_output:
+        # Reuse existing formal history record for idempotency / anti-spam.
+        latest.suggestion = recommendation_service.update_storage_metadata(
+            latest.suggestion,
+            history_state="reused",
+            fingerprint=previous_output.fingerprint or generated_fp,
+            increment_reused_count=True,
+            last_accessed_at=generated.generated_at,
+        )
+        db.commit()
+        reused = previous_output.model_copy(deep=True)
+        reused.recommendation_id = latest.id
+        reused.is_new_record = False
+        reused.reused_existing = True
+        reused.reused_recommendation_id = latest.id
+        reused.generated_at = latest.last_run_at
+        reused.fingerprint = previous_output.fingerprint or generated_fp
+        reused.history_state = "reused"
+        if elapsed_sec is not None and elapsed_sec <= float(cooldown_sec):
+            # Keep explicit semantic that short-interval Generate is a cooldown reuse.
+            reused.history_state = "reused"
+        return reused
+
+    reason, suggestion, risk = recommendation_service.to_storage_fields(
+        generated,
+        fingerprint=generated_fp,
+        history_state="generated",
+        reused_count=0,
+        last_accessed_at=generated.generated_at,
+    )
     rec = AIRecommendation(
         device_id=device_id,
         reason=reason,
@@ -947,7 +1009,14 @@ def generate_ai_recommendation(
     )
     db.add(rec)
     db.commit()
+    db.refresh(rec)
 
+    generated.recommendation_id = rec.id
+    generated.is_new_record = True
+    generated.reused_existing = False
+    generated.reused_recommendation_id = None
+    generated.fingerprint = generated_fp
+    generated.history_state = "generated"
     return generated
 
 
@@ -1003,6 +1072,11 @@ def apply_ai_recommendation(
         params.updated_by = f"{current_user.username}:ai-noop"
         params.updated_at = datetime.utcnow()
         rec.last_run_at = datetime.utcnow()
+        rec.suggestion = recommendation_service.update_storage_metadata(
+            rec.suggestion,
+            history_state="dismissed",
+            last_accessed_at=datetime.utcnow(),
+        )
         db.commit()
         db.refresh(params)
         return params
@@ -1011,6 +1085,11 @@ def apply_ai_recommendation(
     params.ki = round(float(recommended.ki), 4)
     params.kd = round(float(recommended.kd), 4)
     rec.last_run_at = datetime.utcnow()
+    rec.suggestion = recommendation_service.update_storage_metadata(
+        rec.suggestion,
+        history_state="applied",
+        last_accessed_at=datetime.utcnow(),
+    )
 
     return _dispatch_and_confirm_parameter_update(
         db=db,
@@ -1066,6 +1145,12 @@ def preview_ai_recommendation(
         pwm_saturation_threshold=float(params.pwm_saturation_threshold),
         control_mode=str(params.control_mode or "pid_control"),
     )
+    rec.suggestion = recommendation_service.update_storage_metadata(
+        rec.suggestion,
+        history_state="previewed",
+        last_accessed_at=datetime.utcnow(),
+    )
+    db.commit()
 
     return preview_simulator.run(
         current_temp=float(device.current_temp),
