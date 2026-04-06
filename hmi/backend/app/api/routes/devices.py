@@ -325,7 +325,8 @@ def _build_recommendation_input(
                     pwm_output=float(row.get("pwm_duty") or 0.0),
                 )
             )
-    else:
+    # Fallback to relational history when TDengine has no rows for this device/window.
+    if not points:
         rows = db.execute(
             select(
                 DeviceMetric.timestamp,
@@ -1063,6 +1064,7 @@ def preview_ai_recommendation(
         cooling_coeff=float(cooling_coeff),
         target_band=float(params.target_band),
         pwm_saturation_threshold=float(params.pwm_saturation_threshold),
+        control_mode=str(params.control_mode or "pid_control"),
     )
 
     return preview_simulator.run(

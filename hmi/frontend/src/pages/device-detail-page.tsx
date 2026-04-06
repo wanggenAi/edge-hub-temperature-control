@@ -132,6 +132,7 @@ export function DeviceDetailPage() {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
+        hour12: false,
       }),
     []
   );
@@ -473,6 +474,30 @@ export function DeviceDetailPage() {
     return rows;
   }, [aiPreviewResult]);
 
+  const previewYDomain = useMemo<[number, number]>(() => {
+    if (previewCurveData.length === 0) return [35, 39];
+    const values = previewCurveData.flatMap((row) => [row.baseline, row.recommended, row.target]);
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    const span = max - min;
+    const minSpan = 1.2;
+    if (span < minSpan) {
+      const pad = (minSpan - span) / 2;
+      min -= pad;
+      max += pad;
+    }
+    const margin = Math.max(0.08, (max - min) * 0.12);
+    return [Number((min - margin).toFixed(2)), Number((max + margin).toFixed(2))];
+  }, [previewCurveData]);
+  const previewBand = useMemo(() => {
+    const target = previewCurveData[0]?.target;
+    if (typeof target !== "number") return null;
+    return {
+      y1: target - targetConfig.band,
+      y2: target + targetConfig.band,
+    };
+  }, [previewCurveData, targetConfig.band]);
+
   useEffect(() => {
     if (aiGenerated || !recommendation || !parameters) return;
     const key = `${recommendation.id}:${recommendation.last_run_at}:${recommendation.suggestion}`;
@@ -801,9 +826,11 @@ export function DeviceDetailPage() {
                     stroke="#7fa6b8"
                     tickFormatter={(v: number) => chartData[v]?.t ?? ""}
                     interval="preserveStartEnd"
-                    minTickGap={28}
+                    minTickGap={44}
+                    tickMargin={8}
+                    tick={{ fontSize: 12 }}
                   />
-                  <YAxis stroke="#7fa6b8" width={56} domain={yDomain} allowDecimals tickCount={6} />
+                  <YAxis stroke="#7fa6b8" width={56} domain={yDomain} allowDecimals tickCount={6} tick={{ fontSize: 12 }} />
                   <Tooltip
                     labelFormatter={(v) => `Time: ${chartData[Number(v)]?.t ?? ""}`}
                     contentStyle={{ background: "rgba(5, 24, 34, 0.95)", border: "1px solid rgba(41,240,255,0.35)", borderRadius: 8 }}
@@ -892,23 +919,26 @@ export function DeviceDetailPage() {
 
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
                   <div className="text-[11px] uppercase tracking-wide text-mute">Parameter Comparison</div>
-                  <div className="mt-1 grid grid-cols-4 gap-1 text-[11px]">
-                    <span className="text-mute">Param</span>
-                    <span className="text-mute">Current</span>
-                    <span className="text-mute">Recommended</span>
-                    <span className="text-mute">Delta</span>
+                  <div className="mt-1 grid grid-cols-[48px_68px_86px_74px] gap-x-2 gap-y-1 text-[11px]">
+                    <span className="truncate text-mute">Param</span>
+                    <span className="truncate text-right text-mute">Current</span>
+                    <span className="truncate text-right text-mute">Recommended</span>
+                    <span className="truncate text-right text-mute">Delta</span>
+
                     <span className="text-text">Kp</span>
-                    <span className="text-text">{aiCurrentParams.kp.toFixed(4)}</span>
-                    <span className="text-accent">{aiRecommendedParams ? aiRecommendedParams.kp.toFixed(4) : "-"}</span>
-                    <span className="text-neon">{aiDelta ? withSign(aiDelta.kp) : "-"}</span>
+                    <span className="whitespace-nowrap text-right text-text">{aiCurrentParams.kp.toFixed(4)}</span>
+                    <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? aiRecommendedParams.kp.toFixed(4) : "-"}</span>
+                    <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.kp) : "-"}</span>
+
                     <span className="text-text">Ki</span>
-                    <span className="text-text">{aiCurrentParams.ki.toFixed(4)}</span>
-                    <span className="text-accent">{aiRecommendedParams ? aiRecommendedParams.ki.toFixed(4) : "-"}</span>
-                    <span className="text-neon">{aiDelta ? withSign(aiDelta.ki) : "-"}</span>
+                    <span className="whitespace-nowrap text-right text-text">{aiCurrentParams.ki.toFixed(4)}</span>
+                    <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? aiRecommendedParams.ki.toFixed(4) : "-"}</span>
+                    <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.ki) : "-"}</span>
+
                     <span className="text-text">Kd</span>
-                    <span className="text-text">{aiCurrentParams.kd.toFixed(4)}</span>
-                    <span className="text-accent">{aiRecommendedParams ? aiRecommendedParams.kd.toFixed(4) : "-"}</span>
-                    <span className="text-neon">{aiDelta ? withSign(aiDelta.kd) : "-"}</span>
+                    <span className="whitespace-nowrap text-right text-text">{aiCurrentParams.kd.toFixed(4)}</span>
+                    <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? aiRecommendedParams.kd.toFixed(4) : "-"}</span>
+                    <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.kd) : "-"}</span>
                   </div>
                 </div>
 
@@ -969,10 +999,20 @@ export function DeviceDetailPage() {
                     </div>
                     <div className="rounded border border-line/70 bg-panel2 p-2 text-xs">
                       <div className="mb-1 font-semibold text-text">Improvement Delta</div>
+                      <div className="mb-1 text-[11px] text-mute">Legend: `↑` higher, `↓` lower, `→` unchanged.</div>
                       <div className="grid gap-x-3 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
                         <DeltaBadge label="In-band Ratio" value={aiPreviewResult.improvement.in_band_ratio_delta} kind="ratio" />
                         <DeltaBadge label="Overshoot" value={aiPreviewResult.improvement.overshoot_c_delta} kind="temp" />
-                        <DeltaBadge label="Settling Time" value={aiPreviewResult.improvement.settling_sec_delta} kind="sec" />
+                        <DeltaBadge
+                          label="Settling Time"
+                          value={aiPreviewResult.improvement.settling_sec_delta}
+                          kind="sec"
+                          unavailable={
+                            aiPreviewResult.baseline_metrics.settling_sec == null ||
+                            aiPreviewResult.recommended_metrics.settling_sec == null
+                          }
+                          unavailableText="N/A"
+                        />
                         <DeltaBadge label="Temp Swing" value={aiPreviewResult.improvement.temp_swing_delta} kind="temp" />
                         <DeltaBadge label="Mean Abs Error" value={aiPreviewResult.improvement.mean_abs_error_delta} kind="temp" />
                         <DeltaBadge label="Saturation Ratio" value={aiPreviewResult.improvement.saturation_ratio_delta} kind="ratio" />
@@ -983,8 +1023,23 @@ export function DeviceDetailPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={previewCurveData} margin={{ top: 8, right: 14, left: 2, bottom: 0 }}>
                             <CartesianGrid stroke="rgba(41,240,255,0.1)" />
-                            <XAxis dataKey="idx" stroke="#7fa6b8" tickFormatter={(v: number) => previewCurveData[v]?.t ?? ""} minTickGap={22} />
-                            <YAxis stroke="#7fa6b8" width={54} />
+                            {previewBand && (
+                              <ReferenceArea
+                                y1={previewBand.y1}
+                                y2={previewBand.y2}
+                                fill="rgba(25,211,152,0.12)"
+                                strokeOpacity={0}
+                              />
+                            )}
+                            <XAxis
+                              dataKey="idx"
+                              stroke="#7fa6b8"
+                              tickFormatter={(v: number) => previewCurveData[v]?.t ?? ""}
+                              minTickGap={34}
+                              tickMargin={8}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <YAxis stroke="#7fa6b8" width={54} domain={previewYDomain} allowDecimals tickCount={6} tick={{ fontSize: 12 }} />
                             <Tooltip
                               labelFormatter={(v) => `t=${previewCurveData[Number(v)]?.t ?? ""}`}
                               contentStyle={{ background: "rgba(5, 24, 34, 0.95)", border: "1px solid rgba(41,240,255,0.35)", borderRadius: 8 }}
@@ -996,6 +1051,7 @@ export function DeviceDetailPage() {
                         </ResponsiveContainer>
                       </div>
                     )}
+                    <div className="text-[11px] text-mute">Target Band: ±{targetConfig.band.toFixed(1)}°C</div>
                   </div>
                 )}
               </div>
@@ -1578,18 +1634,40 @@ function DeltaBadge({
   label,
   value,
   kind,
+  unavailable = false,
+  unavailableText = "N/A",
 }: {
   label: string;
   value: number;
   kind: "ratio" | "temp" | "sec";
+  unavailable?: boolean;
+  unavailableText?: string;
 }) {
+  if (unavailable) {
+    return (
+      <div className="flex items-center justify-between rounded border border-line/70 px-2 py-1 text-mute">
+        <span className="text-mute">{label}</span>
+        <span className="font-semibold">{unavailableText}</span>
+      </div>
+    );
+  }
+
   const tone = value > 0 ? "text-accent border-accent/40" : value < 0 ? "text-danger border-danger/40" : "text-mute border-line/70";
-  const rendered =
-    kind === "ratio"
-      ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`
-      : kind === "temp"
-        ? `${value >= 0 ? "+" : ""}${value.toFixed(3)}°C`
-        : `${value >= 0 ? "+" : ""}${value.toFixed(1)}s`;
+  const abs = Math.abs(value);
+  const rendered = (() => {
+    if (kind === "ratio") {
+      const arrow = value > 0 ? "↑" : value < 0 ? "↓" : "→";
+      return `${arrow}${(abs * 100).toFixed(2)}%`;
+    }
+    if (kind === "temp") {
+      // Improvement delta is oriented as baseline - recommended for temp metrics:
+      // positive => actual metric reduced (better), negative => increased (worse).
+      const arrow = value > 0 ? "↓" : value < 0 ? "↑" : "→";
+      return `${arrow}${abs.toFixed(3)}°C`;
+    }
+    const arrow = value > 0 ? "↓" : value < 0 ? "↑" : "→";
+    return `${arrow}${abs.toFixed(1)}s`;
+  })();
   return (
     <div className={`flex items-center justify-between rounded border px-2 py-1 ${tone}`}>
       <span className="text-mute">{label}</span>
