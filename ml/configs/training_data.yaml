@@ -1,0 +1,55 @@
+tdengine:
+  enabled: true
+  url: "http://127.0.0.1:6041/rest/sql"
+  database: "edgehub"
+  username: "root"
+  password: "taosdata"
+
+export:
+  tables:
+    - telemetry
+    - params_ack
+    - params_set
+    - telemetry_summary
+    - alarm_events
+  output_dir: "ml/data/raw"
+
+windowing:
+  input_parquet: "ml/data/raw/telemetry.parquet"
+  output_dir: "ml/data/cleaned"
+  output_file: "training_windows.parquet"
+  window_minutes: 30
+  stride_minutes: 5
+  min_points_per_window: 30
+
+  # "Basic stability" thresholds inside one window.
+  stability:
+    kp_max_delta: 0.05
+    ki_max_delta: 0.02
+    kd_max_delta: 0.02
+
+  points_keep_columns:
+    - ts
+    - target_temp_c
+    - sim_temp_c
+    - sensor_temp_c
+    - error_c
+    - integral_error
+    - control_output
+    - pwm_duty
+    - pwm_norm
+    - control_period_ms
+    - saturation_state
+    - sensor_valid
+    - run_id
+    - control_mode
+    - kp
+    - ki
+    - kd
+    - system_state
+    - actual_dt_ms
+    - dt_error_ms
+    - fault_latched
+    - fault_reason
+    - has_pending_params
+    - pending_params_age_ms
