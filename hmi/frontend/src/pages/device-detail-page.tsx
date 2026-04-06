@@ -22,7 +22,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { useDeviceDetail } from "@/routes/use-data";
-import type { AIRecommendation, AIGeneratedRecommendation, ControlEvaluation, Device, MetricWindowStats } from "@/types";
+import type {
+  AIRecommendation,
+  AIGeneratedRecommendation,
+  AIPreviewSimulation,
+  ControlEvaluation,
+  Device,
+  MetricWindowStats,
+} from "@/types";
 
 type TargetConfig = {
   band: number;
@@ -42,6 +49,7 @@ const DEFAULT_TARGET_CONFIG: TargetConfig = {
   steadyWindow: 12,
 };
 const CHART_RENDER_MAX_POINTS = 300;
+const PREVIEW_CHART_MAX_POINTS = 240;
 
 const EMPTY_CONTROL_EVAL: ControlEvaluation = {
   current_temp: 0,
@@ -94,9 +102,12 @@ export function DeviceDetailPage() {
   const [aiConfirmOpen, setAiConfirmOpen] = useState(false);
   const [aiGenerateBusy, setAiGenerateBusy] = useState(false);
   const [aiApplyBusy, setAiApplyBusy] = useState(false);
+  const [aiPreviewBusy, setAiPreviewBusy] = useState(false);
   const [aiGenerated, setAiGenerated] = useState<AIGeneratedRecommendation | null>(null);
   const [aiRecoveredFromStorage, setAiRecoveredFromStorage] = useState(false);
   const [aiApplyResult, setAiApplyResult] = useState({ ackStatus: "Idle", applyStatus: "Idle", detail: "-" });
+  const [aiPreviewResult, setAiPreviewResult] = useState<AIPreviewSimulation | null>(null);
+  const [aiPreviewError, setAiPreviewError] = useState<string | null>(null);
   const [targetEvalOpen, setTargetEvalOpen] = useState(false);
   const [historyRangePreset, setHistoryRangePreset] = useState<HistoryRangePreset>("6h");
   const [historyCustomStart, setHistoryCustomStart] = useState(() =>
@@ -129,6 +140,8 @@ export function DeviceDetailPage() {
     setAiGenerated(null);
     setAiRecoveredFromStorage(false);
     setAiApplyResult({ ackStatus: "Idle", applyStatus: "Idle", detail: "-" });
+    setAiPreviewResult(null);
+    setAiPreviewError(null);
     recoveredRecommendationKeyRef.current = null;
   }, [deviceId]);
 
@@ -429,6 +442,36 @@ export function DeviceDetailPage() {
   );
   const aiEvidenceRows = aiGenerated ? buildEvidenceRows(aiGenerated.evidence) : [];
   const showStoredEvidenceHint = Boolean(aiGenerated && aiRecoveredFromStorage && aiEvidenceRows.length === 0);
+  const previewCurveData = useMemo(() => {
+    if (!aiPreviewResult) return [] as Array<{ idx: number; t: string; baseline: number; recommended: number; target: number }>;
+    const base = aiPreviewResult.baseline_curve;
+    const rec = aiPreviewResult.recommended_curve;
+    const len = Math.min(base.length, rec.length);
+    if (len === 0) return [];
+    const step = Math.max(1, Math.ceil(len / PREVIEW_CHART_MAX_POINTS));
+    const rows: Array<{ idx: number; t: string; baseline: number; recommended: number; target: number }> = [];
+    for (let i = 0; i < len; i += step) {
+      rows.push({
+        idx: rows.length,
+        t: formatPreviewSeconds(base[i].time_s),
+        baseline: base[i].temp,
+        recommended: rec[i].temp,
+        target: base[i].target_temp,
+      });
+    }
+    const lastIdx = len - 1;
+    const maybeLast = rows[rows.length - 1];
+    if (!maybeLast || maybeLast.baseline !== base[lastIdx].temp || maybeLast.recommended !== rec[lastIdx].temp) {
+      rows.push({
+        idx: rows.length,
+        t: formatPreviewSeconds(base[lastIdx].time_s),
+        baseline: base[lastIdx].temp,
+        recommended: rec[lastIdx].temp,
+        target: base[lastIdx].target_temp,
+      });
+    }
+    return rows;
+  }, [aiPreviewResult]);
 
   useEffect(() => {
     if (aiGenerated || !recommendation || !parameters) return;
@@ -598,6 +641,21 @@ export function DeviceDetailPage() {
       }));
     } finally {
       setAiApplyBusy(false);
+    }
+  }
+
+  async function handlePreviewImpact() {
+    setAiPreviewBusy(true);
+    setAiPreviewError(null);
+    try {
+      const preview = await api.aiRecommendationPreview(deviceId, { horizon_sec: 1800, step_sec: 1 });
+      setAiPreviewResult(preview);
+    } catch (error) {
+      const message = normalizeApiError(error);
+      setAiPreviewError(message);
+      setAiPreviewResult(null);
+    } finally {
+      setAiPreviewBusy(false);
     }
   }
 
@@ -888,9 +946,58 @@ export function DeviceDetailPage() {
               <Button size="sm" variant="ghost" onClick={handleGenerateAiRecommendation} disabled={aiGenerateBusy}>
                 {aiGenerateBusy ? "Generating..." : "Generate Recommendation"}
               </Button>
+              <Button size="sm" variant="ghost" onClick={handlePreviewImpact} disabled={aiPreviewBusy}>
+                {aiPreviewBusy ? "Simulating..." : "Preview Impact"}
+              </Button>
               <Button size="sm" variant="accent" onClick={openApplyAiConfirm} disabled={!canWrite || !aiGenerated || aiApplyBusy || aiNoChangeNeeded}>
                 {aiApplyBusy ? "Applying..." : aiNoChangeNeeded ? "No Change Needed" : "Apply Recommendation"}
               </Button>
+              </div>
+
+              <div className="mt-3 rounded border border-line/70 bg-panel px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-mute">Preview Simulation (What-if)</div>
+                {!aiPreviewResult && !aiPreviewBusy && !aiPreviewError && (
+                  <div className="mt-1 text-xs text-mute">Run preview to compare baseline vs recommended parameter impact.</div>
+                )}
+                {aiPreviewBusy && <div className="mt-1 text-xs text-mute">Running simulation...</div>}
+                {aiPreviewError && <div className="mt-1 text-xs text-danger">{aiPreviewError}</div>}
+                {aiPreviewResult && (
+                  <div className="mt-2 space-y-2">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <PreviewMetricGroup title="Baseline" metrics={aiPreviewResult.baseline_metrics} />
+                      <PreviewMetricGroup title="Recommended" metrics={aiPreviewResult.recommended_metrics} />
+                    </div>
+                    <div className="rounded border border-line/70 bg-panel2 p-2 text-xs">
+                      <div className="mb-1 font-semibold text-text">Improvement Delta</div>
+                      <div className="grid gap-x-3 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                        <DeltaBadge label="In-band Ratio" value={aiPreviewResult.improvement.in_band_ratio_delta} kind="ratio" />
+                        <DeltaBadge label="Overshoot" value={aiPreviewResult.improvement.overshoot_c_delta} kind="temp" />
+                        <DeltaBadge label="Settling Time" value={aiPreviewResult.improvement.settling_sec_delta} kind="sec" />
+                        <DeltaBadge label="Temp Swing" value={aiPreviewResult.improvement.temp_swing_delta} kind="temp" />
+                        <DeltaBadge label="Mean Abs Error" value={aiPreviewResult.improvement.mean_abs_error_delta} kind="temp" />
+                        <DeltaBadge label="Saturation Ratio" value={aiPreviewResult.improvement.saturation_ratio_delta} kind="ratio" />
+                      </div>
+                    </div>
+                    {previewCurveData.length > 1 && (
+                      <div className="h-[220px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={previewCurveData} margin={{ top: 8, right: 14, left: 2, bottom: 0 }}>
+                            <CartesianGrid stroke="rgba(41,240,255,0.1)" />
+                            <XAxis dataKey="idx" stroke="#7fa6b8" tickFormatter={(v: number) => previewCurveData[v]?.t ?? ""} minTickGap={22} />
+                            <YAxis stroke="#7fa6b8" width={54} />
+                            <Tooltip
+                              labelFormatter={(v) => `t=${previewCurveData[Number(v)]?.t ?? ""}`}
+                              contentStyle={{ background: "rgba(5, 24, 34, 0.95)", border: "1px solid rgba(41,240,255,0.35)", borderRadius: 8 }}
+                            />
+                            <Line type="monotone" dataKey="baseline" stroke="#7fa6b8" strokeWidth={1.8} dot={false} isAnimationActive />
+                            <Line type="monotone" dataKey="recommended" stroke="#29f0ff" strokeWidth={2.2} dot={false} isAnimationActive />
+                            <Line type="monotone" dataKey="target" stroke="#2ad4a0" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1421,6 +1528,74 @@ function buildEvidenceRows(evidence: Record<string, string | number | boolean | 
     const value = kind === "percent" ? formatPercentValue(raw) : kind === "ratio_percent" ? formatPercentValue(raw * 100) : formatMetricNumber(raw);
     return [{ key, label, value }];
   });
+}
+
+function formatPreviewSeconds(value: number): string {
+  const sec = Math.max(0, Math.round(value));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function PreviewMetricGroup({
+  title,
+  metrics,
+}: {
+  title: string;
+  metrics: {
+    in_band_ratio: number;
+    overshoot_c: number;
+    settling_sec?: number | null;
+    temp_swing: number;
+    mean_abs_error: number;
+    saturation_ratio: number;
+  };
+}) {
+  return (
+    <div className="rounded border border-line/70 bg-panel2 p-2 text-xs">
+      <div className="mb-1 font-semibold text-text">{title}</div>
+      <div className="grid grid-cols-2 gap-1">
+        <span className="text-mute">In-band</span>
+        <span className="text-text">{(metrics.in_band_ratio * 100).toFixed(1)}%</span>
+        <span className="text-mute">Overshoot</span>
+        <span className="text-text">{metrics.overshoot_c.toFixed(3)}°C</span>
+        <span className="text-mute">Settling</span>
+        <span className="text-text">{metrics.settling_sec == null ? "N/A" : `${metrics.settling_sec.toFixed(0)}s`}</span>
+        <span className="text-mute">Temp Swing</span>
+        <span className="text-text">{metrics.temp_swing.toFixed(3)}°C</span>
+        <span className="text-mute">Mean |Error|</span>
+        <span className="text-text">{metrics.mean_abs_error.toFixed(3)}°C</span>
+        <span className="text-mute">Saturation</span>
+        <span className="text-text">{(metrics.saturation_ratio * 100).toFixed(1)}%</span>
+      </div>
+    </div>
+  );
+}
+
+function DeltaBadge({
+  label,
+  value,
+  kind,
+}: {
+  label: string;
+  value: number;
+  kind: "ratio" | "temp" | "sec";
+}) {
+  const tone = value > 0 ? "text-accent border-accent/40" : value < 0 ? "text-danger border-danger/40" : "text-mute border-line/70";
+  const rendered =
+    kind === "ratio"
+      ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`
+      : kind === "temp"
+        ? `${value >= 0 ? "+" : ""}${value.toFixed(3)}°C`
+        : `${value >= 0 ? "+" : ""}${value.toFixed(1)}s`;
+  return (
+    <div className={`flex items-center justify-between rounded border px-2 py-1 ${tone}`}>
+      <span className="text-mute">{label}</span>
+      <span className="font-semibold">{rendered}</span>
+    </div>
+  );
 }
 
 function parseReasonFields(reason: string): { problem_type?: string; expected_effect?: string } {

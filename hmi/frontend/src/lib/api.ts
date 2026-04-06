@@ -1,4 +1,5 @@
 import type {
+  AIPreviewSimulation,
   AIRecommendation,
   AIGeneratedRecommendation,
   Alarm,
@@ -169,6 +170,25 @@ export const api = {
     if (typeof params.limit === "number") sp.set("limit", String(params.limit));
     const suffix = sp.toString() ? `?${sp.toString()}` : "";
     return request<AIGeneratedRecommendation>(`/devices/${deviceId}/ai-recommendation/generate${suffix}`, { method: "POST" });
+  },
+  aiRecommendationPreview: (
+    deviceId: number,
+    params: {
+      horizon_sec?: number;
+      step_sec?: number;
+      ambient_temp?: number;
+      heating_gain?: number;
+      cooling_coeff?: number;
+    } = {}
+  ) => {
+    const sp = new URLSearchParams();
+    if (typeof params.horizon_sec === "number") sp.set("horizon_sec", String(params.horizon_sec));
+    if (typeof params.step_sec === "number") sp.set("step_sec", String(params.step_sec));
+    if (typeof params.ambient_temp === "number") sp.set("ambient_temp", String(params.ambient_temp));
+    if (typeof params.heating_gain === "number") sp.set("heating_gain", String(params.heating_gain));
+    if (typeof params.cooling_coeff === "number") sp.set("cooling_coeff", String(params.cooling_coeff));
+    const suffix = sp.toString() ? `?${sp.toString()}` : "";
+    return request<AIPreviewSimulation>(`/devices/${deviceId}/ai-recommendation/preview${suffix}`, { method: "POST" });
   },
   users: () => request<UserItem[]>("/users"),
   createUser: (payload: { username: string; email: string; password: string; roles: string[] }) =>

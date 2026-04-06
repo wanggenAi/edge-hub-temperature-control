@@ -33,6 +33,15 @@ from app.schemas.device import (
 )
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai.recommendation_service import RecommendationService
+from app.services.ai.preview_simulator import (
+    PREVIEW_DEFAULT_AMBIENT_TEMP,
+    PREVIEW_DEFAULT_COOLING_COEFF,
+    PREVIEW_DEFAULT_HEATING_GAIN,
+    PREVIEW_DEFAULT_HORIZON_SEC,
+    PREVIEW_DEFAULT_STEP_SEC,
+    PreviewSimulationConfig,
+    RecommendationPreviewSimulator,
+)
 from app.services.ai.schemas import (
     CurrentState,
     DeviceIdentity,
@@ -41,6 +50,7 @@ from app.services.ai.schemas import (
     PIDParams,
     RecommendationGenerateInput,
     RecommendationGenerateOutput,
+    RecommendationPreviewOutput,
 )
 from app.services.tdengine_client import TdengineClient
 
@@ -48,6 +58,7 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
 recommendation_service = RecommendationService()
+preview_simulator = RecommendationPreviewSimulator()
 
 
 def query_accessible_devices(db: Session, current_user: User):
@@ -1005,4 +1016,59 @@ def apply_ai_recommendation(
         device=device,
         param=params,
         updated_by=f"{current_user.username}:ai",
+    )
+
+
+@router.post("/{device_id}/ai-recommendation/preview", response_model=RecommendationPreviewOutput)
+def preview_ai_recommendation(
+    device_id: int,
+    horizon_sec: int = Query(default=PREVIEW_DEFAULT_HORIZON_SEC, ge=30, le=7200),
+    step_sec: int = Query(default=PREVIEW_DEFAULT_STEP_SEC, ge=1, le=10),
+    ambient_temp: float = Query(default=PREVIEW_DEFAULT_AMBIENT_TEMP, ge=-40, le=80),
+    heating_gain: float = Query(default=PREVIEW_DEFAULT_HEATING_GAIN, gt=0, le=1),
+    cooling_coeff: float = Query(default=PREVIEW_DEFAULT_COOLING_COEFF, gt=0, le=1),
+    db: Session = Depends(get_db_dep),
+    current_user: User = Depends(get_current_user),
+) -> RecommendationPreviewOutput:
+    require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    _apply_live_snapshot(device)
+
+    params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    if not params:
+        raise HTTPException(status_code=404, detail="Parameters not found")
+    _hydrate_runtime_parameters(device, params)
+
+    rec = db.scalar(
+        select(AIRecommendation)
+        .where(AIRecommendation.device_id == device_id)
+        .order_by(AIRecommendation.last_run_at.desc())
+    )
+    if not rec:
+        raise HTTPException(status_code=404, detail="AI recommendation not found")
+
+    baseline_params = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
+    recommended_params = recommendation_service.parse_recommended_params(rec.suggestion, baseline_params)
+    if not recommended_params:
+        raise HTTPException(status_code=409, detail="AI recommendation cannot be parsed into PID parameters")
+
+    cfg = PreviewSimulationConfig(
+        horizon_sec=horizon_sec,
+        step_sec=step_sec,
+        ambient_temp=float(ambient_temp),
+        heating_gain=float(heating_gain),
+        cooling_coeff=float(cooling_coeff),
+        target_band=float(params.target_band),
+        pwm_saturation_threshold=float(params.pwm_saturation_threshold),
+    )
+
+    return preview_simulator.run(
+        current_temp=float(device.current_temp),
+        target_temp=float(device.target_temp),
+        baseline_params=baseline_params,
+        recommended_params=recommended_params,
+        config=cfg,
     )

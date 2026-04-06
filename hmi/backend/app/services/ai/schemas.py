@@ -78,3 +78,40 @@ class RecommendationGenerateOutput(BaseModel):
     expected_effect: ExpectedEffect
     evidence: dict[str, Union[float, int, str, bool, None]]
     generated_at: datetime
+
+
+class PreviewCurvePoint(BaseModel):
+    time_s: int
+    temp: float
+    target_temp: float
+    pwm_output: float
+    error: float
+
+
+class PreviewMetrics(BaseModel):
+    in_band_ratio: float
+    overshoot_c: float
+    settling_sec: Optional[float] = None
+    temp_swing: float
+    mean_abs_error: float
+    saturation_ratio: float
+
+
+class PreviewImprovement(BaseModel):
+    in_band_ratio_delta: float
+    overshoot_c_delta: float
+    settling_sec_delta: float
+    temp_swing_delta: float
+    mean_abs_error_delta: float
+    saturation_ratio_delta: float
+
+
+class RecommendationPreviewOutput(BaseModel):
+    baseline_params: PIDParams
+    recommended_params: PIDParams
+    baseline_curve: list[PreviewCurvePoint]
+    recommended_curve: list[PreviewCurvePoint]
+    baseline_metrics: PreviewMetrics
+    recommended_metrics: PreviewMetrics
+    improvement: PreviewImprovement
+    generated_at: datetime

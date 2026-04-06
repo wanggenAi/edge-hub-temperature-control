@@ -124,6 +124,43 @@ export interface AIGeneratedRecommendation {
   generated_at: string;
 }
 
+export interface AIPreviewCurvePoint {
+  time_s: number;
+  temp: number;
+  target_temp: number;
+  pwm_output: number;
+  error: number;
+}
+
+export interface AIPreviewMetrics {
+  in_band_ratio: number;
+  overshoot_c: number;
+  settling_sec?: number | null;
+  temp_swing: number;
+  mean_abs_error: number;
+  saturation_ratio: number;
+}
+
+export interface AIPreviewImprovement {
+  in_band_ratio_delta: number;
+  overshoot_c_delta: number;
+  settling_sec_delta: number;
+  temp_swing_delta: number;
+  mean_abs_error_delta: number;
+  saturation_ratio_delta: number;
+}
+
+export interface AIPreviewSimulation {
+  baseline_params: AITuningParams;
+  recommended_params: AITuningParams;
+  baseline_curve: AIPreviewCurvePoint[];
+  recommended_curve: AIPreviewCurvePoint[];
+  baseline_metrics: AIPreviewMetrics;
+  recommended_metrics: AIPreviewMetrics;
+  improvement: AIPreviewImprovement;
+  generated_at: string;
+}
+
 export interface UserItem {
   id: number;
   username: string;
