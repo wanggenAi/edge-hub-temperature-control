@@ -1,5 +1,7 @@
 package com.edgehub.datahub.config;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "datahub")
@@ -114,7 +116,7 @@ public class HubProperties {
   public static class Backpressure {
     private int sourceQueueSize = 2048;
     private int pipelineBufferSize = 4096;
-    private String overflowStrategy = "drop_oldest";
+    private String overflowStrategy = "drop_latest";
     private int overflowLogEvery = 100;
 
     public int getSourceQueueSize() {
@@ -186,6 +188,9 @@ public class HubProperties {
     private boolean telemetryBatchEnabled = true;
     private int telemetryBatchMaxRows = 50;
     private long telemetryBatchMaxDelayMs = 500;
+    private long telemetryBatchEnqueueWaitMaxMs = 3000;
+    private long telemetryBatchEnqueueRetryUs = 500;
+    private int telemetryBatchBufferSize = 4096;
     private int connectTimeoutSeconds = 5;
     private int requestTimeoutSeconds = 10;
 
@@ -253,12 +258,36 @@ public class HubProperties {
       this.telemetryBatchMaxRows = telemetryBatchMaxRows;
     }
 
+    public int getTelemetryBatchBufferSize() {
+      return telemetryBatchBufferSize;
+    }
+
+    public void setTelemetryBatchBufferSize(int telemetryBatchBufferSize) {
+      this.telemetryBatchBufferSize = telemetryBatchBufferSize;
+    }
+
     public long getTelemetryBatchMaxDelayMs() {
       return telemetryBatchMaxDelayMs;
     }
 
     public void setTelemetryBatchMaxDelayMs(long telemetryBatchMaxDelayMs) {
       this.telemetryBatchMaxDelayMs = telemetryBatchMaxDelayMs;
+    }
+
+    public long getTelemetryBatchEnqueueWaitMaxMs() {
+      return telemetryBatchEnqueueWaitMaxMs;
+    }
+
+    public void setTelemetryBatchEnqueueWaitMaxMs(long telemetryBatchEnqueueWaitMaxMs) {
+      this.telemetryBatchEnqueueWaitMaxMs = telemetryBatchEnqueueWaitMaxMs;
+    }
+
+    public long getTelemetryBatchEnqueueRetryUs() {
+      return telemetryBatchEnqueueRetryUs;
+    }
+
+    public void setTelemetryBatchEnqueueRetryUs(long telemetryBatchEnqueueRetryUs) {
+      this.telemetryBatchEnqueueRetryUs = telemetryBatchEnqueueRetryUs;
     }
 
     public int getConnectTimeoutSeconds() {
@@ -606,6 +635,16 @@ public class HubProperties {
     private String password = "";
     private int qos = 1;
     private int maxInflight = 128;
+    private List<String> topicFilters = new ArrayList<>(List.of(
+        "edge/temperature/+/telemetry",
+        "edge/temperature/+/params/set",
+        "edge/temperature/+/params/ack",
+        "edgehub/config/alarm-rules/updated",
+        "edgehub/config/storage-rules/updated"));
+    private int deviceParallelism = 16;
+    private boolean manualAck = true;
+    private boolean autoReconnect = true;
+    private int reconnectDelaySeconds = 2;
     private boolean logEachMessage = true;
     private int connectTimeoutSeconds = 10;
     private int keepAliveSeconds = 30;
@@ -656,6 +695,46 @@ public class HubProperties {
 
     public void setMaxInflight(int maxInflight) {
       this.maxInflight = maxInflight;
+    }
+
+    public List<String> getTopicFilters() {
+      return topicFilters;
+    }
+
+    public void setTopicFilters(List<String> topicFilters) {
+      this.topicFilters = topicFilters;
+    }
+
+    public int getDeviceParallelism() {
+      return deviceParallelism;
+    }
+
+    public void setDeviceParallelism(int deviceParallelism) {
+      this.deviceParallelism = deviceParallelism;
+    }
+
+    public boolean isManualAck() {
+      return manualAck;
+    }
+
+    public void setManualAck(boolean manualAck) {
+      this.manualAck = manualAck;
+    }
+
+    public boolean isAutoReconnect() {
+      return autoReconnect;
+    }
+
+    public void setAutoReconnect(boolean autoReconnect) {
+      this.autoReconnect = autoReconnect;
+    }
+
+    public int getReconnectDelaySeconds() {
+      return reconnectDelaySeconds;
+    }
+
+    public void setReconnectDelaySeconds(int reconnectDelaySeconds) {
+      this.reconnectDelaySeconds = reconnectDelaySeconds;
     }
 
     public boolean isLogEachMessage() {

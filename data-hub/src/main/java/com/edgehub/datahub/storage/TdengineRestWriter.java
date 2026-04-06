@@ -7,9 +7,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -23,6 +26,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.edgehub.datahub.config.HubProperties;
+import com.edgehub.datahub.monitoring.DataHubMetrics;
 import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParameterAckPayload;
@@ -37,6 +41,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 @Component
 @ConditionalOnProperty(prefix = "datahub.storage", name = "mode", havingValue = "tdengine-rest")
@@ -46,6 +51,7 @@ public final class TdengineRestWriter implements TdengineWriter {
 
   private final HubProperties.Tdengine properties;
   private final ObjectMapper objectMapper;
+  private final DataHubMetrics metrics;
   private final HttpClient httpClient;
   private final String authorizationHeader;
   private final String databaseName;
@@ -55,13 +61,17 @@ public final class TdengineRestWriter implements TdengineWriter {
   private final boolean telemetryBatchEnabled;
   private final int telemetryBatchMaxRows;
   private final long telemetryBatchMaxDelayMs;
+  private final int telemetryBatchBufferSize;
+  private final int telemetryBatchLaneParallelism;
+  private final Object telemetryBatchEmitLock = new Object();
   private final Sinks.Many<TelemetryBatchItem> telemetryBatchSink;
   private final Disposable telemetryBatchSubscription;
   private final CountDownLatch telemetryBatchDrainLatch;
 
-  public TdengineRestWriter(HubProperties hubProperties, ObjectMapper objectMapper) {
+  public TdengineRestWriter(HubProperties hubProperties, ObjectMapper objectMapper, DataHubMetrics metrics) {
     this.properties = hubProperties.getStorage().getTdengine();
     this.objectMapper = objectMapper;
+    this.metrics = metrics;
     this.httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(properties.getConnectTimeoutSeconds()))
         .build();
@@ -72,18 +82,40 @@ public final class TdengineRestWriter implements TdengineWriter {
     this.telemetryBatchEnabled = properties.isTelemetryBatchEnabled();
     this.telemetryBatchMaxRows = Math.max(1, properties.getTelemetryBatchMaxRows());
     this.telemetryBatchMaxDelayMs = Math.max(100L, properties.getTelemetryBatchMaxDelayMs());
+    this.telemetryBatchBufferSize = Math.max(1, properties.getTelemetryBatchBufferSize());
+    this.telemetryBatchLaneParallelism = Math.max(1, hubProperties.effectiveWriterConcurrency());
     this.ensureInitialized = Mono.defer(this::initializeSchema)
         .subscribeOn(Schedulers.boundedElastic())
         .cache();
     if (telemetryBatchEnabled) {
-      this.telemetryBatchSink = Sinks.many().multicast().onBackpressureBuffer();
+      this.telemetryBatchSink = Sinks.many().multicast().onBackpressureBuffer(telemetryBatchBufferSize);
       this.telemetryBatchDrainLatch = new CountDownLatch(1);
       this.telemetryBatchSubscription = telemetryBatchSink.asFlux()
-          .groupBy(TelemetryBatchItem::tableName)
+          // Fixed lane partitioning avoids unbounded groupBy(table) starvation when many devices are active.
+          .groupBy(item -> laneForTable(item.tableName(), telemetryBatchLaneParallelism))
           .flatMap(groupedFlux -> groupedFlux
-              .bufferTimeout(telemetryBatchMaxRows, Duration.ofMillis(telemetryBatchMaxDelayMs))
+              // Enable fairBackpressure to avoid timer-flush overflow when downstream is temporarily saturated.
+              .bufferTimeout(telemetryBatchMaxRows, Duration.ofMillis(telemetryBatchMaxDelayMs), true)
               .filter(batch -> !batch.isEmpty())
-              .concatMap(this::flushTelemetryBatchReactive), 32)
+              .concatMap(this::flushTelemetryLaneBatchReactive)
+              .onErrorResume(exception -> {
+                metrics.recordTdengineBatchLaneError();
+                log.error(
+                    "tdengine telemetry batch lane failed lane={} cause={} -> lane skipped, pipeline continues",
+                    groupedFlux.key(),
+                    exception.getMessage(),
+                    exception);
+                return Flux.empty();
+              }), telemetryBatchLaneParallelism)
+          // Keep batch pipeline self-healing under transient reactor/backpressure faults.
+          .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(200))
+              .doBeforeRetry(retrySignal -> {
+                metrics.recordTdengineBatchPipelineRestart();
+                log.warn(
+                    "tdengine telemetry batch pipeline restarting attempt={} cause={}",
+                    retrySignal.totalRetries() + 1,
+                    retrySignal.failure() == null ? "n/a" : retrySignal.failure().toString());
+              }))
           .doFinally(signalType -> telemetryBatchDrainLatch.countDown())
           .subscribe(
               ignored -> {
@@ -95,23 +127,19 @@ public final class TdengineRestWriter implements TdengineWriter {
       this.telemetryBatchDrainLatch = null;
     }
     log.info(
-        "tdengine telemetry batch mode enabled={} maxRows={} maxDelayMs={}",
+        "tdengine telemetry batch mode enabled={} maxRows={} maxDelayMs={} bufferSize={} laneParallelism={}",
         telemetryBatchEnabled,
         telemetryBatchMaxRows,
-        telemetryBatchMaxDelayMs);
+        telemetryBatchMaxDelayMs,
+        telemetryBatchBufferSize,
+        telemetryBatchLaneParallelism);
   }
 
   @Override
   public Mono<Void> writeTelemetry(ParsedHubMessage.TelemetryMessage telemetry) {
     String tableName = tableName("telemetry", telemetry.topic().deviceId());
     if (telemetryBatchEnabled) {
-      return ensureInitialized.then(Mono.defer(() -> {
-        Sinks.EmitResult emitResult = telemetryBatchSink.tryEmitNext(TelemetryBatchItem.from(this, telemetry));
-        if (emitResult.isSuccess()) {
-          return Mono.empty();
-        }
-        return Mono.error(new IllegalStateException("tdengine telemetry batch enqueue failed: " + emitResult));
-      }));
+      return ensureInitialized.then(enqueueTelemetryBatchItem(TelemetryBatchItem.from(this, telemetry)));
     }
     String sql = buildTelemetryInsertStatement(tableName, telemetry.topic().deviceId(), telemetry.topic().rawTopic(), telemetry);
     String logMessage =
@@ -319,6 +347,7 @@ public final class TdengineRestWriter implements TdengineWriter {
     return Mono.fromRunnable(() -> executeSql(sql))
         .subscribeOn(Schedulers.boundedElastic())
         .doOnSuccess(ignored -> {
+          metrics.recordTdengineWriteSuccess(batch.size());
           if (properties.isLogEachWrite()) {
             log.info(
                 "tdengine.telemetry_batch_written device={} table={} size={} reason={} batchEnabled={}",
@@ -341,6 +370,19 @@ public final class TdengineRestWriter implements TdengineWriter {
         .onErrorResume(exception -> fallbackTelemetryBatchToSingleWrites(batch, exception));
   }
 
+  private Mono<Void> flushTelemetryLaneBatchReactive(List<TelemetryBatchItem> laneBatch) {
+    if (laneBatch.isEmpty()) {
+      return Mono.empty();
+    }
+    Map<String, List<TelemetryBatchItem>> byTable = new LinkedHashMap<>();
+    for (TelemetryBatchItem item : laneBatch) {
+      byTable.computeIfAbsent(item.tableName(), ignored -> new ArrayList<>()).add(item);
+    }
+    return Flux.fromIterable(byTable.values())
+        .concatMap(this::flushTelemetryBatchReactive)
+        .then();
+  }
+
   private Mono<Void> fallbackTelemetryBatchToSingleWrites(List<TelemetryBatchItem> batch, Throwable batchException) {
     TelemetryBatchItem first = batch.get(0);
     log.error(
@@ -350,17 +392,24 @@ public final class TdengineRestWriter implements TdengineWriter {
         batch.size(),
         batchException.getMessage(),
         batchException);
-    return Flux.fromIterable(batch)
-        .concatMap(item -> Mono.fromRunnable(() -> executeSql(
-            buildTelemetryInsertStatement(item.tableName(), item.deviceId(), item.rawTopic(), item.telemetry())))
-            .subscribeOn(Schedulers.boundedElastic())
-            .doOnError(exception -> log.error(
-                "tdengine telemetry single fallback failed device={} table={} cause={}",
-                item.deviceId(),
-                qualifiedTableName(item.tableName()),
-                exception.getMessage(),
-                exception))
-            .onErrorResume(exception -> Mono.empty()))
+    // Run fallback writes in one boundedElastic task to avoid per-row rescheduling overhead.
+    return Mono.fromRunnable(() -> {
+      for (TelemetryBatchItem item : batch) {
+        try {
+          executeSql(buildTelemetryInsertStatement(item.tableName(), item.deviceId(), item.rawTopic(), item.telemetry()));
+          metrics.recordTdengineWriteSuccess();
+        } catch (Exception exception) {
+          log.error(
+              "tdengine telemetry single fallback failed device={} table={} cause={}",
+              item.deviceId(),
+              qualifiedTableName(item.tableName()),
+              exception.getMessage(),
+              exception);
+          metrics.recordTdengineWriteFailed();
+        }
+      }
+    })
+        .subscribeOn(Schedulers.boundedElastic())
         .then();
   }
 
@@ -424,12 +473,20 @@ public final class TdengineRestWriter implements TdengineWriter {
     return ensureInitialized.then(Mono.fromRunnable(() -> executeSql(sql))
         .subscribeOn(Schedulers.boundedElastic())
         .doOnSuccess(ignored -> {
+          metrics.recordTdengineWriteSuccess();
           if (properties.isLogEachWrite()) {
             log.info(successLogMessage);
           } else {
             log.debug("tdengine {} persisted device={}", eventType, deviceId);
           }
         })
+        .doOnError(error -> log.error(
+            "tdengine {} write failed device={} cause={}",
+            eventType,
+            deviceId,
+            error.getMessage(),
+            error))
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed())
         .then());
   }
 
@@ -756,5 +813,46 @@ public final class TdengineRestWriter implements TdengineWriter {
 
   private String normalizeBaseUrl(String url) {
     return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+  }
+
+  private Mono<Void> enqueueTelemetryBatchItem(TelemetryBatchItem item) {
+    return Mono.defer(() -> {
+      Sinks.EmitResult emitResult = emitTelemetryBatchSerialized(item);
+      if (emitResult.isSuccess()) {
+        return Mono.empty();
+      }
+      if (emitResult == Sinks.EmitResult.FAIL_OVERFLOW) {
+        metrics.recordTdengineWriteFailed();
+        log.warn(
+            "tdengine telemetry batch dropped reason=buffer overflow deviceId={} topic={} messageId={}",
+            item.deviceId(),
+            item.rawTopic(),
+            "n/a");
+        return Mono.empty();
+      }
+      if (emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED) {
+        metrics.recordTdengineWriteFailed();
+        log.warn(
+            "tdengine telemetry batch dropped reason=emit_non_serialized deviceId={} topic={} messageId={}",
+            item.deviceId(),
+            item.rawTopic(),
+            "n/a");
+        return Mono.empty();
+      }
+      return Mono.error(new IllegalStateException("tdengine telemetry batch enqueue failed: " + emitResult));
+    });
+  }
+
+  private Sinks.EmitResult emitTelemetryBatchSerialized(TelemetryBatchItem item) {
+    synchronized (telemetryBatchEmitLock) {
+      return telemetryBatchSink.tryEmitNext(item);
+    }
+  }
+
+  private int laneForTable(String tableName, int laneParallelism) {
+    if (laneParallelism <= 1) {
+      return 0;
+    }
+    return Math.floorMod(tableName == null ? 0 : tableName.hashCode(), laneParallelism);
   }
 }

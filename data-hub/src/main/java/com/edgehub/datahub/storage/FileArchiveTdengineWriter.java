@@ -5,6 +5,7 @@ import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
 import com.edgehub.datahub.model.ParsedHubMessage;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
+import com.edgehub.datahub.monitoring.DataHubMetrics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +30,7 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
 
   private final Object writeLock = new Object();
   private final ObjectMapper objectMapper;
+  private final DataHubMetrics metrics;
   private final Path baseDir;
   private final Path telemetryFile;
   private final Path telemetrySummaryFile;
@@ -37,8 +39,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
   private final Path deviceStatusFile;
   private final Path alarmEventFile;
 
-  public FileArchiveTdengineWriter(ObjectMapper objectMapper, HubProperties properties) {
+  public FileArchiveTdengineWriter(ObjectMapper objectMapper, HubProperties properties, DataHubMetrics metrics) {
     this.objectMapper = objectMapper;
+    this.metrics = metrics;
     this.baseDir = Path.of(properties.getStorage().getBaseDir());
     this.telemetryFile = baseDir.resolve("telemetry.jsonl");
     this.telemetrySummaryFile = baseDir.resolve("telemetry-summary.jsonl");
@@ -53,7 +56,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
   public Mono<Void> writeTelemetry(ParsedHubMessage.TelemetryMessage telemetry) {
     return appendJsonLine(telemetryFile, "telemetry", telemetry.receivedAt(), telemetry.topic().deviceId(), Map.of(
         "topic", telemetry.topic().rawTopic(),
-        "payload", telemetry.payload()));
+        "payload", telemetry.payload()))
+        .doOnSuccess(ignored -> metrics.recordTdengineWriteSuccess())
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed());
   }
 
   @Override
@@ -65,7 +70,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         summary.deviceId(),
         Map.of(
             "topic", summary.rawTopic(),
-            "payload", summary));
+            "payload", summary))
+        .doOnSuccess(ignored -> metrics.recordTdengineWriteSuccess())
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed());
   }
 
   @Override
@@ -77,7 +84,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         parameterSet.topic().deviceId(),
         Map.of(
             "topic", parameterSet.topic().rawTopic(),
-            "payload", parameterSet.payload()));
+            "payload", parameterSet.payload()))
+        .doOnSuccess(ignored -> metrics.recordTdengineWriteSuccess())
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed());
   }
 
   @Override
@@ -89,7 +98,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         parameterAck.topic().deviceId(),
         Map.of(
             "topic", parameterAck.topic().rawTopic(),
-            "payload", parameterAck.payload()));
+            "payload", parameterAck.payload()))
+        .doOnSuccess(ignored -> metrics.recordTdengineWriteSuccess())
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed());
   }
 
   @Override
@@ -101,7 +112,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         status.deviceId(),
         Map.of(
             "topic", status.rawTopic(),
-            "payload", status));
+            "payload", status))
+        .doOnSuccess(ignored -> metrics.recordTdengineWriteSuccess())
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed());
   }
 
   @Override
@@ -120,7 +133,9 @@ public final class FileArchiveTdengineWriter implements TdengineWriter {
         "alarm_event",
         alarmFactEvent.eventTime(),
         alarmFactEvent.deviceId(),
-        payload);
+        payload)
+        .doOnSuccess(ignored -> metrics.recordTdengineWriteSuccess())
+        .doOnError(ignored -> metrics.recordTdengineWriteFailed());
   }
 
   private Mono<Void> appendJsonLine(

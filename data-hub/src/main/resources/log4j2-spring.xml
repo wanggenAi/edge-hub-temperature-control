@@ -50,7 +50,7 @@
     <Logger name="org.springframework.boot.autoconfigure" level="warn"/>
     <Logger name="org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger" level="warn"/>
     <Logger name="org.springframework.boot.availability" level="warn"/>
-    <Logger name="org.eclipse.paho" level="${MQTT_LEVEL}"/>
+    <Logger name="com.hivemq" level="${MQTT_LEVEL}"/>
     <Logger name="org.apache.kafka" level="warn"/>
 
     <Root level="${ROOT_LEVEL}">

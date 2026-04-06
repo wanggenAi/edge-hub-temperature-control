@@ -4,38 +4,41 @@ import com.edgehub.datahub.alarm.AlarmRuleEngineService;
 import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
+import com.edgehub.datahub.model.MqttEnvelope;
 import com.edgehub.datahub.model.ParsedHubMessage;
-import com.edgehub.datahub.model.RawMqttMessage;
 import com.edgehub.datahub.model.TelemetrySteadySummary;
 import com.edgehub.datahub.monitoring.DataHubMetrics;
 import com.edgehub.datahub.mqtt.MqttMessageSource;
 import com.edgehub.datahub.parser.HubMessageParser;
 import com.edgehub.datahub.rules.RuleConfigService;
+import com.edgehub.datahub.storage.TdengineEnvelopeWriter;
 import com.edgehub.datahub.storage.TdengineWriter;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.Disposable;
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 @Service
-public final class DataHubPipeline implements SmartLifecycle {
+public final class MqttConsumePipeline implements SmartLifecycle {
 
-  private static final Logger log = LoggerFactory.getLogger(DataHubPipeline.class);
+  private static final Logger log = LoggerFactory.getLogger(MqttConsumePipeline.class);
 
   private final MqttMessageSource source;
   private final HubMessageParser parser;
   private final TdengineWriter writer;
+  private final TdengineEnvelopeWriter envelopeWriter;
   private final HubProperties properties;
   private final DataHubMetrics metrics;
   private final TelemetryWriteFilter telemetryWriteFilter;
@@ -47,12 +50,14 @@ public final class DataHubPipeline implements SmartLifecycle {
   private final AtomicLong parseFailures = new AtomicLong();
   private final AtomicLong persistFailures = new AtomicLong();
   private final AtomicBoolean running = new AtomicBoolean();
+  private volatile String pipelineOverflowStrategyName = "drop_latest";
   private Disposable subscription;
 
-  public DataHubPipeline(
+  public MqttConsumePipeline(
       MqttMessageSource source,
       HubMessageParser parser,
       TdengineWriter writer,
+      TdengineEnvelopeWriter envelopeWriter,
       HubProperties properties,
       DataHubMetrics metrics,
       TelemetryWriteFilter telemetryWriteFilter,
@@ -63,6 +68,7 @@ public final class DataHubPipeline implements SmartLifecycle {
     this.source = source;
     this.parser = parser;
     this.writer = writer;
+    this.envelopeWriter = envelopeWriter;
     this.properties = properties;
     this.metrics = metrics;
     this.telemetryWriteFilter = telemetryWriteFilter;
@@ -77,12 +83,11 @@ public final class DataHubPipeline implements SmartLifecycle {
     if (running.get()) {
       return;
     }
-
     subscription = buildSubscription();
     try {
       source.connect().block();
       running.set(true);
-      log.info("data hub service started");
+      log.info("mqtt consume pipeline started");
     } catch (RuntimeException exception) {
       if (subscription != null && !subscription.isDisposed()) {
         subscription.dispose();
@@ -97,20 +102,17 @@ public final class DataHubPipeline implements SmartLifecycle {
     if (!running.getAndSet(false)) {
       return;
     }
-
     try {
       source.disconnect().block();
     } catch (RuntimeException exception) {
       log.warn("mqtt source disconnect failed during shutdown", exception);
     }
-
     flushSummaries(telemetrySummaryAggregator.flushAll("shutdown"), "shutdown");
-
     if (subscription != null && !subscription.isDisposed()) {
       subscription.dispose();
     }
     subscription = null;
-    log.info("data hub service stopped");
+    log.info("mqtt consume pipeline stopped");
   }
 
   @Override
@@ -157,20 +159,98 @@ public final class DataHubPipeline implements SmartLifecycle {
     flushDeviceStatuses(deviceStatusTracker.flushOffline(Instant.now()), "offline-check");
   }
 
+  private Disposable buildSubscription() {
+    int prefetch = properties.getProcessing().getPrefetch();
+    int pipelineBufferSize = properties.getBackpressure().getPipelineBufferSize();
+    int laneParallelism = Math.max(1, properties.getMqtt().getDeviceParallelism());
+    BufferOverflowStrategy overflowStrategy = resolveOverflowStrategy();
+    pipelineOverflowStrategyName = canonicalOverflowStrategyName(overflowStrategy);
+
+    return source.messages()
+        .onBackpressureBuffer(
+            pipelineBufferSize,
+            this::logPipelineDrop,
+            overflowStrategy)
+        .publishOn(Schedulers.parallel(), prefetch)
+        // Fixed lane partitioning avoids unbounded groupBy(deviceId) starvation:
+        // with many active devices, finite flatMap concurrency can permanently starve later groups.
+        .groupBy(envelope -> laneForDevice(envelope.deviceId(), laneParallelism))
+        .flatMap(group -> group.concatMap(this::processEnvelope), laneParallelism)
+        .doOnSubscribe(ignored -> log.info(
+            "mqtt consume pipeline stream started laneParallelism={} prefetch={} pipelineBufferSize={} overflowStrategy={}",
+            laneParallelism,
+            prefetch,
+            pipelineBufferSize,
+            overflowStrategy))
+        .doOnError(error -> log.error("mqtt consume pipeline fatal error", error))
+        .retry()
+        .subscribe();
+  }
+
+  private int laneForDevice(String deviceId, int laneParallelism) {
+    if (laneParallelism <= 1) {
+      return 0;
+    }
+    return Math.floorMod(deviceId == null ? 0 : deviceId.hashCode(), laneParallelism);
+  }
+
+  private Mono<Void> processEnvelope(MqttEnvelope envelope) {
+    AtomicReference<MessageOutcome> outcome = new AtomicReference<>(MessageOutcome.PERSISTED);
+    return parseEnvelope(envelope, outcome)
+        .flatMapMany(message -> applyPersistencePolicy(message, outcome))
+        .concatMap(instruction -> persist(instruction)
+            .doOnError(error -> logPersistFailure(instruction, error)))
+        .then(Mono.fromRunnable(envelope::ack).then())
+        .doOnSuccess(ignored -> recordOutcomeOnSuccess(envelope, outcome.get()))
+        .doOnSuccess(ignored -> log.debug(
+            "mqtt ack success topic={} deviceId={} messageId={}",
+            envelope.topic(),
+            envelope.deviceId(),
+            envelope.messageId()))
+        .onErrorResume(error -> {
+          if (outcome.get() == MessageOutcome.PARSE_FAILED) {
+            metrics.recordOutcomeParseFailed();
+          } else {
+            outcome.set(MessageOutcome.PERSIST_FAILED);
+            metrics.recordOutcomePersistFailed();
+          }
+          log.error(
+              "mqtt message processing failed topic={} deviceId={} messageId={} (no ack)",
+              envelope.topic(),
+              envelope.deviceId(),
+              envelope.messageId(),
+              error);
+          // Ack on failure to prevent QoS1 inflight stall under overload.
+          envelope.ack();
+          return Mono.<Void>empty();
+        });
+  }
+
+  private Mono<ParsedHubMessage> parseEnvelope(
+      MqttEnvelope envelope,
+      AtomicReference<MessageOutcome> outcome) {
+    if (ruleConfigService.onConfigTopic(envelope.topic(), envelope.payload())) {
+      outcome.set(MessageOutcome.CONTROL_TOPIC);
+      return Mono.empty();
+    }
+    return parser.parse(envelope.asRawMessage())
+        .doOnError(error -> {
+          outcome.set(MessageOutcome.PARSE_FAILED);
+          logParseFailure(envelope, error);
+        });
+  }
+
   private Mono<Void> persist(ParsedHubMessage message) {
-    if (message instanceof ParsedHubMessage.TelemetryMessage telemetry) {
-      return writer.writeTelemetry(telemetry)
-          .doOnSuccess(ignored -> metrics.recordTelemetryPersisted());
-    }
-    if (message instanceof ParsedHubMessage.ParameterSetMessage paramsSet) {
-      return writer.writeParameterSet(paramsSet)
-          .doOnSuccess(ignored -> metrics.recordParameterSetPersisted());
-    }
-    if (message instanceof ParsedHubMessage.ParameterAckMessage paramsAck) {
-      return writer.writeParameterAck(paramsAck)
-          .doOnSuccess(ignored -> metrics.recordParameterAckPersisted());
-    }
-    return Mono.empty();
+    return envelopeWriter.writeParsed(message)
+        .doOnSuccess(ignored -> {
+          if (message instanceof ParsedHubMessage.TelemetryMessage) {
+            metrics.recordTelemetryPersisted();
+          } else if (message instanceof ParsedHubMessage.ParameterSetMessage) {
+            metrics.recordParameterSetPersisted();
+          } else if (message instanceof ParsedHubMessage.ParameterAckMessage) {
+            metrics.recordParameterAckPersisted();
+          }
+        });
   }
 
   private Mono<Void> persist(PersistenceInstruction instruction) {
@@ -191,14 +271,16 @@ public final class DataHubPipeline implements SmartLifecycle {
     return Mono.empty();
   }
 
-  private Flux<PersistenceInstruction> applyPersistencePolicy(ParsedHubMessage message) {
-    List<AlarmFactEvent> alarmEvents = List.of();
-    alarmEvents = alarmRuleEngineService.onMessage(message);
+  private Flux<PersistenceInstruction> applyPersistencePolicy(
+      ParsedHubMessage message,
+      AtomicReference<MessageOutcome> outcome) {
+    List<AlarmFactEvent> alarmEvents = alarmRuleEngineService.onMessage(message);
     DeviceStatusTracker.StatusBatch statusBatch = deviceStatusTracker.onMessage(message);
     if (message instanceof ParsedHubMessage.TelemetryMessage telemetry) {
       TelemetryWriteFilter.FilterDecision decision = telemetryWriteFilter.evaluate(telemetry);
       TelemetrySummaryAggregator.SummaryBatch summaryBatch = telemetrySummaryAggregator.onTelemetry(telemetry, decision);
       if (!decision.persist()) {
+        outcome.set(MessageOutcome.TELEMETRY_SKIPPED);
         return alarmInstruction(alarmEvents)
             .concatWith(statusInstruction(statusBatch.updates()))
             .concatWith(summaryInstruction(summaryBatch.summaries()));
@@ -249,53 +331,10 @@ public final class DataHubPipeline implements SmartLifecycle {
     if (updates.isEmpty()) {
       return Flux.empty();
     }
-    Flux<PersistenceInstruction> alarmEvents = Flux.empty();
-    alarmEvents =
-        Flux.fromIterable(updates)
-            .flatMapIterable(alarmRuleEngineService::onDeviceStatus)
-            .map(AlarmFactInstruction::new);
+    Flux<PersistenceInstruction> alarmEvents = Flux.fromIterable(updates)
+        .flatMapIterable(alarmRuleEngineService::onDeviceStatus)
+        .map(AlarmFactInstruction::new);
     return alarmEvents.concatWith(Flux.fromIterable(updates).map(DeviceStatusInstruction::new));
-  }
-
-  private Disposable buildSubscription() {
-    int parserConcurrency = properties.effectiveParserConcurrency();
-    int writerConcurrency = properties.effectiveWriterConcurrency();
-    int prefetch = properties.getProcessing().getPrefetch();
-    int pipelineBufferSize = properties.getBackpressure().getPipelineBufferSize();
-    BufferOverflowStrategy overflowStrategy =
-        resolveOverflowStrategy(properties.getBackpressure().getOverflowStrategy());
-    return source.messages()
-        .onBackpressureBuffer(
-            pipelineBufferSize,
-            this::logPipelineDrop,
-            overflowStrategy)
-        .publishOn(Schedulers.parallel(), prefetch)
-        .flatMap(
-            message -> parseRawMessage(message)
-                .doOnError(error -> logParseFailure(message, error))
-                .onErrorResume(error -> Mono.empty()),
-            parserConcurrency,
-            prefetch)
-        .flatMap(
-            this::applyPersistencePolicy,
-            parserConcurrency,
-            prefetch)
-        .flatMap(
-            instruction -> persist(instruction)
-                .doOnError(error -> logPersistFailure(instruction, error))
-                .onErrorResume(error -> Mono.empty()),
-            writerConcurrency,
-            prefetch)
-        .doOnSubscribe(ignored -> log.info(
-            "data hub pipeline started parserConcurrency={} writerConcurrency={} prefetch={} pipelineBufferSize={} overflowStrategy={}",
-            parserConcurrency,
-            writerConcurrency,
-            prefetch,
-            pipelineBufferSize,
-            overflowStrategy))
-        .doOnError(error -> log.error("data hub pipeline processing error", error))
-        .retry()
-        .subscribe();
   }
 
   private void flushSummaries(List<TelemetrySteadySummary> summaries, String reason) {
@@ -347,28 +386,87 @@ public final class DataHubPipeline implements SmartLifecycle {
     }
   }
 
-  private void logPipelineDrop(RawMqttMessage dropped) {
+  private void logPipelineDrop(MqttEnvelope dropped) {
+    // Ack dropped messages so inflight window doesn't stall under QoS1.
+    dropped.ack();
+    metrics.recordMqttDropped();
     metrics.recordPipelineDropped();
+    metrics.recordOutcomePipelineDropped();
     long droppedCount = pipelineDropped.incrementAndGet();
     if (droppedCount == 1 || droppedCount % properties.getBackpressure().getOverflowLogEvery() == 0) {
       log.warn(
-          "pipeline backpressure drop topic={} droppedCount={} strategy={} pipelineBufferSize={}",
+          "pipeline backpressure drop reason=buffer overflow topic={} deviceId={} messageId={} droppedCount={} strategy={} pipelineBufferSize={}",
           dropped.topic(),
+          dropped.deviceId(),
+          dropped.messageId(),
           droppedCount,
-          properties.getBackpressure().getOverflowStrategy(),
+          pipelineOverflowStrategyName,
           properties.getBackpressure().getPipelineBufferSize());
     }
   }
 
-  private void logParseFailure(RawMqttMessage message, Throwable error) {
+  private BufferOverflowStrategy resolveOverflowStrategy() {
+    String configured = properties.getBackpressure().getOverflowStrategy();
+    String normalized = configured == null ? "" : configured.trim().toLowerCase(Locale.ROOT);
+    return switch (normalized) {
+      case "drop_oldest" -> BufferOverflowStrategy.DROP_OLDEST;
+      case "error" -> BufferOverflowStrategy.ERROR;
+      case "drop_latest", "" -> BufferOverflowStrategy.DROP_LATEST;
+      default -> {
+        log.warn(
+            "unsupported pipeline overflow strategy={} -> fallback=drop_latest",
+            configured);
+        yield BufferOverflowStrategy.DROP_LATEST;
+      }
+    };
+  }
+
+  private String canonicalOverflowStrategyName(BufferOverflowStrategy overflowStrategy) {
+    return switch (overflowStrategy) {
+      case DROP_OLDEST -> "drop_oldest";
+      case ERROR -> "error";
+      case DROP_LATEST -> "drop_latest";
+    };
+  }
+
+  private void logParseFailure(MqttEnvelope envelope, Throwable error) {
     metrics.recordParseFailure();
     long failureCount = parseFailures.incrementAndGet();
     log.warn(
-        "message parse failed topic={} parseFailureCount={} payload={}",
-        message.topic(),
+        "message parse failed topic={} deviceId={} messageId={} parseFailureCount={} payload={}",
+        envelope.topic(),
+        envelope.deviceId(),
+        envelope.messageId(),
         failureCount,
-        message.payload(),
+        envelope.payload(),
         error);
+  }
+
+  private void recordOutcomeOnSuccess(MqttEnvelope envelope, MessageOutcome outcome) {
+    if (outcome == MessageOutcome.CONTROL_TOPIC) {
+      metrics.recordOutcomeControlTopic();
+      log.debug(
+          "message processed outcome=control_topic topic={} deviceId={} messageId={}",
+          envelope.topic(),
+          envelope.deviceId(),
+          envelope.messageId());
+      return;
+    }
+    if (outcome == MessageOutcome.TELEMETRY_SKIPPED) {
+      metrics.recordOutcomeTelemetrySkipped();
+      log.debug(
+          "message processed outcome=telemetry_skipped topic={} deviceId={} messageId={}",
+          envelope.topic(),
+          envelope.deviceId(),
+          envelope.messageId());
+      return;
+    }
+    metrics.recordOutcomePersisted();
+    log.debug(
+        "message processed outcome=persisted topic={} deviceId={} messageId={}",
+        envelope.topic(),
+        envelope.deviceId(),
+        envelope.messageId());
   }
 
   private void logPersistFailure(PersistenceInstruction instruction, Throwable error) {
@@ -415,20 +513,16 @@ public final class DataHubPipeline implements SmartLifecycle {
     }
   }
 
-  private BufferOverflowStrategy resolveOverflowStrategy(String strategy) {
-    return switch (strategy.toLowerCase(Locale.ROOT)) {
-      case "error" -> BufferOverflowStrategy.ERROR;
-      case "drop_latest" -> BufferOverflowStrategy.DROP_LATEST;
-      case "drop_oldest" -> BufferOverflowStrategy.DROP_OLDEST;
-      default -> {
-        log.warn("unsupported backpressure overflow strategy '{}', using drop_oldest", strategy);
-        yield BufferOverflowStrategy.DROP_OLDEST;
-      }
-    };
-  }
-
   private sealed interface PersistenceInstruction
       permits MessageInstruction, TelemetrySummaryInstruction, DeviceStatusInstruction, AlarmFactInstruction {}
+
+  private enum MessageOutcome {
+    PERSISTED,
+    TELEMETRY_SKIPPED,
+    CONTROL_TOPIC,
+    PARSE_FAILED,
+    PERSIST_FAILED
+  }
 
   private record MessageInstruction(ParsedHubMessage message) implements PersistenceInstruction {}
 
@@ -437,11 +531,4 @@ public final class DataHubPipeline implements SmartLifecycle {
   private record DeviceStatusInstruction(DeviceStatusSnapshot status) implements PersistenceInstruction {}
 
   private record AlarmFactInstruction(AlarmFactEvent alarmFactEvent) implements PersistenceInstruction {}
-
-  private Mono<ParsedHubMessage> parseRawMessage(RawMqttMessage message) {
-    if (ruleConfigService.onConfigTopic(message.topic(), message.payload())) {
-      return Mono.empty();
-    }
-    return parser.parse(message);
-  }
 }
