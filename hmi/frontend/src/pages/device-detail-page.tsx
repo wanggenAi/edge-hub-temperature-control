@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { useDeviceDetail } from "@/routes/use-data";
-import type { AIGeneratedRecommendation, ControlEvaluation, Device, MetricWindowStats } from "@/types";
+import type { AIRecommendation, AIGeneratedRecommendation, ControlEvaluation, Device, MetricWindowStats } from "@/types";
 
 type TargetConfig = {
   band: number;
@@ -41,6 +41,7 @@ const DEFAULT_TARGET_CONFIG: TargetConfig = {
   overshootLimit: 3,
   steadyWindow: 12,
 };
+const CHART_RENDER_MAX_POINTS = 300;
 
 const EMPTY_CONTROL_EVAL: ControlEvaluation = {
   current_temp: 0,
@@ -94,6 +95,7 @@ export function DeviceDetailPage() {
   const [aiGenerateBusy, setAiGenerateBusy] = useState(false);
   const [aiApplyBusy, setAiApplyBusy] = useState(false);
   const [aiGenerated, setAiGenerated] = useState<AIGeneratedRecommendation | null>(null);
+  const [aiRecoveredFromStorage, setAiRecoveredFromStorage] = useState(false);
   const [aiApplyResult, setAiApplyResult] = useState({ ackStatus: "Idle", applyStatus: "Idle", detail: "-" });
   const [targetEvalOpen, setTargetEvalOpen] = useState(false);
   const [historyRangePreset, setHistoryRangePreset] = useState<HistoryRangePreset>("6h");
@@ -112,6 +114,23 @@ export function DeviceDetailPage() {
   const [historyStatsLoading, setHistoryStatsLoading] = useState(true);
   const [controlEval, setControlEval] = useState<ControlEvaluation>(EMPTY_CONTROL_EVAL);
   const [controlEvalLoading, setControlEvalLoading] = useState(true);
+  const recoveredRecommendationKeyRef = useRef<string | null>(null);
+  const chartTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    []
+  );
+
+  useEffect(() => {
+    setAiGenerated(null);
+    setAiRecoveredFromStorage(false);
+    setAiApplyResult({ ackStatus: "Idle", applyStatus: "Idle", detail: "-" });
+    recoveredRecommendationKeyRef.current = null;
+  }, [deviceId]);
 
   useEffect(() => {
     if (!parameters) return;
@@ -218,15 +237,27 @@ export function DeviceDetailPage() {
     [controlEval]
   );
 
+  const metricsForChart = useMemo(() => {
+    if (metrics.length <= CHART_RENDER_MAX_POINTS) return metrics;
+    const step = Math.ceil(metrics.length / CHART_RENDER_MAX_POINTS);
+    const sampled: typeof metrics = [];
+    for (let i = 0; i < metrics.length; i += step) {
+      sampled.push(metrics[i]);
+    }
+    const last = metrics[metrics.length - 1];
+    if (sampled[sampled.length - 1] !== last) sampled.push(last);
+    return sampled;
+  }, [metrics]);
+
   const chartData = useMemo(
     () =>
-      metrics.map((m, idx) => ({
+      metricsForChart.map((m, idx) => ({
         idx,
-        t: new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        t: chartTimeFormatter.format(new Date(m.timestamp)),
         temp: m.current_temp,
         target: m.target_temp,
       })),
-    [metrics]
+    [metricsForChart, chartTimeFormatter]
   );
 
   const targetTemp = evalSnapshot.targetTemp;
@@ -355,7 +386,8 @@ export function DeviceDetailPage() {
 
   const targetBandAreas = useMemo(() => {
     if (!chartData.length) return [] as Array<{ key: string; x1: number; x2: number; y1: number; y2: number }>;
-    const epsilon = 1e-6;
+    // Avoid generating too many tiny areas caused by float jitter.
+    const epsilon = 1e-3;
     const areas: Array<{ key: string; x1: number; x2: number; y1: number; y2: number }> = [];
     let start = 0;
     let activeTarget = chartData[0].target;
@@ -396,6 +428,29 @@ export function DeviceDetailPage() {
         (aiDelta && isZeroDelta(aiDelta.kp) && isZeroDelta(aiDelta.ki) && isZeroDelta(aiDelta.kd)))
   );
   const aiEvidenceRows = aiGenerated ? buildEvidenceRows(aiGenerated.evidence) : [];
+  const showStoredEvidenceHint = Boolean(aiGenerated && aiRecoveredFromStorage && aiEvidenceRows.length === 0);
+
+  useEffect(() => {
+    if (aiGenerated || !recommendation || !parameters) return;
+    const key = `${recommendation.id}:${recommendation.last_run_at}:${recommendation.suggestion}`;
+    if (recoveredRecommendationKeyRef.current === key) return;
+    recoveredRecommendationKeyRef.current = key;
+
+    const recovered = buildRecoveredAiGenerated(recommendation, {
+      kp: parameters.kp,
+      ki: parameters.ki,
+      kd: parameters.kd,
+    });
+    if (!recovered) return;
+
+    setAiGenerated(recovered);
+    setAiRecoveredFromStorage(true);
+    setAiApplyResult({
+      ackStatus: "Stored",
+      applyStatus: "Ready",
+      detail: "Loaded latest stored AI recommendation.",
+    });
+  }, [aiGenerated, recommendation, parameters]);
 
   if (loading) return <p className="text-sm text-mute">Loading device detail...</p>;
   if (!device || !parameters) return <p className="text-sm text-danger">Device not found or no permission.</p>;
@@ -492,6 +547,7 @@ export function DeviceDetailPage() {
     try {
       const generated = await api.generateAiRecommendation(deviceId, { window_minutes: 60 });
       setAiGenerated(generated);
+      setAiRecoveredFromStorage(false);
       setAiApplyResult({ ackStatus: "Generated", applyStatus: "Pending", detail: "Recommendation generated. Awaiting confirmation." });
       await reload({ silent: true });
     } catch (error) {
@@ -686,6 +742,7 @@ export function DeviceDetailPage() {
                     dataKey="idx"
                     stroke="#7fa6b8"
                     tickFormatter={(v: number) => chartData[v]?.t ?? ""}
+                    interval="preserveStartEnd"
                     minTickGap={28}
                   />
                   <YAxis stroke="#7fa6b8" width={56} domain={yDomain} allowDecimals tickCount={6} />
@@ -696,8 +753,26 @@ export function DeviceDetailPage() {
                     labelStyle={{ color: "#95c0d3", fontSize: 12 }}
                     cursor={{ stroke: "rgba(41,240,255,0.3)", strokeDasharray: "3 3" }}
                   />
-                  <Line type="monotone" dataKey="temp" stroke="#29f0ff" strokeWidth={2.8} dot={false} />
-                  <Line type="monotone" dataKey="target" stroke="#2ad4a0" strokeWidth={1.9} dot={false} />
+                  <Line
+                    type="monotone"
+                    dataKey="temp"
+                    stroke="#29f0ff"
+                    strokeWidth={2.8}
+                    dot={false}
+                    isAnimationActive
+                    animationDuration={850}
+                    animationEasing="ease-out"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="target"
+                    stroke="#2ad4a0"
+                    strokeWidth={1.9}
+                    dot={false}
+                    isAnimationActive
+                    animationDuration={850}
+                    animationEasing="ease-out"
+                  />
                   <ReferenceDot
                     x={chartData.length - 1}
                     y={evalSnapshot.currentTemp}
@@ -793,7 +868,10 @@ export function DeviceDetailPage() {
             <div className="mt-2 rounded border border-line/70 bg-panel px-3 py-2">
               <div className="text-[11px] uppercase tracking-wide text-mute">Evidence / Metrics</div>
               {!aiGenerated && <div className="mt-1 text-xs text-mute">Generate recommendation to view evidence.</div>}
-              {aiGenerated && aiEvidenceRows.length === 0 && <div className="mt-1 text-xs text-mute">No evidence metrics available.</div>}
+              {showStoredEvidenceHint && (
+                <div className="mt-1 text-xs text-mute">Stored recommendation loaded. Generate again to refresh evidence.</div>
+              )}
+              {aiGenerated && aiEvidenceRows.length === 0 && !showStoredEvidenceHint && <div className="mt-1 text-xs text-mute">No evidence metrics available.</div>}
               {aiEvidenceRows.length > 0 && (
                 <div className="mt-1 grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
                   {aiEvidenceRows.map((row) => (
@@ -1343,6 +1421,209 @@ function buildEvidenceRows(evidence: Record<string, string | number | boolean | 
     const value = kind === "percent" ? formatPercentValue(raw) : kind === "ratio_percent" ? formatPercentValue(raw * 100) : formatMetricNumber(raw);
     return [{ key, label, value }];
   });
+}
+
+function parseReasonFields(reason: string): { problem_type?: string; expected_effect?: string } {
+  if (!reason || !reason.trim()) return {};
+  const text = reason.trim();
+  const effectMatch = text.match(/effect=([a-z_]+)/i);
+  const prefix = text.split(";")[0]?.trim() ?? "";
+  const problem = prefix && !prefix.includes("=") ? prefix : undefined;
+  return {
+    problem_type: problem,
+    expected_effect: effectMatch?.[1],
+  };
+}
+
+function parseRiskFields(risk: string): { risk_level?: string; requires_confirmation?: boolean } {
+  if (!risk || !risk.trim()) return {};
+  const text = risk.trim();
+  const levelMatch = text.match(/^(Low|Medium|High)\b/i);
+  const confirmMatch = text.match(/requires_confirmation\s*=\s*(true|false)/i);
+  return {
+    risk_level: levelMatch ? normalizeRiskLevel(levelMatch[1]) : undefined,
+    requires_confirmation: confirmMatch ? confirmMatch[1].toLowerCase() === "true" : undefined,
+  };
+}
+
+function parseStoredAiRecommendation(
+  recommendation: AIRecommendation,
+  current_params: { kp: number; ki: number; kd: number }
+): Partial<AIGeneratedRecommendation> & {
+  recommended_params?: { kp: number; ki: number; kd: number };
+  delta?: { kp: number; ki: number; kd: number };
+} {
+  const reasonFields = parseReasonFields(recommendation.reason);
+  const riskFields = parseRiskFields(recommendation.risk);
+  const parsed: Partial<AIGeneratedRecommendation> & {
+    recommended_params?: { kp: number; ki: number; kd: number };
+    delta?: { kp: number; ki: number; kd: number };
+  } = {
+    problem_type: reasonFields.problem_type,
+    expected_effect: reasonFields.expected_effect,
+    risk_level: riskFields.risk_level,
+    requires_confirmation: riskFields.requires_confirmation,
+  };
+
+  const suggestion = recommendation.suggestion?.trim() ?? "";
+  if (!suggestion) return parsed;
+
+  const extractFromObject = (obj: Record<string, unknown>) => {
+    if (!parsed.problem_type && typeof obj.problem_type === "string") parsed.problem_type = obj.problem_type;
+    if (!parsed.expected_effect && typeof obj.expected_effect === "string") parsed.expected_effect = obj.expected_effect;
+    if (!parsed.risk_level && typeof obj.risk_level === "string") parsed.risk_level = normalizeRiskLevel(obj.risk_level);
+    if (parsed.requires_confirmation === undefined && typeof obj.requires_confirmation === "boolean") {
+      parsed.requires_confirmation = obj.requires_confirmation;
+    }
+    if (!parsed.evidence && obj.evidence && typeof obj.evidence === "object") {
+      parsed.evidence = obj.evidence as Record<string, string | number | boolean | null>;
+    }
+    const recommended = pickPidTuple(obj.recommended_params);
+    if (!parsed.recommended_params && recommended) parsed.recommended_params = recommended;
+    const delta = pickPidTuple(obj.delta);
+    if (!parsed.delta && delta) parsed.delta = delta;
+  };
+
+  try {
+    const bodyUnknown = JSON.parse(suggestion) as unknown;
+    if (bodyUnknown && typeof bodyUnknown === "object" && !Array.isArray(bodyUnknown)) {
+      const body = bodyUnknown as Record<string, unknown>;
+
+      // ai_rec v1 compact format.
+      if (body.f === "ai_rec" && body.p && typeof body.p === "object" && !Array.isArray(body.p)) {
+        const p = body.p as Record<string, unknown>;
+        if (typeof p.t === "string") parsed.problem_type = p.t;
+        if (typeof p.e === "string") parsed.expected_effect = p.e;
+        if (typeof p.r === "string") parsed.risk_level = normalizeRiskLevel(p.r);
+        if (typeof p.rc === "boolean") parsed.requires_confirmation = p.rc;
+        if (!parsed.evidence && p.evidence && typeof p.evidence === "object") {
+          parsed.evidence = p.evidence as Record<string, string | number | boolean | null>;
+        }
+        const recommended = pickPidTuple(p.rp);
+        if (recommended) parsed.recommended_params = recommended;
+        const delta = pickPidTuple(p.d);
+        if (delta) parsed.delta = delta;
+        return parsed;
+      }
+
+      // Older payload format.
+      if (body.payload && typeof body.payload === "object" && !Array.isArray(body.payload)) {
+        extractFromObject(body.payload as Record<string, unknown>);
+        return parsed;
+      }
+
+      // Flat JSON fallback.
+      extractFromObject(body);
+      return parsed;
+    }
+  } catch {
+    // Keep parsing as legacy text.
+  }
+
+  // Legacy text fallback, e.g. "Kp:+0.2 Ki:+0.05 Kd:0".
+  const legacyDelta = parseLegacyPidDeltaText(suggestion);
+  if (legacyDelta) {
+    parsed.delta = legacyDelta;
+    parsed.recommended_params = {
+      kp: round4(current_params.kp + legacyDelta.kp),
+      ki: round4(current_params.ki + legacyDelta.ki),
+      kd: round4(current_params.kd + legacyDelta.kd),
+    };
+  }
+
+  return parsed;
+}
+
+function buildRecoveredAiGenerated(
+  recommendation: AIRecommendation,
+  current_params: { kp: number; ki: number; kd: number }
+): AIGeneratedRecommendation | null {
+  const parsed = parseStoredAiRecommendation(recommendation, current_params);
+
+  const recommended = parsed.recommended_params
+    ? normalizePidTuple(parsed.recommended_params)
+    : parsed.delta
+      ? normalizePidTuple({
+          kp: current_params.kp + parsed.delta.kp,
+          ki: current_params.ki + parsed.delta.ki,
+          kd: current_params.kd + parsed.delta.kd,
+        })
+      : null;
+  if (!recommended) return null;
+
+  const delta = parsed.delta
+    ? normalizePidTuple(parsed.delta)
+    : normalizePidTuple({
+        kp: recommended.kp - current_params.kp,
+        ki: recommended.ki - current_params.ki,
+        kd: recommended.kd - current_params.kd,
+      });
+
+  const problem_type = parsed.problem_type || (isZeroDelta(delta.kp) && isZeroDelta(delta.ki) && isZeroDelta(delta.kd) ? "normal" : "unknown");
+  const expected_effect = parsed.expected_effect || (problem_type === "normal" ? "keep_stable" : "limited_gain_expected");
+  const requires_confirmation =
+    typeof parsed.requires_confirmation === "boolean" ? parsed.requires_confirmation : problem_type !== "normal";
+
+  return {
+    problem_type,
+    confidence: Number.isFinite(recommendation.confidence) ? recommendation.confidence : 0,
+    risk_level: parsed.risk_level || "N/A",
+    requires_confirmation,
+    current_params: normalizePidTuple(current_params),
+    recommended_params: recommended,
+    delta,
+    expected_effect,
+    evidence: (parsed.evidence as Record<string, string | number | boolean | null> | undefined) ?? {},
+    generated_at: recommendation.last_run_at,
+  };
+}
+
+function normalizeRiskLevel(value: unknown): string {
+  const text = String(value ?? "").trim().toLowerCase();
+  if (text === "low") return "Low";
+  if (text === "medium") return "Medium";
+  if (text === "high") return "High";
+  return String(value ?? "");
+}
+
+function parseLegacyPidDeltaText(text: string): { kp: number; ki: number; kd: number } | null {
+  const pattern = /(Kp|Ki|Kd)\s*:\s*([+-]?\d+(?:\.\d+)?)/g;
+  const found: Partial<{ kp: number; ki: number; kd: number }> = {};
+  for (const match of text.matchAll(pattern)) {
+    const key = match[1].toLowerCase() as "kp" | "ki" | "kd";
+    const value = Number(match[2]);
+    if (Number.isFinite(value)) {
+      found[key] = value;
+    }
+  }
+  if (found.kp === undefined && found.ki === undefined && found.kd === undefined) return null;
+  return {
+    kp: round4(found.kp ?? 0),
+    ki: round4(found.ki ?? 0),
+    kd: round4(found.kd ?? 0),
+  };
+}
+
+function pickPidTuple(input: unknown): { kp: number; ki: number; kd: number } | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const row = input as Record<string, unknown>;
+  const kp = Number(row.kp);
+  const ki = Number(row.ki);
+  const kd = Number(row.kd);
+  if (!Number.isFinite(kp) || !Number.isFinite(ki) || !Number.isFinite(kd)) return null;
+  return { kp: round4(kp), ki: round4(ki), kd: round4(kd) };
+}
+
+function normalizePidTuple(input: { kp: number; ki: number; kd: number }): { kp: number; ki: number; kd: number } {
+  return {
+    kp: round4(input.kp),
+    ki: round4(input.ki),
+    kd: round4(input.kd),
+  };
+}
+
+function round4(value: number): number {
+  return Number(value.toFixed(4));
 }
 
 function normalizeControlMode(mode: string): string {

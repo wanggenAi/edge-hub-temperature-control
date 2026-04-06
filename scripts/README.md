@@ -141,6 +141,62 @@ Cron example (daily 02:30 UTC):
 30 2 * * * cd /path/to/edge-hub-temperature-control && DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh >> /var/log/edgehub-tdengine-retention.log 2>&1
 ```
 
+## One-Click DB Reset (PostgreSQL + TDengine)
+
+Use `scripts/reset-dev-databases.sh` to clear test data while keeping table
+structure/stable definitions.
+
+Default behavior:
+
+- PostgreSQL:
+  - run Alembic migration to latest (`hmi/backend/scripts/db_migrate.py`)
+  - truncate all `public` tables with `RESTART IDENTITY CASCADE`
+  - seed default alarm rules (`hmi/backend/scripts/db_seed.py --rules`)
+- TDengine:
+  - `CREATE DATABASE IF NOT EXISTS`
+  - `CREATE STABLE IF NOT EXISTS` for core stables
+  - `DELETE` all rows from `telemetry`, `telemetry_summary`, `params_set`,
+    `params_ack`, `device_status`, `alarm_events`
+
+Run full reset:
+
+```bash
+./scripts/reset-dev-databases.sh
+```
+
+Run full reset and also seed demo relational data:
+
+```bash
+./scripts/reset-dev-databases.sh --with-demo
+```
+
+Reset only one side:
+
+```bash
+./scripts/reset-dev-databases.sh --postgres-only
+./scripts/reset-dev-databases.sh --tdengine-only
+```
+
+Prerequisites:
+
+- PostgreSQL container running as `edgehub-postgres`
+- TDengine REST reachable at `http://127.0.0.1:6041`
+- Python deps installed in `hmi/backend` (for migrate/seed scripts)
+
+Customize connection via env vars:
+
+```bash
+POSTGRES_CONTAINER=edgehub-postgres \
+POSTGRES_DB=edgehub \
+POSTGRES_USER=edgehub \
+POSTGRES_PASSWORD=edgehub \
+TDENGINE_URL=http://127.0.0.1:6041 \
+TDENGINE_DATABASE=edgehub \
+TDENGINE_USERNAME=root \
+TDENGINE_PASSWORD=taosdata \
+./scripts/reset-dev-databases.sh
+```
+
 ## Data Hub Stress Test
 
 Use `scripts/data_hub_stress.py` to pressure-test `data-hub` MQTT ingest.
