@@ -1,6 +1,6 @@
 #pragma once
 
-#include <PubSubClient.h>
+#include <MQTT.h>
 #include <WiFi.h>
 
 #include "config/app_config.h"
@@ -32,8 +32,8 @@ class MqttGateway {
   NetworkStats network_stats() const;
 
  private:
-  static void mqtt_callback_router(char* topic, byte* payload, unsigned int length);
-  void handle_mqtt_message(char* topic, byte* payload, unsigned int length);
+  static void mqtt_callback_router(MQTTClient* client, char* topic, char* payload, int length);
+  void handle_mqtt_message(char* topic, char* payload, int length);
   void ensure_wifi(unsigned long now_ms);
   void ensure_mqtt(unsigned long now_ms);
 
@@ -41,7 +41,7 @@ class MqttGateway {
 
   edge::config::NetworkConfig cfg_;
   WiFiClient wifi_client_;
-  PubSubClient mqtt_client_;
+  MQTTClient mqtt_client_;
   TelemetryBuilder telemetry_builder_;
   ParamsMessageCallback params_callback_ = nullptr;
   void* params_callback_ctx_ = nullptr;

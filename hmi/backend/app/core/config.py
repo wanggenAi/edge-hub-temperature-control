@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     mqtt_password: str = ""
     mqtt_client_id_prefix: str = "hmi-backend"
     mqtt_params_set_topic_template: str = "edge/temperature/{device_id}/params/set"
-    mqtt_publish_qos: int = 0
+    mqtt_publish_qos: int = 1
     mqtt_publish_retain: bool = False
     cors_origins: list[str] = [
         "http://localhost:5173",

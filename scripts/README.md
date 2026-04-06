@@ -140,3 +140,89 @@ Cron example (daily 02:30 UTC):
 ```cron
 30 2 * * * cd /path/to/edge-hub-temperature-control && DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh >> /var/log/edgehub-tdengine-retention.log 2>&1
 ```
+
+## Data Hub Stress Test
+
+Use `scripts/data_hub_stress.py` to pressure-test `data-hub` MQTT ingest.
+
+Examples:
+
+```bash
+# Local broker, 200 devices, 1000 msg/s, 60s
+python scripts/data_hub_stress.py --duration 60 --rate 1000 --devices 200
+
+# Remote broker with auth
+python scripts/data_hub_stress.py \
+  --host 38.14.195.2 --port 1883 \
+  --username edgeadmin --password admin123 \
+  --duration 120 --rate 2000 --devices 500 --workers 4 --qos 1
+```
+
+What it does:
+
+- publishes telemetry to `edge/temperature/{device_id}/telemetry`
+- sends payload schema compatible with current `data-hub` `TelemetryPayload`
+- prints per-second success/failure send rates and final average throughput
+
+### Throughput And Limit Method (Recommended)
+
+Use this section to find both:
+
+- `Sustainable TPS`: no sustained drops/failures, backlog does not keep growing
+- `Absolute TPS`: first stable saturation point where drops/failures begin
+
+Step-by-step:
+
+1. Start from a conservative rate (for example `--rate 800`), run 3-5 minutes.
+2. Increase rate by 10-15% each round.
+3. For each round, read `data-hub` `datahub.stats` windows (30s default).
+4. Stop when saturation signals appear in consecutive windows.
+5. The previous stable round is your `Sustainable TPS`.
+
+Saturation signals (any one is enough):
+
+- `mqtt_dropped_delta > 0`
+- `outcome_delta[pipelineDrop] > 0`
+- `tdengine_write_failed_delta > 0` (sustained, not one short spike)
+- `tdengine_batch_lane_error_delta > 0` or `tdengine_batch_restart_delta > 0`
+- `buffer[current_buffer_size]` stays high and does not fall back
+
+Accounting checks (must hold in healthy windows):
+
+- `accounting[unaccounted_delta] == 0`
+- `outcome_delta[persisted] + ingressDrop + pipelineDrop + telemetrySkip + parseFail + persistFail == mqtt_received_delta`
+
+TPS formulas (from one `datahub.stats` window):
+
+- Ingest TPS: `mqtt_received_delta / (intervalMs / 1000)`
+- Persist TPS (all message kinds): `outcome_delta[persisted] / (intervalMs / 1000)`
+- TDengine write TPS (all writes): `tdengine_write_success_delta / (intervalMs / 1000)`
+
+Note:
+
+- `tdengine_write_success_delta` can be higher than telemetry persisted delta because it also includes writes like `device_status`.
+- For pure telemetry stress, compare `mqtt_received_delta` with `delta[telemetryOk]`.
+
+### Rate Ramp Example
+
+Example sequence (same device count, increase only rate):
+
+```bash
+python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 800
+python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 1000
+python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 1200
+python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 1400
+```
+
+After each round, review:
+
+```bash
+rg "datahub.stats" data-hub/runtime/logs/data-hub.log | tail -n 20
+```
+
+When the first sustained saturation window appears, record:
+
+- current input rate (attempted)
+- max stable ingest TPS
+- max stable persist TPS
+- first saturation symptoms

@@ -25,6 +25,7 @@ DEFAULT_CONFIG = {
     "broker_port": 1883,
     "username": "",
     "password": "",
+    "qos": 1,
     "telemetry_topic": "edge/temperature/edge-node-001/telemetry",
     "params_set_topic": "edge/temperature/edge-node-001/params/set",
     "params_ack_topic": "edge/temperature/edge-node-001/params/ack",
@@ -84,6 +85,7 @@ def publish_test_message(client: mqtt.Client, mode: str) -> None:
     payload = build_test_payload(mode)
     payload_text = json.dumps(payload, separators=(",", ":"))
     params_set_topic = client._userdata["config"]["params_set_topic"]
+    qos = max(0, min(2, int(client._userdata["config"].get("qos", 1))))
 
     print_section("Publish Params")
     print(f"mode: {mode}")
@@ -91,23 +93,25 @@ def publish_test_message(client: mqtt.Client, mode: str) -> None:
     print("payload:")
     print(pretty_json(payload_text))
 
-    client.publish(params_set_topic, payload_text)
+    client.publish(params_set_topic, payload_text, qos=qos)
 
 
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
     mode = userdata["mode"]
     config = userdata["config"]
+    qos = max(0, min(2, int(config.get("qos", 1))))
 
     print_section("MQTT Connected")
     print(f"broker: {config['broker_host']}:{config['broker_port']}")
     print(f"reason_code: {reason_code}")
 
-    client.subscribe(config["telemetry_topic"])
-    client.subscribe(config["params_ack_topic"])
+    client.subscribe(config["telemetry_topic"], qos=qos)
+    client.subscribe(config["params_ack_topic"], qos=qos)
 
     print_section("Subscriptions")
     print(f"- {config['telemetry_topic']}")
     print(f"- {config['params_ack_topic']}")
+    print(f"- qos={qos}")
 
     publisher = threading.Thread(
         target=publish_test_message, args=(client, mode), daemon=True

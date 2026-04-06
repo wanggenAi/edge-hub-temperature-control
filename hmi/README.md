@@ -126,6 +126,7 @@ MQTT_BROKER_PORT=1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
 MQTT_PARAMS_SET_TOPIC_TEMPLATE=edge/temperature/{device_id}/params/set
+MQTT_PUBLISH_QOS=1
 ```
 
 2. Keep `data-hub` running with MQTT ingest + TDengine write.

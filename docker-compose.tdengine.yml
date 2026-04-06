@@ -12,6 +12,7 @@ services:
     volumes:
       - ./runtime/tdengine/data:/var/lib/taos
       - ./runtime/tdengine/log:/var/log/taos
+      - ./runtime/tdengine/taos.cfg:/etc/taos/taos.cfg:ro
     healthcheck:
       test: ["CMD-SHELL", "taos -s 'show databases;' >/dev/null 2>&1"]
       interval: 15s

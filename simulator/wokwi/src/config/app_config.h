@@ -47,6 +47,7 @@ struct NetworkConfig {
   const char* telemetry_topic = "edge/temperature/edge-node-001/telemetry";
   const char* params_set_topic = "edge/temperature/edge-node-001/params/set";
   const char* params_ack_topic = "edge/temperature/edge-node-001/params/ack";
+  uint8_t mqtt_qos = 0;
   uint16_t mqtt_client_buffer_size = 1024;
   uint32_t wifi_reconnect_interval_ms = 5000;
   uint32_t mqtt_reconnect_interval_ms = 5000;
