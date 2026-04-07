@@ -49,6 +49,8 @@ def _parse_iso_utc(value: object) -> Optional[datetime]:
 def _as_float(value: object) -> Optional[float]:
     if value is None:
         return None
+    if not isinstance(value, (int, float, str)):
+        return None
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -57,6 +59,8 @@ def _as_float(value: object) -> Optional[float]:
 
 def _as_int(value: object) -> Optional[int]:
     if value is None:
+        return None
+    if not isinstance(value, (int, float, str)):
         return None
     try:
         return int(value)
@@ -147,11 +151,48 @@ def _resolve_preview_summary(raw: object) -> tuple[dict[str, Any], Optional[str]
     if isinstance(recommended, dict):
         return recommended, preview_source
 
+    # Compact recommendation metadata shape for varchar(255)-safe payloads.
+    if any(k in raw for k in ("ib", "ov", "st", "ma", "sr", "sw")):
+        return {
+            "in_band_ratio": raw.get("ib"),
+            "overshoot_c": raw.get("ov"),
+            "settling_sec": raw.get("st"),
+            "mean_abs_error": raw.get("ma"),
+            "saturation_ratio": raw.get("sr"),
+            "temp_swing": raw.get("sw"),
+        }, preview_source
+
     # Fallback for already-flattened legacy shapes.
     if any(k in raw for k in ("in_band_ratio", "overshoot_c", "mean_abs_error", "saturation_ratio", "temp_swing")):
         return raw, preview_source
 
     return {}, preview_source
+
+
+def _resolve_comparison(raw: object) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {}
+    if any(
+        key in raw
+        for key in (
+            "in_band_ratio_delta",
+            "overshoot_c_delta",
+            "settling_sec_delta",
+            "mean_abs_error_delta",
+            "saturation_ratio_delta",
+            "temp_swing_delta",
+        )
+    ):
+        return raw
+    # Compact metadata keys used by demo seed to fit varchar(255) constraints.
+    return {
+        "in_band_ratio_delta": raw.get("ib"),
+        "overshoot_c_delta": raw.get("ov"),
+        "settling_sec_delta": raw.get("st"),
+        "mean_abs_error_delta": raw.get("ma"),
+        "saturation_ratio_delta": raw.get("sr"),
+        "temp_swing_delta": raw.get("sw"),
+    }
 
 
 def _derive_preview_gap_level(comparison_preview: Optional[dict[str, Any]]) -> Optional[str]:
@@ -224,8 +265,8 @@ class RecommendationFeedbackDatasetBuilder:
         metadata = self.recommendation_service.read_storage_metadata(recommendation.suggestion)
 
         post_effect_summary = _resolve_post_effect_summary(metadata.get("pe"))
-        comparison_before = metadata.get("pecb") if isinstance(metadata.get("pecb"), dict) else {}
-        comparison_preview = metadata.get("pecp") if isinstance(metadata.get("pecp"), dict) else {}
+        comparison_before = _resolve_comparison(metadata.get("pecb"))
+        comparison_preview = _resolve_comparison(metadata.get("pecp"))
 
         actual_effect_evaluated = bool(metadata.get("aee") or bool(post_effect_summary))
         insufficient_data = bool(metadata.get("pei") is True)
@@ -477,7 +518,11 @@ class RecommendationFeedbackDatasetBuilder:
 
     def validate_feedback_dataset(self, rows: Iterable[dict[str, Any]]) -> None:
         items = list(rows)
-        recommendation_ids = [int(r["recommendation_id"]) for r in items if r.get("recommendation_id") is not None]
+        recommendation_ids = [
+            rid
+            for rid in (_as_int(r.get("recommendation_id")) for r in items)
+            if rid is not None
+        ]
         unique_count = len(set(recommendation_ids))
         duplicate_count = len(recommendation_ids) - unique_count
         if duplicate_count > 0:
@@ -496,7 +541,11 @@ class RecommendationFeedbackDatasetBuilder:
         items = list(rows)
         summary = RecommendationFeedbackDatasetSummary()
         summary.total_recommendation_records = len(items)
-        recommendation_ids = [int(r["recommendation_id"]) for r in items if r.get("recommendation_id") is not None]
+        recommendation_ids = [
+            rid
+            for rid in (_as_int(r.get("recommendation_id")) for r in items)
+            if rid is not None
+        ]
         summary.unique_recommendation_ids = len(set(recommendation_ids))
         summary.duplicate_recommendation_ids_count = len(recommendation_ids) - summary.unique_recommendation_ids
         summary.applied_recommendation_records = sum(1 for r in items if r.get("history_state") == "applied")
@@ -513,10 +562,10 @@ class RecommendationFeedbackDatasetBuilder:
         summary.preview_gap_medium_count = sum(1 for r in items if r.get("preview_gap_level") == "medium")
         summary.preview_gap_high_count = sum(1 for r in items if r.get("preview_gap_level") == "high")
 
-        confidences = [float(r["confidence"]) for r in items if r.get("confidence") is not None]
-        delta_kp = [float(r["delta_kp"]) for r in items if r.get("delta_kp") is not None]
-        delta_ki = [float(r["delta_ki"]) for r in items if r.get("delta_ki") is not None]
-        delta_kd = [float(r["delta_kd"]) for r in items if r.get("delta_kd") is not None]
+        confidences = [v for v in (_as_float(r.get("confidence")) for r in items) if v is not None]
+        delta_kp = [v for v in (_as_float(r.get("delta_kp")) for r in items) if v is not None]
+        delta_ki = [v for v in (_as_float(r.get("delta_ki")) for r in items) if v is not None]
+        delta_kd = [v for v in (_as_float(r.get("delta_kd")) for r in items) if v is not None]
 
         if confidences:
             summary.average_confidence = sum(confidences) / len(confidences)
