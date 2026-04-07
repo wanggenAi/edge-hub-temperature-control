@@ -244,7 +244,7 @@ export function AIPage() {
               onCustomEndChange={setCustomEnd}
             />
             <div className="flex justify-start xl:justify-end">
-              <Button variant="ghost" className="w-full xl:w-auto" onClick={load}>Refresh</Button>
+              <Button variant="ghost" className="h-12 w-full xl:w-auto" onClick={load}>Refresh</Button>
             </div>
           </div>
           <div className="text-xs text-mute/90">
@@ -429,10 +429,10 @@ function RangePicker({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-panel px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 sm:h-12 sm:flex-nowrap sm:py-0">
       <span className="shrink-0 whitespace-nowrap text-xs uppercase tracking-wide text-mute">Window</span>
       <Select value={timePreset} onValueChange={(value) => onPresetChange(value as TimePreset)}>
-        <SelectTrigger className="h-8 w-[220px] border-line bg-panel2 text-sm">
+        <SelectTrigger className="h-9 w-[220px] border-line bg-panel2 text-sm">
           <SelectValue placeholder="Select time range" />
         </SelectTrigger>
         <SelectContent>
@@ -447,7 +447,7 @@ function RangePicker({
         Start
         <input
           type="datetime-local"
-          className="h-8 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60"
+          className="h-9 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60"
           value={customStart}
           onChange={(event) => onCustomStartChange(event.target.value)}
         />
@@ -456,7 +456,7 @@ function RangePicker({
         End
         <input
           type="datetime-local"
-          className="h-8 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60"
+          className="h-9 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60"
           value={customEnd}
           onChange={(event) => onCustomEndChange(event.target.value)}
         />
@@ -488,7 +488,7 @@ function DeviceSearchSelect({
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        className="flex h-10 w-full items-center justify-between rounded-md border border-line bg-panel px-3 text-left text-sm text-text transition-colors hover:border-neon/40"
+        className="flex h-12 w-full items-center justify-between rounded-md border border-line bg-panel px-3 text-left text-sm text-text transition-colors hover:border-neon/40"
         onClick={() => setOpen(!open)}
       >
         <span className="truncate">{current ? `${current.name} · ${current.code}` : "Select device"}</span>

@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     recommendation_generate_cooldown_sec: int = 30
     recommendation_generate_new_record_after_sec: int = 600
     recommendation_float_tolerance: float = 0.001
+    hmi_log_level: str = "INFO"
+    hmi_console_log_level: str = "INFO"
+    hmi_access_log_level: str = "INFO"
+    hmi_log_dir: str = "../../runtime/logs/hmi-backend"
+    hmi_log_max_bytes: int = 10 * 1024 * 1024
+    hmi_log_backup_count: int = 14
+    hmi_log_file_name: str = "app.log"
+    hmi_error_log_file_name: str = "error.log"
+    hmi_access_log_file_name: str = "access.log"
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

@@ -77,6 +77,40 @@ Seed accounts:
 - operator1 / operator123
 - viewer1 / viewer123
 
+## Backend Logging (File + Rotation)
+
+HMI backend now writes logs to both console and rolling files.
+
+Default log directory:
+
+- `runtime/logs/hmi-backend` (relative to repo root)
+
+Default files:
+
+- `app.log` : application logs
+- `error.log` : `ERROR` and above
+- `access.log` : HTTP access logs (`uvicorn.access`)
+
+Rotation strategy:
+
+- size-based rolling (managed by `loguru`)
+- each file rotates at `HMI_LOG_MAX_BYTES` (default `10MB`)
+- retain `HMI_LOG_BACKUP_COUNT` files (default `14`)
+
+Example `.env` overrides:
+
+```env
+HMI_LOG_LEVEL=INFO
+HMI_CONSOLE_LOG_LEVEL=INFO
+HMI_ACCESS_LOG_LEVEL=INFO
+HMI_LOG_DIR=../../runtime/logs/hmi-backend
+HMI_LOG_MAX_BYTES=10485760
+HMI_LOG_BACKUP_COUNT=14
+HMI_LOG_FILE_NAME=app.log
+HMI_ERROR_LOG_FILE_NAME=error.log
+HMI_ACCESS_LOG_FILE_NAME=access.log
+```
+
 ## Frontend Run
 
 ```bash
