@@ -184,6 +184,29 @@ class AIPostEffectComparisonOut(BaseModel):
     temp_swing_delta: Optional[float] = None
 
 
+class AITelemetryComparisonPointOut(BaseModel):
+    relative_time_min: float
+    temp: float
+    target_temp: Optional[float] = None
+    timestamp: Optional[datetime] = None
+
+
+class AITelemetryComparisonOut(BaseModel):
+    recommendation_id: int
+    applied_at: datetime
+    baseline_window_minutes: int
+    observation_window_minutes: int
+    actual_start: datetime
+    actual_end: datetime
+    baseline_curve: list[AITelemetryComparisonPointOut] = []
+    preview_curve: list[AITelemetryComparisonPointOut] = []
+    actual_curve: list[AITelemetryComparisonPointOut] = []
+    target_temp: Optional[float] = None
+    preview_source: str = "unavailable"
+    partial_post_apply_window: bool = False
+    missing_curves: list[str] = []
+
+
 class AIRecommendationHistoryItemOut(BaseModel):
     recommendation_id: int
     device_id: int
@@ -202,10 +225,13 @@ class AIRecommendationHistoryItemOut(BaseModel):
     reused_count: int = 0
     last_generate_reused: Optional[bool] = None
     last_accessed_at: Optional[datetime] = None
+    applied_at: Optional[datetime] = None
     current_params: Optional[AIPidParamsOut] = None
     recommended_params: Optional[AIPidParamsOut] = None
     delta: Optional[AIPidParamsOut] = None
     actual_effect_evaluated: bool = False
+    insufficient_data: bool = False
+    evaluated_at: Optional[datetime] = None
     observation_window_minutes: Optional[int] = None
     post_effect_summary: Optional[AIPostEffectMetricsOut] = None
     comparison_to_before: Optional[AIPostEffectComparisonOut] = None

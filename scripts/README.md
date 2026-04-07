@@ -276,6 +276,75 @@ After each round, review:
 rg "datahub.stats" data-hub/runtime/logs/data-hub.log | tail -n 20
 ```
 
+## Post-Apply Validation Demo Seed
+
+Use `scripts/seed_post_apply_validation_demo.py` to seed end-to-end demo data for
+the **Post-Apply Validation** page. The script writes:
+
+- PostgreSQL recommendation history records (`ai_recommendations`)
+- TDengine telemetry windows before and after recommendation apply
+
+This seed is designed to demonstrate page value, not just fill tables.
+
+### Scenarios
+
+- `success`: clear improvement after apply; preview and actual are close
+- `partial`: limited improvement / near-unchanged behavior
+- `preview_mismatch`: preview optimistic but actual improvement is weaker
+- `insufficient_data`: applied recommendation but not enough post-apply points
+
+### Run
+
+Seed all scenarios:
+
+```bash
+python scripts/seed_post_apply_validation_demo.py --reset
+```
+
+Seed specific scenarios:
+
+```bash
+python scripts/seed_post_apply_validation_demo.py --reset --scenario success --scenario preview_mismatch
+```
+
+Seed one scenario into a specific existing device:
+
+```bash
+python scripts/seed_post_apply_validation_demo.py --scenario success --device-id 1
+```
+
+Reset only:
+
+```bash
+python scripts/seed_post_apply_validation_demo.py --reset
+```
+
+Reset and remove demo devices `PAV-401..404`:
+
+```bash
+python scripts/seed_post_apply_validation_demo.py --reset --drop-demo-devices
+```
+
+### Expected UI Results
+
+After seeding, open **Post-Apply Validation** and switch to:
+
+- `PAV-401`:
+  - `Evaluation Status = Completed`
+  - `Before vs After` shows clear improvement
+  - `Preview vs Actual` gap is small
+- `PAV-402`:
+  - `Evaluation Status = Completed`
+  - only slight/limited improvement
+  - moderate preview gap
+- `PAV-403`:
+  - `Evaluation Status = Completed`
+  - `Preview vs Actual` gap is obvious
+  - useful for showing validation value when preview is over-optimistic
+- `PAV-404`:
+  - `Evaluation Status = Insufficient Data`
+  - recommendation is applied but post-apply telemetry is intentionally sparse
+
 When the first sustained saturation window appears, record:
 
 - current input rate (attempted)

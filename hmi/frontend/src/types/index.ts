@@ -201,6 +201,29 @@ export interface AIPostEffectEvaluation {
   comparison_to_preview?: AIPostEffectComparison | null;
 }
 
+export interface AITelemetryComparisonPoint {
+  relative_time_min: number;
+  temp: number;
+  target_temp?: number | null;
+  timestamp?: string | null;
+}
+
+export interface AITelemetryComparison {
+  recommendation_id: number;
+  applied_at: string;
+  baseline_window_minutes: number;
+  observation_window_minutes: number;
+  actual_start: string;
+  actual_end: string;
+  baseline_curve: AITelemetryComparisonPoint[];
+  preview_curve: AITelemetryComparisonPoint[];
+  actual_curve: AITelemetryComparisonPoint[];
+  target_temp?: number | null;
+  preview_source: "stored" | "reconstructed" | "unavailable" | string;
+  partial_post_apply_window: boolean;
+  missing_curves: Array<"baseline" | "preview" | "actual" | string>;
+}
+
 export interface AIRecommendationHistoryItem {
   recommendation_id: number;
   device_id: number;
@@ -219,10 +242,13 @@ export interface AIRecommendationHistoryItem {
   reused_count: number;
   last_generate_reused?: boolean | null;
   last_accessed_at?: string | null;
+  applied_at?: string | null;
   current_params?: AITuningParams | null;
   recommended_params?: AITuningParams | null;
   delta?: AITuningParams | null;
   actual_effect_evaluated: boolean;
+  insufficient_data?: boolean;
+  evaluated_at?: string | null;
   observation_window_minutes?: number | null;
   post_effect_summary?: AIPostEffectMetrics | null;
   comparison_to_before?: AIPostEffectComparison | null;

@@ -24,6 +24,8 @@ from app.schemas.device import (
     AIRecommendationHistoryResponseOut,
     AIRecommendationHistoryStatsOut,
     AIRecommendationOut,
+    AITelemetryComparisonOut,
+    AITelemetryComparisonPointOut,
     AlarmOut,
     AIPidParamsOut,
     AIPostEffectComparisonOut,
@@ -317,17 +319,30 @@ def _build_ai_history_item(
     comparison_before = _coerce_post_effect_comparison(meta.get("pecb"))
     comparison_preview = _coerce_post_effect_comparison(meta.get("pecp"))
     actual_effect_evaluated = bool(meta.get("aee") or summary is not None)
+    insufficient_data = bool(meta.get("pei") is True)
     observation_window_minutes = None
     if isinstance(meta.get("pew"), (int, float, str)):
         try:
             observation_window_minutes = int(meta.get("pew"))
         except (TypeError, ValueError):
             observation_window_minutes = None
+    evaluated_at = _parse_iso_utc(meta.get("pea"))
 
     problem_type = parsed.problem_type.value if parsed else (recommendation_service.parse_reason_fields(rec.reason)[0] or "unknown")
     expected_effect = parsed.expected_effect.value if parsed else recommendation_service.parse_reason_fields(rec.reason)[1]
     risk_level = parsed.risk_level.value if parsed else recommendation_service.parse_risk_fields(rec.risk)[0]
-    history_state = parsed.history_state if parsed else (str(meta.get("hs")) if meta.get("hs") is not None else None)
+    history_state_raw = parsed.history_state if parsed else (str(meta.get("hs")) if meta.get("hs") is not None else None)
+    history_state = str(history_state_raw or "").strip().lower()
+    if history_state not in {"generated", "previewed", "applied", "dismissed", "expired"}:
+        history_state = ""
+    applied_at = _parse_iso_utc(meta.get("apa"))
+    if applied_at is None and history_state == "applied" and not actual_effect_evaluated:
+        applied_at = parsed.last_accessed_at if parsed else _parse_iso_utc(meta.get("la"))
+    if not history_state:
+        if applied_at is not None or actual_effect_evaluated:
+            history_state = "applied"
+        else:
+            history_state = "generated"
     effect_outcome = _derive_effect_outcome(comparison_before)
     if history_state != "applied" and not actual_effect_evaluated:
         effect_outcome = "pending"
@@ -350,6 +365,7 @@ def _build_ai_history_item(
         reused_count=int(parsed.reused_count or 0) if parsed else int(meta.get("rc") or 0),
         last_generate_reused=parsed.last_generate_reused if parsed else (bool(meta.get("lgr")) if isinstance(meta.get("lgr"), bool) else None),
         last_accessed_at=parsed.last_accessed_at if parsed else _parse_iso_utc(meta.get("la")),
+        applied_at=applied_at,
         current_params=None
         if not parsed
         else AIPidParamsOut(kp=float(parsed.current_params.kp), ki=float(parsed.current_params.ki), kd=float(parsed.current_params.kd)),
@@ -364,6 +380,8 @@ def _build_ai_history_item(
         if not parsed
         else AIPidParamsOut(kp=float(parsed.delta.kp), ki=float(parsed.delta.ki), kd=float(parsed.delta.kd)),
         actual_effect_evaluated=actual_effect_evaluated,
+        insufficient_data=insufficient_data,
+        evaluated_at=evaluated_at,
         observation_window_minutes=observation_window_minutes,
         post_effect_summary=summary,
         comparison_to_before=comparison_before,
@@ -875,6 +893,126 @@ def _load_observed_points(
             )
         )
     return points
+
+
+def _downsample_points(points: list[ObservedTelemetryPoint], limit: int) -> list[ObservedTelemetryPoint]:
+    if limit <= 0 or len(points) <= limit:
+        return points
+    if limit == 1:
+        return [points[-1]]
+    step = (len(points) - 1) / float(limit - 1)
+    sampled: list[ObservedTelemetryPoint] = []
+    for idx in range(limit):
+        source_idx = int(round(idx * step))
+        source_idx = max(0, min(len(points) - 1, source_idx))
+        sampled.append(points[source_idx])
+    return sampled
+
+
+def _curve_point_from_observed(point: ObservedTelemetryPoint, *, anchor_ms: int) -> AITelemetryComparisonPointOut:
+    return AITelemetryComparisonPointOut(
+        relative_time_min=round((int(point.ts_ms) - int(anchor_ms)) / 60000.0, 4),
+        temp=float(point.temp),
+        target_temp=float(point.target_temp),
+        timestamp=_utc_naive_from_ms(int(point.ts_ms)),
+    )
+
+
+def _extract_preview_curve_from_meta(meta: dict[str, object], *, anchor_ms: int) -> list[AITelemetryComparisonPointOut]:
+    pvs = meta.get("pvs")
+    if not isinstance(pvs, dict):
+        return []
+
+    raw_curve = pvs.get("recommended_curve")
+    if not isinstance(raw_curve, list):
+        raw_curve = pvs.get("preview_curve")
+    if not isinstance(raw_curve, list):
+        raw_curve = pvs.get("curve")
+    if not isinstance(raw_curve, list):
+        return []
+
+    out: list[AITelemetryComparisonPointOut] = []
+    for item in raw_curve:
+        if not isinstance(item, dict):
+            continue
+        time_s = _as_float_or_none(item.get("time_s"))
+        if time_s is None:
+            time_s = _as_float_or_none(item.get("time_sec"))
+        if time_s is None:
+            time_min = _as_float_or_none(item.get("relative_time_min"))
+            if time_min is not None:
+                time_s = float(time_min) * 60.0
+        temp = _as_float_or_none(item.get("temp"))
+        if temp is None:
+            continue
+        target = _as_float_or_none(item.get("target_temp"))
+        ts_ms = int(anchor_ms + max(0.0, float(time_s or 0.0)) * 1000.0)
+        out.append(
+            AITelemetryComparisonPointOut(
+                relative_time_min=round(max(0.0, float(time_s or 0.0)) / 60.0, 4),
+                temp=float(temp),
+                target_temp=None if target is None else float(target),
+                timestamp=_utc_naive_from_ms(ts_ms),
+            )
+        )
+    return out
+
+
+def _build_preview_curve_fallback(
+    *,
+    rec: AIRecommendation,
+    meta: dict[str, object],
+    device: Device,
+    params: DeviceParameter,
+    anchor_ms: int,
+    observation_window_minutes: int,
+    baseline_points: list[ObservedTelemetryPoint],
+) -> list[AITelemetryComparisonPointOut]:
+    parsed = recommendation_service.parse_suggestion_payload(rec.suggestion) or {}
+    parsed_current = parsed.get("current_params")
+    baseline_params = PIDParams(
+        kp=float(parsed_current.get("kp")) if isinstance(parsed_current, dict) and parsed_current.get("kp") is not None else float(params.kp),
+        ki=float(parsed_current.get("ki")) if isinstance(parsed_current, dict) and parsed_current.get("ki") is not None else float(params.ki),
+        kd=float(parsed_current.get("kd")) if isinstance(parsed_current, dict) and parsed_current.get("kd") is not None else float(params.kd),
+    )
+    recommended_params = recommendation_service.parse_recommended_params(rec.suggestion, baseline_params)
+    if recommended_params is None:
+        return []
+
+    initial_temp = float(baseline_points[-1].temp) if baseline_points else float(device.current_temp)
+    target_temp = float(baseline_points[-1].target_temp) if baseline_points else float(device.target_temp)
+
+    horizon_sec = max(120, int(observation_window_minutes) * 60)
+    step_sec = 10
+    cfg = PreviewSimulationConfig(
+        horizon_sec=horizon_sec,
+        step_sec=step_sec,
+        ambient_temp=float(meta.get("preview_ambient_temp") or PREVIEW_DEFAULT_AMBIENT_TEMP),
+        heating_gain=float(meta.get("preview_heating_gain") or PREVIEW_DEFAULT_HEATING_GAIN),
+        cooling_coeff=float(meta.get("preview_cooling_coeff") or PREVIEW_DEFAULT_COOLING_COEFF),
+        target_band=float(params.target_band),
+        pwm_saturation_threshold=float(params.pwm_saturation_threshold),
+        control_mode=str(params.control_mode or "pid_control"),
+    )
+    preview_output = preview_simulator.run(
+        current_temp=initial_temp,
+        target_temp=target_temp,
+        baseline_params=baseline_params,
+        recommended_params=recommended_params,
+        config=cfg,
+    )
+    out: list[AITelemetryComparisonPointOut] = []
+    for point in preview_output.recommended_curve:
+        ts_ms = int(anchor_ms + int(point.time_s) * 1000)
+        out.append(
+            AITelemetryComparisonPointOut(
+                relative_time_min=round(float(point.time_s) / 60.0, 4),
+                temp=float(point.temp),
+                target_temp=float(point.target_temp),
+                timestamp=_utc_naive_from_ms(ts_ms),
+            )
+        )
+    return out
 
 
 def _as_float_or_none(value: object) -> Optional[float]:
@@ -1859,12 +1997,14 @@ def apply_ai_recommendation(
         params.ki = round(float(recommended.ki), 4)
         params.kd = round(float(recommended.kd), 4)
         params.updated_by = f"{current_user.username}:ai-ack-shortcut"
-        params.updated_at = datetime.utcnow()
-        rec.last_run_at = datetime.utcnow()
+        applied_at = datetime.utcnow()
+        params.updated_at = applied_at
+        rec.last_run_at = applied_at
         rec.suggestion = recommendation_service.update_storage_metadata(
             rec.suggestion,
             history_state="applied",
-            last_accessed_at=datetime.utcnow(),
+            last_accessed_at=applied_at,
+            applied_at=applied_at,
         )
         db.commit()
         db.refresh(params)
@@ -1880,12 +2020,14 @@ def apply_ai_recommendation(
     ):
         logger.warning("[APPLY-REQ] device_id=%s idempotent hit (already applied)", device_id)
         params.updated_by = f"{current_user.username}:ai-idempotent"
-        params.updated_at = datetime.utcnow()
-        rec.last_run_at = datetime.utcnow()
+        applied_at = datetime.utcnow()
+        params.updated_at = applied_at
+        rec.last_run_at = applied_at
         rec.suggestion = recommendation_service.update_storage_metadata(
             rec.suggestion,
             history_state="applied",
-            last_accessed_at=datetime.utcnow(),
+            last_accessed_at=applied_at,
+            applied_at=applied_at,
         )
         db.commit()
         db.refresh(params)
@@ -1894,11 +2036,13 @@ def apply_ai_recommendation(
     params.kp = round(float(recommended.kp), 4)
     params.ki = round(float(recommended.ki), 4)
     params.kd = round(float(recommended.kd), 4)
-    rec.last_run_at = datetime.utcnow()
+    applied_at = datetime.utcnow()
+    rec.last_run_at = applied_at
     rec.suggestion = recommendation_service.update_storage_metadata(
         rec.suggestion,
         history_state="applied",
-        last_accessed_at=datetime.utcnow(),
+        last_accessed_at=applied_at,
+        applied_at=applied_at,
     )
 
     return _dispatch_and_confirm_parameter_update(
@@ -2009,6 +2153,12 @@ def evaluate_ai_recommendation_actual(
     apply_at = _parse_iso_utc(meta.get("la")) or rec.last_run_at
     now_dt = datetime.utcnow()
     if now_dt <= apply_at:
+        rec.suggestion = recommendation_service.update_storage_metadata(
+            rec.suggestion,
+            last_accessed_at=now_dt,
+            insufficient_data=True,
+        )
+        db.commit()
         raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
 
     window_minutes = int(payload.observation_window_minutes)
@@ -2024,6 +2174,12 @@ def evaluate_ai_recommendation_actual(
         limit=200000,
     )
     if len(observed_points) < 5:
+        rec.suggestion = recommendation_service.update_storage_metadata(
+            rec.suggestion,
+            last_accessed_at=datetime.utcnow(),
+            insufficient_data=True,
+        )
+        db.commit()
         raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
 
     target_band = float(params.target_band)
@@ -2034,6 +2190,12 @@ def evaluate_ai_recommendation_actual(
         pwm_saturation_threshold=pwm_threshold,
     )
     if actual_metrics is None:
+        rec.suggestion = recommendation_service.update_storage_metadata(
+            rec.suggestion,
+            last_accessed_at=datetime.utcnow(),
+            insufficient_data=True,
+        )
+        db.commit()
         raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
 
     before_start_ms = observation_start_ms - window_minutes * 60 * 1000
@@ -2070,6 +2232,7 @@ def evaluate_ai_recommendation_actual(
         post_effect_comparison_before=comparison_before.model_dump(mode="json"),
         post_effect_comparison_preview=None if comparison_preview is None else comparison_preview.model_dump(mode="json"),
         actual_effect_evaluated=True,
+        insufficient_data=False,
         observation_window_minutes=window_minutes,
         evaluated_at=evaluated_at,
     )
@@ -2083,4 +2246,144 @@ def evaluate_ai_recommendation_actual(
         actual_effect_summary=actual_summary,
         comparison_to_before=comparison_before,
         comparison_to_preview=comparison_preview,
+    )
+
+
+@router.get(
+    "/{device_id}/ai-recommendation/{recommendation_id}/telemetry-comparison",
+    response_model=AITelemetryComparisonOut,
+)
+def get_ai_recommendation_telemetry_comparison(
+    device_id: int,
+    recommendation_id: int,
+    start_ms: Optional[int] = Query(default=None, ge=0),
+    end_ms: Optional[int] = Query(default=None, ge=0),
+    baseline_window_minutes: Optional[int] = Query(default=None, ge=1, le=720),
+    observation_window_minutes: Optional[int] = Query(default=None, ge=1, le=720),
+    max_points: int = Query(default=360, ge=60, le=2000),
+    db: Session = Depends(get_db_dep),
+    current_user: User = Depends(get_current_user),
+) -> AITelemetryComparisonOut:
+    require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    if not params:
+        raise HTTPException(status_code=404, detail="Parameters not found")
+    _hydrate_runtime_parameters(device, params)
+
+    rec = db.scalar(
+        select(AIRecommendation).where(AIRecommendation.id == recommendation_id, AIRecommendation.device_id == device_id)
+    )
+    if not rec:
+        raise HTTPException(status_code=404, detail="AI recommendation not found")
+
+    meta = recommendation_service.read_storage_metadata(rec.suggestion)
+    applied_at = _parse_iso_utc(meta.get("apa")) or rec.last_run_at
+    history_state = str(meta.get("hs") or "").strip().lower()
+    if history_state not in {"generated", "previewed", "applied", "dismissed", "expired"}:
+        history_state = ""
+    if not history_state and applied_at is not None:
+        history_state = "applied"
+    if history_state != "applied":
+        raise HTTPException(status_code=409, detail="Recommendation has not been applied yet")
+
+    applied_ms = int(applied_at.timestamp() * 1000)
+
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    selected_end_ms = int(end_ms) if isinstance(end_ms, int) and end_ms > 0 else now_ms
+    if selected_end_ms > now_ms:
+        selected_end_ms = now_ms
+
+    selected_start_ms = int(start_ms) if isinstance(start_ms, int) and start_ms >= 0 else applied_ms
+    if selected_start_ms > selected_end_ms:
+        selected_start_ms = selected_end_ms
+
+    obs_minutes = int(observation_window_minutes or max(1, round((selected_end_ms - selected_start_ms) / 60000.0) or 30))
+    base_minutes = int(baseline_window_minutes or obs_minutes)
+    obs_minutes = max(1, min(720, obs_minutes))
+    base_minutes = max(1, min(720, base_minutes))
+
+    baseline_start_ms = applied_ms - base_minutes * 60 * 1000
+    baseline_end_ms = applied_ms
+    actual_start_ms = max(selected_start_ms, applied_ms)
+    actual_end_ms = max(actual_start_ms, selected_end_ms)
+
+    # Baseline is strictly pre-apply and anchored to applied_at.
+    baseline_points = _downsample_points(
+        _load_observed_points(
+            db=db,
+            device=device,
+            start_ms=baseline_start_ms,
+            end_ms=baseline_end_ms,
+            limit=200000,
+        ),
+        max_points,
+    )
+    # Actual only includes post-apply telemetry.
+    actual_points = _downsample_points(
+        _load_observed_points(
+            db=db,
+            device=device,
+            start_ms=actual_start_ms,
+            end_ms=actual_end_ms,
+            limit=200000,
+        ),
+        max_points,
+    )
+
+    baseline_curve = [_curve_point_from_observed(point, anchor_ms=applied_ms) for point in baseline_points]
+    actual_curve = [_curve_point_from_observed(point, anchor_ms=applied_ms) for point in actual_points]
+
+    # Preview is sourced from stored recommendation preview payload when available.
+    preview_curve = _extract_preview_curve_from_meta(meta, anchor_ms=applied_ms)
+    preview_source = "stored" if preview_curve else "unavailable"
+    if not preview_curve:
+        # Fallback keeps the chart usable when historical preview points were not persisted.
+        preview_curve = _build_preview_curve_fallback(
+            rec=rec,
+            meta=meta,
+            device=device,
+            params=params,
+            anchor_ms=applied_ms,
+            observation_window_minutes=obs_minutes,
+            baseline_points=baseline_points,
+        )
+        if preview_curve:
+            preview_source = "reconstructed"
+
+    target_temp = None
+    if actual_points:
+        target_temp = float(actual_points[-1].target_temp)
+    elif baseline_points:
+        target_temp = float(baseline_points[-1].target_temp)
+    else:
+        target_temp = float(device.target_temp)
+
+    post_apply_expected_end_ms = applied_ms + obs_minutes * 60 * 1000
+    partial_post_apply_window = bool(selected_start_ms > applied_ms or selected_end_ms < post_apply_expected_end_ms)
+
+    missing_curves: list[str] = []
+    if not baseline_curve:
+        missing_curves.append("baseline")
+    if not preview_curve:
+        missing_curves.append("preview")
+    if not actual_curve:
+        missing_curves.append("actual")
+
+    return AITelemetryComparisonOut(
+        recommendation_id=rec.id,
+        applied_at=applied_at,
+        baseline_window_minutes=base_minutes,
+        observation_window_minutes=obs_minutes,
+        actual_start=_utc_naive_from_ms(actual_start_ms),
+        actual_end=_utc_naive_from_ms(actual_end_ms),
+        baseline_curve=baseline_curve,
+        preview_curve=preview_curve,
+        actual_curve=actual_curve,
+        target_temp=target_temp,
+        preview_source=preview_source,
+        partial_post_apply_window=partial_post_apply_window,
+        missing_curves=missing_curves,
     )

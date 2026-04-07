@@ -1,5 +1,6 @@
 import type {
   AIPostEffectEvaluation,
+  AITelemetryComparison,
   AIPreviewSimulation,
   AIRecommendationHistoryResponse,
   AIRecommendation,
@@ -212,6 +213,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  aiRecommendationTelemetryComparison: (
+    deviceId: number,
+    recommendationId: number,
+    params: { start_ms?: number; end_ms?: number; baseline_window_minutes?: number; observation_window_minutes?: number } = {}
+  ) => {
+    const sp = new URLSearchParams();
+    if (typeof params.start_ms === "number") sp.set("start_ms", String(params.start_ms));
+    if (typeof params.end_ms === "number") sp.set("end_ms", String(params.end_ms));
+    if (typeof params.baseline_window_minutes === "number") {
+      sp.set("baseline_window_minutes", String(params.baseline_window_minutes));
+    }
+    if (typeof params.observation_window_minutes === "number") {
+      sp.set("observation_window_minutes", String(params.observation_window_minutes));
+    }
+    const suffix = sp.toString() ? `?${sp.toString()}` : "";
+    return request<AITelemetryComparison>(`/devices/${deviceId}/ai-recommendation/${recommendationId}/telemetry-comparison${suffix}`);
+  },
   users: () => request<UserItem[]>("/users"),
   createUser: (payload: { username: string; email: string; password: string; roles: string[] }) =>
     request<UserItem>("/users", { method: "POST", body: JSON.stringify(payload) }),

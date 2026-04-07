@@ -193,8 +193,10 @@ class RecommendationService:
         post_effect_comparison_before: Optional[dict[str, Any]] = None,
         post_effect_comparison_preview: Optional[dict[str, Any]] = None,
         actual_effect_evaluated: Optional[bool] = None,
+        insufficient_data: Optional[bool] = None,
         observation_window_minutes: Optional[int] = None,
         evaluated_at: Optional[datetime] = None,
+        applied_at: Optional[datetime] = None,
     ) -> str:
         if not suggestion:
             return suggestion
@@ -234,10 +236,14 @@ class RecommendationService:
             next_meta["pecp"] = post_effect_comparison_preview
         if actual_effect_evaluated is not None:
             next_meta["aee"] = bool(actual_effect_evaluated)
+        if insufficient_data is not None:
+            next_meta["pei"] = bool(insufficient_data)
         if observation_window_minutes is not None:
             next_meta["pew"] = int(max(1, observation_window_minutes))
         if evaluated_at is not None:
             next_meta["pea"] = evaluated_at.isoformat(timespec="seconds")
+        if applied_at is not None:
+            next_meta["apa"] = applied_at.isoformat(timespec="seconds")
         payload["m"] = next_meta
         body["p"] = payload
         return self._fit_suggestion_size(json.dumps(body, separators=(",", ":")))
@@ -285,23 +291,23 @@ class RecommendationService:
                 return compact_no_cp
 
         # Keep minimum viable recommendation payload.
+        # Prefer preserving metadata + recommended params so history/apply/evaluation
+        # semantics remain readable even when suggestion text must be compacted.
         tiny = {
             "f": "ai_rec",
             "v": body.get("v", "1"),
             "p": {
-                "t": payload.get("t"),
-                "e": payload.get("e"),
-                "r": payload.get("r"),
-                "c": payload.get("c"),
-                "rc": payload.get("rc"),
                 "rp": payload.get("rp"),
-                "d": payload.get("d"),
                 "m": {},
             },
         }
         if isinstance(payload.get("m"), dict):
             tiny_meta = payload.get("m") or {}
-            tiny["p"]["m"] = {k: tiny_meta.get(k) for k in ("fp", "hs", "lgr", "rc", "la") if k in tiny_meta}
+            tiny["p"]["m"] = {
+                k: tiny_meta.get(k)
+                for k in ("fp", "hs", "lgr", "rc", "la", "apa", "aee", "pei", "pew", "pea")
+                if k in tiny_meta
+            }
         compact_tiny = json.dumps(tiny, separators=(",", ":"))
         if len(compact_tiny) <= self._SUGGESTION_MAX_LEN:
             return compact_tiny

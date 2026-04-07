@@ -37,8 +37,8 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           </div>
           <nav className="space-y-1">
             <NavItem to="/" icon={<Gauge className="h-4 w-4" />} label="Overview" collapsed={collapsed} />
+            <NavItem to="/ai" icon={<BrainCircuit className="h-4 w-4" />} label="Post-Apply Validation" collapsed={collapsed} />
             <NavItem to="/devices/manage" icon={<HardDrive className="h-4 w-4" />} label="Device Management" collapsed={collapsed} />
-            <NavItem to="/ai" icon={<BrainCircuit className="h-4 w-4" />} label="Optimization Review" collapsed={collapsed} />
             <NavItem to="/alarms" icon={<Bell className="h-4 w-4" />} label="Alarms" collapsed={collapsed} />
             <NavItem to="/history" icon={<History className="h-4 w-4" />} label="History" collapsed={collapsed} />
             {hasRole("admin") && (
