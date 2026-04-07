@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from datetime import datetime
 from typing import Any, Iterable, Optional
 
@@ -117,6 +118,19 @@ def _normalize_history_state(raw: object, *, applied_at: Optional[datetime], act
 
 
 def _resolve_post_effect_summary(raw: object) -> dict[str, Any]:
+    if isinstance(raw, list):
+        # Compact list format: [ib, ov, st, ma, sr, sw, pc]
+        values = list(raw) + [None] * (7 - len(raw))
+        return {
+            "in_band_ratio_after": values[0],
+            "overshoot_c_after": values[1],
+            "settling_sec_after": values[2],
+            "mean_abs_error_after": values[3],
+            "saturation_ratio_after": values[4],
+            "temp_swing_after": values[5],
+            "point_count": values[6],
+        }
+
     if not isinstance(raw, dict):
         return {}
 
@@ -138,6 +152,18 @@ def _resolve_post_effect_summary(raw: object) -> dict[str, Any]:
 
 
 def _resolve_preview_summary(raw: object) -> tuple[dict[str, Any], Optional[str]]:
+    if isinstance(raw, list):
+        # Compact list format: [ib, ov, st, ma, sr, sw]
+        values = list(raw) + [None] * (6 - len(raw))
+        return {
+            "in_band_ratio": values[0],
+            "overshoot_c": values[1],
+            "settling_sec": values[2],
+            "mean_abs_error": values[3],
+            "saturation_ratio": values[4],
+            "temp_swing": values[5],
+        }, None
+
     if not isinstance(raw, dict):
         return {}, None
 
@@ -171,6 +197,17 @@ def _resolve_preview_summary(raw: object) -> tuple[dict[str, Any], Optional[str]
 
 def _resolve_comparison(raw: object) -> dict[str, Any]:
     if not isinstance(raw, dict):
+        if isinstance(raw, list):
+            # Compact list format: [ib, ov, st, ma, sr, sw]
+            values = list(raw) + [None] * (6 - len(raw))
+            return {
+                "in_band_ratio_delta": values[0],
+                "overshoot_c_delta": values[1],
+                "settling_sec_delta": values[2],
+                "mean_abs_error_delta": values[3],
+                "saturation_ratio_delta": values[4],
+                "temp_swing_delta": values[5],
+            }
         return {}
     if any(
         key in raw
@@ -242,6 +279,151 @@ def _safe_pid_value(params: Optional[dict[str, Any]], key: str) -> Optional[floa
     return _as_float(params.get(key))
 
 
+def _decode_compact_pid(raw: object) -> Optional[dict[str, float]]:
+    if isinstance(raw, dict):
+        kp = _as_float(raw.get("kp"))
+        ki = _as_float(raw.get("ki"))
+        kd = _as_float(raw.get("kd"))
+        if kp is None or ki is None or kd is None:
+            return None
+        return {"kp": kp, "ki": ki, "kd": kd}
+    if isinstance(raw, list):
+        values = list(raw) + [None] * (3 - len(raw))
+        kp = _as_float(values[0])
+        ki = _as_float(values[1])
+        kd = _as_float(values[2])
+        if kp is None or ki is None or kd is None:
+            return None
+        return {"kp": kp, "ki": ki, "kd": kd}
+    return None
+
+
+def _decode_compact_evidence(raw: object) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        mapping = {
+            "me": "mean_error",
+            "ma": "mean_abs_error",
+            "es": "error_std",
+            "sw": "temp_swing",
+            "pm": "pwm_mean",
+            "px": "pwm_max",
+            "zc": "zero_crossings",
+            "ib": "in_band_ratio",
+            "ovp": "overshoot_pct",
+            "st": "settling_sec",
+            "sr": "saturation_ratio",
+        }
+        out: dict[str, Any] = {}
+        for short_key, full_key in mapping.items():
+            if short_key in raw:
+                out[full_key] = raw.get(short_key)
+        return out
+    if isinstance(raw, list):
+        # Compact list format:
+        # [mean_error, mean_abs_error, error_std, temp_swing, pwm_mean, pwm_max,
+        #  zero_crossings, in_band_ratio, overshoot_pct, settling_sec, saturation_ratio]
+        values = list(raw) + [None] * (11 - len(raw))
+        return {
+            "mean_error": values[0],
+            "mean_abs_error": values[1],
+            "error_std": values[2],
+            "temp_swing": values[3],
+            "pwm_mean": values[4],
+            "pwm_max": values[5],
+            "zero_crossings": values[6],
+            "in_band_ratio": values[7],
+            "overshoot_pct": values[8],
+            "settling_sec": values[9],
+            "saturation_ratio": values[10],
+        }
+    return {}
+
+
+def _normalize_compact_metadata(raw_meta: dict[str, Any]) -> dict[str, Any]:
+    if not raw_meta:
+        return {}
+    out = dict(raw_meta)
+    if "h" in raw_meta and "hs" not in raw_meta:
+        state_raw = str(raw_meta.get("h") or "").strip().lower()
+        state_map = {
+            "a": "applied",
+            "applied": "applied",
+            "g": "generated",
+            "generated": "generated",
+            "p": "previewed",
+            "previewed": "previewed",
+            "d": "dismissed",
+            "dismissed": "dismissed",
+            "e": "expired",
+            "expired": "expired",
+        }
+        out["hs"] = state_map.get(state_raw, state_raw)
+    if "a" in raw_meta and "aee" not in raw_meta:
+        out["aee"] = raw_meta.get("a")
+    if "i" in raw_meta and "pei" not in raw_meta:
+        out["pei"] = raw_meta.get("i")
+    if "w" in raw_meta and "pew" not in raw_meta:
+        out["pew"] = raw_meta.get("w")
+    if "t" in raw_meta and "apa" not in raw_meta:
+        t = raw_meta.get("t")
+        ts_int = _as_int(t)
+        if ts_int is not None:
+            out["apa"] = datetime.utcfromtimestamp(float(ts_int)).replace(microsecond=0).isoformat()
+        elif isinstance(t, str):
+            out["apa"] = t
+    if "cb" in raw_meta and "pecb" not in raw_meta:
+        out["pecb"] = _resolve_comparison(raw_meta.get("cb"))
+    if "cg" in raw_meta and "pecp" not in raw_meta:
+        out["pecp"] = _resolve_comparison(raw_meta.get("cg"))
+    if "pv" in raw_meta and "pvs" not in raw_meta:
+        pv_metrics, _ = _resolve_preview_summary(raw_meta.get("pv"))
+        out["pvs"] = pv_metrics
+    if "pe" in raw_meta:
+        out["pe"] = _resolve_post_effect_summary(raw_meta.get("pe"))
+    return out
+
+
+def _extract_compact_payload_fields(suggestion: str) -> dict[str, Any]:
+    if not suggestion:
+        return {}
+    try:
+        body = json.loads(suggestion)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(body, dict) or body.get("f") != "ai_rec":
+        return {}
+    payload = body.get("p")
+    if not isinstance(payload, dict):
+        return {}
+
+    out: dict[str, Any] = {}
+
+    cp = _decode_compact_pid(payload.get("cp"))
+    rp = _decode_compact_pid(payload.get("rp"))
+    d = _decode_compact_pid(payload.get("d"))
+    if cp is not None:
+        out["current_params"] = cp
+    if rp is not None:
+        out["recommended_params"] = rp
+    if d is not None:
+        out["delta"] = d
+    elif cp is not None and rp is not None:
+        out["delta"] = {
+            "kp": round(float(rp["kp"]) - float(cp["kp"]), 6),
+            "ki": round(float(rp["ki"]) - float(cp["ki"]), 6),
+            "kd": round(float(rp["kd"]) - float(cp["kd"]), 6),
+        }
+
+    evidence = _decode_compact_evidence(payload.get("ev"))
+    if evidence:
+        out["evidence"] = evidence
+
+    meta = payload.get("m")
+    if isinstance(meta, dict):
+        out["metadata"] = _normalize_compact_metadata(meta)
+    return out
+
+
 class RecommendationFeedbackDatasetBuilder:
     def __init__(self, recommendation_service: Optional[RecommendationService] = None) -> None:
         self.recommendation_service = recommendation_service or RecommendationService()
@@ -262,7 +444,20 @@ class RecommendationFeedbackDatasetBuilder:
             fallback_current_params=fallback_current_params,
         )
         payload = self.recommendation_service.parse_suggestion_payload(recommendation.suggestion) or {}
+        compact_fields = _extract_compact_payload_fields(recommendation.suggestion)
+        if "current_params" in compact_fields and "current_params" not in payload:
+            payload["current_params"] = compact_fields.get("current_params")
+        if "recommended_params" in compact_fields and "recommended_params" not in payload:
+            payload["recommended_params"] = compact_fields.get("recommended_params")
+        if "delta" in compact_fields and "delta" not in payload:
+            payload["delta"] = compact_fields.get("delta")
+        if "evidence" in compact_fields and "evidence" not in payload:
+            payload["evidence"] = compact_fields.get("evidence")
+
         metadata = self.recommendation_service.read_storage_metadata(recommendation.suggestion)
+        compact_meta = compact_fields.get("metadata")
+        if isinstance(compact_meta, dict):
+            metadata = {**compact_meta, **metadata}
 
         post_effect_summary = _resolve_post_effect_summary(metadata.get("pe"))
         comparison_before = _resolve_comparison(metadata.get("pecb"))
@@ -320,6 +515,43 @@ class RecommendationFeedbackDatasetBuilder:
         evidence = payload.get("evidence") if isinstance(payload.get("evidence"), dict) else {}
 
         preview_metrics, preview_source = _resolve_preview_summary(metadata.get("pvs"))
+        if not comparison_preview and preview_metrics and post_effect_summary:
+            # Derive preview-vs-actual deltas when compact seed stores preview and
+            # actual metrics but omits explicit comparison payload to save space.
+            actual_preview_like = {
+                "in_band_ratio": _as_float(post_effect_summary.get("in_band_ratio_after")),
+                "overshoot_c": _as_float(post_effect_summary.get("overshoot_c_after")),
+                "settling_sec": _as_float(post_effect_summary.get("settling_sec_after")),
+                "mean_abs_error": _as_float(post_effect_summary.get("mean_abs_error_after")),
+                "saturation_ratio": _as_float(post_effect_summary.get("saturation_ratio_after")),
+                "temp_swing": _as_float(post_effect_summary.get("temp_swing_after")),
+            }
+            if all(v is not None for v in actual_preview_like.values()):
+                comparison_preview = {
+                    "in_band_ratio_delta": round(
+                        float(actual_preview_like["in_band_ratio"]) - float(_as_float(preview_metrics.get("in_band_ratio")) or 0.0),
+                        6,
+                    ),
+                    "overshoot_c_delta": round(
+                        float(_as_float(preview_metrics.get("overshoot_c")) or 0.0) - float(actual_preview_like["overshoot_c"]),
+                        6,
+                    ),
+                    "settling_sec_delta": None
+                    if _as_float(preview_metrics.get("settling_sec")) is None
+                    else round(float(_as_float(preview_metrics.get("settling_sec")) or 0.0) - float(actual_preview_like["settling_sec"]), 6),
+                    "mean_abs_error_delta": round(
+                        float(_as_float(preview_metrics.get("mean_abs_error")) or 0.0) - float(actual_preview_like["mean_abs_error"]),
+                        6,
+                    ),
+                    "saturation_ratio_delta": round(
+                        float(_as_float(preview_metrics.get("saturation_ratio")) or 0.0) - float(actual_preview_like["saturation_ratio"]),
+                        6,
+                    ),
+                    "temp_swing_delta": round(
+                        float(_as_float(preview_metrics.get("temp_swing")) or 0.0) - float(actual_preview_like["temp_swing"]),
+                        6,
+                    ),
+                }
 
         effect_outcome = _derive_effect_outcome(comparison_before if comparison_before else None)
         if history_state != "applied" and not actual_effect_evaluated:

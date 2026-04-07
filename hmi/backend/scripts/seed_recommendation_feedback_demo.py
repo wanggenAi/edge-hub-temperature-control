@@ -355,29 +355,28 @@ def write_td_telemetry_rows(
         td_query_safe(td, batch_sql)
 
 
-def compact_metrics(metrics: dict[str, Optional[float]]) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for source_key, target_key in (
-        ("in_band_ratio", "ib"),
-        ("mean_abs_error", "ma"),
-        ("saturation_ratio", "sr"),
-    ):
-        value = metrics.get(source_key)
-        if value is None:
-            continue
-        out[target_key] = round(float(value), 4)
-    return out
+def compact_metrics(metrics: dict[str, Optional[float]]) -> list[Optional[float]]:
+    # Compact list format: [ib, ov, st, ma, sr, sw]
+    return [
+        None if metrics.get("in_band_ratio") is None else round(float(metrics.get("in_band_ratio") or 0.0), 3),
+        None if metrics.get("overshoot_c") is None else round(float(metrics.get("overshoot_c") or 0.0), 3),
+        None if metrics.get("settling_sec") is None else round(float(metrics.get("settling_sec") or 0.0), 3),
+        None if metrics.get("mean_abs_error") is None else round(float(metrics.get("mean_abs_error") or 0.0), 3),
+        None if metrics.get("saturation_ratio") is None else round(float(metrics.get("saturation_ratio") or 0.0), 3),
+        None if metrics.get("temp_swing") is None else round(float(metrics.get("temp_swing") or 0.0), 3),
+    ]
 
 
-def compact_comparison(comparison: dict[str, Optional[float]]) -> dict[str, float]:
-    out: dict[str, float] = {}
-    if comparison.get("in_band_ratio_delta") is not None:
-        out["ib"] = round(float(comparison["in_band_ratio_delta"]), 4)
-    if comparison.get("mean_abs_error_delta") is not None:
-        out["ma"] = round(float(comparison["mean_abs_error_delta"]), 4)
-    if comparison.get("saturation_ratio_delta") is not None:
-        out["sr"] = round(float(comparison["saturation_ratio_delta"]), 4)
-    return out
+def compact_comparison(comparison: dict[str, Optional[float]]) -> list[Optional[float]]:
+    # Compact list format: [ib, ov, st, ma, sr, sw]
+    return [
+        None if comparison.get("in_band_ratio_delta") is None else round(float(comparison.get("in_band_ratio_delta") or 0.0), 3),
+        None if comparison.get("overshoot_c_delta") is None else round(float(comparison.get("overshoot_c_delta") or 0.0), 3),
+        None if comparison.get("settling_sec_delta") is None else round(float(comparison.get("settling_sec_delta") or 0.0), 3),
+        None if comparison.get("mean_abs_error_delta") is None else round(float(comparison.get("mean_abs_error_delta") or 0.0), 3),
+        None if comparison.get("saturation_ratio_delta") is None else round(float(comparison.get("saturation_ratio_delta") or 0.0), 3),
+        None if comparison.get("temp_swing_delta") is None else round(float(comparison.get("temp_swing_delta") or 0.0), 3),
+    ]
 
 
 def build_history_input(
@@ -420,22 +419,52 @@ def build_history_input(
 
 def build_compact_suggestion(
     *,
+    current: PIDParams,
     recommended: PIDParams,
+    evidence: dict[str, Any],
     metadata: dict[str, Any],
 ) -> str:
+    ev_values = [
+        None if evidence.get("mean_error") is None else round(float(evidence.get("mean_error") or 0.0), 3),
+        None if evidence.get("mean_abs_error") is None else round(float(evidence.get("mean_abs_error") or 0.0), 3),
+        None if evidence.get("error_std") is None else round(float(evidence.get("error_std") or 0.0), 3),
+        None if evidence.get("temp_swing") is None else round(float(evidence.get("temp_swing") or 0.0), 3),
+        None if evidence.get("pwm_mean") is None else round(float(evidence.get("pwm_mean") or 0.0), 3),
+        None if evidence.get("pwm_max") is None else round(float(evidence.get("pwm_max") or 0.0), 3),
+        None if evidence.get("zero_crossings") is None else int(evidence.get("zero_crossings") or 0),
+        None if evidence.get("in_band_ratio") is None else round(float(evidence.get("in_band_ratio") or 0.0), 3),
+        None if evidence.get("overshoot_pct") is None else round(float(evidence.get("overshoot_pct") or 0.0), 3),
+        None if evidence.get("settling_sec") is None else round(float(evidence.get("settling_sec") or 0.0), 3),
+        None if evidence.get("saturation_ratio") is None else round(float(evidence.get("saturation_ratio") or 0.0), 3),
+    ]
+
     payload = {
         "f": "ai_rec",
-        "v": "1",
         "p": {
-            "rp": {
-                "kp": round(float(recommended.kp), 4),
-                "ki": round(float(recommended.ki), 4),
-                "kd": round(float(recommended.kd), 4),
-            },
+            # Compact params format to preserve recommendation context under varchar(255).
+            "cp": [round(float(current.kp), 3), round(float(current.ki), 3), round(float(current.kd), 3)],
+            "rp": [round(float(recommended.kp), 3), round(float(recommended.ki), 3), round(float(recommended.kd), 3)],
+            # Compact evidence format:
+            # [mean_error, mean_abs_error, error_std, temp_swing, pwm_mean, pwm_max,
+            #  zero_crossings, in_band_ratio, overshoot_pct, settling_sec, saturation_ratio]
+            "ev": ev_values,
             "m": metadata,
         },
     }
     text = json.dumps(payload, separators=(",", ":"))
+    if len(text) > 255:
+        # Keep core evidence first; trim less critical tail to satisfy varchar(255).
+        # Order retained: mean_error, mean_abs_error, error_std, temp_swing, pwm_mean,
+        # in_band_ratio, settling_sec, saturation_ratio.
+        trim_order = [5, 6, 8, 9]  # pwm_max, zero_crossings, overshoot_pct, settling_sec(last resort)
+        compact = list(ev_values)
+        for idx in trim_order:
+            if idx < len(compact):
+                compact[idx] = None
+                payload["p"]["ev"] = compact
+                text = json.dumps(payload, separators=(",", ":"))
+                if len(text) <= 255:
+                    break
     if len(text) > 255:
         raise ValueError(f"Seed suggestion exceeds varchar(255): len={len(text)}")
     return text
@@ -639,11 +668,9 @@ def seed_one_recommendation(
     risk = f"{generated.risk_level.value}; requires_confirmation={generated.requires_confirmation}"
 
     metadata: dict[str, Any] = {
-        "hs": "applied",
-        "apa": compact_iso_seconds(applied_at),
-        "pew": int(observation_window_minutes),
-        "dm": 1,
-        "ds": scenario,
+        # Compact metadata keys to keep suggestion varchar(255)-safe.
+        "h": "a",  # applied
+        "w": int(observation_window_minutes),
     }
 
     expected_status = "not_applied"
@@ -665,34 +692,39 @@ def seed_one_recommendation(
         comparison_preview = evaluator.compare(reference=preview_output.recommended_metrics, actual=actual_metrics)
         actual_summary = evaluator.build_actual_summary(points=actual_points, metrics=actual_metrics)
 
-        metadata["aee"] = 1
-        metadata["pei"] = 0
-        metadata["pecb"] = compact_comparison(comparison_before.model_dump(mode="json"))
-        metadata["pecp"] = compact_comparison(comparison_preview.model_dump(mode="json"))
-        metadata["pvs"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
-        metadata["pe"] = {
-            **compact_metrics(
-                {
-                    "in_band_ratio": actual_summary.in_band_ratio_after,
-                    "mean_abs_error": actual_summary.mean_abs_error_after,
-                    "saturation_ratio": actual_summary.saturation_ratio_after,
-                }
-            ),
-            "pc": int(actual_summary.point_count),
-        }
+        metadata["a"] = 1
+        metadata["i"] = 0
+        metadata["cb"] = compact_comparison(comparison_before.model_dump(mode="json"))
+        metadata["pv"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
+        # Compact actual summary list format: [ib, ov, st, ma, sr, sw, pc]
+        metadata["pe"] = compact_metrics(
+            {
+                "in_band_ratio": actual_summary.in_band_ratio_after,
+                "overshoot_c": actual_summary.overshoot_c_after,
+                "settling_sec": actual_summary.settling_sec_after,
+                "mean_abs_error": actual_summary.mean_abs_error_after,
+                "saturation_ratio": actual_summary.saturation_ratio_after,
+                "temp_swing": actual_summary.temp_swing_after,
+            }
+        ) + [int(actual_summary.point_count)]
         expected_status = "completed"
     elif actual_status == "insufficient_data":
-        metadata["aee"] = 0
-        metadata["pei"] = 1
-        metadata["pvs"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
+        metadata["a"] = 0
+        metadata["i"] = 1
+        metadata["pv"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
         expected_status = "insufficient_data"
     else:
-        metadata["aee"] = 0
-        metadata["pei"] = 0
-        metadata["pvs"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
+        metadata["a"] = 0
+        metadata["i"] = 0
+        metadata["pv"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
         expected_status = "pending"
 
-    suggestion = build_compact_suggestion(recommended=recommended_params, metadata=metadata)
+    suggestion = build_compact_suggestion(
+        current=PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd)),
+        recommended=recommended_params,
+        evidence=generated.evidence if isinstance(generated.evidence, dict) else {},
+        metadata=metadata,
+    )
 
     rec = AIRecommendation(
         device_id=device.id,
