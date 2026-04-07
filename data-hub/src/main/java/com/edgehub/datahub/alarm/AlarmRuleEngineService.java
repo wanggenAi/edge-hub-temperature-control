@@ -1,5 +1,17 @@
 package com.edgehub.datahub.alarm;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.edgehub.datahub.config.HubProperties;
 import com.edgehub.datahub.model.AlarmFactEvent;
 import com.edgehub.datahub.model.DeviceStatusSnapshot;
@@ -11,16 +23,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 @Service
 public final class AlarmRuleEngineService {
@@ -31,7 +33,8 @@ public final class AlarmRuleEngineService {
   private final ObjectMapper objectMapper;
   private final Cache<String, FsmStateSnapshot> fsmStateByDeviceRule;
 
-  public AlarmRuleEngineService(HubProperties properties, RuleConfigService ruleConfigService, ObjectMapper objectMapper) {
+  public AlarmRuleEngineService(HubProperties properties, RuleConfigService ruleConfigService,
+      ObjectMapper objectMapper) {
     this.ruleConfigService = ruleConfigService;
     this.objectMapper = objectMapper;
     this.fsmStateByDeviceRule = Caffeine.newBuilder()
@@ -134,10 +137,9 @@ public final class AlarmRuleEngineService {
     }
 
     double saturationThreshold = thresholdAsDouble("high_saturation", 85d);
-    boolean highSaturation =
-        payload.pwm_duty() >= saturationThreshold
-            || "high".equalsIgnoreCase(payload.saturation_state())
-            || "saturated".equalsIgnoreCase(payload.saturation_state());
+    boolean highSaturation = payload.pwm_duty() >= saturationThreshold
+        || "high".equalsIgnoreCase(payload.saturation_state())
+        || "saturated".equalsIgnoreCase(payload.saturation_state());
     Map<String, Object> saturationContext = new LinkedHashMap<>();
     saturationContext.put("pwm_duty", payload.pwm_duty());
     saturationContext.put("threshold", saturationThreshold);
@@ -309,7 +311,8 @@ public final class AlarmRuleEngineService {
         if (elapsedSeconds(next.firstClearCandidateAt, observed) >= holdSeconds) {
           next.state = AlarmState.INACTIVE;
           next.lastTransitionAt = observed;
-          event = buildClearedEvent(deviceId, ruleCode, severity, source, reason, observed, previous.activeSince, context);
+          event = buildClearedEvent(deviceId, ruleCode, severity, source, reason, observed, previous.activeSince,
+              context);
           next.activeSince = null;
           next.firstMatchAt = null;
           next.firstClearCandidateAt = null;
@@ -433,6 +436,7 @@ public final class AlarmRuleEngineService {
     ACTIVE("active"),
     PENDING_CLEAR("pending_clear");
 
+    @SuppressWarnings("unused")
     private final String value;
 
     AlarmState(String value) {

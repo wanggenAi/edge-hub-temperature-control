@@ -1,24 +1,26 @@
 package com.edgehub.datahub.rules;
 
-import com.edgehub.datahub.config.HubProperties;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import jakarta.annotation.PostConstruct;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
+import com.edgehub.datahub.config.HubProperties;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
+import jakarta.annotation.PostConstruct;
 
 @Service
 public final class RuleConfigService {
@@ -49,9 +51,7 @@ public final class RuleConfigService {
     refreshAll("startup");
   }
 
-  @Scheduled(
-      initialDelayString = "${datahub.rule-store.refresh-interval-ms:300000}",
-      fixedDelayString = "${datahub.rule-store.refresh-interval-ms:300000}")
+  @Scheduled(initialDelayString = "${datahub.rule-store.refresh-interval-ms:300000}", fixedDelayString = "${datahub.rule-store.refresh-interval-ms:300000}")
   public void scheduledRefresh() {
     refreshAll("scheduled");
   }
@@ -235,9 +235,12 @@ public final class RuleConfigService {
             Math.max(0d, rs.getObject("sim_temp_deadband") == null ? 0.05d : rs.getDouble("sim_temp_deadband")),
             Math.max(0d, rs.getObject("sensor_temp_deadband") == null ? 0.05d : rs.getDouble("sensor_temp_deadband")),
             Math.max(0d, rs.getObject("error_deadband") == null ? 0.02d : rs.getDouble("error_deadband")),
-            Math.max(0d, rs.getObject("integral_error_deadband") == null ? 1.0d : rs.getDouble("integral_error_deadband")),
-            Math.max(0d, rs.getObject("control_output_deadband") == null ? 1.0d : rs.getDouble("control_output_deadband")),
-            Math.max(0, (int) Math.round(rs.getObject("pwm_duty_deadband") == null ? 1d : rs.getDouble("pwm_duty_deadband"))),
+            Math.max(0d,
+                rs.getObject("integral_error_deadband") == null ? 1.0d : rs.getDouble("integral_error_deadband")),
+            Math.max(0d,
+                rs.getObject("control_output_deadband") == null ? 1.0d : rs.getDouble("control_output_deadband")),
+            Math.max(0,
+                (int) Math.round(rs.getObject("pwm_duty_deadband") == null ? 1d : rs.getDouble("pwm_duty_deadband"))),
             Math.max(0d, rs.getObject("pwm_norm_deadband") == null ? 0.01d : rs.getDouble("pwm_norm_deadband")),
             Math.max(0d, rs.getObject("parameter_deadband") == null ? 0.01d : rs.getDouble("parameter_deadband")),
             rs.getObject("enabled") == null || rs.getBoolean("enabled"));
@@ -330,15 +333,25 @@ public final class RuleConfigService {
 
   private Map<String, AlarmRuleDefinition> defaultAlarmRules() {
     Map<String, AlarmRuleDefinition> defaults = new LinkedHashMap<>();
-    defaults.put("out_of_band", new AlarmRuleDefinition("out_of_band", "Out of Band", "temperature_error", ">", "0.5", 30, "warning", true, "global", "*"));
-    defaults.put("sensor_invalid", new AlarmRuleDefinition("sensor_invalid", "Sensor Invalid", "sensor_valid", "==", "false", 10, "critical", true, "global", "*"));
-    defaults.put("high_saturation", new AlarmRuleDefinition("high_saturation", "High Saturation", "pwm_output", ">=", "85", 60, "warning", true, "global", "*"));
-    defaults.put("fault_latched", new AlarmRuleDefinition("fault_latched", "Fault Latched", "fault_latched", "==", "true", 0, "critical", true, "global", "*"));
-    defaults.put("safety_output_forced_off", new AlarmRuleDefinition("safety_output_forced_off", "Safety Output Forced Off", "safety_output_forced_off", "==", "true", 0, "critical", true, "global", "*"));
-    defaults.put("max_safe_temp_exceeded", new AlarmRuleDefinition("max_safe_temp_exceeded", "Software Max Safe Temp Exceeded", "sensor_temp_c", ">", "dynamic_from_payload", 0, "critical", true, "global", "*"));
-    defaults.put("control_dt_deviation", new AlarmRuleDefinition("control_dt_deviation", "Control Dt Deviation", "dt_error_ms", ">=", "200", 20, "warning", true, "global", "*"));
-    defaults.put("param_apply_failed", new AlarmRuleDefinition("param_apply_failed", "Param Apply Failed", "params_ack", "==", "failed", 5, "warning", true, "global", "*"));
-    defaults.put("device_offline", new AlarmRuleDefinition("device_offline", "Device Offline", "telemetry_gap", ">", "60", 60, "critical", true, "global", "*"));
+    defaults.put("out_of_band", new AlarmRuleDefinition("out_of_band", "Out of Band", "temperature_error", ">", "0.5",
+        30, "warning", true, "global", "*"));
+    defaults.put("sensor_invalid", new AlarmRuleDefinition("sensor_invalid", "Sensor Invalid", "sensor_valid", "==",
+        "false", 10, "critical", true, "global", "*"));
+    defaults.put("high_saturation", new AlarmRuleDefinition("high_saturation", "High Saturation", "pwm_output", ">=",
+        "85", 60, "warning", true, "global", "*"));
+    defaults.put("fault_latched", new AlarmRuleDefinition("fault_latched", "Fault Latched", "fault_latched", "==",
+        "true", 0, "critical", true, "global", "*"));
+    defaults.put("safety_output_forced_off", new AlarmRuleDefinition("safety_output_forced_off",
+        "Safety Output Forced Off", "safety_output_forced_off", "==", "true", 0, "critical", true, "global", "*"));
+    defaults.put("max_safe_temp_exceeded",
+        new AlarmRuleDefinition("max_safe_temp_exceeded", "Software Max Safe Temp Exceeded", "sensor_temp_c", ">",
+            "dynamic_from_payload", 0, "critical", true, "global", "*"));
+    defaults.put("control_dt_deviation", new AlarmRuleDefinition("control_dt_deviation", "Control Dt Deviation",
+        "dt_error_ms", ">=", "200", 20, "warning", true, "global", "*"));
+    defaults.put("param_apply_failed", new AlarmRuleDefinition("param_apply_failed", "Param Apply Failed", "params_ack",
+        "==", "failed", 5, "warning", true, "global", "*"));
+    defaults.put("device_offline", new AlarmRuleDefinition("device_offline", "Device Offline", "telemetry_gap", ">",
+        "60", 60, "critical", true, "global", "*"));
     return defaults;
   }
 
