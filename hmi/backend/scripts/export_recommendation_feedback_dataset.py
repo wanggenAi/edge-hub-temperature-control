@@ -51,6 +51,8 @@ def _format_float(value: Optional[float], digits: int = 6) -> str:
 def print_summary(*, title: str, summary: RecommendationFeedbackDatasetSummary) -> None:
     print(title)
     print(f"  total recommendation records: {summary.total_recommendation_records}")
+    print(f"  unique recommendation ids: {summary.unique_recommendation_ids}")
+    print(f"  duplicate recommendation ids count: {summary.duplicate_recommendation_ids_count}")
     print(f"  applied recommendation records: {summary.applied_recommendation_records}")
     print(f"  evaluated recommendation records: {summary.evaluated_recommendation_records}")
     print(f"  insufficient_data count: {summary.insufficient_data_count}")
@@ -104,6 +106,7 @@ def main() -> None:
         db.close()
 
     exported_rows = [row for row in all_rows if bool(row.get("feedback_usable_for_training"))] if args.only_usable else all_rows
+    builder.validate_feedback_dataset(exported_rows)
 
     df = pd.DataFrame(exported_rows)
     output_path.parent.mkdir(parents=True, exist_ok=True)

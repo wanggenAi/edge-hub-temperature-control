@@ -15,6 +15,8 @@ from app.services.ai.recommendation_service import RecommendationService
 @dataclass
 class RecommendationFeedbackDatasetSummary:
     total_recommendation_records: int = 0
+    unique_recommendation_ids: int = 0
+    duplicate_recommendation_ids_count: int = 0
     applied_recommendation_records: int = 0
     evaluated_recommendation_records: int = 0
     insufficient_data_count: int = 0
@@ -281,13 +283,19 @@ class RecommendationFeedbackDatasetBuilder:
         effect_outcome = _derive_effect_outcome(comparison_before if comparison_before else None)
         if history_state != "applied" and not actual_effect_evaluated:
             effect_outcome = "pending"
+        elif insufficient_data:
+            # Insufficient post-apply telemetry means outcome is not reliable yet.
+            # Keep it non-completed to avoid mixing with true evaluated outcomes.
+            effect_outcome = "pending"
 
         if history_state != "applied":
             evaluation_status = "not_applied"
+        elif insufficient_data:
+            # Domain semantic: once marked insufficient_data after apply, this state
+            # should outrank pending even when aee/post-effect summary is missing.
+            evaluation_status = "insufficient_data"
         elif not actual_effect_evaluated:
             evaluation_status = "pending"
-        elif insufficient_data:
-            evaluation_status = "insufficient_data"
         else:
             evaluation_status = "completed"
 
@@ -401,10 +409,12 @@ class RecommendationFeedbackDatasetBuilder:
         limit: Optional[int] = None,
         only_usable: bool = False,
     ) -> Iterable[dict[str, Any]]:
+        # Avoid joining DeviceParameter in the main query: one device may have
+        # multiple parameter rows, which can multiply one recommendation into
+        # duplicated dataset samples.
         stmt = (
-            select(AIRecommendation, Device, DeviceParameter)
+            select(AIRecommendation, Device)
             .join(Device, Device.id == AIRecommendation.device_id)
-            .outerjoin(DeviceParameter, DeviceParameter.device_id == Device.id)
             .order_by(AIRecommendation.last_run_at.asc(), AIRecommendation.id.asc())
         )
         if device_id is not None:
@@ -413,7 +423,25 @@ class RecommendationFeedbackDatasetBuilder:
             stmt = stmt.limit(max(1, int(limit)))
 
         rows = db.execute(stmt).all()
-        for recommendation, device, params in rows:
+        seen_recommendation_ids: set[int] = set()
+        latest_params_cache: dict[int, Optional[DeviceParameter]] = {}
+
+        for recommendation, device in rows:
+            if recommendation.id in seen_recommendation_ids:
+                raise ValueError(
+                    f"Duplicate recommendation_id detected during dataset build: {recommendation.id}"
+                )
+            seen_recommendation_ids.add(recommendation.id)
+
+            params = latest_params_cache.get(device.id)
+            if device.id not in latest_params_cache:
+                params = db.scalar(
+                    select(DeviceParameter)
+                    .where(DeviceParameter.device_id == device.id)
+                    .order_by(DeviceParameter.updated_at.desc(), DeviceParameter.id.desc())
+                    .limit(1)
+                )
+                latest_params_cache[device.id] = params
             fallback = PIDParams(
                 kp=float(params.kp) if params is not None else 0.0,
                 ki=float(params.ki) if params is not None else 0.0,
@@ -436,7 +464,7 @@ class RecommendationFeedbackDatasetBuilder:
         limit: Optional[int] = None,
         only_usable: bool = False,
     ) -> list[dict[str, Any]]:
-        return list(
+        rows = list(
             self.iter_feedback_samples(
                 db=db,
                 device_id=device_id,
@@ -444,11 +472,33 @@ class RecommendationFeedbackDatasetBuilder:
                 only_usable=only_usable,
             )
         )
+        self.validate_feedback_dataset(rows)
+        return rows
+
+    def validate_feedback_dataset(self, rows: Iterable[dict[str, Any]]) -> None:
+        items = list(rows)
+        recommendation_ids = [int(r["recommendation_id"]) for r in items if r.get("recommendation_id") is not None]
+        unique_count = len(set(recommendation_ids))
+        duplicate_count = len(recommendation_ids) - unique_count
+        if duplicate_count > 0:
+            raise ValueError(
+                f"Duplicate recommendation_id found in feedback dataset: duplicates={duplicate_count}"
+            )
+
+        for row in items:
+            if bool(row.get("feedback_usable_for_training")) and bool(row.get("insufficient_data")):
+                rid = row.get("recommendation_id")
+                raise ValueError(
+                    f"Invalid feedback sample: recommendation_id={rid} marked usable but insufficient_data=true"
+                )
 
     def summarize_feedback_dataset(self, rows: Iterable[dict[str, Any]]) -> RecommendationFeedbackDatasetSummary:
         items = list(rows)
         summary = RecommendationFeedbackDatasetSummary()
         summary.total_recommendation_records = len(items)
+        recommendation_ids = [int(r["recommendation_id"]) for r in items if r.get("recommendation_id") is not None]
+        summary.unique_recommendation_ids = len(set(recommendation_ids))
+        summary.duplicate_recommendation_ids_count = len(recommendation_ids) - summary.unique_recommendation_ids
         summary.applied_recommendation_records = sum(1 for r in items if r.get("history_state") == "applied")
         summary.evaluated_recommendation_records = sum(1 for r in items if bool(r.get("actual_effect_evaluated")))
         summary.insufficient_data_count = sum(1 for r in items if bool(r.get("insufficient_data")))
