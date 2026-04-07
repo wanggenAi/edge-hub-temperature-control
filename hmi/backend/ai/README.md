@@ -31,7 +31,16 @@ Rank recommendation candidates:
 hmi/backend/.venv/bin/python hmi/backend/ai/scripts/rank_candidate_recommendations.py
 ```
 
+Prepare or refresh recommendation feedback dataset:
+
+```bash
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/export_recommendation_feedback_dataset.py
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/seed_recommendation_feedback_demo.py
+```
+
 ## Notes
 
 - Legacy wrappers under `hmi/backend/scripts/` have been removed.
 - Keep command references aligned to `hmi/backend/ai/scripts/*`.
+
+Documentation sync date: 2026-04-07.

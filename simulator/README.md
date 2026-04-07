@@ -25,4 +25,4 @@ The simulation baseline is actively used by both:
 - `data-hub` MQTT ingestion tests
 - `hmi` realtime and history demos
 
-Documentation sync date: 2026-04-04.
+Documentation sync date: 2026-04-07.

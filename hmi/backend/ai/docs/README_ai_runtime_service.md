@@ -22,3 +22,5 @@ In `hmi/backend/.env`:
 - `AI_RUNTIME_REMOTE_API_KEY=...` (optional)
 
 When remote inference fails, HMI automatically falls back to local runtime logic, so recommendation flow stays available.
+
+Documentation sync date: 2026-04-07.

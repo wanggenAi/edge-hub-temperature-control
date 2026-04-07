@@ -11,3 +11,5 @@ Notes:
 - Wokwi and real-hardware assembly are switched by build macro.
 - Application logic is shared across both modes:
   `MQTT / params / ack / runtime config`.
+
+Documentation sync date: 2026-04-07.

@@ -1,55 +1,110 @@
 # EdgeHub Temperature Control
 
-EdgeHub is a three-layer temperature-control engineering repository:
+EdgeHub is an end-to-end temperature-control engineering repository with four
+active runtime/data layers:
 
-1. Edge Control Layer: ESP32 control loop (simulator + real-hardware build profile), MQTT telemetry, params/set + params/ack.
-2. Data Hub Layer: Java/Spring ingestion, buffering/backpressure, persistence abstraction.
-3. Application Layer: HMI backend/frontend, recommendation workflow, AI runtime integration.
+1. Edge control (`simulator/wokwi`): ESP32 firmware (simulation + real-hardware profile), MQTT telemetry, `params/set`, `params/ack`.
+2. Ingestion layer (`data-hub`): Java/Spring Boot MQTT consumer with bounded backpressure and storage routing (TDengine/log).
+3. Application layer (`hmi`): FastAPI backend + React frontend + AI runtime integration for recommendations.
+4. Offline data pipeline (`ml`): TDengine export and feature/label dataset preparation.
 
-## Active Modules
+## Technology Stack (Current Codebase)
 
-- `simulator/wokwi`: edge firmware baseline (simulator + real hardware profiles).
-- `data-hub`: MQTT ingest + TDengine/other storage routing.
-- `hmi`: FastAPI backend + frontend portal + AI runtime integration.
-- `ml`: offline training-data pipeline.
-- `docs/deployment`: deployment and integration guides.
-
-## Quick Start
-
-1. Edge simulation / firmware profile guide: `simulator/wokwi/README.md`
-2. Data hub setup: `data-hub/README.md`
-3. HMI + AI runtime setup: `hmi/README.md`
-4. Deployment docs: `docs/deployment/README.md`
-5. Repository cleanup/audit notes: `docs/repository-maintenance-audit.md`
+- Edge firmware: PlatformIO + Arduino framework on ESP32 (`simulator/wokwi/platformio.ini`)
+- Data hub: Java 17, Spring Boot 3.4.x, Gradle wrapper, Reactor, HiveMQ MQTT client
+- HMI backend: Python + FastAPI + SQLAlchemy + Alembic + PostgreSQL
+- HMI frontend: React 18 + TypeScript + Vite + Tailwind CSS
+- AI/runtime helpers: Python scripts under `hmi/backend/ai/scripts`
+- Time-series and messaging: TDengine + MQTT broker (Mosquitto or compatible)
+- Infra (local dev): Docker Compose files for PostgreSQL, TDengine, Redis
 
 ## Repository Layout
 
 ```text
 edge-hub-temperature-control/
-├── simulator/             Edge firmware (Wokwi + real-hardware profile)
-├── data-hub/              Java ingestion and routing service
-├── hmi/                   Backend, frontend, AI runtime module
-├── ml/                    Offline data pipeline for model preparation
-├── docs/                  Architecture and deployment documentation
+├── simulator/             ESP32 firmware and Wokwi simulation assets
+├── data-hub/              Java ingestion/backpressure/storage service
+├── hmi/                   FastAPI backend, React frontend, AI runtime module
+├── ml/                    Offline TDengine -> feature/label data pipeline
+├── scripts/               Cross-module ops/debug/stress helper scripts
+├── docs/                  Architecture, interfaces, deployment docs
 ├── hardware/              Hardware and enclosure references
-├── experiments/           Experiment records and comparison notes
-├── scripts/               Cross-module ops/debug helper scripts
-├── runtime/               Local runtime/log outputs (git-ignored)
+├── experiments/           Experiment notes and comparative records
+├── runtime/               Local runtime outputs (logs/data, git-ignored)
 └── README.md
 ```
 
-## Scope Boundaries
+## Quick Start (Local Integration)
 
-- Keep behavior stable for:
-  - simulator/real dual build mode
-  - MQTT `params/set`, `params/ack`, telemetry flow
-  - safety/protection paths and hardware-related logic
-- Repository cleanup should prioritize:
-  - archival over deletion when usage is uncertain
-  - README normalization and discoverability
-  - minimizing path changes for active build/runtime entrypoints
+1. Start local infrastructure (pick what you need):
 
-## Status
+```bash
+docker compose -f docker-compose.postgresql.yml up -d
+docker compose -f docker-compose.tdengine.yml up -d
+docker compose -f docker-compose.redis.yml up -d
+```
 
-- Mainline branch: `main`
-- Current objective: maintenance-grade cleanup and documentation normalization (no behavior change)
+2. Start Data Hub (MQTT -> TDengine/log):
+
+```bash
+cd data-hub
+./gradlew bootRun
+```
+
+3. Start HMI backend:
+
+```bash
+cd hmi/backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python scripts/db_migrate.py
+python scripts/db_seed.py --rules
+uvicorn app.main:app --reload
+```
+
+4. Optional: start AI runtime service (decoupled process):
+
+```bash
+cd hmi/backend
+.venv/bin/python ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+```
+
+5. Start HMI frontend:
+
+```bash
+cd hmi/frontend
+npm install
+npm run dev
+```
+
+## Core Runtime Interfaces
+
+- MQTT telemetry and control topics:
+  - telemetry stream
+  - `params/set` (HMI/ops -> edge intent)
+  - `params/ack` (edge -> applied/ack status)
+- HMI backend uses:
+  - PostgreSQL for relational control-plane data
+  - TDengine for telemetry/history/alarm time-series reads (when enabled)
+- AI recommendation path:
+  - remote runtime service when configured
+  - automatic backend fallback to local logic when remote runtime is unavailable
+
+## Module Documentation
+
+- Edge firmware + simulator: `simulator/wokwi/README.md`
+- Data hub: `data-hub/README.md`
+- HMI backend/frontend: `hmi/README.md`
+- AI module docs: `hmi/backend/ai/README.md`
+- Offline ML pipeline: `ml/README.md`
+- Deployment docs: `docs/deployment/README.md`
+- Cross-module script index: `scripts/README.md`
+
+## Notes
+
+- Keep module-specific run commands in module READMEs as the source of truth.
+- Root README is an integration index and should reflect current code structure,
+  active entrypoints, and real technology choices.
+
+Documentation sync date: 2026-04-07.

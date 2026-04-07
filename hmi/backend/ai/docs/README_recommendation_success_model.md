@@ -49,3 +49,5 @@ Saved under `--artifacts-dir`:
 - Dataset size is still small, so metrics may have high variance.
 - Current split is a single train/validation split (not cross-validation).
 - This script does not deploy inference online; it is offline experimentation only.
+
+Documentation sync date: 2026-04-07.

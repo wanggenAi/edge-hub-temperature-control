@@ -55,3 +55,5 @@ Saved under `--artifacts-dir`:
 - Dataset size is still limited.
 - Single train/validation split (no CV in this first version).
 - Offline experiment only; no online inference wiring in this step.
+
+Documentation sync date: 2026-04-07.

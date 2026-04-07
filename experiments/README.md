@@ -29,4 +29,4 @@ Future additions may include:
 - screenshots
 - experiment conclusions
 
-Documentation sync date: 2026-04-04.
+Documentation sync date: 2026-04-07.

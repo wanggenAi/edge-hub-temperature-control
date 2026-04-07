@@ -14,7 +14,9 @@ hmi/
 │   │   │       ├── devices.py
 │   │   │       ├── alarms.py
 │   │   │       ├── storage_rules.py
-│   │   │       └── history.py
+│   │   │       ├── history.py
+│   │   │       ├── stream.py
+│   │   │       └── ai_runtime.py
 │   │   ├── core/
 │   │   │   ├── config.py
 │   │   │   └── security.py
@@ -31,6 +33,9 @@ hmi/
 │   │   ├── services/
 │   │   │   └── seed.py
 │   │   └── main.py
+│   ├── ai/
+│   │   ├── scripts/
+│   │   └── docs/
 │   ├── .env.example
 │   └── requirements.txt
 ├── frontend/
@@ -73,7 +78,7 @@ Optional: run AI runtime as an independent process (recommended for model lifecy
 
 ```bash
 cd hmi/backend
-python ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+.venv/bin/python ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
 ```
 
 Then enable remote inference in backend `.env`:
@@ -289,3 +294,5 @@ Notes:
 - History (summary window + detail)
   - `GET /history/summaries?page=&page_size=&q=&device_id=`
   - `GET /history/summaries/{id}`
+
+Documentation sync date: 2026-04-07.

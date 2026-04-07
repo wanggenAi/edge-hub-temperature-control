@@ -24,8 +24,8 @@ The current simulation node verifies the following functions:
 - tuned PI controller with a bounded integral state
 - virtual thermal model driven by PWM duty cycle
 - telemetry message abstraction aligned with the MQTT interface design
-- serial-simulated telemetry publish in JSON-like payload form
-- minimal public MQTT broker integration for telemetry publish
+- structured telemetry publish with serial observability
+- configurable MQTT broker integration for telemetry publish
 - runtime-config-based control parameters
 - params/set subscription with minimal runtime parameter application
 - observable closed-loop temperature regulation behavior
@@ -35,7 +35,8 @@ This is an important engineering step because the simulation has moved from "con
 ## Files
 
 - `diagram.json`: Wokwi circuit definition, including ESP32, DS18B20, pull-up resistor, status LED, LED resistor, Logic Analyzer, and Serial Monitor wiring
-- `src/sketch.ino`: single-file implementation for the current simulation node, including control logic, message structures, and MQTT connectivity
+- `src/sketch.ino`: application bootstrap and wiring entrypoint
+- `src/app/`, `src/controller/`, `src/comms/`, `src/hardware/`: modularized control, messaging, and hardware adapters
 - `src/secrets.example.h`: safe template for local Wi-Fi / MQTT settings
 - `platformio.ini`: PlatformIO build configuration for the ESP32 Wokwi project
 - `wokwi.toml`: Wokwi project configuration that points to the generated firmware image
@@ -65,7 +66,7 @@ When cloning the project on another machine, copy `src/secrets.example.h` to `sr
    - the GPIO2 heartbeat LED activity
    - the GPIO18 waveform through the Logic Analyzer
    - the JSON-style telemetry payload printed to the serial output
-   - MQTT telemetry publish attempts to the public test broker
+   - MQTT telemetry publish attempts to the configured broker
    - incoming `params/set` messages printed to the serial output
 
 ## Current Control Logic
@@ -141,12 +142,12 @@ The serial output now includes:
 
 ## MQTT Connectivity Preparation
 
-The current version moves beyond serial-only publish simulation and adds a minimal real MQTT path.
+The current version moves beyond serial-only publish simulation and provides a real MQTT path.
 
 Current scope:
 
 - Wi-Fi connection through `Wokwi-GUEST`
-- telemetry publish to a public test MQTT broker
+- telemetry publish to a configurable MQTT broker
 - subscription to the node-specific `params/set` topic
 - received `params/set` payloads printed to the serial output
 - supported runtime fields include target temperature, controller gains, control period, and control mode
@@ -162,7 +163,7 @@ Why this step matters:
 
 - it validates that the edge node can reach an external broker from Wokwi
 - it validates the telemetry topic and payload structure with a real MQTT path
-- it prepares the codebase for later migration to a private authenticated broker with minimal changes
+- it keeps migration to private/authenticated brokers straightforward
 
 ## Message-Structure Preparation
 
@@ -208,7 +209,7 @@ The most natural next tasks are:
 - add disturbance injection scenarios
 - upgrade the controller from proportional control to simplified PID when needed
 
-Documentation sync date: 2026-04-04.
+Documentation sync date: 2026-04-07.
 
 ## Build, Flash, and Mode Switch
 

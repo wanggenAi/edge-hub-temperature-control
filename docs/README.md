@@ -13,13 +13,15 @@ This directory stores architecture and deployment documents for active modules.
 
 ## Current Documents
 
-- `architecture-overview.md`: three-layer system architecture
+- `architecture-overview.md`: end-to-end system architecture overview
 - `development-roadmap.md`: project roadmap and milestones
 - `mqtt_interface.md`: MQTT topic/payload contract
 - `repository-maintenance-audit.md`: cleanup classification and phased maintenance plan
 - `deployment/README.md`: deployment document index
 - `deployment/mqtt-broker-ubuntu.md`: broker deployment guide
 - `deployment/tdengine-docker-local.md`: TDengine local deployment guide
+
+Documentation sync date: 2026-04-07.
 
 ## Maintenance Rules
 

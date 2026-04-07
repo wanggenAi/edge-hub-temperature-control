@@ -197,3 +197,5 @@ This scaffold is intentionally prepared for next scripts:
 - `label_samples.py`
 
 No online modules are imported or modified in runtime paths.
+
+Documentation sync date: 2026-04-07.

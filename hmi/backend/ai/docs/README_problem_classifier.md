@@ -65,3 +65,5 @@ Default artifact directory:
 - Strongly depends on label distribution quality from rule-based pseudo labeling.
 - If classes are imbalanced/sparse, metrics are feasibility-level only.
 - This is offline training only (no HMI/API integration in this step).
+
+Documentation sync date: 2026-04-07.

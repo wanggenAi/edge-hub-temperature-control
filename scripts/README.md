@@ -73,3 +73,5 @@ python scripts/<name>.py --help
 ```
 
 - Prefer `--reset` and destructive options only in local dev/staging.
+
+Documentation sync date: 2026-04-07.

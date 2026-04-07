@@ -30,6 +30,8 @@ These documents currently support three active runtime paths:
 - data-hub runtime (`data-hub`)
 - HMI runtime (`hmi`)
 
+Offline data preparation is documented separately in `ml/README.md`.
+
 ## Planned Deployment Topics
 
 The following deployment documents are expected to be added later:
@@ -56,4 +58,4 @@ flat and readable naming style, for example:
 
 This keeps the structure simple while making later expansion straightforward.
 
-Documentation sync date: 2026-04-04.
+Documentation sync date: 2026-04-07.

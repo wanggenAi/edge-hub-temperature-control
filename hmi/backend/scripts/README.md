@@ -16,6 +16,11 @@ Specialized/demo scripts are archived under:
 They are kept for traceability and can be restored if they become part of
 active runbooks.
 
+AI runtime/training scripts are intentionally maintained under:
+
+- `hmi/backend/ai/scripts/`
+- `hmi/backend/ai/docs/`
+
 ## Usage
 
 ```bash
@@ -23,3 +28,5 @@ cd hmi/backend
 python scripts/db_migrate.py
 python scripts/db_seed.py --rules
 ```
+
+Documentation sync date: 2026-04-07.

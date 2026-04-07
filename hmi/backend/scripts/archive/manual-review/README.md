@@ -2,7 +2,7 @@
 
 This folder stores backend helper scripts that are not part of the default run path.
 
-These scripts were moved from `hmi/backend/scripts/` during repository close-out cleanup
+These scripts were moved from `hmi/backend/scripts/` during repository maintenance
 for better maintainability and reduced ambiguity.
 
 Archived scripts:
@@ -19,3 +19,5 @@ Policy:
 - do not delete directly unless usage is confirmed obsolete
 - if a script becomes active again, move it back to `hmi/backend/scripts/`
   and document it in `hmi/README.md`
+
+Documentation sync date: 2026-04-07.
