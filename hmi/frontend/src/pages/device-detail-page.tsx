@@ -444,7 +444,10 @@ export function DeviceDetailPage() {
   );
   const aiEvidenceRows = aiGenerated ? buildEvidenceRows(aiGenerated.evidence) : [];
   const showStoredEvidenceHint = Boolean(aiGenerated && aiRecoveredFromStorage && aiEvidenceRows.length === 0);
-  const aiPreviewTrust = useMemo(() => derivePreviewTrust(aiGenerated?.ai_decision), [aiGenerated?.ai_decision]);
+  const aiPreviewTrust = useMemo(() => {
+    if (!aiGenerated || aiNoChangeNeeded) return null;
+    return derivePreviewTrust(aiGenerated.ai_decision);
+  }, [aiGenerated, aiNoChangeNeeded]);
   const previewCurveData = useMemo(() => {
     if (!aiPreviewResult) return [] as Array<{ idx: number; t: string; baseline: number; recommended: number; target: number }>;
     const base = aiPreviewResult.baseline_curve;
@@ -1049,7 +1052,7 @@ export function DeviceDetailPage() {
               <div className="mt-3 rounded border border-line/70 bg-panel px-3 py-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-[11px] uppercase tracking-wide text-mute">Preview Simulation (What-if)</div>
-                  {aiPreviewTrust && (
+                  {aiPreviewTrust && !aiNoChangeNeeded && (
                     <span
                       className={`rounded border px-2 py-1 text-[11px] ${
                         aiPreviewTrust.trustLevel === "high"
@@ -1073,7 +1076,7 @@ export function DeviceDetailPage() {
                         ? "No change needed; preview impact is skipped."
                         : "Run preview to compare baseline vs recommended parameter impact."
                       : "Generate recommendation first, then run preview impact."}
-                    {aiPreviewTrust ? ` Gap-model confidence: ${aiPreviewTrust.trustLabel}.` : ""}
+                    {aiPreviewTrust && !aiNoChangeNeeded ? ` Gap-model confidence: ${aiPreviewTrust.trustLabel}.` : ""}
                   </div>
                 )}
                 {aiPreviewBusy && <div className="mt-1 text-xs text-mute">Running simulation...</div>}
