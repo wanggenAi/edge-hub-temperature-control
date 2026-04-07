@@ -127,7 +127,10 @@ export interface AIGeneratedRecommendation {
   reused_existing?: boolean;
   reused_recommendation_id?: number | null;
   fingerprint?: string | null;
-  history_state?: "generated" | "previewed" | "applied" | "dismissed" | "expired" | "reused" | string | null;
+  history_state?: "generated" | "previewed" | "applied" | "dismissed" | "expired" | string | null;
+  last_generate_reused?: boolean;
+  reused_count?: number;
+  last_accessed_at?: string | null;
 }
 
 export interface AIPreviewCurvePoint {
@@ -165,6 +168,81 @@ export interface AIPreviewSimulation {
   recommended_metrics: AIPreviewMetrics;
   improvement: AIPreviewImprovement;
   generated_at: string;
+}
+
+export interface AIPostEffectMetrics {
+  observed_window_start: string;
+  observed_window_end: string;
+  point_count: number;
+  in_band_ratio_after: number;
+  overshoot_c_after: number;
+  settling_sec_after?: number | null;
+  mean_abs_error_after: number;
+  saturation_ratio_after: number;
+  temp_swing_after: number;
+}
+
+export interface AIPostEffectComparison {
+  in_band_ratio_delta?: number | null;
+  overshoot_c_delta?: number | null;
+  settling_sec_delta?: number | null;
+  mean_abs_error_delta?: number | null;
+  saturation_ratio_delta?: number | null;
+  temp_swing_delta?: number | null;
+}
+
+export interface AIPostEffectEvaluation {
+  recommendation_id: number;
+  history_state: "generated" | "previewed" | "applied" | "dismissed" | "expired" | string;
+  evaluated_at: string;
+  observation_window_minutes: number;
+  actual_effect_summary: AIPostEffectMetrics;
+  comparison_to_before: AIPostEffectComparison;
+  comparison_to_preview?: AIPostEffectComparison | null;
+}
+
+export interface AIRecommendationHistoryItem {
+  recommendation_id: number;
+  device_id: number;
+  device_code: string;
+  device_name: string;
+  device_line: string;
+  device_location: string;
+  problem_type: string;
+  expected_effect?: string | null;
+  risk_level?: string | null;
+  confidence: number;
+  requires_confirmation: boolean;
+  history_state?: string | null;
+  generated_at: string;
+  fingerprint?: string | null;
+  reused_count: number;
+  last_generate_reused?: boolean | null;
+  last_accessed_at?: string | null;
+  current_params?: AITuningParams | null;
+  recommended_params?: AITuningParams | null;
+  delta?: AITuningParams | null;
+  actual_effect_evaluated: boolean;
+  observation_window_minutes?: number | null;
+  post_effect_summary?: AIPostEffectMetrics | null;
+  comparison_to_before?: AIPostEffectComparison | null;
+  comparison_to_preview?: AIPostEffectComparison | null;
+  effect_outcome: "improved" | "unchanged" | "worse" | "pending" | string;
+}
+
+export interface AIRecommendationHistoryStats {
+  total: number;
+  applied: number;
+  evaluated: number;
+  improved: number;
+  unchanged: number;
+  worse: number;
+  pending_evaluation: number;
+}
+
+export interface AIRecommendationHistoryResponse {
+  items: AIRecommendationHistoryItem[];
+  stats: AIRecommendationHistoryStats;
 }
 
 export interface UserItem {

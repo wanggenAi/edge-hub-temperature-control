@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import { useAlarmsHmi } from "@/routes/use-data";
 import type { AlarmRuleItem } from "@/types";
 
 export function AlarmsPage() {
+  const [searchParams] = useSearchParams();
+  const initialDeviceQuery = (searchParams.get("device") ?? "").trim();
   const {
     loading,
     activeItems,
@@ -40,7 +43,7 @@ export function AlarmsPage() {
     rules,
     reload,
     updateRule,
-  } = useAlarmsHmi();
+  } = useAlarmsHmi(initialDeviceQuery);
 
   const [editingRule, setEditingRule] = useState<AlarmRuleItem | null>(null);
   const [ruleThreshold, setRuleThreshold] = useState("");

@@ -15,6 +15,8 @@ from app.services.ai.tuning_engine import build_recommendation
 class RecommendationService:
     _LEGACY_GAIN_PATTERN = re.compile(r"(Kp|Ki|Kd)\s*:\s*([+-]?\d+(?:\.\d+)?)")
     _FLOAT_PRECISION = 4
+    _SUGGESTION_MAX_LEN = 255
+    _BROKEN_PID_FIELD_PATTERN = re.compile(r"\"(kp|ki|kd)\"\s*:\s*([+-]?\d+(?:\.\d+)?)", flags=re.IGNORECASE)
 
     @classmethod
     def _round(cls, value: float) -> float:
@@ -121,6 +123,7 @@ class RecommendationService:
         *,
         fingerprint: Optional[str] = None,
         history_state: str = "generated",
+        last_generate_reused: bool = False,
         reused_count: int = 0,
         last_accessed_at: Optional[datetime] = None,
     ) -> tuple[str, str, str]:
@@ -145,12 +148,18 @@ class RecommendationService:
                     "rp": recommended,
                     "d": delta,
                     # Metadata keeps recommendation history semantics without schema migration.
-                    "m": {"fp": fp, "hs": history_state, "rc": int(max(0, reused_count)), "la": accessed_at},
+                    "m": {
+                        "fp": fp,
+                        "hs": history_state,
+                        "lgr": bool(last_generate_reused),
+                        "rc": int(max(0, reused_count)),
+                        "la": accessed_at,
+                    },
                 },
             },
             separators=(",", ":"),
         )
-        return reason, suggestion, risk
+        return reason, self._fit_suggestion_size(suggestion), risk
 
     def read_storage_metadata(self, suggestion: str) -> dict[str, Any]:
         if not suggestion:
@@ -175,8 +184,17 @@ class RecommendationService:
         *,
         history_state: Optional[str] = None,
         fingerprint: Optional[str] = None,
+        last_generate_reused: Optional[bool] = None,
         increment_reused_count: bool = False,
+        reset_reused_count: bool = False,
         last_accessed_at: Optional[datetime] = None,
+        preview_summary: Optional[dict[str, Any]] = None,
+        post_effect_summary: Optional[dict[str, Any]] = None,
+        post_effect_comparison_before: Optional[dict[str, Any]] = None,
+        post_effect_comparison_preview: Optional[dict[str, Any]] = None,
+        actual_effect_evaluated: Optional[bool] = None,
+        observation_window_minutes: Optional[int] = None,
+        evaluated_at: Optional[datetime] = None,
     ) -> str:
         if not suggestion:
             return suggestion
@@ -197,14 +215,104 @@ class RecommendationService:
             next_meta["hs"] = history_state
         if fingerprint:
             next_meta["fp"] = fingerprint
+        if last_generate_reused is not None:
+            next_meta["lgr"] = bool(last_generate_reused)
+        if reset_reused_count:
+            next_meta["rc"] = 0
         if increment_reused_count:
             current_count = int(next_meta.get("rc") or 0)
             next_meta["rc"] = max(0, current_count) + 1
         if last_accessed_at:
             next_meta["la"] = last_accessed_at.isoformat(timespec="seconds")
+        if preview_summary is not None:
+            next_meta["pvs"] = preview_summary
+        if post_effect_summary is not None:
+            next_meta["pe"] = post_effect_summary
+        if post_effect_comparison_before is not None:
+            next_meta["pecb"] = post_effect_comparison_before
+        if post_effect_comparison_preview is not None:
+            next_meta["pecp"] = post_effect_comparison_preview
+        if actual_effect_evaluated is not None:
+            next_meta["aee"] = bool(actual_effect_evaluated)
+        if observation_window_minutes is not None:
+            next_meta["pew"] = int(max(1, observation_window_minutes))
+        if evaluated_at is not None:
+            next_meta["pea"] = evaluated_at.isoformat(timespec="seconds")
         payload["m"] = next_meta
         body["p"] = payload
-        return json.dumps(body, separators=(",", ":"))
+        return self._fit_suggestion_size(json.dumps(body, separators=(",", ":")))
+
+    def _fit_suggestion_size(self, suggestion: str) -> str:
+        if len(suggestion) <= self._SUGGESTION_MAX_LEN:
+            return suggestion
+        try:
+            body = json.loads(suggestion)
+        except (TypeError, ValueError):
+            return suggestion[: self._SUGGESTION_MAX_LEN]
+        if not isinstance(body, dict) or body.get("f") != "ai_rec":
+            return suggestion[: self._SUGGESTION_MAX_LEN]
+        payload = body.get("p")
+        if not isinstance(payload, dict):
+            return suggestion[: self._SUGGESTION_MAX_LEN]
+
+        # Drop heavy optional metadata first.
+        meta = payload.get("m")
+        if isinstance(meta, dict):
+            for key in ("pvs", "pecb", "pecp"):
+                meta.pop(key, None)
+            if "pe" in meta and isinstance(meta.get("pe"), dict):
+                pe = meta.get("pe") or {}
+                meta["pe"] = {
+                    "ib": pe.get("in_band_ratio_after"),
+                    "ov": pe.get("overshoot_c_after"),
+                    "st": pe.get("settling_sec_after"),
+                    "ma": pe.get("mean_abs_error_after"),
+                    "sr": pe.get("saturation_ratio_after"),
+                    "sw": pe.get("temp_swing_after"),
+                    "pc": pe.get("point_count"),
+                }
+            payload["m"] = meta
+
+        body["p"] = payload
+        compact = json.dumps(body, separators=(",", ":"))
+        if len(compact) <= self._SUGGESTION_MAX_LEN:
+            return compact
+        if "cp" in payload:
+            payload.pop("cp", None)
+            body["p"] = payload
+            compact_no_cp = json.dumps(body, separators=(",", ":"))
+            if len(compact_no_cp) <= self._SUGGESTION_MAX_LEN:
+                return compact_no_cp
+
+        # Keep minimum viable recommendation payload.
+        tiny = {
+            "f": "ai_rec",
+            "v": body.get("v", "1"),
+            "p": {
+                "t": payload.get("t"),
+                "e": payload.get("e"),
+                "r": payload.get("r"),
+                "c": payload.get("c"),
+                "rc": payload.get("rc"),
+                "rp": payload.get("rp"),
+                "d": payload.get("d"),
+                "m": {},
+            },
+        }
+        if isinstance(payload.get("m"), dict):
+            tiny_meta = payload.get("m") or {}
+            tiny["p"]["m"] = {k: tiny_meta.get(k) for k in ("fp", "hs", "lgr", "rc", "la") if k in tiny_meta}
+        compact_tiny = json.dumps(tiny, separators=(",", ":"))
+        if len(compact_tiny) <= self._SUGGESTION_MAX_LEN:
+            return compact_tiny
+
+        rp = payload.get("rp") if isinstance(payload.get("rp"), dict) else {}
+        kp = self._round(float(rp.get("kp", 0.0) or 0.0))
+        ki = self._round(float(rp.get("ki", 0.0) or 0.0))
+        kd = self._round(float(rp.get("kd", 0.0) or 0.0))
+        # Guaranteed short legacy fallback (always parseable by current parser).
+        legacy = f"Kp:{kp:+.4f} Ki:{ki:+.4f} Kd:{kd:+.4f}"
+        return legacy[: self._SUGGESTION_MAX_LEN]
 
     def build_output_from_storage(
         self,
@@ -273,6 +381,18 @@ class RecommendationService:
                 output.fingerprint = str(meta.get("fp"))
             if isinstance(meta.get("hs"), str):
                 output.history_state = str(meta.get("hs"))
+            if isinstance(meta.get("lgr"), bool):
+                output.last_generate_reused = bool(meta.get("lgr"))
+            if isinstance(meta.get("rc"), (int, float, str)):
+                try:
+                    output.reused_count = max(0, int(meta.get("rc")))
+                except (TypeError, ValueError):
+                    output.reused_count = 0
+            if isinstance(meta.get("la"), str):
+                try:
+                    output.last_accessed_at = datetime.fromisoformat(str(meta.get("la")).replace("Z", "+00:00"))
+                except ValueError:
+                    output.last_accessed_at = generated_at
             return output
         except Exception:
             return None
@@ -398,7 +518,21 @@ class RecommendationService:
                         kd=round(current_params.kd + float(delta.get("kd", 0.0)), 4),
                     )
         except (ValueError, TypeError):
-            pass
+            # Recover from truncated JSON payload by extracting visible kp/ki/kd fields.
+            recovered: dict[str, float] = {}
+            for key, value in self._BROKEN_PID_FIELD_PATTERN.findall(suggestion):
+                try:
+                    lowered = key.lower()
+                    # Prefer first occurrence (usually recommended_params.rp), avoid overriding with delta.d.
+                    recovered.setdefault(lowered, float(value))
+                except (TypeError, ValueError):
+                    continue
+            if recovered:
+                return PIDParams(
+                    kp=float(recovered.get("kp", current_params.kp)),
+                    ki=float(recovered.get("ki", current_params.ki)),
+                    kd=float(recovered.get("kd", current_params.kd)),
+                )
 
         updates: dict[str, float] = {}
         for key, value in self._LEGACY_GAIN_PATTERN.findall(suggestion):

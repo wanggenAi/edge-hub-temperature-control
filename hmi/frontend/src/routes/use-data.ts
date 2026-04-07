@@ -288,20 +288,20 @@ export function useAlarmCenter(initialPage = 1) {
   return { items, total, page, pageSize, q, loading, setPage, setPageSize, setQ, reload };
 }
 
-export function useAlarmsHmi() {
+export function useAlarmsHmi(initialQ = "") {
   const [activeItems, setActiveItems] = useState<ActiveAlarmItem[]>([]);
   const [activeTotal, setActiveTotal] = useState(0);
   const [activeStats, setActiveStats] = useState({ active_total: 0, critical: 0, warning: 0 });
   const [activePage, setActivePage] = useState(1);
   const [activePageSize, setActivePageSize] = useState(20);
   const [activeStatus, setActiveStatus] = useState<"active" | "all">("active");
-  const [activeQ, setActiveQ] = useState("");
+  const [activeQ, setActiveQ] = useState(initialQ);
 
   const [historyItems, setHistoryItems] = useState<AlarmHistoryItem[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
-  const [historyQ, setHistoryQ] = useState("");
+  const [historyQ, setHistoryQ] = useState(initialQ);
   const [historyRange, setHistoryRange] = useState<"24h" | "7d">("24h");
   const [historySeverity, setHistorySeverity] = useState<string | undefined>(undefined);
   const [historyType, setHistoryType] = useState<string | undefined>(undefined);

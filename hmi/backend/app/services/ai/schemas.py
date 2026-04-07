@@ -84,6 +84,9 @@ class RecommendationGenerateOutput(BaseModel):
     reused_recommendation_id: Optional[int] = None
     fingerprint: Optional[str] = None
     history_state: Optional[str] = None
+    last_generate_reused: Optional[bool] = None
+    reused_count: Optional[int] = None
+    last_accessed_at: Optional[datetime] = None
 
 
 class PreviewCurvePoint(BaseModel):
@@ -121,3 +124,38 @@ class RecommendationPreviewOutput(BaseModel):
     recommended_metrics: PreviewMetrics
     improvement: PreviewImprovement
     generated_at: datetime
+
+
+class PostEffectMetrics(BaseModel):
+    observed_window_start: datetime
+    observed_window_end: datetime
+    point_count: int
+    in_band_ratio_after: float
+    overshoot_c_after: float
+    settling_sec_after: Optional[float] = None
+    mean_abs_error_after: float
+    saturation_ratio_after: float
+    temp_swing_after: float
+
+
+class PostEffectComparison(BaseModel):
+    in_band_ratio_delta: Optional[float] = None
+    overshoot_c_delta: Optional[float] = None
+    settling_sec_delta: Optional[float] = None
+    mean_abs_error_delta: Optional[float] = None
+    saturation_ratio_delta: Optional[float] = None
+    temp_swing_delta: Optional[float] = None
+
+
+class RecommendationActualEvaluationRequest(BaseModel):
+    observation_window_minutes: int = Field(default=15, ge=1, le=180)
+
+
+class RecommendationActualEvaluationOutput(BaseModel):
+    recommendation_id: int
+    history_state: str
+    evaluated_at: datetime
+    observation_window_minutes: int
+    actual_effect_summary: PostEffectMetrics
+    comparison_to_before: PostEffectComparison
+    comparison_to_preview: Optional[PostEffectComparison] = None

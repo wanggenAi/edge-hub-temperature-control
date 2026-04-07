@@ -81,7 +81,8 @@ export function DeviceDetailPage() {
   const canWrite = hasRole("admin", "operator");
   const deviceId = Number(id);
 
-  const { device, metrics, parameters, recommendation, loading, reload, updateParameters, applyAiRecommendation } = useDeviceDetail(deviceId);
+  const { device, metrics, parameters, alarms, recommendation, loading, reload, updateParameters, applyAiRecommendation } =
+    useDeviceDetail(deviceId);
 
   const [editing, setEditing] = useState({ kp: "", ki: "", kd: "", target_temp: "", control_mode: "" });
   const [feedback, setFeedback] = useState({
@@ -126,7 +127,6 @@ export function DeviceDetailPage() {
   const [historyStatsLoading, setHistoryStatsLoading] = useState(true);
   const [controlEval, setControlEval] = useState<ControlEvaluation>(EMPTY_CONTROL_EVAL);
   const [controlEvalLoading, setControlEvalLoading] = useState(true);
-  const recoveredRecommendationKeyRef = useRef<string | null>(null);
   const aiGenerateClickRef = useRef(0);
   const chartTimeFormatter = useMemo(
     () =>
@@ -145,7 +145,6 @@ export function DeviceDetailPage() {
     setAiApplyResult({ ackStatus: "Idle", applyStatus: "Idle", detail: "-" });
     setAiPreviewResult(null);
     setAiPreviewError(null);
-    recoveredRecommendationKeyRef.current = null;
   }, [deviceId]);
 
   useEffect(() => {
@@ -174,7 +173,7 @@ export function DeviceDetailPage() {
         .finally(() => setPickerLoading(false));
     }, 240);
     return () => clearTimeout(timer);
-  }, [pickerOpen, pickerQuery, device]);
+  }, [pickerOpen, pickerQuery, device?.id]);
 
   useEffect(() => {
     if (!deviceId) return;
@@ -479,6 +478,10 @@ export function DeviceDetailPage() {
   const previewYDomain = useMemo<[number, number]>(() => {
     if (previewCurveData.length === 0) return [35, 39];
     const values = previewCurveData.flatMap((row) => [row.baseline, row.recommended, row.target]);
+    const target = previewCurveData[0]?.target;
+    if (typeof target === "number") {
+      values.push(target - targetConfig.band, target + targetConfig.band);
+    }
     let min = Math.min(...values);
     let max = Math.max(...values);
     const span = max - min;
@@ -490,7 +493,7 @@ export function DeviceDetailPage() {
     }
     const margin = Math.max(0.08, (max - min) * 0.12);
     return [Number((min - margin).toFixed(2)), Number((max + margin).toFixed(2))];
-  }, [previewCurveData]);
+  }, [previewCurveData, targetConfig.band]);
   const previewBand = useMemo(() => {
     const target = previewCurveData[0]?.target;
     if (typeof target !== "number") return null;
@@ -499,28 +502,20 @@ export function DeviceDetailPage() {
       y2: target + targetConfig.band,
     };
   }, [previewCurveData, targetConfig.band]);
+  const alarmSummary = useMemo(() => {
+    const active = alarms.filter((a) => a.is_active);
+    const critical = active.filter((a) => a.level.toLowerCase() === "critical").length;
+    const warning = active.filter((a) => a.level.toLowerCase() === "warning").length;
+    return {
+      activeTotal: active.length,
+      critical,
+      warning,
+      hasAlarm: active.length > 0,
+    };
+  }, [alarms]);
 
-  useEffect(() => {
-    if (aiGenerated || !recommendation || !parameters) return;
-    const key = `${recommendation.id}:${recommendation.last_run_at}:${recommendation.suggestion}`;
-    if (recoveredRecommendationKeyRef.current === key) return;
-    recoveredRecommendationKeyRef.current = key;
-
-    const recovered = buildRecoveredAiGenerated(recommendation, {
-      kp: parameters.kp,
-      ki: parameters.ki,
-      kd: parameters.kd,
-    });
-    if (!recovered) return;
-
-    setAiGenerated(recovered);
-    setAiRecoveredFromStorage(true);
-    setAiApplyResult({
-      ackStatus: "Stored",
-      applyStatus: "Ready",
-      detail: "Loaded latest stored AI recommendation.",
-    });
-  }, [aiGenerated, recommendation, parameters]);
+  // Intentionally do not auto-recover stored recommendation into the main panel.
+  // Main AI recommendation details should appear only after explicit Generate action.
 
   if (loading) return <p className="text-sm text-mute">Loading device detail...</p>;
   if (!device || !parameters) return <p className="text-sm text-danger">Device not found or no permission.</p>;
@@ -621,6 +616,37 @@ export function DeviceDetailPage() {
     setAiGenerateBusy(true);
     try {
       const generated = await api.generateAiRecommendation(deviceId, { window_minutes: 60 });
+      const generatedNoChange =
+        generated.problem_type === "normal" ||
+        Boolean(
+          generated.delta &&
+            isZeroDelta(generated.delta.kp) &&
+            isZeroDelta(generated.delta.ki) &&
+            isZeroDelta(generated.delta.kd)
+        );
+      const existingActionable =
+        aiGenerated &&
+        aiGenerated.problem_type !== "normal" &&
+        Boolean(
+          aiGenerated.delta &&
+            (!isZeroDelta(aiGenerated.delta.kp) ||
+              !isZeroDelta(aiGenerated.delta.ki) ||
+              !isZeroDelta(aiGenerated.delta.kd))
+        );
+
+      // Guard demo/operator flow:
+      // if Generate returns a "no-change" refresh, keep existing actionable recommendation
+      // so Apply stays available instead of being overwritten by a transient normal result.
+      if (generatedNoChange && existingActionable) {
+        setAiApplyResult({
+          ackStatus: "Unchanged",
+          applyStatus: "Ready",
+          detail: "Latest generate result is no-change; kept current actionable recommendation.",
+        });
+        await reload({ silent: true });
+        return;
+      }
+
       setAiGenerated(generated);
       setAiRecoveredFromStorage(false);
       if (generated.reused_existing) {
@@ -651,8 +677,16 @@ export function DeviceDetailPage() {
     setAiApplyBusy(true);
     setAiApplyResult({ ackStatus: "Pending", applyStatus: "Applying", detail: "Dispatching AI recommendation to device..." });
     try {
-      await applyAiRecommendation();
-      await reload();
+      const appliedParams = await applyAiRecommendation();
+      await reload({ silent: true });
+      setEditing((prev) => ({
+        ...prev,
+        kp: String(appliedParams.kp),
+        ki: String(appliedParams.ki),
+        kd: String(appliedParams.kd),
+        control_mode: appliedParams.control_mode ?? prev.control_mode,
+      }));
+      setAiGenerated((prev) => (prev ? { ...prev, history_state: "applied" } : prev));
       setAiApplyResult({ ackStatus: "Acked", applyStatus: "Applied", detail: "AI recommendation acknowledged by device." });
       setFeedback((prev) => ({
         ...prev,
@@ -703,7 +737,7 @@ export function DeviceDetailPage() {
     <div className="space-y-3">
       <Card>
         <CardContent className="py-2">
-          <div className="grid gap-2 lg:grid-cols-[1.2fr_1fr_auto_auto_auto] lg:items-center">
+          <div className="grid gap-2 lg:grid-cols-[1.2fr_1fr_auto_auto_auto_auto] lg:items-center">
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-neon">{device.name}</div>
               <div className="truncate text-xs text-mute">{device.code} · {device.line} · {device.location}</div>
@@ -726,6 +760,13 @@ export function DeviceDetailPage() {
 
             <SignalBox label="Control" value={formatControlMode(parameters.control_mode)} tone="text-neon" />
             <SignalBox label="Comm" value={device.is_online ? "Online" : "Offline"} tone={device.is_online ? "text-accent" : "text-danger"} />
+            <Button
+              className={`h-9 px-3 text-xs ${alarmSummary.hasAlarm ? "border-danger/50 text-danger" : ""}`}
+              variant="ghost"
+              onClick={() => navigate(`/alarms?device=${encodeURIComponent(device.code)}`)}
+            >
+              Alarms {alarmSummary.activeTotal} · C{alarmSummary.critical} / W{alarmSummary.warning}
+            </Button>
             <Button className="h-9 px-3 text-xs" variant="ghost" onClick={() => navigate(`/history?deviceId=${device.id}`)}>
               View History
             </Button>
@@ -934,26 +975,28 @@ export function DeviceDetailPage() {
 
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
                   <div className="text-[11px] uppercase tracking-wide text-mute">Parameter Comparison</div>
-                  <div className="mt-1 grid grid-cols-[48px_68px_86px_74px] gap-x-2 gap-y-1 text-[11px]">
-                    <span className="truncate text-mute">Param</span>
-                    <span className="truncate text-right text-mute">Current</span>
-                    <span className="truncate text-right text-mute">Recommended</span>
-                    <span className="truncate text-right text-mute">Delta</span>
+                  <div className="mt-1 overflow-hidden">
+                    <div className="grid grid-cols-[44px_repeat(3,minmax(0,1fr))] gap-x-2 gap-y-1 text-[11px]">
+                      <span className="text-mute">Param</span>
+                      <span className="truncate text-right text-mute">Current</span>
+                      <span className="truncate text-right text-mute">Rec</span>
+                      <span className="truncate text-right text-mute">Δ</span>
 
-                    <span className="text-text">Kp</span>
-                    <span className="whitespace-nowrap text-right text-text">{aiCurrentParams.kp.toFixed(4)}</span>
-                    <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? aiRecommendedParams.kp.toFixed(4) : "-"}</span>
-                    <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.kp) : "-"}</span>
+                      <span className="text-text">Kp</span>
+                      <span className="whitespace-nowrap text-right text-text">{formatPidValue(aiCurrentParams.kp)}</span>
+                      <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? formatPidValue(aiRecommendedParams.kp) : "-"}</span>
+                      <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.kp) : "-"}</span>
 
-                    <span className="text-text">Ki</span>
-                    <span className="whitespace-nowrap text-right text-text">{aiCurrentParams.ki.toFixed(4)}</span>
-                    <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? aiRecommendedParams.ki.toFixed(4) : "-"}</span>
-                    <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.ki) : "-"}</span>
+                      <span className="text-text">Ki</span>
+                      <span className="whitespace-nowrap text-right text-text">{formatPidValue(aiCurrentParams.ki)}</span>
+                      <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? formatPidValue(aiRecommendedParams.ki) : "-"}</span>
+                      <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.ki) : "-"}</span>
 
-                    <span className="text-text">Kd</span>
-                    <span className="whitespace-nowrap text-right text-text">{aiCurrentParams.kd.toFixed(4)}</span>
-                    <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? aiRecommendedParams.kd.toFixed(4) : "-"}</span>
-                    <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.kd) : "-"}</span>
+                      <span className="text-text">Kd</span>
+                      <span className="whitespace-nowrap text-right text-text">{formatPidValue(aiCurrentParams.kd)}</span>
+                      <span className="whitespace-nowrap text-right text-accent">{aiRecommendedParams ? formatPidValue(aiRecommendedParams.kd) : "-"}</span>
+                      <span className="whitespace-nowrap text-right text-neon">{aiDelta ? withSign(aiDelta.kd) : "-"}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1322,7 +1365,7 @@ function DeviceSearchSelect({
 
   useEffect(() => {
     setHighlightedIndex(0);
-  }, [query, items, open]);
+  }, [query, open]);
 
   function onInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (!open || !canNavigate) return;
@@ -1541,7 +1584,11 @@ function normalizeApiError(error: unknown): string {
 }
 
 function withSign(value: number): string {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(4)}`;
+  return `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
+}
+
+function formatPidValue(value: number): string {
+  return value.toFixed(3);
 }
 
 function isZeroDelta(value: number): boolean {
@@ -1675,12 +1722,10 @@ function DeltaBadge({
       return `${arrow}${(abs * 100).toFixed(2)}%`;
     }
     if (kind === "temp") {
-      // Improvement delta is oriented as baseline - recommended for temp metrics:
-      // positive => actual metric reduced (better), negative => increased (worse).
-      const arrow = value > 0 ? "↓" : value < 0 ? "↑" : "→";
+      const arrow = value > 0 ? "↑" : value < 0 ? "↓" : "→";
       return `${arrow}${abs.toFixed(3)}°C`;
     }
-    const arrow = value > 0 ? "↓" : value < 0 ? "↑" : "→";
+    const arrow = value > 0 ? "↑" : value < 0 ? "↓" : "→";
     return `${arrow}${abs.toFixed(1)}s`;
   })();
   return (
@@ -1689,6 +1734,140 @@ function DeltaBadge({
       <span className="font-semibold">{rendered}</span>
     </div>
   );
+}
+
+function parseStoredRecommendationMeta(suggestion?: string | null): {
+  history_state?: string;
+  last_generate_reused?: boolean;
+  reused_count?: number;
+  last_accessed_at?: string;
+  actual_effect_evaluated?: boolean;
+  post_effect_summary?: {
+    observed_window_start: string;
+    observed_window_end: string;
+    point_count: number;
+    in_band_ratio_after: number;
+    overshoot_c_after: number;
+    settling_sec_after?: number | null;
+    mean_abs_error_after: number;
+    saturation_ratio_after: number;
+    temp_swing_after: number;
+  };
+  post_effect_window_minutes?: number;
+  post_effect_evaluated_at?: string;
+  post_effect_comparison_before?: {
+    in_band_ratio_delta?: number | null;
+    overshoot_c_delta?: number | null;
+    settling_sec_delta?: number | null;
+    mean_abs_error_delta?: number | null;
+    saturation_ratio_delta?: number | null;
+    temp_swing_delta?: number | null;
+  };
+  post_effect_comparison_preview?: {
+    in_band_ratio_delta?: number | null;
+    overshoot_c_delta?: number | null;
+    settling_sec_delta?: number | null;
+    mean_abs_error_delta?: number | null;
+    saturation_ratio_delta?: number | null;
+    temp_swing_delta?: number | null;
+  } | null;
+} {
+  if (!suggestion || !suggestion.trim()) return {};
+  try {
+    const body = JSON.parse(suggestion) as unknown;
+    if (!body || typeof body !== "object" || Array.isArray(body)) return {};
+    const row = body as Record<string, unknown>;
+    if (row.f !== "ai_rec" || !row.p || typeof row.p !== "object" || Array.isArray(row.p)) return {};
+    const payload = row.p as Record<string, unknown>;
+    const meta = payload.m;
+    if (!meta || typeof meta !== "object" || Array.isArray(meta)) return {};
+    const m = meta as Record<string, unknown>;
+
+    const toNumber = (value: unknown): number | undefined => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
+    const postSummaryRaw = m.pe;
+    let postSummary:
+      | {
+          observed_window_start: string;
+          observed_window_end: string;
+          point_count: number;
+          in_band_ratio_after: number;
+          overshoot_c_after: number;
+          settling_sec_after?: number | null;
+          mean_abs_error_after: number;
+          saturation_ratio_after: number;
+          temp_swing_after: number;
+        }
+      | undefined;
+    if (postSummaryRaw && typeof postSummaryRaw === "object" && !Array.isArray(postSummaryRaw)) {
+      const pe = postSummaryRaw as Record<string, unknown>;
+      if ("in_band_ratio_after" in pe || "point_count" in pe) {
+        postSummary = pe as {
+          observed_window_start: string;
+          observed_window_end: string;
+          point_count: number;
+          in_band_ratio_after: number;
+          overshoot_c_after: number;
+          settling_sec_after?: number | null;
+          mean_abs_error_after: number;
+          saturation_ratio_after: number;
+          temp_swing_after: number;
+        };
+      } else if ("ib" in pe) {
+        postSummary = {
+          observed_window_start: typeof m.pea === "string" ? m.pea : new Date().toISOString(),
+          observed_window_end: typeof m.pea === "string" ? m.pea : new Date().toISOString(),
+          point_count: toNumber(pe.pc) ?? 0,
+          in_band_ratio_after: toNumber(pe.ib) ?? 0,
+          overshoot_c_after: toNumber(pe.ov) ?? 0,
+          settling_sec_after: toNumber(pe.st) ?? null,
+          mean_abs_error_after: toNumber(pe.ma) ?? 0,
+          saturation_ratio_after: toNumber(pe.sr) ?? 0,
+          temp_swing_after: toNumber(pe.sw) ?? 0,
+        };
+      }
+    }
+
+    const cmpBeforeRaw = m.pecb;
+    const cmpPreviewRaw = m.pecp;
+    return {
+      history_state: typeof m.hs === "string" ? m.hs : undefined,
+      last_generate_reused: typeof m.lgr === "boolean" ? m.lgr : undefined,
+      reused_count: toNumber(m.rc),
+      last_accessed_at: typeof m.la === "string" ? m.la : undefined,
+      actual_effect_evaluated: typeof m.aee === "boolean" ? m.aee : undefined,
+      post_effect_summary: postSummary,
+      post_effect_window_minutes: toNumber(m.pew),
+      post_effect_evaluated_at: typeof m.pea === "string" ? m.pea : undefined,
+      post_effect_comparison_before:
+        cmpBeforeRaw && typeof cmpBeforeRaw === "object" && !Array.isArray(cmpBeforeRaw)
+          ? (cmpBeforeRaw as {
+              in_band_ratio_delta?: number | null;
+              overshoot_c_delta?: number | null;
+              settling_sec_delta?: number | null;
+              mean_abs_error_delta?: number | null;
+              saturation_ratio_delta?: number | null;
+              temp_swing_delta?: number | null;
+            })
+          : undefined,
+      post_effect_comparison_preview:
+        cmpPreviewRaw && typeof cmpPreviewRaw === "object" && !Array.isArray(cmpPreviewRaw)
+          ? (cmpPreviewRaw as {
+              in_band_ratio_delta?: number | null;
+              overshoot_c_delta?: number | null;
+              settling_sec_delta?: number | null;
+              mean_abs_error_delta?: number | null;
+              saturation_ratio_delta?: number | null;
+              temp_swing_delta?: number | null;
+            })
+          : null,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function parseReasonFields(reason: string): { problem_type?: string; expected_effect?: string } {
@@ -1732,6 +1911,11 @@ function parseStoredAiRecommendation(
     risk_level: riskFields.risk_level,
     requires_confirmation: riskFields.requires_confirmation,
   };
+  const meta = parseStoredRecommendationMeta(recommendation.suggestion);
+  if (meta.history_state) parsed.history_state = meta.history_state;
+  if (typeof meta.last_generate_reused === "boolean") parsed.last_generate_reused = meta.last_generate_reused;
+  if (typeof meta.reused_count === "number") parsed.reused_count = meta.reused_count;
+  if (meta.last_accessed_at) parsed.last_accessed_at = meta.last_accessed_at;
 
   const suggestion = recommendation.suggestion?.trim() ?? "";
   if (!suggestion) return parsed;

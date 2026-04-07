@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -19,8 +20,14 @@ from app.api.deps import (
 from app.core.config import settings
 from app.models.entities import AIRecommendation, Device, DeviceAlarm, DeviceMetric, DeviceParameter, User, UserDevice
 from app.schemas.device import (
+    AIRecommendationHistoryItemOut,
+    AIRecommendationHistoryResponseOut,
+    AIRecommendationHistoryStatsOut,
     AIRecommendationOut,
     AlarmOut,
+    AIPidParamsOut,
+    AIPostEffectComparisonOut,
+    AIPostEffectMetricsOut,
     ControlEvalOut,
     DeviceCreate,
     DeviceListResponse,
@@ -33,6 +40,7 @@ from app.schemas.device import (
 )
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai.recommendation_service import RecommendationService
+from app.services.ai.post_effect_evaluator import ObservedTelemetryPoint, PostEffectEvaluator
 from app.services.ai.preview_simulator import (
     PREVIEW_DEFAULT_AMBIENT_TEMP,
     PREVIEW_DEFAULT_COOLING_COEFF,
@@ -50,7 +58,10 @@ from app.services.ai.schemas import (
     PIDParams,
     RecommendationGenerateInput,
     RecommendationGenerateOutput,
+    RecommendationActualEvaluationOutput,
+    RecommendationActualEvaluationRequest,
     RecommendationPreviewOutput,
+    PreviewMetrics,
 )
 from app.services.tdengine_client import TdengineClient
 
@@ -59,6 +70,8 @@ tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
 recommendation_service = RecommendationService()
 preview_simulator = RecommendationPreviewSimulator()
+post_effect_evaluator = PostEffectEvaluator()
+logger = logging.getLogger(__name__)
 
 
 def query_accessible_devices(db: Session, current_user: User):
@@ -108,21 +121,116 @@ def _load_live_snapshot(device_code: str) -> dict:
     }
 
 
-def _wait_latest_params_ack(device_code: str, *, after_ms: int, timeout_ms: int = 7000) -> Optional[dict]:
+def _wait_latest_params_ack(device_code: str, *, after_ms: int, timeout_ms: int = 5000) -> Optional[dict]:
     if not tdengine.enabled():
         return None
+    # When producer/consumer clocks are slightly skewed, strict ts>=after_ms may miss
+    # a valid ack. Keep a bounded fallback check by matching latest ack payload values.
+    strict_after_ms = int(after_ms)
     deadline = time.monotonic() + max(0.5, timeout_ms / 1000.0)
+    attempts = 0
     while time.monotonic() < deadline:
+        attempts += 1
         sql = (
             f"SELECT ts, ack_type, success, reason, kp, ki, kd, control_mode "
-            f"FROM {_tdb()}.params_ack WHERE device_id='{device_code}' AND ts >= {int(after_ms)} "
+            f"FROM {_tdb()}.params_ack WHERE device_id='{device_code}' AND ts >= {strict_after_ms} "
             f"ORDER BY ts DESC LIMIT 1"
         )
         result = tdengine.query(sql)
         if result.rows:
-            return tdengine.row_to_dict(result.columns, result.rows[0])
-        time.sleep(0.3)
+            row = tdengine.row_to_dict(result.columns, result.rows[0])
+            logger.warning(
+                "[ACK-STRICT] device=%s matched ts>=%s ack_ts=%s success=%s attempts=%s",
+                device_code,
+                strict_after_ms,
+                row.get("ts"),
+                row.get("success"),
+                attempts,
+            )
+            return row
+        time.sleep(0.15)
+    logger.warning("[ACK-STRICT] device=%s timeout waiting ts>=%s attempts=%s", device_code, strict_after_ms, attempts)
     return None
+
+
+def _wait_latest_params_ack_relaxed(
+    *,
+    device_code: str,
+    after_ms: int,
+    expected_kp: float,
+    expected_ki: float,
+    expected_kd: float,
+    expected_control_mode: Optional[str],
+    timeout_ms: int = 5000,
+    max_clock_skew_ms: int = 120000,
+) -> Optional[dict]:
+    ack = _wait_latest_params_ack(device_code, after_ms=after_ms, timeout_ms=timeout_ms)
+    if ack is not None:
+        return ack
+    if not tdengine.enabled():
+        return None
+
+    # Fallback: accept latest ack if values match target params and row is recent.
+    sql = (
+        f"SELECT ts, ack_type, success, reason, kp, ki, kd, control_mode "
+        f"FROM {_tdb()}.params_ack WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
+    )
+    result = tdengine.query(sql)
+    if not result.rows:
+        logger.warning("[ACK-RELAX] device=%s no latest ack row", device_code)
+        return None
+    row = tdengine.row_to_dict(result.columns, result.rows[0])
+    ts_ms = _ts_value_to_ms(row.get("ts"))
+    lower_bound = int(after_ms) - max(0, int(max_clock_skew_ms))
+    if ts_ms < lower_bound:
+        logger.warning(
+            "[ACK-RELAX] device=%s latest ack too old ack_ts=%s lower_bound=%s",
+            device_code,
+            ts_ms,
+            lower_bound,
+        )
+        return None
+
+    kp = float(row.get("kp") or 0.0)
+    ki = float(row.get("ki") or 0.0)
+    kd = float(row.get("kd") or 0.0)
+    tol = max(0.001, float(settings.recommendation_float_tolerance))
+    same_params = (
+        abs(kp - float(expected_kp)) <= tol
+        and abs(ki - float(expected_ki)) <= tol
+        and abs(kd - float(expected_kd)) <= tol
+    )
+    if not same_params:
+        logger.warning(
+            "[ACK-RELAX] device=%s latest ack param mismatch expected=(%.4f,%.4f,%.4f) got=(%.4f,%.4f,%.4f)",
+            device_code,
+            float(expected_kp),
+            float(expected_ki),
+            float(expected_kd),
+            kp,
+            ki,
+            kd,
+        )
+        return None
+
+    if expected_control_mode:
+        got_mode = _normalize_control_mode(str(row.get("control_mode") or "")) or ""
+        exp_mode = _normalize_control_mode(expected_control_mode) or ""
+        if got_mode and exp_mode and got_mode != exp_mode:
+            logger.warning(
+                "[ACK-RELAX] device=%s latest ack mode mismatch expected=%s got=%s",
+                device_code,
+                exp_mode,
+                got_mode,
+            )
+            return None
+    logger.warning(
+        "[ACK-RELAX] device=%s fallback matched ack_ts=%s success=%s",
+        device_code,
+        row.get("ts"),
+        row.get("success"),
+    )
+    return row
 
 
 def _latest_params_ack(device_code: str) -> Optional[dict]:
@@ -136,6 +244,172 @@ def _latest_params_ack(device_code: str) -> Optional[dict]:
     if not result.rows:
         return None
     return tdengine.row_to_dict(result.columns, result.rows[0])
+
+
+def _coerce_post_effect_metrics(value: object) -> Optional[AIPostEffectMetricsOut]:
+    if not isinstance(value, dict):
+        return None
+    try:
+        return AIPostEffectMetricsOut.model_validate(value)
+    except Exception:
+        return None
+
+
+def _coerce_post_effect_comparison(value: object) -> Optional[AIPostEffectComparisonOut]:
+    if not isinstance(value, dict):
+        return None
+    try:
+        return AIPostEffectComparisonOut.model_validate(value)
+    except Exception:
+        return None
+
+
+def _derive_effect_outcome(comparison: Optional[AIPostEffectComparisonOut]) -> str:
+    if comparison is None:
+        return "pending"
+
+    weighted_deltas: list[int] = []
+    if comparison.in_band_ratio_delta is not None:
+        if comparison.in_band_ratio_delta > 0.0001:
+            weighted_deltas.append(1)
+        elif comparison.in_band_ratio_delta < -0.0001:
+            weighted_deltas.append(-1)
+    for value in (
+        comparison.overshoot_c_delta,
+        comparison.settling_sec_delta,
+        comparison.mean_abs_error_delta,
+        comparison.saturation_ratio_delta,
+        comparison.temp_swing_delta,
+    ):
+        if value is None:
+            continue
+        if value < -0.0001:
+            weighted_deltas.append(1)
+        elif value > 0.0001:
+            weighted_deltas.append(-1)
+
+    if not weighted_deltas:
+        return "unchanged"
+    score = sum(weighted_deltas)
+    if score > 0:
+        return "improved"
+    if score < 0:
+        return "worse"
+    return "unchanged"
+
+
+def _build_ai_history_item(
+    *,
+    rec: AIRecommendation,
+    device: Device,
+    fallback_current_params: PIDParams,
+) -> AIRecommendationHistoryItemOut:
+    parsed = recommendation_service.build_output_from_storage(
+        reason=rec.reason,
+        suggestion=rec.suggestion,
+        risk=rec.risk,
+        confidence=float(rec.confidence),
+        generated_at=rec.last_run_at,
+        fallback_current_params=fallback_current_params,
+    )
+    meta = recommendation_service.read_storage_metadata(rec.suggestion)
+    summary = _coerce_post_effect_metrics(meta.get("pe"))
+    comparison_before = _coerce_post_effect_comparison(meta.get("pecb"))
+    comparison_preview = _coerce_post_effect_comparison(meta.get("pecp"))
+    actual_effect_evaluated = bool(meta.get("aee") or summary is not None)
+    observation_window_minutes = None
+    if isinstance(meta.get("pew"), (int, float, str)):
+        try:
+            observation_window_minutes = int(meta.get("pew"))
+        except (TypeError, ValueError):
+            observation_window_minutes = None
+
+    problem_type = parsed.problem_type.value if parsed else (recommendation_service.parse_reason_fields(rec.reason)[0] or "unknown")
+    expected_effect = parsed.expected_effect.value if parsed else recommendation_service.parse_reason_fields(rec.reason)[1]
+    risk_level = parsed.risk_level.value if parsed else recommendation_service.parse_risk_fields(rec.risk)[0]
+    history_state = parsed.history_state if parsed else (str(meta.get("hs")) if meta.get("hs") is not None else None)
+    effect_outcome = _derive_effect_outcome(comparison_before)
+    if history_state != "applied" and not actual_effect_evaluated:
+        effect_outcome = "pending"
+
+    return AIRecommendationHistoryItemOut(
+        recommendation_id=rec.id,
+        device_id=device.id,
+        device_code=device.code,
+        device_name=device.name,
+        device_line=device.line,
+        device_location=device.location,
+        problem_type=problem_type,
+        expected_effect=expected_effect,
+        risk_level=risk_level,
+        confidence=float(rec.confidence),
+        requires_confirmation=bool(parsed.requires_confirmation) if parsed else False,
+        history_state=history_state,
+        generated_at=rec.last_run_at,
+        fingerprint=parsed.fingerprint if parsed else (str(meta.get("fp")) if meta.get("fp") is not None else None),
+        reused_count=int(parsed.reused_count or 0) if parsed else int(meta.get("rc") or 0),
+        last_generate_reused=parsed.last_generate_reused if parsed else (bool(meta.get("lgr")) if isinstance(meta.get("lgr"), bool) else None),
+        last_accessed_at=parsed.last_accessed_at if parsed else _parse_iso_utc(meta.get("la")),
+        current_params=None
+        if not parsed
+        else AIPidParamsOut(kp=float(parsed.current_params.kp), ki=float(parsed.current_params.ki), kd=float(parsed.current_params.kd)),
+        recommended_params=None
+        if not parsed
+        else AIPidParamsOut(
+            kp=float(parsed.recommended_params.kp),
+            ki=float(parsed.recommended_params.ki),
+            kd=float(parsed.recommended_params.kd),
+        ),
+        delta=None
+        if not parsed
+        else AIPidParamsOut(kp=float(parsed.delta.kp), ki=float(parsed.delta.ki), kd=float(parsed.delta.kd)),
+        actual_effect_evaluated=actual_effect_evaluated,
+        observation_window_minutes=observation_window_minutes,
+        post_effect_summary=summary,
+        comparison_to_before=comparison_before,
+        comparison_to_preview=comparison_preview,
+        effect_outcome=effect_outcome,
+    )
+
+
+def _find_recent_success_ack_for_target(
+    *,
+    device_code: str,
+    target: PIDParams,
+    expected_control_mode: Optional[str],
+    tolerance: float,
+    lookback_ms: int = 20 * 60 * 1000,
+    limit: int = 50,
+) -> Optional[dict]:
+    if not tdengine.enabled():
+        return None
+    now_ms = int(time.time() * 1000)
+    min_ts = max(0, now_ms - max(1000, int(lookback_ms)))
+    sql = (
+        f"SELECT ts, ack_type, success, reason, target_temp_c, kp, ki, kd, control_mode "
+        f"FROM {_tdb()}.params_ack WHERE device_id='{device_code}' AND ts >= {min_ts} "
+        f"ORDER BY ts DESC LIMIT {max(1, int(limit))}"
+    )
+    result = tdengine.query(sql)
+    if not result.rows:
+        return None
+    tol = max(0.001, float(tolerance))
+    exp_mode = _normalize_control_mode(expected_control_mode) if expected_control_mode else None
+    for raw in result.rows:
+        row = tdengine.row_to_dict(result.columns, raw)
+        if not bool(row.get("success") is True):
+            continue
+        kp = float(row.get("kp") or 0.0)
+        ki = float(row.get("ki") or 0.0)
+        kd = float(row.get("kd") or 0.0)
+        if abs(kp - float(target.kp)) > tol or abs(ki - float(target.ki)) > tol or abs(kd - float(target.kd)) > tol:
+            continue
+        if exp_mode:
+            got_mode = _normalize_control_mode(str(row.get("control_mode") or ""))
+            if got_mode and got_mode != exp_mode:
+                continue
+        return row
+    return None
 
 
 def _apply_live_snapshot(device: Device) -> Device:
@@ -217,6 +491,16 @@ def _ts_value_to_ms(value) -> int:
     if isinstance(value, (int, float)):
         return int(value)
     return int(tdengine.to_datetime(value).timestamp() * 1000)
+
+
+def _utc_naive_from_ms(ms: int) -> datetime:
+    # Use timezone-aware conversion to avoid deprecated utcfromtimestamp,
+    # then normalize to naive UTC to match current DB datetime column semantics.
+    return datetime.fromtimestamp(float(ms) / 1000.0, tz=timezone.utc).replace(tzinfo=None)
+
+
+def _utc_naive_from_sec(sec: float) -> datetime:
+    return datetime.fromtimestamp(float(sec), tz=timezone.utc).replace(tzinfo=None)
 
 
 def _calc_control_eval(
@@ -337,8 +621,8 @@ def _build_recommendation_input(
             )
             .where(
                 DeviceMetric.device_id == device.id,
-                DeviceMetric.timestamp >= datetime.utcfromtimestamp(start_ms / 1000.0),
-                DeviceMetric.timestamp <= datetime.utcfromtimestamp(end_ms / 1000.0),
+                DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms),
+                DeviceMetric.timestamp <= _utc_naive_from_ms(end_ms),
             )
             .order_by(DeviceMetric.timestamp.asc())
             .limit(limit)
@@ -372,6 +656,290 @@ def _build_recommendation_input(
     )
 
 
+def _pid_is_effectively_applied(
+    *,
+    current: PIDParams,
+    target: PIDParams,
+    tolerance: float,
+) -> bool:
+    tol = max(0.0, float(tolerance))
+    return (
+        abs(float(current.kp) - float(target.kp)) <= tol
+        and abs(float(current.ki) - float(target.ki)) <= tol
+        and abs(float(current.kd) - float(target.kd)) <= tol
+    )
+
+
+def _recommendation_has_actionable_delta(output: RecommendationGenerateOutput, *, tolerance: float) -> bool:
+    if output.problem_type.value == "normal":
+        return False
+    delta = output.delta
+    tol = max(0.0, float(tolerance))
+    return bool(
+        abs(float(delta.kp)) > tol
+        or abs(float(delta.ki)) > tol
+        or abs(float(delta.kd)) > tol
+    )
+
+
+def _is_demo_preview_device(device_code: str) -> bool:
+    code = str(device_code or "").upper()
+    return code.startswith("TC-PREVIEW-")
+
+
+def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) -> RecommendationGenerateOutput:
+    code = str(device.code or "").upper()
+    current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
+    if "SLOW" in code:
+        recommended = PIDParams(
+            kp=round(max(1.5, current.kp * 1.9), 4),
+            ki=round(max(0.08, current.ki * 1.75), 4),
+            kd=round(max(0.08, current.kd + 0.12), 4),
+        )
+        problem_type = "slow_response"
+        expected_effect = "speed_up_response"
+        risk_level = "Medium"
+        confidence = 0.88
+        requires_confirmation = True
+        evidence = {
+            "rule_slow_response": True,
+            "rule_steady_state_error": True,
+            "rule_oscillation": False,
+            "rule_overshoot_high": False,
+            "rule_saturation_limited": False,
+            "mean_error": -3.85,
+            "mean_abs_error": 4.12,
+            "error_std": 0.74,
+            "temp_swing": 2.16,
+            "pwm_mean": 89.4,
+            "pwm_max": 100.0,
+            "zero_crossings": 0,
+            "in_band_ratio": 0.06,
+            "overshoot_pct": 0.0,
+            "settling_sec": None,
+            "saturation_ratio": 0.64,
+        }
+    elif "OSC" in code:
+        recommended = PIDParams(
+            kp=round(max(0.8, current.kp * 0.72), 4),
+            ki=round(max(0.03, current.ki * 0.55), 4),
+            kd=round(max(0.2, current.kd + 0.18), 4),
+        )
+        problem_type = "oscillation"
+        expected_effect = "reduce_oscillation"
+        risk_level = "Medium"
+        confidence = 0.84
+        requires_confirmation = True
+        evidence = {
+            "rule_slow_response": False,
+            "rule_steady_state_error": False,
+            "rule_oscillation": True,
+            "rule_overshoot_high": True,
+            "rule_saturation_limited": False,
+            "mean_error": 0.11,
+            "mean_abs_error": 1.22,
+            "error_std": 0.96,
+            "temp_swing": 3.48,
+            "pwm_mean": 57.9,
+            "pwm_max": 91.7,
+            "zero_crossings": 29,
+            "in_band_ratio": 0.31,
+            "overshoot_pct": 5.2,
+            "settling_sec": None,
+            "saturation_ratio": 0.22,
+        }
+    else:
+        recommended = PIDParams(
+            kp=round(max(0.6, current.kp * 1.35), 4),
+            ki=round(max(0.05, current.ki * 1.4), 4),
+            kd=round(max(0.05, current.kd + 0.08), 4),
+        )
+        problem_type = "steady_state_error"
+        expected_effect = "reduce_steady_state_error"
+        risk_level = "Low"
+        confidence = 0.82
+        requires_confirmation = False
+        evidence = {
+            "rule_slow_response": False,
+            "rule_steady_state_error": True,
+            "rule_oscillation": False,
+            "rule_overshoot_high": False,
+            "rule_saturation_limited": False,
+            "mean_error": -1.12,
+            "mean_abs_error": 1.2,
+            "error_std": 0.42,
+            "temp_swing": 1.34,
+            "pwm_mean": 73.0,
+            "pwm_max": 92.0,
+            "zero_crossings": 1,
+            "in_band_ratio": 0.44,
+            "overshoot_pct": 0.3,
+            "settling_sec": None,
+            "saturation_ratio": 0.26,
+        }
+    delta = PIDParams(
+        kp=round(recommended.kp - current.kp, 4),
+        ki=round(recommended.ki - current.ki, 4),
+        kd=round(recommended.kd - current.kd, 4),
+    )
+    return RecommendationGenerateOutput(
+        problem_type=problem_type,
+        confidence=confidence,
+        risk_level=risk_level,
+        requires_confirmation=requires_confirmation,
+        current_params=current,
+        recommended_params=recommended,
+        delta=delta,
+        expected_effect=expected_effect,
+        evidence=evidence,
+        generated_at=datetime.utcnow(),
+    )
+
+
+def _parse_iso_utc(value: object) -> Optional[datetime]:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _load_observed_points(
+    *,
+    db: Session,
+    device: Device,
+    start_ms: int,
+    end_ms: int,
+    limit: int,
+) -> list[ObservedTelemetryPoint]:
+    points: list[ObservedTelemetryPoint] = []
+    if tdengine.enabled():
+        sql = (
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, saturation_state "
+            f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' "
+            f"AND ts >= {int(start_ms)} AND ts <= {int(end_ms)} "
+            f"ORDER BY ts ASC LIMIT {int(limit)}"
+        )
+        result = tdengine.query(sql)
+        for row_raw in result.rows:
+            row = tdengine.row_to_dict(result.columns, row_raw)
+            temp = float(row.get("sensor_temp_c") or 0.0)
+            target = float(row.get("target_temp_c") or 0.0)
+            error_raw = row.get("error_c")
+            error = float(error_raw) if error_raw is not None else (target - temp)
+            points.append(
+                ObservedTelemetryPoint(
+                    ts_ms=_ts_value_to_ms(row.get("ts")),
+                    temp=temp,
+                    target_temp=target,
+                    error=error,
+                    pwm_output=float(row.get("pwm_duty") or 0.0),
+                    saturation_state=(None if row.get("saturation_state") is None else str(row.get("saturation_state"))),
+                )
+            )
+    if points:
+        return points
+
+    rows = db.execute(
+        select(
+            DeviceMetric.timestamp,
+            DeviceMetric.current_temp,
+            DeviceMetric.target_temp,
+            DeviceMetric.error,
+            DeviceMetric.pwm_output,
+        )
+        .where(
+            DeviceMetric.device_id == device.id,
+            DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms),
+            DeviceMetric.timestamp <= _utc_naive_from_ms(end_ms),
+        )
+        .order_by(DeviceMetric.timestamp.asc())
+        .limit(limit)
+    ).all()
+    for ts, temp, target, err, pwm in rows:
+        temp_v = float(temp or 0.0)
+        target_v = float(target or 0.0)
+        error_v = float(err) if err is not None else (target_v - temp_v)
+        points.append(
+            ObservedTelemetryPoint(
+                ts_ms=int(ts.timestamp() * 1000),
+                temp=temp_v,
+                target_temp=target_v,
+                error=error_v,
+                pwm_output=float(pwm or 0.0),
+                saturation_state=None,
+            )
+        )
+    return points
+
+
+def _as_float_or_none(value: object) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_metrics_from_evidence(evidence: Optional[dict[str, object]]) -> Optional[PreviewMetrics]:
+    if not isinstance(evidence, dict) or not evidence:
+        return None
+    in_band_ratio = _as_float_or_none(evidence.get("in_band_ratio"))
+    mean_abs_error = _as_float_or_none(evidence.get("mean_abs_error"))
+    saturation_ratio = _as_float_or_none(evidence.get("saturation_ratio"))
+    temp_swing = _as_float_or_none(evidence.get("temp_swing"))
+    if in_band_ratio is None or mean_abs_error is None or saturation_ratio is None or temp_swing is None:
+        return None
+    overshoot_c = _as_float_or_none(evidence.get("overshoot_c"))
+    if overshoot_c is None:
+        overshoot_c = 0.0
+    settling_sec = _as_float_or_none(evidence.get("settling_sec"))
+    return PreviewMetrics(
+        in_band_ratio=float(in_band_ratio),
+        overshoot_c=float(overshoot_c),
+        settling_sec=None if settling_sec is None else float(settling_sec),
+        mean_abs_error=float(mean_abs_error),
+        saturation_ratio=float(saturation_ratio),
+        temp_swing=float(temp_swing),
+    )
+
+
+def _extract_preview_recommended_metrics(meta: dict[str, object]) -> Optional[PreviewMetrics]:
+    preview_summary = meta.get("pvs")
+    if not isinstance(preview_summary, dict):
+        return None
+    recommended = preview_summary.get("recommended_metrics")
+    if not isinstance(recommended, dict):
+        return None
+    in_band_ratio = _as_float_or_none(recommended.get("in_band_ratio"))
+    overshoot_c = _as_float_or_none(recommended.get("overshoot_c"))
+    mean_abs_error = _as_float_or_none(recommended.get("mean_abs_error"))
+    saturation_ratio = _as_float_or_none(recommended.get("saturation_ratio"))
+    temp_swing = _as_float_or_none(recommended.get("temp_swing"))
+    if (
+        in_band_ratio is None
+        or overshoot_c is None
+        or mean_abs_error is None
+        or saturation_ratio is None
+        or temp_swing is None
+    ):
+        return None
+    settling_sec = _as_float_or_none(recommended.get("settling_sec"))
+    return PreviewMetrics(
+        in_band_ratio=float(in_band_ratio),
+        overshoot_c=float(overshoot_c),
+        settling_sec=None if settling_sec is None else float(settling_sec),
+        mean_abs_error=float(mean_abs_error),
+        saturation_ratio=float(saturation_ratio),
+        temp_swing=float(temp_swing),
+    )
+
+
 def _dispatch_and_confirm_parameter_update(
     *,
     db: Session,
@@ -380,6 +948,7 @@ def _dispatch_and_confirm_parameter_update(
     updated_by: str,
     control_mode_for_publish: Optional[str] = None,
 ) -> DeviceParameter:
+    flow_t0 = time.monotonic()
     if not mqtt_publisher.enabled():
         raise HTTPException(status_code=503, detail="MQTT publish is disabled; cannot dispatch runtime parameters")
 
@@ -387,6 +956,16 @@ def _dispatch_and_confirm_parameter_update(
     param.updated_at = datetime.utcnow()
 
     dispatch_ms = int(time.time() * 1000)
+    logger.warning(
+        "[APPLY-DISPATCH] device=%s dispatch_ms=%s target=(%.4f,%.4f,%.4f) mode=%s",
+        device.code,
+        dispatch_ms,
+        float(param.kp),
+        float(param.ki),
+        float(param.kd),
+        str(control_mode_for_publish or param.control_mode or "pid_control"),
+    )
+    publish_t0 = time.monotonic()
     publish_result = mqtt_publisher.publish_params_set(
         device_id=device.code,
         target_temp_c=device.target_temp,
@@ -397,16 +976,50 @@ def _dispatch_and_confirm_parameter_update(
         control_period_ms=param.sampling_period_ms,
         apply_immediately=True,
     )
+    logger.warning(
+        "[APPLY-DISPATCH] device=%s publish_done enabled=%s topic=%s elapsed_ms=%s",
+        device.code,
+        publish_result.enabled,
+        publish_result.topic,
+        int((time.monotonic() - publish_t0) * 1000),
+    )
     if not publish_result.enabled:
+        logger.warning("[APPLY-DISPATCH] device=%s mqtt publish disabled", device.code)
         raise HTTPException(status_code=503, detail="MQTT publish is disabled; parameter dispatch skipped")
 
-    ack = _wait_latest_params_ack(device.code, after_ms=dispatch_ms)
+    ack_wait_t0 = time.monotonic()
+    ack = _wait_latest_params_ack_relaxed(
+        device_code=device.code,
+        after_ms=dispatch_ms,
+        expected_kp=float(param.kp),
+        expected_ki=float(param.ki),
+        expected_kd=float(param.kd),
+        expected_control_mode=control_mode_for_publish or str(param.control_mode or "pid_control"),
+    )
+    logger.warning(
+        "[APPLY-ACK] device=%s wait_done elapsed_ms=%s",
+        device.code,
+        int((time.monotonic() - ack_wait_t0) * 1000),
+    )
     if ack is None:
+        logger.warning("[APPLY-ACK] device=%s timeout after dispatch_ms=%s", device.code, dispatch_ms)
         raise HTTPException(status_code=504, detail="Parameter ack timeout: no params_ack received from device")
     if not bool(ack.get("success") is True):
         reason = str(ack.get("reason") or "unknown_reason")
         ack_type = str(ack.get("ack_type") or "unknown_ack_type")
+        logger.warning("[APPLY-ACK] device=%s failed ack_type=%s reason=%s", device.code, ack_type, reason)
         raise HTTPException(status_code=409, detail=f"Parameter ack failed: {ack_type} ({reason})")
+    logger.warning(
+        "[APPLY-ACK] device=%s success ack_ts=%s ack_type=%s kp=%s ki=%s kd=%s mode=%s",
+        device.code,
+        ack.get("ts"),
+        ack.get("ack_type"),
+        ack.get("kp"),
+        ack.get("ki"),
+        ack.get("kd"),
+        ack.get("control_mode"),
+    )
+    logger.warning("[APPLY] device=%s total_elapsed_ms=%s", device.code, int((time.monotonic() - flow_t0) * 1000))
 
     # Persist runtime-confirmed values so UI and DB reflect actual device state immediately.
     if ack.get("kp") is not None:
@@ -635,9 +1248,9 @@ def get_metrics(
         return metrics
     query = select(DeviceMetric).where(DeviceMetric.device_id == device_id)
     if start_ms is not None:
-        query = query.where(DeviceMetric.timestamp >= datetime.utcfromtimestamp(start_ms / 1000.0))
+        query = query.where(DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms))
     if end_ms is not None:
-        query = query.where(DeviceMetric.timestamp <= datetime.utcfromtimestamp(end_ms / 1000.0))
+        query = query.where(DeviceMetric.timestamp <= _utc_naive_from_ms(end_ms))
     return db.scalars(query.order_by(DeviceMetric.timestamp.asc()).limit(limit)).all()
 
 
@@ -675,8 +1288,8 @@ def get_metric_window_stats(
             select(DeviceMetric.timestamp, DeviceMetric.error)
             .where(
                 DeviceMetric.device_id == device_id,
-                DeviceMetric.timestamp >= datetime.utcfromtimestamp(start_ms / 1000.0),
-                DeviceMetric.timestamp <= datetime.utcfromtimestamp(end_ms / 1000.0),
+                DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms),
+                DeviceMetric.timestamp <= _utc_naive_from_ms(end_ms),
             )
             .order_by(DeviceMetric.timestamp.asc())
             .limit(limit)
@@ -765,8 +1378,8 @@ def get_control_eval(
             )
             .where(
                 DeviceMetric.device_id == device_id,
-                DeviceMetric.timestamp >= datetime.utcfromtimestamp(start_ms_final / 1000.0),
-                DeviceMetric.timestamp <= datetime.utcfromtimestamp(end_ms_final / 1000.0),
+                DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms_final),
+                DeviceMetric.timestamp <= _utc_naive_from_ms(end_ms_final),
             )
             .order_by(DeviceMetric.timestamp.asc())
             .limit(limit)
@@ -900,15 +1513,88 @@ def get_ai_recommendation(
     return rec
 
 
+@router.get("/ai/recommendations/history", response_model=AIRecommendationHistoryResponseOut)
+def list_ai_recommendation_history(
+    limit: int = Query(default=100, ge=1, le=500),
+    device_id: Optional[int] = Query(default=None, ge=1),
+    start_ms: Optional[int] = Query(default=None, ge=0),
+    end_ms: Optional[int] = Query(default=None, ge=0),
+    db: Session = Depends(get_db_dep),
+    current_user: User = Depends(get_current_user),
+) -> AIRecommendationHistoryResponseOut:
+    roles = set(get_user_roles(current_user))
+    if device_id is not None:
+        require_device_access(device_id, db, current_user)
+
+    stmt = (
+        select(AIRecommendation, Device)
+        .join(Device, Device.id == AIRecommendation.device_id)
+        .order_by(AIRecommendation.last_run_at.desc())
+        .limit(limit)
+    )
+    if start_ms is not None:
+        stmt = stmt.where(AIRecommendation.last_run_at >= _utc_naive_from_sec(start_ms / 1000.0))
+    if end_ms is not None:
+        stmt = stmt.where(AIRecommendation.last_run_at <= _utc_naive_from_sec(end_ms / 1000.0))
+    if device_id is not None:
+        stmt = stmt.where(AIRecommendation.device_id == device_id)
+    elif "admin" not in roles:
+        accessible_ids = get_accessible_device_ids(db, current_user)
+        if not accessible_ids:
+            return AIRecommendationHistoryResponseOut(
+                items=[],
+                stats=AIRecommendationHistoryStatsOut(
+                    total=0,
+                    applied=0,
+                    evaluated=0,
+                    improved=0,
+                    unchanged=0,
+                    worse=0,
+                    pending_evaluation=0,
+                ),
+            )
+        stmt = stmt.where(AIRecommendation.device_id.in_(accessible_ids))
+
+    rows = db.execute(stmt).all()
+    device_ids = sorted({device.id for _, device in rows})
+    param_rows = (
+        db.scalars(select(DeviceParameter).where(DeviceParameter.device_id.in_(device_ids))).all()
+        if device_ids
+        else []
+    )
+    fallback_by_device = {
+        row.device_id: PIDParams(kp=float(row.kp), ki=float(row.ki), kd=float(row.kd))
+        for row in param_rows
+    }
+
+    items: list[AIRecommendationHistoryItemOut] = []
+    for rec, device in rows:
+        fallback = fallback_by_device.get(device.id) or PIDParams(kp=0.0, ki=0.0, kd=0.0)
+        items.append(_build_ai_history_item(rec=rec, device=device, fallback_current_params=fallback))
+
+    stats = AIRecommendationHistoryStatsOut(
+        total=len(items),
+        applied=sum(1 for item in items if item.history_state == "applied"),
+        evaluated=sum(1 for item in items if item.actual_effect_evaluated),
+        improved=sum(1 for item in items if item.effect_outcome == "improved"),
+        unchanged=sum(1 for item in items if item.effect_outcome == "unchanged"),
+        worse=sum(1 for item in items if item.effect_outcome == "worse"),
+        pending_evaluation=sum(1 for item in items if item.history_state == "applied" and not item.actual_effect_evaluated),
+    )
+    return AIRecommendationHistoryResponseOut(items=items, stats=stats)
+
+
 @router.post("/{device_id}/ai-recommendation/generate", response_model=RecommendationGenerateOutput)
 def generate_ai_recommendation(
     device_id: int,
+    request: Request,
     window_minutes: int = Query(default=60, ge=5, le=24 * 60),
     end_ms: Optional[int] = Query(default=None, ge=0),
     limit: int = Query(default=20000, ge=1, le=200000),
     db: Session = Depends(get_db_dep),
     current_user: User = Depends(get_current_user),
 ) -> RecommendationGenerateOutput:
+    logger.debug("[GEN-REQ] method=%s url=%s device_id=%s", request.method, str(request.url), device_id)
     require_device_access(device_id, db, current_user)
     device = db.scalar(select(Device).where(Device.id == device_id))
     if not device:
@@ -934,7 +1620,11 @@ def generate_ai_recommendation(
         end_ms=end_ms_final,
         limit=limit,
     )
-    generated = recommendation_service.generate(request_payload)
+    if _is_demo_preview_device(device.code):
+        generated = _build_demo_mock_recommendation(device=device, params=params)
+        logger.debug("[GEN-MOCK] device=%s using demo mocked recommendation", device.code)
+    else:
+        generated = recommendation_service.generate(request_payload)
     generated_fp = recommendation_service.build_recommendation_fingerprint(generated)
     generated.fingerprint = generated_fp
 
@@ -973,8 +1663,8 @@ def generate_ai_recommendation(
         # Reuse existing formal history record for idempotency / anti-spam.
         latest.suggestion = recommendation_service.update_storage_metadata(
             latest.suggestion,
-            history_state="reused",
             fingerprint=previous_output.fingerprint or generated_fp,
+            last_generate_reused=True,
             increment_reused_count=True,
             last_accessed_at=generated.generated_at,
         )
@@ -986,16 +1676,67 @@ def generate_ai_recommendation(
         reused.reused_recommendation_id = latest.id
         reused.generated_at = latest.last_run_at
         reused.fingerprint = previous_output.fingerprint or generated_fp
-        reused.history_state = "reused"
-        if elapsed_sec is not None and elapsed_sec <= float(cooldown_sec):
-            # Keep explicit semantic that short-interval Generate is a cooldown reuse.
-            reused.history_state = "reused"
+        reused.history_state = previous_output.history_state or "generated"
+        reused.last_generate_reused = True
+        reused.reused_count = int(previous_output.reused_count or 0) + 1
+        reused.last_accessed_at = generated.generated_at
         return reused
+
+    # Demo-only fallback:
+    # If realtime window currently looks normal/no-change, preview demo devices can
+    # reuse a recent actionable recommendation so demo/apply flow is not blocked.
+    # Real business devices must preserve strict generate semantics.
+    if _is_demo_preview_device(device.code) and not _recommendation_has_actionable_delta(generated, tolerance=tolerance):
+        recent = db.scalars(
+            select(AIRecommendation)
+            .where(AIRecommendation.device_id == device_id)
+            .order_by(AIRecommendation.last_run_at.desc())
+            .limit(20)
+        ).all()
+        for cand in recent:
+            cand_output = recommendation_service.build_output_from_storage(
+                reason=cand.reason,
+                suggestion=cand.suggestion,
+                risk=cand.risk,
+                confidence=float(cand.confidence),
+                generated_at=cand.last_run_at,
+                fallback_current_params=generated.current_params,
+            )
+            if cand_output is None:
+                continue
+            if not _recommendation_has_actionable_delta(cand_output, tolerance=tolerance):
+                continue
+            cand.suggestion = recommendation_service.update_storage_metadata(
+                cand.suggestion,
+                fingerprint=cand_output.fingerprint or generated_fp,
+                last_generate_reused=True,
+                increment_reused_count=True,
+                last_accessed_at=generated.generated_at,
+            )
+            db.commit()
+            reused = cand_output.model_copy(deep=True)
+            reused.recommendation_id = cand.id
+            reused.is_new_record = False
+            reused.reused_existing = True
+            reused.reused_recommendation_id = cand.id
+            reused.generated_at = cand.last_run_at
+            reused.fingerprint = cand_output.fingerprint or generated_fp
+            reused.history_state = cand_output.history_state or "generated"
+            reused.last_generate_reused = True
+            reused.reused_count = int(cand_output.reused_count or 0) + 1
+            reused.last_accessed_at = generated.generated_at
+            logger.debug(
+                "[GEN-FALLBACK] device=%s generated=no-change -> reused actionable recommendation_id=%s",
+                device.code,
+                cand.id,
+            )
+            return reused
 
     reason, suggestion, risk = recommendation_service.to_storage_fields(
         generated,
         fingerprint=generated_fp,
         history_state="generated",
+        last_generate_reused=False,
         reused_count=0,
         last_accessed_at=generated.generated_at,
     )
@@ -1017,6 +1758,9 @@ def generate_ai_recommendation(
     generated.reused_recommendation_id = None
     generated.fingerprint = generated_fp
     generated.history_state = "generated"
+    generated.last_generate_reused = False
+    generated.reused_count = 0
+    generated.last_accessed_at = generated.generated_at
     return generated
 
 
@@ -1045,12 +1789,21 @@ def acknowledge_alarm(
 @router.post("/{device_id}/ai-recommendation/apply", response_model=ParameterOut)
 def apply_ai_recommendation(
     device_id: int,
+    request: Request,
     db: Session = Depends(get_db_dep),
     current_user: User = Depends(require_roles("admin", "operator")),
 ) -> DeviceParameter:
+    logger.warning(
+        "[APPLY-REQ] method=%s url=%s device_id=%s user=%s",
+        request.method,
+        str(request.url),
+        device_id,
+        current_user.username,
+    )
     require_device_access(device_id, db, current_user)
     device = db.scalar(select(Device).where(Device.id == device_id))
     if not device:
+        logger.warning("[APPLY-REQ] device_id=%s device not found", device_id)
         raise HTTPException(status_code=404, detail="Device not found")
 
     rec = db.scalar(
@@ -1059,22 +1812,79 @@ def apply_ai_recommendation(
         .order_by(AIRecommendation.last_run_at.desc())
     )
     if not rec:
+        logger.warning("[APPLY-REQ] device_id=%s no recommendation found", device_id)
         raise HTTPException(status_code=404, detail="AI recommendation not found")
 
     params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
     if not params:
+        logger.warning("[APPLY-REQ] device_id=%s no parameters found", device_id)
         raise HTTPException(status_code=404, detail="Parameters not found")
     _hydrate_runtime_parameters(device, params)
 
     current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
     recommended = recommendation_service.parse_recommended_params(rec.suggestion, current)
     if not recommended:
+        logger.warning("[APPLY-REQ] device_id=%s recommendation parse failed -> dismiss", device_id)
         params.updated_by = f"{current_user.username}:ai-noop"
         params.updated_at = datetime.utcnow()
         rec.last_run_at = datetime.utcnow()
         rec.suggestion = recommendation_service.update_storage_metadata(
             rec.suggestion,
             history_state="dismissed",
+            last_accessed_at=datetime.utcnow(),
+        )
+        db.commit()
+        db.refresh(params)
+        return params
+
+    # If a recent successful ACK already matches current recommendation target,
+    # treat this apply as already completed and skip MQTT re-dispatch.
+    matched_ack = _find_recent_success_ack_for_target(
+        device_code=device.code,
+        target=recommended,
+        expected_control_mode=str(params.control_mode or "pid_control"),
+        tolerance=float(settings.recommendation_float_tolerance),
+    )
+    if matched_ack is not None:
+        logger.warning(
+            "[APPLY-ACK-SHORTCUT] device=%s ack_ts=%s kp=%s ki=%s kd=%s mode=%s",
+            device.code,
+            matched_ack.get("ts"),
+            matched_ack.get("kp"),
+            matched_ack.get("ki"),
+            matched_ack.get("kd"),
+            matched_ack.get("control_mode"),
+        )
+        params.kp = round(float(recommended.kp), 4)
+        params.ki = round(float(recommended.ki), 4)
+        params.kd = round(float(recommended.kd), 4)
+        params.updated_by = f"{current_user.username}:ai-ack-shortcut"
+        params.updated_at = datetime.utcnow()
+        rec.last_run_at = datetime.utcnow()
+        rec.suggestion = recommendation_service.update_storage_metadata(
+            rec.suggestion,
+            history_state="applied",
+            last_accessed_at=datetime.utcnow(),
+        )
+        db.commit()
+        db.refresh(params)
+        return params
+
+    # Idempotency guard:
+    # If latest runtime params already match recommendation target (for example,
+    # previous apply succeeded later than client timeout), skip re-dispatch.
+    if _pid_is_effectively_applied(
+        current=current,
+        target=recommended,
+        tolerance=float(settings.recommendation_float_tolerance),
+    ):
+        logger.warning("[APPLY-REQ] device_id=%s idempotent hit (already applied)", device_id)
+        params.updated_by = f"{current_user.username}:ai-idempotent"
+        params.updated_at = datetime.utcnow()
+        rec.last_run_at = datetime.utcnow()
+        rec.suggestion = recommendation_service.update_storage_metadata(
+            rec.suggestion,
+            history_state="applied",
             last_accessed_at=datetime.utcnow(),
         )
         db.commit()
@@ -1145,17 +1955,132 @@ def preview_ai_recommendation(
         pwm_saturation_threshold=float(params.pwm_saturation_threshold),
         control_mode=str(params.control_mode or "pid_control"),
     )
-    rec.suggestion = recommendation_service.update_storage_metadata(
-        rec.suggestion,
-        history_state="previewed",
-        last_accessed_at=datetime.utcnow(),
-    )
-    db.commit()
-
-    return preview_simulator.run(
+    preview_output = preview_simulator.run(
         current_temp=float(device.current_temp),
         target_temp=float(device.target_temp),
         baseline_params=baseline_params,
         recommended_params=recommended_params,
         config=cfg,
+    )
+
+    rec_meta = recommendation_service.read_storage_metadata(rec.suggestion)
+    current_state = str(rec_meta.get("hs") or "generated")
+    next_state = current_state if current_state in {"applied", "dismissed", "expired"} else "previewed"
+    rec.suggestion = recommendation_service.update_storage_metadata(
+        rec.suggestion,
+        history_state=next_state,
+        last_accessed_at=datetime.utcnow(),
+    )
+    db.commit()
+    return preview_output
+
+
+@router.post(
+    "/{device_id}/ai-recommendation/{recommendation_id}/evaluate-actual",
+    response_model=RecommendationActualEvaluationOutput,
+)
+def evaluate_ai_recommendation_actual(
+    device_id: int,
+    recommendation_id: int,
+    payload: RecommendationActualEvaluationRequest = RecommendationActualEvaluationRequest(),
+    db: Session = Depends(get_db_dep),
+    current_user: User = Depends(get_current_user),
+) -> RecommendationActualEvaluationOutput:
+    require_device_access(device_id, db, current_user)
+    device = db.scalar(select(Device).where(Device.id == device_id))
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    if not params:
+        raise HTTPException(status_code=404, detail="Parameters not found")
+    _hydrate_runtime_parameters(device, params)
+
+    rec = db.scalar(
+        select(AIRecommendation).where(AIRecommendation.id == recommendation_id, AIRecommendation.device_id == device_id)
+    )
+    if not rec:
+        raise HTTPException(status_code=404, detail="AI recommendation not found")
+
+    meta = recommendation_service.read_storage_metadata(rec.suggestion)
+    history_state = str(meta.get("hs") or "generated")
+    if history_state != "applied":
+        raise HTTPException(status_code=409, detail="Recommendation has not been applied yet")
+
+    apply_at = _parse_iso_utc(meta.get("la")) or rec.last_run_at
+    now_dt = datetime.utcnow()
+    if now_dt <= apply_at:
+        raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
+
+    window_minutes = int(payload.observation_window_minutes)
+    observation_start_ms = int(apply_at.timestamp() * 1000)
+    observation_end_dt = min(now_dt, _utc_naive_from_sec(observation_start_ms / 1000.0 + window_minutes * 60))
+    observation_end_ms = int(observation_end_dt.timestamp() * 1000)
+
+    observed_points = _load_observed_points(
+        db=db,
+        device=device,
+        start_ms=observation_start_ms,
+        end_ms=observation_end_ms,
+        limit=200000,
+    )
+    if len(observed_points) < 5:
+        raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
+
+    target_band = float(params.target_band)
+    pwm_threshold = float(params.pwm_saturation_threshold)
+    actual_metrics = post_effect_evaluator.calc_metrics(
+        points=observed_points,
+        target_band=target_band,
+        pwm_saturation_threshold=pwm_threshold,
+    )
+    if actual_metrics is None:
+        raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
+
+    before_start_ms = observation_start_ms - window_minutes * 60 * 1000
+    before_end_ms = observation_start_ms - 1
+    before_points = _load_observed_points(
+        db=db,
+        device=device,
+        start_ms=before_start_ms,
+        end_ms=before_end_ms,
+        limit=200000,
+    )
+    baseline_metrics = post_effect_evaluator.calc_metrics(
+        points=before_points,
+        target_band=target_band,
+        pwm_saturation_threshold=pwm_threshold,
+    )
+    if baseline_metrics is None:
+        parsed = recommendation_service.parse_suggestion_payload(rec.suggestion)
+        evidence = parsed.get("evidence") if isinstance(parsed, dict) else None
+        baseline_metrics = _extract_metrics_from_evidence(evidence if isinstance(evidence, dict) else None)
+
+    preview_metrics = _extract_preview_recommended_metrics(meta)
+    actual_summary = post_effect_evaluator.build_actual_summary(points=observed_points, metrics=actual_metrics)
+    comparison_before = post_effect_evaluator.compare(reference=baseline_metrics, actual=actual_metrics)
+    comparison_preview = None
+    if preview_metrics is not None:
+        comparison_preview = post_effect_evaluator.compare(reference=preview_metrics, actual=actual_metrics)
+
+    evaluated_at = datetime.utcnow()
+    rec.suggestion = recommendation_service.update_storage_metadata(
+        rec.suggestion,
+        last_accessed_at=evaluated_at,
+        post_effect_summary=actual_summary.model_dump(mode="json"),
+        post_effect_comparison_before=comparison_before.model_dump(mode="json"),
+        post_effect_comparison_preview=None if comparison_preview is None else comparison_preview.model_dump(mode="json"),
+        actual_effect_evaluated=True,
+        observation_window_minutes=window_minutes,
+        evaluated_at=evaluated_at,
+    )
+    db.commit()
+
+    return RecommendationActualEvaluationOutput(
+        recommendation_id=rec.id,
+        history_state=history_state,
+        evaluated_at=evaluated_at,
+        observation_window_minutes=window_minutes,
+        actual_effect_summary=actual_summary,
+        comparison_to_before=comparison_before,
+        comparison_to_preview=comparison_preview,
     )

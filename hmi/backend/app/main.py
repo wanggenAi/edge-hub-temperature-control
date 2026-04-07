@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,6 +24,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
+    # Silence noisy HTTP access logs so operator can focus on apply/ack diagnostics.
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
     if settings.run_db_migrations_on_startup:
         upgrade_to_head()
 

@@ -155,3 +155,74 @@ class AIRecommendationOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AIPidParamsOut(BaseModel):
+    kp: float
+    ki: float
+    kd: float
+
+
+class AIPostEffectMetricsOut(BaseModel):
+    observed_window_start: datetime
+    observed_window_end: datetime
+    point_count: int
+    in_band_ratio_after: float
+    overshoot_c_after: float
+    settling_sec_after: Optional[float] = None
+    mean_abs_error_after: float
+    saturation_ratio_after: float
+    temp_swing_after: float
+
+
+class AIPostEffectComparisonOut(BaseModel):
+    in_band_ratio_delta: Optional[float] = None
+    overshoot_c_delta: Optional[float] = None
+    settling_sec_delta: Optional[float] = None
+    mean_abs_error_delta: Optional[float] = None
+    saturation_ratio_delta: Optional[float] = None
+    temp_swing_delta: Optional[float] = None
+
+
+class AIRecommendationHistoryItemOut(BaseModel):
+    recommendation_id: int
+    device_id: int
+    device_code: str
+    device_name: str
+    device_line: str
+    device_location: str
+    problem_type: str
+    expected_effect: Optional[str] = None
+    risk_level: Optional[str] = None
+    confidence: float
+    requires_confirmation: bool = False
+    history_state: Optional[str] = None
+    generated_at: datetime
+    fingerprint: Optional[str] = None
+    reused_count: int = 0
+    last_generate_reused: Optional[bool] = None
+    last_accessed_at: Optional[datetime] = None
+    current_params: Optional[AIPidParamsOut] = None
+    recommended_params: Optional[AIPidParamsOut] = None
+    delta: Optional[AIPidParamsOut] = None
+    actual_effect_evaluated: bool = False
+    observation_window_minutes: Optional[int] = None
+    post_effect_summary: Optional[AIPostEffectMetricsOut] = None
+    comparison_to_before: Optional[AIPostEffectComparisonOut] = None
+    comparison_to_preview: Optional[AIPostEffectComparisonOut] = None
+    effect_outcome: str = "pending"
+
+
+class AIRecommendationHistoryStatsOut(BaseModel):
+    total: int
+    applied: int
+    evaluated: int
+    improved: int
+    unchanged: int
+    worse: int
+    pending_evaluation: int
+
+
+class AIRecommendationHistoryResponseOut(BaseModel):
+    items: list[AIRecommendationHistoryItemOut]
+    stats: AIRecommendationHistoryStatsOut

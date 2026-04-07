@@ -1,5 +1,7 @@
 import type {
+  AIPostEffectEvaluation,
   AIPreviewSimulation,
+  AIRecommendationHistoryResponse,
   AIRecommendation,
   AIGeneratedRecommendation,
   Alarm,
@@ -24,6 +26,7 @@ import type {
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 const REQUEST_TIMEOUT_MS = 12000;
+const APPLY_REQUEST_TIMEOUT_MS = 12000;
 
 function toWsBase(httpBase: string): string {
   if (httpBase.startsWith("https://")) return `wss://${httpBase.slice("https://".length)}`;
@@ -44,7 +47,7 @@ export function buildDeviceStreamUrl(deviceId?: number): string | null {
   return url.toString();
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, opts?: { timeoutMs?: number }): Promise<T> {
   const token = localStorage.getItem("token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -55,7 +58,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutMs = Math.max(1000, Number(opts?.timeoutMs ?? REQUEST_TIMEOUT_MS));
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, { ...init, headers, signal: controller.signal });
@@ -160,6 +164,15 @@ export const api = {
     }),
   alarms: (id: number) => request<Alarm[]>(`/devices/${id}/alarms`),
   aiRecommendation: (id: number) => request<AIRecommendation>(`/devices/${id}/ai-recommendation`),
+  aiRecommendationHistory: (params: { limit?: number; device_id?: number; start_ms?: number; end_ms?: number } = {}) => {
+    const sp = new URLSearchParams();
+    if (typeof params.limit === "number") sp.set("limit", String(params.limit));
+    if (typeof params.device_id === "number") sp.set("device_id", String(params.device_id));
+    if (typeof params.start_ms === "number") sp.set("start_ms", String(params.start_ms));
+    if (typeof params.end_ms === "number") sp.set("end_ms", String(params.end_ms));
+    const suffix = sp.toString() ? `?${sp.toString()}` : "";
+    return request<AIRecommendationHistoryResponse>(`/devices/ai/recommendations/history${suffix}`);
+  },
   generateAiRecommendation: (
     deviceId: number,
     params: { window_minutes?: number; end_ms?: number; limit?: number } = {}
@@ -190,6 +203,15 @@ export const api = {
     const suffix = sp.toString() ? `?${sp.toString()}` : "";
     return request<AIPreviewSimulation>(`/devices/${deviceId}/ai-recommendation/preview${suffix}`, { method: "POST" });
   },
+  evaluateAiRecommendationActual: (
+    deviceId: number,
+    recommendationId: number,
+    payload: { observation_window_minutes?: number } = {}
+  ) =>
+    request<AIPostEffectEvaluation>(`/devices/${deviceId}/ai-recommendation/${recommendationId}/evaluate-actual`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   users: () => request<UserItem[]>("/users"),
   createUser: (payload: { username: string; email: string; password: string; roles: string[] }) =>
     request<UserItem>("/users", { method: "POST", body: JSON.stringify(payload) }),
@@ -199,7 +221,7 @@ export const api = {
   acknowledgeAlarm: (deviceId: number, alarmId: number) =>
     request<{ ok: boolean }>(`/devices/${deviceId}/alarms/${alarmId}/ack`, { method: "POST" }),
   applyAiRecommendation: (deviceId: number) =>
-    request<Parameter>(`/devices/${deviceId}/ai-recommendation/apply`, { method: "POST" }),
+    request<Parameter>(`/devices/${deviceId}/ai-recommendation/apply`, { method: "POST" }, { timeoutMs: APPLY_REQUEST_TIMEOUT_MS }),
   alarmCenter: (params: { page?: number; page_size?: number; q?: string } = {}) =>
     request<AlarmListResponse>(
       `/alarms?page=${params.page ?? 1}&page_size=${params.page_size ?? 20}&q=${encodeURIComponent(
