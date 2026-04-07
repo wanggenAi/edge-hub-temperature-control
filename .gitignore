@@ -39,6 +39,10 @@ temp/
 runtime/
 data-hub/runtime/
 hmi/backend/artifacts/
+ml/data/raw/*.parquet
+ml/data/cleaned/*.parquet
+ml/data/features/*.parquet
+ml/data/datasets/*.parquet
 hmi/frontend/node_modules/
 hmi/frontend/dist/
 **/node_modules/
