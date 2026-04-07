@@ -69,6 +69,28 @@ python scripts/db_seed.py --rules
 uvicorn app.main:app --reload
 ```
 
+Optional: run AI runtime as an independent process (recommended for model lifecycle isolation):
+
+```bash
+cd hmi/backend
+python scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+```
+
+Then enable remote inference in backend `.env`:
+
+```env
+AI_RUNTIME_REMOTE_ENABLED=true
+AI_RUNTIME_REMOTE_BASE_URL=http://127.0.0.1:8010
+AI_RUNTIME_REMOTE_TIMEOUT_SECONDS=5
+AI_RUNTIME_REMOTE_API_KEY=
+```
+
+Behavior:
+
+- HMI backend calls AI service first when remote mode is enabled.
+- If AI service is unavailable or inference fails, backend automatically falls back to local runtime decision logic.
+- Core recommendation flow remains available (no hard dependency on remote service uptime).
+
 API docs: `http://127.0.0.1:8000/docs`
 
 Seed accounts:

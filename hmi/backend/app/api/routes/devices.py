@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
@@ -43,6 +43,7 @@ from app.schemas.device import (
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai.recommendation_service import RecommendationService
 from app.services.ai.ai_runtime_service import get_ai_runtime_service
+from app.services.ai.ai_runtime_remote_client import AIRuntimeRemoteClient
 from app.services.ai.post_effect_evaluator import ObservedTelemetryPoint, PostEffectEvaluator
 from app.services.ai.preview_simulator import (
     PREVIEW_DEFAULT_AMBIENT_TEMP,
@@ -73,6 +74,7 @@ tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
 recommendation_service = RecommendationService()
 ai_runtime_service = get_ai_runtime_service()
+ai_runtime_remote_client = AIRuntimeRemoteClient()
 preview_simulator = RecommendationPreviewSimulator()
 post_effect_evaluator = PostEffectEvaluator()
 logger = logging.getLogger(__name__)
@@ -1766,30 +1768,76 @@ def generate_ai_recommendation(
     else:
         generated = recommendation_service.generate(request_payload)
 
-    try:
-        runtime_decision = ai_runtime_service.build_recommendation_decision(
-            payload=request_payload,
-            base_output=generated,
-            recommendation_id=0,
-        )
-    except Exception as exc:  # noqa: BLE001
-        runtime_decision = {
-            "fallback_used": True,
-            "fallback_reason": f"ai runtime orchestration failed: {exc}",
-            "enabled_models": {},
-            "model_status": ai_runtime_service.model_status(),
-            "candidate_count": 0,
-            "ranked_candidates": [],
-            "top_1_candidate_id": None,
-            "top_1_candidate": None,
-            "scoring_formula": {},
-            "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
-        }
+    runtime_decision: dict[str, Any]
+    if bool(settings.ai_runtime_remote_enabled):
+        try:
+            remote_decision = ai_runtime_remote_client.infer_runtime_decision(
+                payload={
+                    "recommendation_input": request_payload.model_dump(mode="json"),
+                    "base_recommendation_output": generated.model_dump(mode="json"),
+                    "recommendation_id": 0,
+                }
+            )
+            runtime_decision = remote_decision
+            generated = ai_runtime_service.apply_decision_to_recommendation(
+                output=generated,
+                decision=runtime_decision,
+            )
+            runtime_decision["runtime_source"] = "remote_ai_service"
+        except Exception as exc:  # noqa: BLE001
+            try:
+                runtime_decision = ai_runtime_service.build_recommendation_decision(
+                    payload=request_payload,
+                    base_output=generated,
+                    recommendation_id=0,
+                )
+                runtime_decision["runtime_source"] = "local_fallback_after_remote_error"
+                runtime_decision["remote_error"] = str(exc)
+                generated = ai_runtime_service.apply_decision_to_recommendation(
+                    output=generated,
+                    decision=runtime_decision,
+                )
+            except Exception as local_exc:  # noqa: BLE001
+                runtime_decision = {
+                    "fallback_used": True,
+                    "fallback_reason": f"ai runtime remote+local failed: remote={exc}; local={local_exc}",
+                    "enabled_models": {},
+                    "model_status": ai_runtime_service.model_status(),
+                    "candidate_count": 0,
+                    "ranked_candidates": [],
+                    "top_1_candidate_id": None,
+                    "top_1_candidate": None,
+                    "scoring_formula": {},
+                    "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
+                    "runtime_source": "fallback_none",
+                }
+    else:
+        try:
+            runtime_decision = ai_runtime_service.build_recommendation_decision(
+                payload=request_payload,
+                base_output=generated,
+                recommendation_id=0,
+            )
+            runtime_decision["runtime_source"] = "local_ai_runtime"
+            generated = ai_runtime_service.apply_decision_to_recommendation(
+                output=generated,
+                decision=runtime_decision,
+            )
+        except Exception as exc:  # noqa: BLE001
+            runtime_decision = {
+                "fallback_used": True,
+                "fallback_reason": f"ai runtime orchestration failed: {exc}",
+                "enabled_models": {},
+                "model_status": ai_runtime_service.model_status(),
+                "candidate_count": 0,
+                "ranked_candidates": [],
+                "top_1_candidate_id": None,
+                "top_1_candidate": None,
+                "scoring_formula": {},
+                "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
+                "runtime_source": "fallback_none",
+            }
 
-    generated = ai_runtime_service.apply_decision_to_recommendation(
-        output=generated,
-        decision=runtime_decision,
-    )
     ai_runtime_service.remember_decision(device_id=device_id, decision=runtime_decision)
 
     generated_fp = recommendation_service.build_recommendation_fingerprint(generated)

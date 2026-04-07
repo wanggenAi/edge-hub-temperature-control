@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     ranker_candidate_count: int = 6
     high_gap_penalty_threshold: float = 0.75
     use_problem_classifier_for_candidate_bias: bool = False
+    ai_runtime_remote_enabled: bool = False
+    ai_runtime_remote_base_url: str = "http://127.0.0.1:8010"
+    ai_runtime_remote_timeout_seconds: int = 5
+    ai_runtime_remote_api_key: str = ""
     hmi_log_level: str = "INFO"
     hmi_console_log_level: str = "INFO"
     hmi_access_log_level: str = "INFO"
