@@ -23,6 +23,7 @@ class RecommendationRankingContext:
     horizon_sec: int = 900
     step_sec: int = 30
     control_mode: str = "pid_control"
+    predicted_problem_type: Optional[str] = None
 
 
 @dataclass
@@ -83,10 +84,16 @@ class RecommendationRanker:
         success_model: Any,
         preview_gap_model: Any,
         preview_simulator: Optional[RecommendationPreviewSimulator] = None,
+        alpha: float = 0.65,
+        beta: float = 0.35,
+        candidate_count: int = 6,
     ) -> None:
         self.success_model = success_model
         self.preview_gap_model = preview_gap_model
         self.preview_simulator = preview_simulator or RecommendationPreviewSimulator()
+        self.alpha = float(alpha)
+        self.beta = float(beta)
+        self.candidate_count = max(3, int(candidate_count))
 
     @staticmethod
     def _clamp_nonnegative(value: float) -> float:
@@ -152,6 +159,20 @@ class RecommendationRanker:
                 strategy_note=strategy_note,
             )
 
+        predicted_problem = (context.predicted_problem_type or "").strip().lower()
+
+        conservative_scale = (0.65, 0.65, 1.10)
+        aggressive_scale = (1.35, 1.25, 0.90)
+        settling_scale = (1.20, 1.00, 0.95)
+
+        if predicted_problem in {"overshoot_high", "oscillation", "saturation_limited"}:
+            aggressive_scale = (1.15, 1.05, 1.00)
+            settling_scale = (1.10, 0.95, 1.05)
+        elif predicted_problem in {"slow_response", "steady_state_error"}:
+            conservative_scale = (0.70, 0.70, 1.05)
+            aggressive_scale = (1.45, 1.30, 0.88)
+            settling_scale = (1.28, 1.08, 0.92)
+
         # Ensure overshoot-guard behavior is consistent with its name.
         # We always make Kp/Ki more conservative than rule_center, and force Kd
         # to be at least as damped as rule_center (never lower than baseline).
@@ -162,7 +183,7 @@ class RecommendationRanker:
         else:
             overshoot_delta_kd = abs(float(base_delta.kd)) * 0.35
 
-        return [
+        candidates = [
             build_from_multiplier(
                 candidate_id="rule_center",
                 m_kp=1.0,
@@ -172,16 +193,16 @@ class RecommendationRanker:
             ),
             build_from_multiplier(
                 candidate_id="conservative",
-                m_kp=0.65,
-                m_ki=0.65,
-                m_kd=1.10,
+                m_kp=conservative_scale[0],
+                m_ki=conservative_scale[1],
+                m_kd=conservative_scale[2],
                 strategy_note="Smaller Kp/Ki adjustment with slightly stronger Kd damping.",
             ),
             build_from_multiplier(
                 candidate_id="aggressive",
-                m_kp=1.35,
-                m_ki=1.25,
-                m_kd=0.90,
+                m_kp=aggressive_scale[0],
+                m_ki=aggressive_scale[1],
+                m_kd=aggressive_scale[2],
                 strategy_note="Larger Kp/Ki adjustment to chase stronger improvement.",
             ),
             build_from_delta(
@@ -193,9 +214,9 @@ class RecommendationRanker:
             ),
             build_from_multiplier(
                 candidate_id="settling_focus",
-                m_kp=1.20,
-                m_ki=1.00,
-                m_kd=0.95,
+                m_kp=settling_scale[0],
+                m_ki=settling_scale[1],
+                m_kd=settling_scale[2],
                 strategy_note="Bias toward faster settling with moderate Kp boost.",
             ),
             build_from_multiplier(
@@ -206,6 +227,7 @@ class RecommendationRanker:
                 strategy_note="Hold baseline PID to quantify no-change reference.",
             ),
         ]
+        return candidates[: self.candidate_count]
 
     def _simulate_preview_summary(
         self,
@@ -327,6 +349,8 @@ class RecommendationRanker:
             p_low=gap_proba.get("low", 0.0),
             p_medium=gap_proba.get("medium", 0.0),
             p_high=gap_proba.get("high", 0.0),
+            alpha=self.alpha,
+            beta=self.beta,
         )
 
         return {

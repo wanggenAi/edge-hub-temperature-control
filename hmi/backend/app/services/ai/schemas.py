@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -87,6 +87,7 @@ class RecommendationGenerateOutput(BaseModel):
     last_generate_reused: Optional[bool] = None
     reused_count: Optional[int] = None
     last_accessed_at: Optional[datetime] = None
+    ai_decision: Optional[dict[str, Any]] = None
 
 
 class PreviewCurvePoint(BaseModel):

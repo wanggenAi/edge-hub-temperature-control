@@ -128,6 +128,7 @@ class RecommendationService:
         last_generate_reused: bool = False,
         reused_count: int = 0,
         last_accessed_at: Optional[datetime] = None,
+        runtime_decision: Optional[dict[str, Any]] = None,
     ) -> tuple[str, str, str]:
         reason = f"{output.problem_type.value}; effect={output.expected_effect.value}"
         risk = f"{output.risk_level.value}; requires_confirmation={output.requires_confirmation}"
@@ -136,6 +137,15 @@ class RecommendationService:
         current = self._normalize_pid(output.current_params)
         fp = fingerprint or self.build_recommendation_fingerprint(output)
         accessed_at = (last_accessed_at or output.generated_at).isoformat(timespec="seconds")
+        metadata = {
+            "fp": fp,
+            "hs": history_state,
+            "lgr": bool(last_generate_reused),
+            "rc": int(max(0, reused_count)),
+            "la": accessed_at,
+        }
+        if isinstance(runtime_decision, dict):
+            metadata["ard"] = runtime_decision
         suggestion = json.dumps(
             {
                 "f": "ai_rec",
@@ -150,13 +160,7 @@ class RecommendationService:
                     "rp": recommended,
                     "d": delta,
                     # Metadata keeps recommendation history semantics without schema migration.
-                    "m": {
-                        "fp": fp,
-                        "hs": history_state,
-                        "lgr": bool(last_generate_reused),
-                        "rc": int(max(0, reused_count)),
-                        "la": accessed_at,
-                    },
+                    "m": metadata,
                 },
             },
             separators=(",", ":"),
@@ -199,6 +203,7 @@ class RecommendationService:
         observation_window_minutes: Optional[int] = None,
         evaluated_at: Optional[datetime] = None,
         applied_at: Optional[datetime] = None,
+        runtime_decision: Optional[dict[str, Any]] = None,
     ) -> str:
         if not suggestion:
             return suggestion
@@ -246,6 +251,8 @@ class RecommendationService:
             next_meta["pea"] = evaluated_at.isoformat(timespec="seconds")
         if applied_at is not None:
             next_meta["apa"] = applied_at.isoformat(timespec="seconds")
+        if runtime_decision is not None and isinstance(runtime_decision, dict):
+            next_meta["ard"] = runtime_decision
         payload["m"] = next_meta
         body["p"] = payload
         return self._fit_suggestion_size(json.dumps(body, separators=(",", ":")))
@@ -266,7 +273,7 @@ class RecommendationService:
         # Drop heavy optional metadata first.
         meta = payload.get("m")
         if isinstance(meta, dict):
-            for key in ("pvs", "pecb", "pecp"):
+            for key in ("pvs", "pecb", "pecp", "ard"):
                 meta.pop(key, None)
             if "pe" in meta and isinstance(meta.get("pe"), dict):
                 pe = meta.get("pe") or {}

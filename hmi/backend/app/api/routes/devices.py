@@ -42,6 +42,7 @@ from app.schemas.device import (
 )
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai.recommendation_service import RecommendationService
+from app.services.ai.ai_runtime_service import get_ai_runtime_service
 from app.services.ai.post_effect_evaluator import ObservedTelemetryPoint, PostEffectEvaluator
 from app.services.ai.preview_simulator import (
     PREVIEW_DEFAULT_AMBIENT_TEMP,
@@ -71,6 +72,7 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
 recommendation_service = RecommendationService()
+ai_runtime_service = get_ai_runtime_service()
 preview_simulator = RecommendationPreviewSimulator()
 post_effect_evaluator = PostEffectEvaluator()
 logger = logging.getLogger(__name__)
@@ -1763,6 +1765,33 @@ def generate_ai_recommendation(
         logger.debug("[GEN-MOCK] device=%s using demo mocked recommendation", device.code)
     else:
         generated = recommendation_service.generate(request_payload)
+
+    try:
+        runtime_decision = ai_runtime_service.build_recommendation_decision(
+            payload=request_payload,
+            base_output=generated,
+            recommendation_id=0,
+        )
+    except Exception as exc:  # noqa: BLE001
+        runtime_decision = {
+            "fallback_used": True,
+            "fallback_reason": f"ai runtime orchestration failed: {exc}",
+            "enabled_models": {},
+            "model_status": ai_runtime_service.model_status(),
+            "candidate_count": 0,
+            "ranked_candidates": [],
+            "top_1_candidate_id": None,
+            "top_1_candidate": None,
+            "scoring_formula": {},
+            "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
+        }
+
+    generated = ai_runtime_service.apply_decision_to_recommendation(
+        output=generated,
+        decision=runtime_decision,
+    )
+    ai_runtime_service.remember_decision(device_id=device_id, decision=runtime_decision)
+
     generated_fp = recommendation_service.build_recommendation_fingerprint(generated)
     generated.fingerprint = generated_fp
 
@@ -1805,6 +1834,7 @@ def generate_ai_recommendation(
             last_generate_reused=True,
             increment_reused_count=True,
             last_accessed_at=generated.generated_at,
+            runtime_decision=runtime_decision,
         )
         db.commit()
         reused = previous_output.model_copy(deep=True)
@@ -1818,6 +1848,7 @@ def generate_ai_recommendation(
         reused.last_generate_reused = True
         reused.reused_count = int(previous_output.reused_count or 0) + 1
         reused.last_accessed_at = generated.generated_at
+        reused.ai_decision = runtime_decision
         return reused
 
     # Demo-only fallback:
@@ -1850,6 +1881,7 @@ def generate_ai_recommendation(
                 last_generate_reused=True,
                 increment_reused_count=True,
                 last_accessed_at=generated.generated_at,
+                runtime_decision=runtime_decision,
             )
             db.commit()
             reused = cand_output.model_copy(deep=True)
@@ -1863,6 +1895,7 @@ def generate_ai_recommendation(
             reused.last_generate_reused = True
             reused.reused_count = int(cand_output.reused_count or 0) + 1
             reused.last_accessed_at = generated.generated_at
+            reused.ai_decision = runtime_decision
             logger.debug(
                 "[GEN-FALLBACK] device=%s generated=no-change -> reused actionable recommendation_id=%s",
                 device.code,
@@ -1877,6 +1910,7 @@ def generate_ai_recommendation(
         last_generate_reused=False,
         reused_count=0,
         last_accessed_at=generated.generated_at,
+        runtime_decision=runtime_decision,
     )
     rec = AIRecommendation(
         device_id=device_id,
@@ -1899,6 +1933,7 @@ def generate_ai_recommendation(
     generated.last_generate_reused = False
     generated.reused_count = 0
     generated.last_accessed_at = generated.generated_at
+    generated.ai_decision = runtime_decision
     return generated
 
 

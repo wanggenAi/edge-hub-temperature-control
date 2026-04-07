@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { LayoutShell } from "@/components/layout-shell";
 import { AIPage } from "@/pages/ai-page";
+import { AIRuntimePage } from "@/pages/ai-runtime-page";
 import { AlarmsPage } from "@/pages/alarms-page";
 import { DeviceDetailPage } from "@/pages/device-detail-page";
 import { DeviceManagePage } from "@/pages/device-manage-page";
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="/devices/manage" element={<DeviceManagePage />} />
         <Route path="/devices/:id" element={<DeviceDetailPage />} />
         <Route path="/ai" element={<AIPage />} />
+        <Route path="/ai/runtime" element={<AIRuntimePage />} />
         <Route path="/alarms" element={<AlarmsPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route element={<RoleGuard roles={["admin"]} />}>
