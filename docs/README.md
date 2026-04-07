@@ -1,29 +1,28 @@
-# docs
+# Documentation Index
 
-This directory stores descriptive project documents and thesis-supporting materials.
+This directory stores architecture and deployment documents for active modules.
 
-Current structure is aligned with the active modules in the repository:
+## Scope
 
-- edge simulation (`simulator/wokwi`)
-- data hub (`data-hub`)
-- application layer (`hmi`)
+- Keep runtime-facing docs here:
+  - architecture
+  - interfaces/protocols
+  - deployment and operations
+- Keep experiment logs in `experiments/`
+- Keep hardware design references in `hardware/`
 
-Recommended contents include:
+## Current Documents
 
-- overall system architecture
-- module responsibility definitions
-- interface specifications
-- development plans and milestone notes
-- experiment record templates
-- engineering descriptions that will be referenced in the thesis
-
-Current files:
-
-- `architecture-overview.md`: overall description of the three-layer architecture
-- `development-roadmap.md`: staged project roadmap
-- `mqtt_interface.md`: MQTT message interface definition
+- `architecture-overview.md`: three-layer system architecture
+- `development-roadmap.md`: project roadmap and milestones
+- `mqtt_interface.md`: MQTT topic/payload contract
+- `repository-maintenance-audit.md`: cleanup classification and phased maintenance plan
 - `deployment/README.md`: deployment document index
-- `deployment/mqtt-broker-ubuntu.md`: Ubuntu Mosquitto deployment guide
-- `deployment/tdengine-docker-local.md`: local TDengine Docker deployment guide
+- `deployment/mqtt-broker-ubuntu.md`: broker deployment guide
+- `deployment/tdengine-docker-local.md`: TDengine local deployment guide
 
-Documentation sync date: 2026-04-04.
+## Maintenance Rules
+
+- Avoid duplicating run commands already maintained in module READMEs.
+- Prefer linking to source module docs (`simulator/`, `data-hub/`, `hmi/`, `ml/`) for module-specific operations.
+- If a document is historical-only, move it to an archive subfolder instead of deleting.

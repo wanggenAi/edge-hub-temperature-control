@@ -1,14 +1,15 @@
-# AI Module (Isolated)
+# AI Module
 
-This directory centralizes AI-related runtime and training assets so the HMI web layer can stay thin and stable.
+This directory centralizes AI runtime and offline model workflows to keep HMI
+web-layer code isolated from model lifecycle changes.
 
 ## Layout
 
-- `scripts/`: AI runtime server, model training, ranking, feedback export/seed scripts
-- `docs/`: AI script usage docs
-- `../artifacts/`: trained model artifacts and reports
+- `scripts/`: runtime service, model training, ranking, feedback export/seed
+- `docs/`: usage guides for each AI script
+- `../artifacts/`: local model artifacts and reports
 
-## Recommended entrypoints
+## Primary Entrypoints
 
 Run AI runtime service:
 
@@ -30,6 +31,7 @@ Rank recommendation candidates:
 hmi/backend/.venv/bin/python hmi/backend/ai/scripts/rank_candidate_recommendations.py
 ```
 
-## Backward compatibility
+## Notes
 
-Legacy wrappers remain in `hmi/backend/scripts/*.py` and forward to `hmi/backend/ai/scripts/*`.
+- Legacy wrappers under `hmi/backend/scripts/` have been removed.
+- Keep command references aligned to `hmi/backend/ai/scripts/*`.

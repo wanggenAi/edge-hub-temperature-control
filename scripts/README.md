@@ -1,358 +1,75 @@
-# scripts
+# Cross-Module Scripts
 
-This directory stores helper scripts so that temporary data-processing logic does not leak into the main engineering code.
+This directory contains repository-level operational and integration scripts.
 
-Suggested future contents:
+Goal:
+- keep runtime code in module directories (`simulator`, `data-hub`, `hmi`, `ml`)
+- keep cross-module helpers here
+- avoid one-off temporary scripts leaking into core modules
 
-- serial log parsing scripts
-- experiment data cleaning scripts
-- CSV conversion scripts
-- result plotting scripts
+## Script Index
 
-The directory should stay lightweight for now and can grow after the simulation log format is stabilized.
+### Active (Keep)
 
-## Python Environment
+- `reset-dev-databases.sh`
+  - Resets PostgreSQL + TDengine dev data while preserving schema/stables.
+  - Used by local integration workflows.
 
-The MQTT test client in this directory uses `pyenv` and the repository-level
-Python version file.
+- `tdengine-retention-cleanup.sh`
+  - Retention cleanup by age for TDengine super tables.
+  - Referenced by deployment docs.
 
-Recommended setup:
+- `mqtt_test_client.py`
+  - Manual MQTT smoke tool for telemetry/params-set/ack topic flow.
 
-```bash
-pyenv install 3.11.9
-pyenv local 3.11.9
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
+- `data_hub_stress.py`
+  - MQTT ingest pressure tool for `data-hub` throughput and saturation testing.
 
-To confirm that `pyenv` has switched the current repository to the expected
-Python interpreter:
+- `seed_post_apply_validation_demo.py`
+  - End-to-end demo seeding for post-apply validation scenarios.
 
-```bash
-pyenv version
-pyenv which python
-python --version
-```
+### Archived (Manual Review)
 
-Expected result:
+- `hmi/backend/scripts/archive/manual-review/generate_demo_data.py`
+- `hmi/backend/scripts/archive/manual-review/setup_preview_scenario.py`
+- `hmi/backend/scripts/archive/manual-review/mqtt_params_set_to_tdengine.py`
 
-- `pyenv version` shows `3.11.9 (set by .../.python-version)`
-- `pyenv which python` points to the `pyenv` installation path
-- `python --version` reports `Python 3.11.9`
+These scripts were moved out of active backend script root to reduce ambiguity.
+They are retained for traceability and can be restored if needed.
 
-After the virtual environment is activated:
+### Active But Specialist (Keep, expert-only)
 
-- the shell prompt usually shows `(.venv)`
-- `which python` points to `.venv/bin/python`
+- `mqtt_set_ack_loopback.py`
+  - Bridge-like loopback for params/set -> params/ack simulation and state writeback.
+  - Keep, but treat as specialist debug tooling.
 
-If the version does not switch as expected, initialize `pyenv` in your shell
-first and then reopen the terminal:
+- `tdengine_live_feed.py`
+  - Synthetic telemetry feeder for demo environments.
+  - Useful for UI/live feed demos and TDengine visibility checks.
 
-```bash
-eval "$(pyenv init -)"
-```
+## Local Config
 
-## MQTT Test Client
+- `mqtt_client_config.example.json`: template for local MQTT test settings.
+- `mqtt_client_config.json`: local credentials/config override (git-ignored).
 
-The current MQTT test client is:
+## Naming Convention
 
-- `scripts/mqtt_test_client.py`
-- `scripts/mqtt_client_config.example.json`
+Use one of the prefixes for new scripts:
 
-It can be used to:
+- `reset-*` : destructive/cleanup operations
+- `seed-*` : deterministic demo data generation
+- `mqtt-*` : broker/topic testing tools
+- `tdengine-*` : TDengine maintenance or feed tools
+- `stress-*` : load/performance tools
 
-- subscribe to telemetry messages
-- subscribe to parameter ACK messages
-- publish an immediate parameter update
-- publish a staged parameter update
+## Safety Notes
 
-To use a self-managed broker, create a local config file:
+- Scripts in this folder can modify PostgreSQL/TDengine data.
+- Read script help before running:
 
 ```bash
-cp scripts/mqtt_client_config.example.json scripts/mqtt_client_config.json
+python scripts/<name>.py --help
+./scripts/<name>.sh --help
 ```
 
-Then edit the local file and fill in your actual:
-
-- broker host
-- broker port
-- username
-- password
-- topics if needed
-
-The local file `scripts/mqtt_client_config.json` is ignored by Git so that
-broker credentials do not need to be committed.
-
-Examples:
-
-```bash
-python scripts/mqtt_test_client.py --mode immediate
-python scripts/mqtt_test_client.py --mode staged
-```
-
-Documentation sync date: 2026-04-04.
-
-## TDengine Retention Cleanup
-
-Use `scripts/tdengine-retention-cleanup.sh` to purge old TDengine rows by age.
-
-Default retention:
-
-- telemetry: 7 days
-- telemetry_summary: 30 days
-- params_set: 30 days
-- params_ack: 30 days
-- device_status: 14 days
-- alarm_events: 90 days
-
-Dry-run preview (default):
-
-```bash
-./scripts/tdengine-retention-cleanup.sh
-```
-
-Actual deletion:
-
-```bash
-DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh
-```
-
-Example custom env vars:
-
-```bash
-export TDENGINE_URL=http://127.0.0.1:6041
-export TDENGINE_DATABASE=edgehub
-export TDENGINE_USERNAME=root
-export TDENGINE_PASSWORD=taosdata
-
-export RETENTION_TELEMETRY_DAYS=7
-export RETENTION_TELEMETRY_SUMMARY_DAYS=30
-export RETENTION_PARAMS_SET_DAYS=30
-export RETENTION_PARAMS_ACK_DAYS=30
-export RETENTION_DEVICE_STATUS_DAYS=14
-export RETENTION_ALARM_EVENTS_DAYS=90
-```
-
-Cron example (daily 02:30 UTC):
-
-```cron
-30 2 * * * cd /path/to/edge-hub-temperature-control && DRY_RUN=false ./scripts/tdengine-retention-cleanup.sh >> /var/log/edgehub-tdengine-retention.log 2>&1
-```
-
-## One-Click DB Reset (PostgreSQL + TDengine)
-
-Use `scripts/reset-dev-databases.sh` to clear test data while keeping table
-structure/stable definitions.
-
-Default behavior:
-
-- PostgreSQL:
-  - run Alembic migration to latest (`hmi/backend/scripts/db_migrate.py`)
-  - truncate all `public` tables with `RESTART IDENTITY CASCADE`
-  - seed default alarm rules (`hmi/backend/scripts/db_seed.py --rules`)
-- TDengine:
-  - `CREATE DATABASE IF NOT EXISTS`
-  - `CREATE STABLE IF NOT EXISTS` for core stables
-  - `DELETE` all rows from `telemetry`, `telemetry_summary`, `params_set`,
-    `params_ack`, `device_status`, `alarm_events`
-
-Run full reset:
-
-```bash
-./scripts/reset-dev-databases.sh
-```
-
-Run full reset and also seed demo relational data:
-
-```bash
-./scripts/reset-dev-databases.sh --with-demo
-```
-
-Reset only one side:
-
-```bash
-./scripts/reset-dev-databases.sh --postgres-only
-./scripts/reset-dev-databases.sh --tdengine-only
-```
-
-Prerequisites:
-
-- PostgreSQL container running as `edgehub-postgres`
-- TDengine REST reachable at `http://127.0.0.1:6041`
-- Python deps installed in `hmi/backend` (for migrate/seed scripts)
-
-Customize connection via env vars:
-
-```bash
-POSTGRES_CONTAINER=edgehub-postgres \
-POSTGRES_DB=edgehub \
-POSTGRES_USER=edgehub \
-POSTGRES_PASSWORD=edgehub \
-TDENGINE_URL=http://127.0.0.1:6041 \
-TDENGINE_DATABASE=edgehub \
-TDENGINE_USERNAME=root \
-TDENGINE_PASSWORD=taosdata \
-./scripts/reset-dev-databases.sh
-```
-
-## Data Hub Stress Test
-
-Use `scripts/data_hub_stress.py` to pressure-test `data-hub` MQTT ingest.
-
-Examples:
-
-```bash
-# Local broker, 200 devices, 1000 msg/s, 60s
-python scripts/data_hub_stress.py --duration 60 --rate 1000 --devices 200
-
-# Remote broker with auth
-python scripts/data_hub_stress.py \
-  --host 38.14.195.2 --port 1883 \
-  --username edgeadmin --password admin123 \
-  --duration 120 --rate 2000 --devices 500 --workers 4 --qos 1
-```
-
-What it does:
-
-- publishes telemetry to `edge/temperature/{device_id}/telemetry`
-- sends payload schema compatible with current `data-hub` `TelemetryPayload`
-- prints per-second success/failure send rates and final average throughput
-
-### Throughput And Limit Method (Recommended)
-
-Use this section to find both:
-
-- `Sustainable TPS`: no sustained drops/failures, backlog does not keep growing
-- `Absolute TPS`: first stable saturation point where drops/failures begin
-
-Step-by-step:
-
-1. Start from a conservative rate (for example `--rate 800`), run 3-5 minutes.
-2. Increase rate by 10-15% each round.
-3. For each round, read `data-hub` `datahub.stats` windows (30s default).
-4. Stop when saturation signals appear in consecutive windows.
-5. The previous stable round is your `Sustainable TPS`.
-
-Saturation signals (any one is enough):
-
-- `mqtt_dropped_delta > 0`
-- `outcome_delta[pipelineDrop] > 0`
-- `tdengine_write_failed_delta > 0` (sustained, not one short spike)
-- `tdengine_batch_lane_error_delta > 0` or `tdengine_batch_restart_delta > 0`
-- `buffer[current_buffer_size]` stays high and does not fall back
-
-Accounting checks (must hold in healthy windows):
-
-- `accounting[unaccounted_delta] == 0`
-- `outcome_delta[persisted] + ingressDrop + pipelineDrop + telemetrySkip + parseFail + persistFail == mqtt_received_delta`
-
-TPS formulas (from one `datahub.stats` window):
-
-- Ingest TPS: `mqtt_received_delta / (intervalMs / 1000)`
-- Persist TPS (all message kinds): `outcome_delta[persisted] / (intervalMs / 1000)`
-- TDengine write TPS (all writes): `tdengine_write_success_delta / (intervalMs / 1000)`
-
-Note:
-
-- `tdengine_write_success_delta` can be higher than telemetry persisted delta because it also includes writes like `device_status`.
-- For pure telemetry stress, compare `mqtt_received_delta` with `delta[telemetryOk]`.
-
-### Rate Ramp Example
-
-Example sequence (same device count, increase only rate):
-
-```bash
-python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 800
-python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 1000
-python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 1200
-python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 --duration 180 --devices 200 --workers 4 --qos 0 --rate 1400
-```
-
-After each round, review:
-
-```bash
-rg "datahub.stats" data-hub/runtime/logs/data-hub.log | tail -n 20
-```
-
-## Post-Apply Validation Demo Seed
-
-Use `scripts/seed_post_apply_validation_demo.py` to seed end-to-end demo data for
-the **Post-Apply Validation** page. The script writes:
-
-- PostgreSQL recommendation history records (`ai_recommendations`)
-- TDengine telemetry windows before and after recommendation apply
-
-This seed is designed to demonstrate page value, not just fill tables.
-
-### Scenarios
-
-- `success` (alias: `clear_improvement`): clear improvement after apply; preview
-  and actual are close.
-- `partial` (alias: `limited_improvement`): limited/mixed improvement, not all
-  recommendations produce a dramatic gain.
-- `preview_mismatch`: preview looks optimistic, but real post-apply behavior is
-  worse than expected.
-- `insufficient_data`: recommendation is applied, but post-apply telemetry is
-  intentionally insufficient.
-
-### Run
-
-Seed all scenarios:
-
-```bash
-python scripts/seed_post_apply_validation_demo.py --reset
-```
-
-Seed specific scenarios:
-
-```bash
-python scripts/seed_post_apply_validation_demo.py \
-  --reset \
-  --scenario clear_improvement \
-  --scenario preview_mismatch
-```
-
-Seed one scenario into a specific existing device:
-
-```bash
-python scripts/seed_post_apply_validation_demo.py --scenario partial --device-id 1
-```
-
-Reset only:
-
-```bash
-python scripts/seed_post_apply_validation_demo.py --reset
-```
-
-Reset and remove demo devices `PAV-401..404`:
-
-```bash
-python scripts/seed_post_apply_validation_demo.py --reset --drop-demo-devices
-```
-
-### Expected UI Results
-
-After seeding, open **Post-Apply Validation** and switch to:
-
-- `PAV-401`:
-  - `Evaluation Status = Completed`
-  - `Before vs After` shows clear improvement
-  - `Preview vs Actual` gap is small
-  - `Telemetry Comparison = Full Comparison`
-- `PAV-402`:
-  - `Evaluation Status = Completed`
-  - only slight/limited or mixed improvement
-  - moderate preview gap
-  - `Telemetry Comparison = Full Comparison`
-- `PAV-403`:
-  - `Evaluation Status = Completed`
-  - `Preview vs Actual` gap is obvious
-  - useful for showing validation value when preview is over-optimistic
-  - `Telemetry Comparison = Full Comparison`
-- `PAV-404`:
-  - `Evaluation Status = Insufficient Data`
-  - recommendation is applied but post-apply telemetry is intentionally sparse
-  - `Telemetry Comparison = Partial Comparison`
-  - chart should naturally show incomplete/limited actual post-apply data
+- Prefer `--reset` and destructive options only in local dev/staging.
