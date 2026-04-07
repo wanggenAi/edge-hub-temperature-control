@@ -5,7 +5,7 @@ Run model inference and candidate ranking in a separate process so HMI API is is
 
 ## Run AI service
 ```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
 ```
 
 ## Endpoints

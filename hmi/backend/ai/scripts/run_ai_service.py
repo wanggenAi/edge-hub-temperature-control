@@ -8,7 +8,7 @@ from pathlib import Path
 import uvicorn
 
 CURRENT_FILE = Path(__file__).resolve()
-BACKEND_ROOT = CURRENT_FILE.parents[1]
+BACKEND_ROOT = CURRENT_FILE.parents[2]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 

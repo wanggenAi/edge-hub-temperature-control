@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 CURRENT_FILE = Path(__file__).resolve()
-BACKEND_ROOT = CURRENT_FILE.parents[1]
+BACKEND_ROOT = CURRENT_FILE.parents[2]
 REPO_ROOT = BACKEND_ROOT.parents[1]
 
 DEFAULT_DATA_PATH = REPO_ROOT / "ml" / "data" / "datasets" / "recommendation_feedback.parquet"

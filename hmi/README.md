@@ -73,7 +73,7 @@ Optional: run AI runtime as an independent process (recommended for model lifecy
 
 ```bash
 cd hmi/backend
-python scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+python ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
 ```
 
 Then enable remote inference in backend `.env`:

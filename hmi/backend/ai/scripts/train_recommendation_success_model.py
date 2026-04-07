@@ -5,64 +5,68 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 CURRENT_FILE = Path(__file__).resolve()
-BACKEND_ROOT = CURRENT_FILE.parents[1]
+BACKEND_ROOT = CURRENT_FILE.parents[2]
 REPO_ROOT = BACKEND_ROOT.parents[1]
 
-DEFAULT_DATA_PATH = REPO_ROOT / "ml" / "data" / "datasets" / "labeled_samples.parquet"
-DEFAULT_ARTIFACT_DIR = BACKEND_ROOT / "artifacts" / "problem_classifier"
+DEFAULT_DATA_PATH = REPO_ROOT / "ml" / "data" / "datasets" / "recommendation_feedback.parquet"
+DEFAULT_ARTIFACT_DIR = BACKEND_ROOT / "artifacts" / "recommendation_success"
 
-LABEL_COLUMN = "problem_type"
-TARGET_LABELS = [
-    "normal",
-    "slow_response",
-    "overshoot_high",
-    "steady_state_error",
-    "oscillation",
-    "saturation_limited",
-]
+LABEL_COLUMN = "effect_outcome"
+USABLE_COLUMN = "feedback_usable_for_training"
+ALLOWED_LABELS = ["improved", "unchanged", "worse"]
 
-# Window-level control features (explicit first-pass set).
-FEATURE_CANDIDATES: list[tuple[str, list[str]]] = [
-    ("mean_error", ["mean_error", "error_mean"]),
-    ("mean_abs_error", ["mean_abs_error"]),
-    ("error_std", ["error_std"]),
-    ("temp_swing", ["temp_swing"]),
-    ("pwm_mean", ["pwm_duty_mean", "pwm_mean"]),
-    ("pwm_max", ["pwm_duty_max", "pwm_max"]),
-    ("zero_crossings", ["zero_crossings"]),
-    ("in_band_ratio", ["in_band_ratio"]),
-    ("overshoot_pct", ["overshoot_pct"]),
-    ("overshoot_c", ["overshoot_c"]),
-    ("settling_sec", ["settling_sec"]),
-    ("saturation_ratio", ["saturation_ratio"]),
-    ("rise_slope", ["rise_slope"]),
-    ("abs_error_max", ["abs_error_max"]),
+# First-pass stable feature set (recommendation-time available signals).
+FEATURE_COLUMNS = [
+    # A) baseline/recommended/delta PID params
+    "baseline_kp",
+    "baseline_ki",
+    "baseline_kd",
+    "recommended_kp",
+    "recommended_ki",
+    "recommended_kd",
+    "delta_kp",
+    "delta_ki",
+    "delta_kd",
+    # B) recommendation-time evidence
+    "mean_error",
+    "mean_abs_error",
+    "error_std",
+    "temp_swing",
+    "pwm_mean",
+    "pwm_max",
+    "zero_crossings",
+    "in_band_ratio",
+    "overshoot_pct",
+    "settling_sec",
+    "saturation_ratio",
+    # C) preview summary (available before apply)
+    "preview_in_band_ratio",
+    "preview_overshoot_c",
+    "preview_settling_sec",
+    "preview_mean_abs_error",
+    "preview_saturation_ratio",
+    "preview_temp_swing",
 ]
 
 
 @dataclass
 class DatasetStats:
     total_rows: int
+    usable_rows: int
     rows_for_training: int
     label_distribution: dict[str, int]
-    selected_labels: list[str]
-    feature_count: int
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train control problem classifier (window-level multiclass)")
-    parser.add_argument("--data", default=str(DEFAULT_DATA_PATH), help="Input labeled windows parquet")
+    parser = argparse.ArgumentParser(description="Train recommendation success predictor (improved/unchanged/worse)")
+    parser.add_argument("--data", default=str(DEFAULT_DATA_PATH), help="Input recommendation feedback parquet")
     parser.add_argument("--artifacts-dir", default=str(DEFAULT_ARTIFACT_DIR), help="Output artifacts directory")
     parser.add_argument("--test-size", type=float, default=0.3, help="Validation split ratio")
     parser.add_argument("--seed", type=int, default=20260407, help="Random seed")
     return parser.parse_args()
-
-
-def _normalize_label(v: Any) -> str:
-    return str(v).strip() if v is not None else ""
 
 
 def load_training_data(path: Path):
@@ -74,56 +78,31 @@ def load_training_data(path: Path):
     df = pd.read_parquet(path)
     total_rows = len(df)
 
-    if LABEL_COLUMN not in df.columns:
-        raise SystemExit(f"Missing label column '{LABEL_COLUMN}' in dataset.")
+    usable_mask = df[USABLE_COLUMN].fillna(False).astype(bool) if USABLE_COLUMN in df.columns else False
+    usable_rows = int(usable_mask.sum()) if hasattr(usable_mask, "sum") else 0
 
-    work = df.copy()
-    work[LABEL_COLUMN] = work[LABEL_COLUMN].map(_normalize_label)
-    work = work[work[LABEL_COLUMN] != ""].copy()
+    filtered = df[usable_mask].copy() if hasattr(usable_mask, "sum") else df.iloc[0:0].copy()
+    filtered = filtered[filtered[LABEL_COLUMN].isin(ALLOWED_LABELS)].copy()
 
-    usable_target_labels = [lbl for lbl in TARGET_LABELS if lbl in set(work[LABEL_COLUMN].unique())]
-    if len(usable_target_labels) >= 2:
-        work = work[work[LABEL_COLUMN].isin(usable_target_labels)].copy()
-        selected_labels = usable_target_labels
-    else:
-        # Fallback: keep real labels from dataset if target labels are sparse/missing.
-        selected_labels = sorted(work[LABEL_COLUMN].dropna().astype(str).unique().tolist())
-
-    label_distribution = {k: int(v) for k, v in work[LABEL_COLUMN].value_counts().to_dict().items()}
-    return work, total_rows, label_distribution, selected_labels
+    label_distribution = {k: int(v) for k, v in filtered[LABEL_COLUMN].value_counts().to_dict().items()}
+    stats = DatasetStats(
+        total_rows=total_rows,
+        usable_rows=usable_rows,
+        rows_for_training=len(filtered),
+        label_distribution=label_distribution,
+    )
+    return filtered, stats
 
 
 def select_features(df):
-    selected_actual_cols: list[str] = []
-    selected_feature_names: list[str] = []
-
-    for canonical, alternatives in FEATURE_CANDIDATES:
-        hit = next((c for c in alternatives if c in df.columns), None)
-        if hit is not None:
-            selected_feature_names.append(canonical)
-            selected_actual_cols.append(hit)
-
-    if not selected_actual_cols:
-        raise SystemExit("No configured feature columns found in dataset.")
-
-    return selected_feature_names, selected_actual_cols
+    missing = [c for c in FEATURE_COLUMNS if c not in df.columns]
+    if missing:
+        raise SystemExit(f"Missing feature columns in dataset: {missing}")
+    return FEATURE_COLUMNS
 
 
-def apply_row_quality_filter(df, actual_feature_cols: list[str], *, min_non_null_ratio: float = 0.4):
-    import pandas as pd
-
-    numeric = df[actual_feature_cols].apply(pd.to_numeric, errors="coerce")
-    non_null_ratio = numeric.notna().mean(axis=1)
-    kept = df[non_null_ratio >= float(min_non_null_ratio)].copy()
-    return kept
-
-
-def prepare_xy(df, feature_names: list[str], actual_feature_cols: list[str]):
-    import pandas as pd
-
-    X = df[actual_feature_cols].copy()
-    X = X.apply(pd.to_numeric, errors="coerce")
-    X.columns = feature_names
+def prepare_xy(df, feature_cols: list[str]):
+    X = df[feature_cols].copy()
     y = df[LABEL_COLUMN].copy()
     return X, y
 
@@ -140,6 +119,7 @@ def split_train_valid(X, y, *, test_size: float, seed: int):
             "fallback": False,
         }
 
+    # Fallback for tiny/imbalanced datasets.
     if len(X) < 4:
         return (X, X, y, y), {
             "stratified": False,
@@ -204,7 +184,7 @@ def train_tree_model(X_train, y_train, *, seed: int):
     return model
 
 
-def evaluate_model(name: str, model, X_valid, y_valid, labels: list[str]) -> dict[str, Any]:
+def evaluate_model(name: str, model, X_valid, y_valid) -> dict[str, Any]:
     from sklearn.metrics import (
         accuracy_score,
         classification_report,
@@ -215,7 +195,9 @@ def evaluate_model(name: str, model, X_valid, y_valid, labels: list[str]) -> dic
     )
 
     y_pred = model.predict(X_valid)
-    return {
+    labels = list(ALLOWED_LABELS)
+
+    metrics = {
         "model_name": name,
         "accuracy": float(accuracy_score(y_valid, y_pred)),
         "macro_precision": float(precision_score(y_valid, y_pred, average="macro", zero_division=0)),
@@ -226,6 +208,7 @@ def evaluate_model(name: str, model, X_valid, y_valid, labels: list[str]) -> dic
         "classification_report": classification_report(y_valid, y_pred, labels=labels, zero_division=0, output_dict=True),
         "validation_size": int(len(y_valid)),
     }
+    return metrics
 
 
 def build_feature_importance(name: str, model, feature_cols: list[str]):
@@ -235,13 +218,16 @@ def build_feature_importance(name: str, model, feature_cols: list[str]):
     clf = model.named_steps.get("clf")
 
     if hasattr(clf, "feature_importances_"):
-        for feat, val in zip(feature_cols, list(clf.feature_importances_)):
+        importances = list(clf.feature_importances_)
+        for feat, val in zip(feature_cols, importances):
             rows.append({"model": name, "feature": feat, "importance": float(val)})
     elif hasattr(clf, "coef_") and hasattr(clf, "classes_"):
         coefs = clf.coef_
         classes = list(clf.classes_)
+        abs_mean = coefs.copy()
+        abs_mean = abs_mean if hasattr(abs_mean, "shape") else []
         for idx, feat in enumerate(feature_cols):
-            class_weights: dict[str, float] = {}
+            class_weights = {}
             if len(classes) == len(coefs):
                 for cls_idx, cls_name in enumerate(classes):
                     class_weights[str(cls_name)] = float(coefs[cls_idx][idx])
@@ -275,16 +261,15 @@ def save_artifacts(
 
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    joblib.dump(baseline_model, artifacts_dir / "problem_classifier_baseline.joblib")
-    joblib.dump(tree_model, artifacts_dir / "problem_classifier_tree.joblib")
+    joblib.dump(baseline_model, artifacts_dir / "recommendation_success_baseline.joblib")
+    joblib.dump(tree_model, artifacts_dir / "recommendation_success_tree.joblib")
 
     payload = {
         "dataset": {
             "total_rows": dataset_stats.total_rows,
+            "usable_rows": dataset_stats.usable_rows,
             "rows_for_training": dataset_stats.rows_for_training,
             "label_distribution": dataset_stats.label_distribution,
-            "selected_labels": dataset_stats.selected_labels,
-            "feature_count": dataset_stats.feature_count,
         },
         "split": split_info,
         "models": {
@@ -292,81 +277,70 @@ def save_artifacts(
             "tree": tree_metrics,
         },
     }
-    (artifacts_dir / "problem_classifier_metrics.json").write_text(
+    (artifacts_dir / "recommendation_success_metrics.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    (artifacts_dir / "problem_classifier_features.json").write_text(
+
+    (artifacts_dir / "recommendation_success_features.json").write_text(
         json.dumps(feature_cols, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
     if feature_importance is not None and not feature_importance.empty:
-        feature_importance.to_csv(artifacts_dir / "problem_classifier_feature_importance.csv", index=False)
+        feature_importance.to_csv(artifacts_dir / "recommendation_success_feature_importance.csv", index=False)
 
-    lines = [
-        "Control Problem Classifier - Training Report",
-        "",
-        "Dataset",
-        f"- total_rows: {dataset_stats.total_rows}",
-        f"- rows_for_training: {dataset_stats.rows_for_training}",
-        f"- label_distribution: {dataset_stats.label_distribution}",
-        f"- selected_labels: {dataset_stats.selected_labels}",
-        f"- feature_count: {dataset_stats.feature_count}",
-        "",
-        "Split",
-        f"- split_info: {split_info}",
-        "",
-    ]
+    lines = []
+    lines.append("Recommendation Success Predictor - Training Report")
+    lines.append("")
+    lines.append("Dataset")
+    lines.append(f"- total_rows: {dataset_stats.total_rows}")
+    lines.append(f"- usable_rows: {dataset_stats.usable_rows}")
+    lines.append(f"- rows_for_training: {dataset_stats.rows_for_training}")
+    lines.append(f"- label_distribution: {dataset_stats.label_distribution}")
+    lines.append("")
+    lines.append("Split")
+    lines.append(f"- split_info: {split_info}")
+    lines.append("")
     for key, metrics in (("baseline", baseline_metrics), ("tree", tree_metrics)):
-        lines.extend(
-            [
-                f"Model: {key}",
-                f"- accuracy: {metrics['accuracy']:.4f}",
-                f"- macro_precision: {metrics['macro_precision']:.4f}",
-                f"- macro_recall: {metrics['macro_recall']:.4f}",
-                f"- macro_f1: {metrics['macro_f1']:.4f}",
-                f"- confusion_matrix_labels: {metrics['confusion_matrix_labels']}",
-                f"- confusion_matrix: {metrics['confusion_matrix']}",
-                "",
-            ]
-        )
-    (artifacts_dir / "problem_classifier_report.txt").write_text("\n".join(lines), encoding="utf-8")
+        lines.append(f"Model: {key}")
+        lines.append(f"- accuracy: {metrics['accuracy']:.4f}")
+        lines.append(f"- macro_precision: {metrics['macro_precision']:.4f}")
+        lines.append(f"- macro_recall: {metrics['macro_recall']:.4f}")
+        lines.append(f"- macro_f1: {metrics['macro_f1']:.4f}")
+        lines.append(f"- confusion_matrix_labels: {metrics['confusion_matrix_labels']}")
+        lines.append(f"- confusion_matrix: {metrics['confusion_matrix']}")
+        lines.append("")
+
+    (artifacts_dir / "recommendation_success_report.txt").write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> None:
     args = parse_args()
 
+    try:
+        import pandas as pd  # noqa: F401
+        import sklearn  # noqa: F401
+        import joblib  # noqa: F401
+    except ImportError as exc:  # pragma: no cover
+        raise SystemExit(
+            "Missing ML dependencies. Install with:\n"
+            "  pip install -r hmi/backend/requirements.txt"
+        ) from exc
+
     data_path = Path(args.data)
     artifacts_dir = Path(args.artifacts_dir)
 
-    df, total_rows, label_distribution, selected_labels = load_training_data(data_path)
-    feature_names, actual_feature_cols = select_features(df)
-    df = apply_row_quality_filter(df, actual_feature_cols, min_non_null_ratio=0.4)
-
-    label_distribution = {k: int(v) for k, v in df[LABEL_COLUMN].value_counts().to_dict().items()}
-    dataset_stats = DatasetStats(
-        total_rows=int(total_rows),
-        rows_for_training=int(len(df)),
-        label_distribution=label_distribution,
-        selected_labels=selected_labels,
-        feature_count=len(feature_names),
-    )
-
-    print("[train-problem-classifier] dataset overview")
+    df, dataset_stats = load_training_data(data_path)
+    print("[train-success] dataset overview")
     print(f"  total rows: {dataset_stats.total_rows}")
+    print(f"  usable rows: {dataset_stats.usable_rows}")
     print(f"  rows used for training: {dataset_stats.rows_for_training}")
     print(f"  label distribution: {dataset_stats.label_distribution}")
-    print(f"  selected feature count: {dataset_stats.feature_count}")
 
     if dataset_stats.rows_for_training == 0:
-        raise SystemExit("No trainable rows after filtering.")
-    if len(dataset_stats.label_distribution) < 2:
-        raise SystemExit("Need at least 2 label classes to train classifier.")
+        raise SystemExit("No trainable rows after filtering (usable + label filter).")
 
-    min_class = min(dataset_stats.label_distribution.values()) if dataset_stats.label_distribution else 0
-    if min_class < 3:
-        print("[train-problem-classifier] warning: label distribution is sparse/imbalanced; results are feasibility-only")
-
-    X, y = prepare_xy(df, feature_names, actual_feature_cols)
+    feature_cols = select_features(df)
+    X, y = prepare_xy(df, feature_cols)
     (X_train, X_valid, y_train, y_valid), split_info = split_train_valid(
         X,
         y,
@@ -374,16 +348,14 @@ def main() -> None:
         seed=int(args.seed),
     )
 
-    labels_for_eval = sorted(y.unique().tolist())
     baseline_model = train_baseline_model(X_train, y_train, seed=int(args.seed))
     tree_model = train_tree_model(X_train, y_train, seed=int(args.seed))
 
-    baseline_metrics = evaluate_model("logistic_regression", baseline_model, X_valid, y_valid, labels_for_eval)
-    tree_metrics = evaluate_model("random_forest", tree_model, X_valid, y_valid, labels_for_eval)
+    baseline_metrics = evaluate_model("logistic_regression", baseline_model, X_valid, y_valid)
+    tree_metrics = evaluate_model("random_forest", tree_model, X_valid, y_valid)
 
-    fi_baseline = build_feature_importance("logistic_regression", baseline_model, feature_names)
-    fi_tree = build_feature_importance("random_forest", tree_model, feature_names)
-
+    fi_baseline = build_feature_importance("logistic_regression", baseline_model, feature_cols)
+    fi_tree = build_feature_importance("random_forest", tree_model, feature_cols)
     if fi_baseline is not None and fi_tree is not None:
         import pandas as pd
 
@@ -395,7 +367,7 @@ def main() -> None:
         artifacts_dir=artifacts_dir,
         dataset_stats=dataset_stats,
         split_info=split_info,
-        feature_cols=feature_names,
+        feature_cols=feature_cols,
         baseline_model=baseline_model,
         tree_model=tree_model,
         baseline_metrics=baseline_metrics,
@@ -403,16 +375,16 @@ def main() -> None:
         feature_importance=feature_importance,
     )
 
-    print("[train-problem-classifier] metrics")
-    print(
-        f"  baseline(logistic_regression): acc={baseline_metrics['accuracy']:.4f} "
-        f"macro_f1={baseline_metrics['macro_f1']:.4f}"
-    )
-    print(
-        f"  tree(random_forest):          acc={tree_metrics['accuracy']:.4f} "
-        f"macro_f1={tree_metrics['macro_f1']:.4f}"
-    )
-    print(f"[train-problem-classifier] artifacts -> {artifacts_dir}")
+    print("[train-success] metrics")
+    for name, m in (("baseline/logistic_regression", baseline_metrics), ("tree/random_forest", tree_metrics)):
+        print(f"  {name}")
+        print(f"    accuracy={m['accuracy']:.4f}")
+        print(f"    macro_precision={m['macro_precision']:.4f}")
+        print(f"    macro_recall={m['macro_recall']:.4f}")
+        print(f"    macro_f1={m['macro_f1']:.4f}")
+        print(f"    confusion_matrix={m['confusion_matrix']}")
+
+    print(f"[train-success] artifacts={artifacts_dir}")
 
 
 if __name__ == "__main__":

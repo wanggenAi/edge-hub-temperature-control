@@ -23,7 +23,7 @@ Pipeline:
 
 ## Run
 ```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/rank_candidate_recommendations.py \
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/rank_candidate_recommendations.py \
   --data /tmp/recommendation_feedback.parquet \
   --success-model hmi/backend/artifacts/recommendation_success/recommendation_success_tree.joblib \
   --preview-gap-model hmi/backend/artifacts/preview_gap/preview_gap_baseline.joblib \

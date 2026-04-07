@@ -22,12 +22,12 @@ Default input:
 
 ## Run
 ```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/train_problem_classifier.py
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/train_problem_classifier.py
 ```
 
 Optional:
 ```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/train_problem_classifier.py \
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/train_problem_classifier.py \
   --data ml/data/datasets/labeled_samples.parquet \
   --artifacts-dir hmi/backend/artifacts/problem_classifier \
   --test-size 0.3 \

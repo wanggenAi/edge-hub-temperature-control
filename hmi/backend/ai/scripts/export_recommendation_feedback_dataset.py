@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 CURRENT_FILE = Path(__file__).resolve()
-BACKEND_ROOT = CURRENT_FILE.parents[1]
+BACKEND_ROOT = CURRENT_FILE.parents[2]
 REPO_ROOT = BACKEND_ROOT.parents[1]
 DEFAULT_OUTPUT_PATH = REPO_ROOT / "ml" / "data" / "datasets" / "recommendation_feedback.parquet"
 if str(BACKEND_ROOT) not in sys.path:

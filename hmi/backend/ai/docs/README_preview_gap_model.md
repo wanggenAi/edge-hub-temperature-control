@@ -31,7 +31,7 @@ You can override with `--data`.
 
 ## How to run
 ```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/train_preview_gap_model.py \
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/train_preview_gap_model.py \
   --data /tmp/recommendation_feedback.parquet \
   --artifacts-dir hmi/backend/artifacts/preview_gap
 ```
