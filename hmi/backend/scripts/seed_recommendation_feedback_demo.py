@@ -39,6 +39,7 @@ from app.services.ai.schemas import (
 from app.services.tdengine_client import TdengineClient
 
 DEMO_DEVICE_PREFIX = "RFD-DEMO"
+SEED_SUGGESTION_SOFT_MAX_LEN = 16384
 
 
 @dataclass
@@ -371,25 +372,68 @@ def write_td_telemetry_rows(
 def compact_metrics(metrics: dict[str, Optional[float]]) -> list[Optional[float]]:
     # Compact list format: [ib, ov, st, ma, sr, sw]
     return [
-        compact_num(metrics.get("in_band_ratio")),
-        compact_num(metrics.get("overshoot_c")),
-        compact_num(metrics.get("settling_sec")),
-        compact_num(metrics.get("mean_abs_error")),
-        compact_num(metrics.get("saturation_ratio")),
-        compact_num(metrics.get("temp_swing")),
+        compact_num(metrics.get("in_band_ratio"), digits=2),
+        compact_num(metrics.get("overshoot_c"), digits=2),
+        compact_num(metrics.get("settling_sec"), digits=0),
+        compact_num(metrics.get("mean_abs_error"), digits=2),
+        compact_num(metrics.get("saturation_ratio"), digits=2),
+        compact_num(metrics.get("temp_swing"), digits=2),
     ]
 
 
 def compact_comparison(comparison: dict[str, Optional[float]]) -> list[Optional[float]]:
     # Compact list format: [ib, ov, st, ma, sr, sw]
     return [
-        compact_num(comparison.get("in_band_ratio_delta")),
-        compact_num(comparison.get("overshoot_c_delta")),
-        compact_num(comparison.get("settling_sec_delta")),
-        compact_num(comparison.get("mean_abs_error_delta")),
-        compact_num(comparison.get("saturation_ratio_delta")),
-        compact_num(comparison.get("temp_swing_delta")),
+        compact_num(comparison.get("in_band_ratio_delta"), digits=2),
+        compact_num(comparison.get("overshoot_c_delta"), digits=2),
+        compact_num(comparison.get("settling_sec_delta"), digits=0),
+        compact_num(comparison.get("mean_abs_error_delta"), digits=2),
+        compact_num(comparison.get("saturation_ratio_delta"), digits=2),
+        compact_num(comparison.get("temp_swing_delta"), digits=2),
     ]
+
+
+def shape_preview_gap_comparison(
+    *,
+    comparison_preview: dict[str, Any],
+    scenario: str,
+    rng: random.Random,
+) -> dict[str, Any]:
+    # Keep gap labels data-driven by scaling actual preview-vs-actual deltas.
+    # This avoids hardcoded labels while producing low/medium/high coverage.
+    if scenario == "improved":
+        # Keep a large portion close to preview -> mostly low, some medium.
+        factor = rng.uniform(0.010, 0.030) if rng.random() < 0.7 else rng.uniform(0.040, 0.090)
+    elif scenario == "unchanged":
+        # Moderate mismatch -> mainly medium, occasional low/high.
+        p = rng.random()
+        if p < 0.15:
+            factor = rng.uniform(0.010, 0.030)
+        elif p < 0.85:
+            factor = rng.uniform(0.060, 0.140)
+        else:
+            factor = rng.uniform(0.180, 0.260)
+    elif scenario == "worse":
+        # Strong mismatch -> high gaps dominate but still keep some medium.
+        factor = rng.uniform(0.250, 0.450) if rng.random() < 0.75 else rng.uniform(0.120, 0.220)
+    else:
+        factor = rng.uniform(0.080, 0.180)
+
+    shaped: dict[str, Any] = {}
+    for key in (
+        "in_band_ratio_delta",
+        "overshoot_c_delta",
+        "settling_sec_delta",
+        "mean_abs_error_delta",
+        "saturation_ratio_delta",
+        "temp_swing_delta",
+    ):
+        value = comparison_preview.get(key)
+        if value is None:
+            shaped[key] = None
+            continue
+        shaped[key] = float(value) * factor
+    return shaped
 
 
 def build_history_input(
@@ -450,6 +494,9 @@ def build_compact_suggestion(
         compact_num(evidence.get("settling_sec")),
         compact_num(evidence.get("saturation_ratio")),
     ]
+    # Always keep a compact core evidence subset to improve usable sample thickness.
+    # [mean_abs_error, temp_swing, in_band_ratio, saturation_ratio]
+    core_ev = [ev_values[1], ev_values[3], ev_values[7], ev_values[10]]
 
     payload = {
         "f": "ai_rec",
@@ -461,12 +508,15 @@ def build_compact_suggestion(
             # [mean_error, mean_abs_error, error_std, temp_swing, pwm_mean, pwm_max,
             #  zero_crossings, in_band_ratio, overshoot_pct, settling_sec, saturation_ratio]
             "ev": ev_values,
+            # Compact core evidence format:
+            # [mean_abs_error, temp_swing, in_band_ratio, saturation_ratio]
+            "ec": core_ev,
             "m": metadata,
         },
     }
     text = json.dumps(payload, separators=(",", ":"))
-    if len(text) > 255:
-        # Keep core evidence first; trim less critical tail to satisfy varchar(255).
+    if len(text) > SEED_SUGGESTION_SOFT_MAX_LEN:
+        # Keep core evidence first; trim extended evidence first.
         trim_order = [5, 6, 8, 9, 4, 2, 0, 3, 1, 7, 10]  # progressively drop evidence slots
         compact = list(ev_values)
         for idx in trim_order:
@@ -474,30 +524,27 @@ def build_compact_suggestion(
                 compact[idx] = None
                 payload["p"]["ev"] = compact
                 text = json.dumps(payload, separators=(",", ":"))
-                if len(text) <= 255:
+                if len(text) <= SEED_SUGGESTION_SOFT_MAX_LEN:
                     break
-    if len(text) > 255:
+    if len(text) > SEED_SUGGESTION_SOFT_MAX_LEN:
         meta = payload.get("p", {}).get("m", {})
         if isinstance(meta, dict):
-            # Prefer keeping preview summary + actual summary (for derived preview gaps),
-            # and keep before-comparison for outcome labels.
-            # Drop explicit preview-comparison first because it is derivable from pv/pe.
-            for key in ("cg", "e"):
-                if key in meta and len(text) > 255:
+            # Keep before-comparison and preview-comparison for training labels.
+            # Drop evaluated_at first, then preview summary if needed.
+            for key in ("e", "pv"):
+                if key in meta and len(text) > SEED_SUGGESTION_SOFT_MAX_LEN:
                     meta.pop(key, None)
                     text = json.dumps(payload, separators=(",", ":"))
-    if len(text) > 255:
-        # Remove evidence payload before dropping preview summary so preview gaps
-        # can still be derived from pv/pe in the dataset builder.
+    if len(text) > SEED_SUGGESTION_SOFT_MAX_LEN:
+        # Remove extended evidence while preserving compact core evidence.
         payload.get("p", {}).pop("ev", None)
         text = json.dumps(payload, separators=(",", ":"))
-    if len(text) > 255:
-        meta = payload.get("p", {}).get("m", {})
-        if isinstance(meta, dict):
-            meta.pop("pv", None)
-            text = json.dumps(payload, separators=(",", ":"))
-    if len(text) > 255:
-        raise ValueError(f"Seed suggestion exceeds varchar(255): len={len(text)}")
+    if len(text) > SEED_SUGGESTION_SOFT_MAX_LEN:
+        # Last resort: remove compact core evidence.
+        payload.get("p", {}).pop("ec", None)
+        text = json.dumps(payload, separators=(",", ":"))
+    if len(text) > SEED_SUGGESTION_SOFT_MAX_LEN:
+        raise ValueError(f"Seed suggestion exceeds soft limit ({SEED_SUGGESTION_SOFT_MAX_LEN}): len={len(text)}")
     return text
 
 
@@ -594,6 +641,27 @@ def compact_iso_seconds(value: datetime) -> str:
     return value.replace(microsecond=0).isoformat()
 
 
+def build_seed_evidence(
+    *,
+    raw_evidence: dict[str, Any],
+    observation_window_minutes: int,
+    baseline_metrics: Optional[Any],
+) -> dict[str, Any]:
+    out = dict(raw_evidence or {})
+
+    # Ensure settling_sec is present for training usability.
+    # If the system never settled in the baseline window, store a right-censored
+    # value equal to window length (seconds) instead of leaving it null.
+    settling = out.get("settling_sec")
+    if settling is None:
+        if baseline_metrics is not None and getattr(baseline_metrics, "settling_sec", None) is not None:
+            out["settling_sec"] = round(float(getattr(baseline_metrics, "settling_sec")), 4)
+        else:
+            out["settling_sec"] = float(max(1, observation_window_minutes) * 60)
+
+    return out
+
+
 def seed_one_recommendation(
     *,
     db,
@@ -647,6 +715,16 @@ def seed_one_recommendation(
 
     history_input = build_history_input(device=device, params=params, baseline_points=baseline_points)
     generated = recommendation_service.generate(history_input)
+    baseline_metrics_for_evidence = evaluator.calc_metrics(
+        points=baseline_points,
+        target_band=float(params.target_band),
+        pwm_saturation_threshold=float(params.pwm_saturation_threshold),
+    )
+    seed_evidence = build_seed_evidence(
+        raw_evidence=generated.evidence if isinstance(generated.evidence, dict) else {},
+        observation_window_minutes=observation_window_minutes,
+        baseline_metrics=baseline_metrics_for_evidence,
+    )
 
     actual_points: list[ObservedTelemetryPoint] = []
     actual_rows: list[dict[str, Any]] = []
@@ -723,6 +801,11 @@ def seed_one_recommendation(
 
         comparison_before = evaluator.compare(reference=baseline_metrics, actual=actual_metrics)
         comparison_preview = evaluator.compare(reference=preview_output.recommended_metrics, actual=actual_metrics)
+        comparison_preview_payload = shape_preview_gap_comparison(
+            comparison_preview=comparison_preview.model_dump(mode="json"),
+            scenario=scenario,
+            rng=rng,
+        )
         actual_summary = evaluator.build_actual_summary(points=actual_points, metrics=actual_metrics)
 
         if scenario == "unchanged":
@@ -739,7 +822,7 @@ def seed_one_recommendation(
         metadata["a"] = 1
         metadata["i"] = 0
         metadata["cb"] = compact_comparison(comparison_before.model_dump(mode="json"))
-        metadata["cg"] = compact_comparison(comparison_preview.model_dump(mode="json"))
+        metadata["cg"] = compact_comparison(comparison_preview_payload)
         metadata["pv"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
         metadata["e"] = int((applied_at + timedelta(minutes=observation_window_minutes)).timestamp())
         # Compact actual summary list format: [ib, ov, st, ma, sr, sw, pc]
@@ -768,7 +851,7 @@ def seed_one_recommendation(
     suggestion = build_compact_suggestion(
         current=PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd)),
         recommended=recommended_params,
-        evidence=generated.evidence if isinstance(generated.evidence, dict) else {},
+        evidence=seed_evidence,
         metadata=metadata,
     )
 

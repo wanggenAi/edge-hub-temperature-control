@@ -339,6 +339,20 @@ def _decode_compact_evidence(raw: object) -> dict[str, Any]:
     return {}
 
 
+def _decode_compact_core_evidence(raw: object) -> dict[str, Any]:
+    if not isinstance(raw, list):
+        return {}
+    # Compact core evidence format used by demo seed:
+    # [mean_abs_error, temp_swing, in_band_ratio, saturation_ratio]
+    values = list(raw) + [None] * (4 - len(raw))
+    return {
+        "mean_abs_error": values[0],
+        "temp_swing": values[1],
+        "in_band_ratio": values[2],
+        "saturation_ratio": values[3],
+    }
+
+
 def _normalize_compact_metadata(raw_meta: dict[str, Any]) -> dict[str, Any]:
     if not raw_meta:
         return {}
@@ -422,6 +436,8 @@ def _extract_compact_payload_fields(suggestion: str) -> dict[str, Any]:
         }
 
     evidence = _decode_compact_evidence(payload.get("ev"))
+    if not evidence:
+        evidence = _decode_compact_core_evidence(payload.get("ec"))
     if evidence:
         out["evidence"] = evidence
 
@@ -524,6 +540,47 @@ class RecommendationFeedbackDatasetBuilder:
         evidence = payload.get("evidence") if isinstance(payload.get("evidence"), dict) else {}
 
         preview_metrics, preview_source = _resolve_preview_summary(metadata.get("pvs"))
+        if not preview_metrics and comparison_preview and post_effect_summary:
+            # When compact seed trims preview summary (`pv`) to satisfy varchar(255),
+            # recover approximate preview metrics from actual summary + preview gaps.
+            actual_in_band = _as_float(post_effect_summary.get("in_band_ratio_after"))
+            actual_overshoot = _as_float(post_effect_summary.get("overshoot_c_after"))
+            actual_settling = _as_float(post_effect_summary.get("settling_sec_after"))
+            actual_mae = _as_float(post_effect_summary.get("mean_abs_error_after"))
+            actual_saturation = _as_float(post_effect_summary.get("saturation_ratio_after"))
+            actual_swing = _as_float(post_effect_summary.get("temp_swing_after"))
+
+            gap_in_band = _as_float(comparison_preview.get("in_band_ratio_delta"))
+            gap_overshoot = _as_float(comparison_preview.get("overshoot_c_delta"))
+            gap_settling = _as_float(comparison_preview.get("settling_sec_delta"))
+            gap_mae = _as_float(comparison_preview.get("mean_abs_error_delta"))
+            gap_saturation = _as_float(comparison_preview.get("saturation_ratio_delta"))
+            gap_swing = _as_float(comparison_preview.get("temp_swing_delta"))
+
+            preview_metrics = {
+                # in_band_ratio_delta = actual - preview
+                "in_band_ratio": (actual_in_band - gap_in_band)
+                if actual_in_band is not None and gap_in_band is not None
+                else None,
+                # lower-better deltas use preview - actual
+                "overshoot_c": (actual_overshoot + gap_overshoot)
+                if actual_overshoot is not None and gap_overshoot is not None
+                else None,
+                "settling_sec": (actual_settling + gap_settling)
+                if actual_settling is not None and gap_settling is not None
+                else None,
+                "mean_abs_error": (actual_mae + gap_mae)
+                if actual_mae is not None and gap_mae is not None
+                else None,
+                "saturation_ratio": (actual_saturation + gap_saturation)
+                if actual_saturation is not None and gap_saturation is not None
+                else None,
+                "temp_swing": (actual_swing + gap_swing)
+                if actual_swing is not None and gap_swing is not None
+                else None,
+            }
+            preview_source = "derived_from_preview_gap"
+
         if not comparison_preview and preview_metrics and post_effect_summary:
             # Derive preview-vs-actual deltas when compact seed stores preview and
             # actual metrics but omits explicit comparison payload to save space.

@@ -15,7 +15,9 @@ from app.services.ai.tuning_engine import build_recommendation
 class RecommendationService:
     _LEGACY_GAIN_PATTERN = re.compile(r"(Kp|Ki|Kd)\s*:\s*([+-]?\d+(?:\.\d+)?)")
     _FLOAT_PRECISION = 4
-    _SUGGESTION_MAX_LEN = 255
+    # Suggestion is stored in ai_recommendations.suggestion (TEXT).
+    # Keep a generous soft cap only as a safety guard against accidental bloat.
+    _SUGGESTION_MAX_LEN = 16384
     _BROKEN_PID_FIELD_PATTERN = re.compile(r"\"(kp|ki|kd)\"\s*:\s*([+-]?\d+(?:\.\d+)?)", flags=re.IGNORECASE)
 
     @classmethod

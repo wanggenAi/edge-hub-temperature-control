@@ -191,10 +191,10 @@ class AIRecommendation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
-    reason: Mapped[str] = mapped_column(String(255))
-    suggestion: Mapped[str] = mapped_column(String(255))
+    reason: Mapped[str] = mapped_column(Text)
+    suggestion: Mapped[str] = mapped_column(Text)
     confidence: Mapped[float] = mapped_column(Float, default=0.78)
-    risk: Mapped[str] = mapped_column(String(128), default="Minor overshoot risk")
+    risk: Mapped[str] = mapped_column(Text, default="Minor overshoot risk")
     last_run_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     device: Mapped[Device] = relationship(back_populates="ai_recommendations")
