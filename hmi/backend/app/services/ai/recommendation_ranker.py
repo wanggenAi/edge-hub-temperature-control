@@ -131,6 +131,37 @@ class RecommendationRanker:
                 strategy_note=strategy_note,
             )
 
+        def build_from_delta(
+            *,
+            candidate_id: str,
+            delta_kp: float,
+            delta_ki: float,
+            delta_kd: float,
+            strategy_note: str,
+        ) -> CandidateRecommendation:
+            rec = PIDParams(
+                kp=round(self._clamp_nonnegative(float(baseline.kp) + float(delta_kp)), 6),
+                ki=round(self._clamp_nonnegative(float(baseline.ki) + float(delta_ki)), 6),
+                kd=round(self._clamp_nonnegative(float(baseline.kd) + float(delta_kd)), 6),
+            )
+            return CandidateRecommendation(
+                candidate_id=candidate_id,
+                baseline_params=baseline,
+                recommended_params=rec,
+                delta=self._build_delta(baseline=baseline, recommended=rec),
+                strategy_note=strategy_note,
+            )
+
+        # Ensure overshoot-guard behavior is consistent with its name.
+        # We always make Kp/Ki more conservative than rule_center, and force Kd
+        # to be at least as damped as rule_center (never lower than baseline).
+        overshoot_delta_kp = float(base_delta.kp) * 0.80
+        overshoot_delta_ki = float(base_delta.ki) * 0.70
+        if float(base_rec.kd) >= float(baseline.kd):
+            overshoot_delta_kd = max(float(base_delta.kd), abs(float(base_delta.kd)) * 1.35)
+        else:
+            overshoot_delta_kd = abs(float(base_delta.kd)) * 0.35
+
         return [
             build_from_multiplier(
                 candidate_id="rule_center",
@@ -153,12 +184,12 @@ class RecommendationRanker:
                 m_kd=0.90,
                 strategy_note="Larger Kp/Ki adjustment to chase stronger improvement.",
             ),
-            build_from_multiplier(
+            build_from_delta(
                 candidate_id="overshoot_guard",
-                m_kp=0.80,
-                m_ki=0.70,
-                m_kd=1.35,
-                strategy_note="Bias toward overshoot suppression (lower Kp/Ki, higher Kd).",
+                delta_kp=overshoot_delta_kp,
+                delta_ki=overshoot_delta_ki,
+                delta_kd=overshoot_delta_kd,
+                strategy_note="Bias toward overshoot suppression (lower Kp/Ki, higher Kd damping).",
             ),
             build_from_multiplier(
                 candidate_id="settling_focus",
@@ -338,4 +369,3 @@ class RecommendationRanker:
         for idx, item in enumerate(scored, start=1):
             item["rank"] = idx
         return scored
-
