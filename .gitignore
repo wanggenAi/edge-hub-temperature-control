@@ -38,6 +38,7 @@ tmp/
 temp/
 runtime/
 data-hub/runtime/
+hmi/backend/artifacts/
 hmi/frontend/node_modules/
 hmi/frontend/dist/
 **/node_modules/
