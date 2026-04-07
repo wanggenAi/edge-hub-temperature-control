@@ -444,6 +444,7 @@ export function DeviceDetailPage() {
   );
   const aiEvidenceRows = aiGenerated ? buildEvidenceRows(aiGenerated.evidence) : [];
   const showStoredEvidenceHint = Boolean(aiGenerated && aiRecoveredFromStorage && aiEvidenceRows.length === 0);
+  const aiPreviewTrust = useMemo(() => derivePreviewTrust(aiGenerated?.ai_decision), [aiGenerated?.ai_decision]);
   const previewCurveData = useMemo(() => {
     if (!aiPreviewResult) return [] as Array<{ idx: number; t: string; baseline: number; recommended: number; target: number }>;
     const base = aiPreviewResult.baseline_curve;
@@ -643,7 +644,6 @@ export function DeviceDetailPage() {
           applyStatus: "Ready",
           detail: "Latest generate result is no-change; kept current actionable recommendation.",
         });
-        await reload({ silent: true });
         return;
       }
 
@@ -658,7 +658,6 @@ export function DeviceDetailPage() {
       } else {
         setAiApplyResult({ ackStatus: "Generated", applyStatus: "Pending", detail: "Recommendation generated. Awaiting confirmation." });
       }
-      await reload({ silent: true });
     } catch (error) {
       const message = normalizeApiError(error);
       setAiApplyResult({ ackStatus: "Generate Failed", applyStatus: "Generate Failed", detail: message });
@@ -1043,9 +1042,30 @@ export function DeviceDetailPage() {
               </div>
 
               <div className="mt-3 rounded border border-line/70 bg-panel px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-mute">Preview Simulation (What-if)</div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-[11px] uppercase tracking-wide text-mute">Preview Simulation (What-if)</div>
+                  {aiPreviewTrust && (
+                    <span
+                      className={`rounded border px-2 py-1 text-[11px] ${
+                        aiPreviewTrust.trustLevel === "high"
+                          ? "border-accent/50 bg-accent/10 text-accent"
+                          : aiPreviewTrust.trustLevel === "medium"
+                            ? "border-warn/50 bg-warn/10 text-warn"
+                            : "border-danger/50 bg-danger/10 text-danger"
+                      }`}
+                      title={`Preview gap model: P(low)=${(aiPreviewTrust.pLow * 100).toFixed(1)}%, P(medium)=${(
+                        aiPreviewTrust.pMedium * 100
+                      ).toFixed(1)}%, P(high)=${(aiPreviewTrust.pHigh * 100).toFixed(1)}%`}
+                    >
+                      Preview Trust: {aiPreviewTrust.trustLabel}
+                    </span>
+                  )}
+                </div>
                 {!aiPreviewResult && !aiPreviewBusy && !aiPreviewError && (
-                  <div className="mt-1 text-xs text-mute">Run preview to compare baseline vs recommended parameter impact.</div>
+                  <div className="mt-1 text-xs text-mute">
+                    Run preview to compare baseline vs recommended parameter impact.
+                    {aiPreviewTrust ? ` Gap-model confidence: ${aiPreviewTrust.trustLabel}.` : ""}
+                  </div>
                 )}
                 {aiPreviewBusy && <div className="mt-1 text-xs text-mute">Running simulation...</div>}
                 {aiPreviewError && <div className="mt-1 text-xs text-danger">{aiPreviewError}</div>}
@@ -1771,6 +1791,7 @@ function parseStoredRecommendationMeta(suggestion?: string | null): {
     saturation_ratio_delta?: number | null;
     temp_swing_delta?: number | null;
   } | null;
+  ai_decision?: Record<string, unknown> | null;
 } {
   if (!suggestion || !suggestion.trim()) return {};
   try {
@@ -1864,6 +1885,10 @@ function parseStoredRecommendationMeta(suggestion?: string | null): {
               temp_swing_delta?: number | null;
             })
           : null,
+      ai_decision:
+        m.ard && typeof m.ard === "object" && !Array.isArray(m.ard)
+          ? (m.ard as Record<string, unknown>)
+          : null,
     };
   } catch {
     return {};
@@ -1916,6 +1941,7 @@ function parseStoredAiRecommendation(
   if (typeof meta.last_generate_reused === "boolean") parsed.last_generate_reused = meta.last_generate_reused;
   if (typeof meta.reused_count === "number") parsed.reused_count = meta.reused_count;
   if (meta.last_accessed_at) parsed.last_accessed_at = meta.last_accessed_at;
+  if (meta.ai_decision && typeof meta.ai_decision === "object") parsed.ai_decision = meta.ai_decision;
 
   const suggestion = recommendation.suggestion?.trim() ?? "";
   if (!suggestion) return parsed;
@@ -2027,7 +2053,38 @@ function buildRecoveredAiGenerated(
     expected_effect,
     evidence: (parsed.evidence as Record<string, string | number | boolean | null> | undefined) ?? {},
     generated_at: recommendation.last_run_at,
+    ai_decision: parsed.ai_decision ?? null,
   };
+}
+
+function derivePreviewTrust(
+  aiDecision: Record<string, unknown> | null | undefined
+): { trustLevel: "high" | "medium" | "low"; trustLabel: string; pLow: number; pMedium: number; pHigh: number } | null {
+  if (!aiDecision || typeof aiDecision !== "object") return null;
+  const top = aiDecision.top_1_candidate;
+  if (!top || typeof top !== "object") return null;
+  const gap = (top as Record<string, unknown>).preview_gap_model;
+  if (!gap || typeof gap !== "object") return null;
+
+  const pLow = Number((gap as Record<string, unknown>).p_low);
+  const pMedium = Number((gap as Record<string, unknown>).p_medium);
+  const pHigh = Number((gap as Record<string, unknown>).p_high);
+  if (!Number.isFinite(pLow) || !Number.isFinite(pMedium) || !Number.isFinite(pHigh)) return null;
+
+  const maxKey = [
+    { k: "low", v: pLow },
+    { k: "medium", v: pMedium },
+    { k: "high", v: pHigh },
+  ].sort((a, b) => b.v - a.v)[0]?.k;
+  if (!maxKey) return null;
+
+  if (maxKey === "low") {
+    return { trustLevel: "high", trustLabel: "Can Trust (High)", pLow, pMedium, pHigh };
+  }
+  if (maxKey === "medium") {
+    return { trustLevel: "medium", trustLabel: "Partially Trust (Medium)", pLow, pMedium, pHigh };
+  }
+  return { trustLevel: "low", trustLabel: "Use Caution (Low)", pLow, pMedium, pHigh };
 }
 
 function normalizeRiskLevel(value: unknown): string {
