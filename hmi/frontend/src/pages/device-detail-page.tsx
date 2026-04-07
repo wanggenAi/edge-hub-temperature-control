@@ -718,6 +718,11 @@ export function DeviceDetailPage() {
   }
 
   async function handlePreviewImpact() {
+    if (!aiGenerated || aiNoChangeNeeded) {
+      setAiPreviewError(aiNoChangeNeeded ? "No change needed; preview is skipped." : "Generate recommendation first.");
+      setAiPreviewResult(null);
+      return;
+    }
     setAiPreviewBusy(true);
     setAiPreviewError(null);
     try {
@@ -1033,7 +1038,7 @@ export function DeviceDetailPage() {
               <Button size="sm" variant="ghost" onClick={handleGenerateAiRecommendation} disabled={aiGenerateBusy}>
                 {aiGenerateBusy ? "Generating..." : "Generate Recommendation"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={handlePreviewImpact} disabled={aiPreviewBusy}>
+              <Button size="sm" variant="ghost" onClick={handlePreviewImpact} disabled={aiPreviewBusy || !aiGenerated || aiNoChangeNeeded}>
                 {aiPreviewBusy ? "Simulating..." : "Preview Impact"}
               </Button>
               <Button size="sm" variant="accent" onClick={openApplyAiConfirm} disabled={!canWrite || !aiGenerated || aiApplyBusy || aiNoChangeNeeded}>
@@ -1063,7 +1068,11 @@ export function DeviceDetailPage() {
                 </div>
                 {!aiPreviewResult && !aiPreviewBusy && !aiPreviewError && (
                   <div className="mt-1 text-xs text-mute">
-                    Run preview to compare baseline vs recommended parameter impact.
+                    {aiGenerated
+                      ? aiNoChangeNeeded
+                        ? "No change needed; preview impact is skipped."
+                        : "Run preview to compare baseline vs recommended parameter impact."
+                      : "Generate recommendation first, then run preview impact."}
                     {aiPreviewTrust ? ` Gap-model confidence: ${aiPreviewTrust.trustLabel}.` : ""}
                   </div>
                 )}
