@@ -2383,6 +2383,7 @@ def get_ai_recommendation_telemetry_comparison(
         preview_curve=preview_curve,
         actual_curve=actual_curve,
         target_temp=target_temp,
+        target_band=float(params.target_band),
         preview_source=preview_source,
         partial_post_apply_window=partial_post_apply_window,
         missing_curves=missing_curves,

@@ -288,10 +288,14 @@ This seed is designed to demonstrate page value, not just fill tables.
 
 ### Scenarios
 
-- `success`: clear improvement after apply; preview and actual are close
-- `partial`: limited improvement / near-unchanged behavior
-- `preview_mismatch`: preview optimistic but actual improvement is weaker
-- `insufficient_data`: applied recommendation but not enough post-apply points
+- `success` (alias: `clear_improvement`): clear improvement after apply; preview
+  and actual are close.
+- `partial` (alias: `limited_improvement`): limited/mixed improvement, not all
+  recommendations produce a dramatic gain.
+- `preview_mismatch`: preview looks optimistic, but real post-apply behavior is
+  worse than expected.
+- `insufficient_data`: recommendation is applied, but post-apply telemetry is
+  intentionally insufficient.
 
 ### Run
 
@@ -304,13 +308,16 @@ python scripts/seed_post_apply_validation_demo.py --reset
 Seed specific scenarios:
 
 ```bash
-python scripts/seed_post_apply_validation_demo.py --reset --scenario success --scenario preview_mismatch
+python scripts/seed_post_apply_validation_demo.py \
+  --reset \
+  --scenario clear_improvement \
+  --scenario preview_mismatch
 ```
 
 Seed one scenario into a specific existing device:
 
 ```bash
-python scripts/seed_post_apply_validation_demo.py --scenario success --device-id 1
+python scripts/seed_post_apply_validation_demo.py --scenario partial --device-id 1
 ```
 
 Reset only:
@@ -333,21 +340,19 @@ After seeding, open **Post-Apply Validation** and switch to:
   - `Evaluation Status = Completed`
   - `Before vs After` shows clear improvement
   - `Preview vs Actual` gap is small
+  - `Telemetry Comparison = Full Comparison`
 - `PAV-402`:
   - `Evaluation Status = Completed`
-  - only slight/limited improvement
+  - only slight/limited or mixed improvement
   - moderate preview gap
+  - `Telemetry Comparison = Full Comparison`
 - `PAV-403`:
   - `Evaluation Status = Completed`
   - `Preview vs Actual` gap is obvious
   - useful for showing validation value when preview is over-optimistic
+  - `Telemetry Comparison = Full Comparison`
 - `PAV-404`:
   - `Evaluation Status = Insufficient Data`
   - recommendation is applied but post-apply telemetry is intentionally sparse
-
-When the first sustained saturation window appears, record:
-
-- current input rate (attempted)
-- max stable ingest TPS
-- max stable persist TPS
-- first saturation symptoms
+  - `Telemetry Comparison = Partial Comparison`
+  - chart should naturally show incomplete/limited actual post-apply data

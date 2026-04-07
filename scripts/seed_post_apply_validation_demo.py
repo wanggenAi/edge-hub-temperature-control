@@ -34,6 +34,8 @@ OBS_WINDOW_MINUTES = 30
 STEP_SECONDS = 30
 POINTS_PER_WINDOW = 60
 DEMO_REASON_PREFIX = "PAV_DEMO"
+DEMO_RUN_PREFIX = "pavdemo"
+DEFAULT_SCENARIOS = ["success", "partial", "preview_mismatch", "insufficient_data"]
 
 
 @dataclass(frozen=True)
@@ -136,14 +138,32 @@ SCENARIOS: dict[str, ScenarioDef] = {
     ),
 }
 
+SCENARIO_ALIASES: dict[str, str] = {
+    "success": "success",
+    "clear_improvement": "success",
+    "a": "success",
+    "partial": "partial",
+    "limited_improvement": "partial",
+    "limited": "partial",
+    "b": "partial",
+    "preview_mismatch": "preview_mismatch",
+    "mismatch": "preview_mismatch",
+    "c": "preview_mismatch",
+    "insufficient_data": "insufficient_data",
+    "insufficient": "insufficient_data",
+    "d": "insufficient_data",
+}
+
+SCENARIO_CHOICES = sorted(SCENARIO_ALIASES.keys())
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Seed Post-Apply Validation demo scenarios into PostgreSQL + TDengine")
     parser.add_argument(
         "--scenario",
         action="append",
-        choices=sorted(SCENARIOS.keys()),
-        help="Scenario key. Can be used multiple times. Default seeds all scenarios.",
+        choices=SCENARIO_CHOICES,
+        help="Scenario key/alias. Can be used multiple times. Default seeds all scenarios.",
     )
     parser.add_argument("--device-id", type=int, default=None, help="Optional target device id (only valid when seeding one scenario)")
     parser.add_argument("--reset", action="store_true", help="Clear existing Post-Apply Validation demo records first")
@@ -154,10 +174,6 @@ def parse_args() -> argparse.Namespace:
 
 def q(value: str) -> str:
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-
-def bool_sql(value: bool) -> str:
-    return "true" if value else "false"
 
 
 def safe_table_suffix(value: str) -> str:
@@ -222,6 +238,17 @@ def ensure_td_telemetry_schema(td: TdengineClient, database: str) -> None:
 def clear_td_for_devices(td: TdengineClient, database: str, device_codes: Iterable[str]) -> None:
     for code in device_codes:
         td.query(f"DELETE FROM {database}.telemetry WHERE device_id={q(code)}")
+
+
+def clear_td_demo_runs(td: TdengineClient, database: str, *, device_code: str, scenario_key: str | None = None) -> None:
+    if scenario_key:
+        run_pattern = f"{DEMO_RUN_PREFIX}_{scenario_key}_%"
+    else:
+        run_pattern = f"{DEMO_RUN_PREFIX}_%"
+    td.query(
+        f"DELETE FROM {database}.telemetry "
+        f"WHERE device_id={q(device_code)} AND run_id LIKE {q(run_pattern)}"
+    )
 
 
 def ensure_device_and_params(db, scenario: ScenarioDef, forced_device_id: int | None = None) -> tuple[Device, DeviceParameter]:
@@ -324,6 +351,14 @@ def profile_error(profile: str, i: int) -> float:
         return 0.95 * math.exp(-i / 45.0) + 0.35 * math.sin(i / 4.2)
     if profile == "insufficient_after":
         return 0.70 + 0.20 * math.sin(i / 2.0)
+    if profile == "success_preview":
+        return 0.30 * math.exp(-i / 34.0) + 0.12 * math.sin(i / 6.3)
+    if profile == "partial_preview":
+        return 0.62 * math.exp(-i / 58.0) + 0.20 * math.sin(i / 5.2)
+    if profile == "mismatch_preview":
+        return 0.30 * math.exp(-i / 34.0) + 0.14 * math.sin(i / 6.4)
+    if profile == "insufficient_preview":
+        return 0.55 * math.exp(-i / 44.0) + 0.17 * math.sin(i / 4.3)
     return 0.0
 
 
@@ -377,35 +412,28 @@ def rows_to_points(rows: list[dict[str, Any]]) -> list[ObservedTelemetryPoint]:
     ]
 
 
-def build_preview_metrics(scenario_key: str, actual: PreviewMetrics) -> PreviewMetrics:
+def preview_profile_for_scenario(scenario_key: str) -> str:
     if scenario_key == "success":
-        return PreviewMetrics(
-            in_band_ratio=min(0.99, actual.in_band_ratio + 0.03),
-            overshoot_c=max(0.0, actual.overshoot_c + 0.05),
-            settling_sec=None if actual.settling_sec is None else max(1.0, actual.settling_sec + 12.0),
-            mean_abs_error=max(0.01, actual.mean_abs_error + 0.03),
-            saturation_ratio=min(0.95, actual.saturation_ratio + 0.01),
-            temp_swing=max(0.01, actual.temp_swing + 0.08),
-        )
+        return "success_preview"
     if scenario_key == "partial":
-        return PreviewMetrics(
-            in_band_ratio=min(0.99, actual.in_band_ratio + 0.08),
-            overshoot_c=max(0.0, actual.overshoot_c - 0.08),
-            settling_sec=None if actual.settling_sec is None else max(1.0, actual.settling_sec - 18.0),
-            mean_abs_error=max(0.01, actual.mean_abs_error - 0.07),
-            saturation_ratio=max(0.0, actual.saturation_ratio - 0.03),
-            temp_swing=max(0.01, actual.temp_swing - 0.12),
-        )
+        return "partial_preview"
     if scenario_key == "preview_mismatch":
-        return PreviewMetrics(
-            in_band_ratio=min(0.99, actual.in_band_ratio + 0.25),
-            overshoot_c=max(0.0, actual.overshoot_c - 0.55),
-            settling_sec=None if actual.settling_sec is None else max(1.0, actual.settling_sec - 70.0),
-            mean_abs_error=max(0.01, actual.mean_abs_error - 0.22),
-            saturation_ratio=max(0.0, actual.saturation_ratio - 0.11),
-            temp_swing=max(0.01, actual.temp_swing - 0.35),
+        return "mismatch_preview"
+    return "insufficient_preview"
+
+
+def rows_to_preview_curve(*, rows: list[dict[str, Any]], anchor_ms: int) -> list[dict[str, Any]]:
+    curve: list[dict[str, Any]] = []
+    for row in rows:
+        rel_sec = max(0.0, (int(row["ts_ms"]) - int(anchor_ms)) / 1000.0)
+        curve.append(
+            {
+                "time_s": round(rel_sec, 3),
+                "temp": round(float(row["sensor_temp_c"]), 4),
+                "target_temp": round(float(row["target_temp_c"]), 4),
+            }
         )
-    return actual
+    return curve
 
 
 def build_suggestion(
@@ -420,6 +448,7 @@ def build_suggestion(
     comparison_preview: dict[str, Any] | None,
     actual_summary: dict[str, Any] | None,
     preview_metrics: PreviewMetrics | None,
+    preview_curve: list[dict[str, Any]],
     insufficient_data: bool,
 ) -> tuple[str, str, str]:
     delta = {
@@ -458,19 +487,12 @@ def build_suggestion(
     }
 
     if insufficient_data:
-        meta["pei"] = True
-        meta["aee"] = False
-    elif actual is not None and actual_summary is not None:
-        evaluated_at = applied_at + timedelta(minutes=OBS_WINDOW_MINUTES, seconds=90)
         meta.update(
             {
-                "aee": True,
-                "pei": False,
-                "pea": iso_utc(evaluated_at),
-                "pe": actual_summary,
-                "pecb": comparison_before,
-                "pecp": comparison_preview,
+                "pei": True,
+                "aee": False,
                 "pvs": {
+                    "recommended_curve": preview_curve,
                     "recommended_metrics": None
                     if preview_metrics is None
                     else {
@@ -484,6 +506,33 @@ def build_suggestion(
                 },
             }
         )
+    elif actual is not None and actual_summary is not None:
+        evaluated_at = applied_at + timedelta(minutes=OBS_WINDOW_MINUTES, seconds=90)
+        meta.update(
+            {
+                "aee": True,
+                "pei": False,
+                "pea": iso_utc(evaluated_at),
+                "pe": actual_summary,
+                "pecb": comparison_before,
+                "pecp": comparison_preview,
+                "pvs": {
+                    "recommended_curve": preview_curve,
+                    "recommended_metrics": None
+                    if preview_metrics is None
+                    else {
+                        "in_band_ratio": round(float(preview_metrics.in_band_ratio), 6),
+                        "overshoot_c": round(float(preview_metrics.overshoot_c), 6),
+                        "settling_sec": None if preview_metrics.settling_sec is None else round(float(preview_metrics.settling_sec), 6),
+                        "mean_abs_error": round(float(preview_metrics.mean_abs_error), 6),
+                        "saturation_ratio": round(float(preview_metrics.saturation_ratio), 6),
+                        "temp_swing": round(float(preview_metrics.temp_swing), 6),
+                    },
+                },
+            }
+        )
+    else:
+        meta["pvs"] = {"recommended_curve": preview_curve}
 
     payload["m"] = meta
     suggestion = json.dumps({"f": "ai_rec", "v": "1", "p": payload}, separators=(",", ":"), ensure_ascii=True)
@@ -519,6 +568,17 @@ def insert_td_rows(
         td.query(sql)
 
 
+def resolve_selected_scenarios(requested: list[str] | None) -> list[str]:
+    if not requested:
+        return list(DEFAULT_SCENARIOS)
+    selected: list[str] = []
+    for raw in requested:
+        key = SCENARIO_ALIASES[raw]
+        if key not in selected:
+            selected.append(key)
+    return selected
+
+
 def reset_demo_data(db, td: TdengineClient, *, drop_demo_devices: bool) -> None:
     demo_codes = [s.device_code for s in SCENARIOS.values()]
     db.execute(delete(AIRecommendation).where(AIRecommendation.reason.like(f"{DEMO_REASON_PREFIX}:%")))
@@ -535,6 +595,10 @@ def reset_demo_data(db, td: TdengineClient, *, drop_demo_devices: bool) -> None:
 def seed_scenario(db, td: TdengineClient, scenario: ScenarioDef, forced_device_id: int | None = None) -> None:
     device, params = ensure_device_and_params(db, scenario, forced_device_id=forced_device_id)
     ensure_user_access(db, device.id)
+    if forced_device_id is None and device.code == scenario.device_code:
+        clear_td_for_devices(td, settings.tdengine_database, [device.code])
+    else:
+        clear_td_demo_runs(td, settings.tdengine_database, device_code=device.code, scenario_key=scenario.key)
     db.execute(
         delete(AIRecommendation).where(
             AIRecommendation.device_id == device.id,
@@ -553,10 +617,10 @@ def seed_scenario(db, td: TdengineClient, scenario: ScenarioDef, forced_device_i
         start_ms=before_start_ms,
         point_count=POINTS_PER_WINDOW,
         step_ms=step_ms,
-        run_id=f"{scenario.key}-before",
+        run_id=f"{DEMO_RUN_PREFIX}_{scenario.key}_baseline",
     )
 
-    after_points = 3 if scenario.insufficient_data else POINTS_PER_WINDOW
+    after_points = 2 if scenario.insufficient_data else POINTS_PER_WINDOW
     after_start_ms = int((applied_at + timedelta(seconds=STEP_SECONDS)).timestamp() * 1000)
     after_rows = generate_window(
         profile=scenario.after_profile,
@@ -564,7 +628,17 @@ def seed_scenario(db, td: TdengineClient, scenario: ScenarioDef, forced_device_i
         start_ms=after_start_ms,
         point_count=after_points,
         step_ms=step_ms,
-        run_id=f"{scenario.key}-after",
+        run_id=f"{DEMO_RUN_PREFIX}_{scenario.key}_actual",
+    )
+
+    preview_start_ms = int(applied_at.timestamp() * 1000)
+    preview_rows = generate_window(
+        profile=preview_profile_for_scenario(scenario.key),
+        target_temp=scenario.target_temp,
+        start_ms=preview_start_ms,
+        point_count=POINTS_PER_WINDOW,
+        step_ms=step_ms,
+        run_id=f"{DEMO_RUN_PREFIX}_{scenario.key}_preview",
     )
 
     insert_td_rows(
@@ -593,16 +667,21 @@ def seed_scenario(db, td: TdengineClient, scenario: ScenarioDef, forced_device_i
     evaluator = PostEffectEvaluator()
     baseline_metrics = evaluator.calc_metrics(points=rows_to_points(before_rows), target_band=TARGET_BAND, pwm_saturation_threshold=PWM_SAT_THRESHOLD)
     actual_metrics = evaluator.calc_metrics(points=rows_to_points(after_rows), target_band=TARGET_BAND, pwm_saturation_threshold=PWM_SAT_THRESHOLD)
+    preview_metrics = evaluator.calc_metrics(
+        points=rows_to_points(preview_rows),
+        target_band=TARGET_BAND,
+        pwm_saturation_threshold=PWM_SAT_THRESHOLD,
+    )
+    preview_curve = rows_to_preview_curve(rows=preview_rows, anchor_ms=int(applied_at.timestamp() * 1000))
 
     comparison_before: dict[str, Any] | None = None
     comparison_preview: dict[str, Any] | None = None
     actual_summary: dict[str, Any] | None = None
-    preview_metrics: PreviewMetrics | None = None
 
     if scenario.completed and baseline_metrics is not None and actual_metrics is not None:
-        preview_metrics = build_preview_metrics(scenario.key, actual_metrics)
         comparison_before = evaluator.compare(reference=baseline_metrics, actual=actual_metrics).model_dump(mode="json")
-        comparison_preview = evaluator.compare(reference=preview_metrics, actual=actual_metrics).model_dump(mode="json")
+        if preview_metrics is not None:
+            comparison_preview = evaluator.compare(reference=preview_metrics, actual=actual_metrics).model_dump(mode="json")
         actual_summary = evaluator.build_actual_summary(points=rows_to_points(after_rows), metrics=actual_metrics).model_dump(mode="json")
 
     reason, risk, suggestion = build_suggestion(
@@ -616,6 +695,7 @@ def seed_scenario(db, td: TdengineClient, scenario: ScenarioDef, forced_device_i
         comparison_preview=comparison_preview,
         actual_summary=actual_summary,
         preview_metrics=preview_metrics,
+        preview_curve=preview_curve,
         insufficient_data=scenario.insufficient_data,
     )
 
@@ -641,7 +721,7 @@ def seed_scenario(db, td: TdengineClient, scenario: ScenarioDef, forced_device_i
 
 def main() -> None:
     args = parse_args()
-    selected = args.scenario or ["success", "partial", "preview_mismatch", "insufficient_data"]
+    selected = resolve_selected_scenarios(args.scenario)
 
     if args.device_id is not None and len(selected) != 1:
         raise SystemExit("--device-id can only be used when exactly one --scenario is provided")

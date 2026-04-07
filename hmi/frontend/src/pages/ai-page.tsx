@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Link2, Search } from "lucide-react";
 import { Link } from "react-router-dom";
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,9 +140,20 @@ export function AIPage() {
       setTelemetryError(null);
       try {
         const observationMinutes = toObservationWindowMinutes(timeRange);
+        const appliedMs = currentRecord.applied_at ? new Date(currentRecord.applied_at).getTime() : Number.NaN;
+        const selectedStart = typeof timeRange.startMs === "number" ? timeRange.startMs : undefined;
+        const selectedEnd = typeof timeRange.endMs === "number" ? timeRange.endMs : Date.now();
+        const selectedMissesAppliedWindow =
+          Number.isFinite(appliedMs) &&
+          typeof selectedStart === "number" &&
+          (selectedStart > appliedMs || selectedEnd < appliedMs);
+        const fallbackStartMs = Number.isFinite(appliedMs) ? Math.floor(appliedMs) : selectedStart;
+        const fallbackEndMs = Number.isFinite(appliedMs)
+          ? Math.min(Date.now(), Math.floor(appliedMs) + observationMinutes * 60 * 1000)
+          : selectedEnd;
         const data = await api.aiRecommendationTelemetryComparison(currentRecord.device_id, currentRecord.recommendation_id, {
-          start_ms: timeRange.startMs,
-          end_ms: timeRange.endMs,
+          start_ms: selectedMissesAppliedWindow ? fallbackStartMs : timeRange.startMs,
+          end_ms: selectedMissesAppliedWindow ? fallbackEndMs : timeRange.endMs,
           observation_window_minutes: observationMinutes,
           baseline_window_minutes: observationMinutes,
         });
@@ -206,9 +217,9 @@ export function AIPage() {
         <CardHeader className="pb-3">
           <div className="space-y-1">
             <div className="text-[11px] uppercase tracking-[0.18em] text-neon/80">AI Review Console</div>
-            <CardTitle className="text-[28px] leading-none">AI Optimization Review</CardTitle>
+            <CardTitle className="text-[28px] leading-none">AI Post-Apply Validation</CardTitle>
             <div className="mt-1 text-sm text-mute">
-              Switch devices if needed. This page always shows the selected device's latest applied AI recommendation, even if it was applied long ago.
+              Review the latest applied AI recommendation, validate real post-apply behavior, and compare previewed vs actual outcomes.
             </div>
           </div>
         </CardHeader>
@@ -252,6 +263,39 @@ export function AIPage() {
               <div className="text-sm text-mute">
                 {selectedDevice.code} · {selectedDevice.line} · {selectedDevice.location}
               </div>
+              {currentRecord && (
+                <div className="mt-2 space-y-2">
+                  <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                    {[
+                      ["Recommendation ID", String(currentRecord.recommendation_id)],
+                      ["Problem", formatLabel(currentRecord.problem_type)],
+                      ["Expected Effect", currentRecord.expected_effect ? formatLabel(currentRecord.expected_effect) : "-"],
+                      ["Risk", currentRecord.risk_level ?? "-"],
+                      ["Applied At", formatDateTime(currentRecord.applied_at ?? currentRecord.generated_at)],
+                      ["Evaluation Status", evaluationStatus],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded border border-line/60 bg-panel2/70 px-2 py-1">
+                        <div className="text-[10px] uppercase tracking-wide text-mute">{label}</div>
+                        <div className="mt-0.5 truncate text-[14px] font-semibold leading-tight text-text">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid items-start gap-2 md:grid-cols-2">
+                    <ParamBlock
+                      title="Baseline Params"
+                      params={currentRecord.current_params}
+                      controlMode={readOptionalControlMode(currentRecord)}
+                      emptyText="No baseline snapshot."
+                    />
+                    <ParamBlock
+                      title="Recommended / Delta"
+                      params={currentRecord.recommended_params}
+                      delta={currentRecord.delta}
+                      emptyText="Recommended snapshot unavailable."
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -280,39 +324,6 @@ export function AIPage() {
 
       {currentRecord && (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Latest Applied Recommendation</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 xl:grid-cols-[1fr_1fr_1fr]">
-              <InfoBlock
-                title="Recommendation"
-                rows={[
-                  ["Recommendation ID", String(currentRecord.recommendation_id)],
-                  ["Problem", formatLabel(currentRecord.problem_type)],
-                  ["Expected Effect", currentRecord.expected_effect ? formatLabel(currentRecord.expected_effect) : "-"],
-                  ["Risk", currentRecord.risk_level ?? "-"],
-                  ["Applied At", formatDateTime(currentRecord.applied_at ?? currentRecord.generated_at)],
-                  ["Evaluated At", currentRecord.evaluated_at ? formatDateTime(currentRecord.evaluated_at) : "Not evaluated"],
-                  ["History State", formatHistoryState(recommendationState)],
-                  ["Evaluation Status", evaluationStatus],
-                ]}
-              />
-              <ParamBlock
-                title="Baseline Params"
-                params={currentRecord.current_params}
-                controlMode={readOptionalControlMode(currentRecord)}
-                emptyText="No baseline parameter snapshot was captured for this applied recommendation."
-              />
-              <ParamBlock
-                title="Recommended / Delta"
-                params={currentRecord.recommended_params}
-                delta={currentRecord.delta}
-                emptyText="Recommended parameter snapshot is not available for this recommendation record."
-              />
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -515,22 +526,6 @@ function DeviceSearchSelect({
   );
 }
 
-function InfoBlock({ title, rows }: { title: string; rows: [string, string][] }) {
-  return (
-    <div className="rounded-xl border border-line/70 bg-panel px-3 py-3">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">{title}</div>
-      <div className="mt-2 space-y-1 text-xs">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-3 rounded-md border border-line/50 bg-panel2/70 px-2 py-1.5">
-            <span className="text-mute">{label}</span>
-            <span className="text-right text-text">{value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ParamBlock({
   title,
   params,
@@ -545,18 +540,17 @@ function ParamBlock({
   emptyText: string;
 }) {
   return (
-    <div className="rounded-xl border border-line/70 bg-panel px-3 py-3">
+    <div className="rounded-lg border border-line/70 bg-panel px-2 py-2">
       <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">{title}</div>
       {!params ? (
-        <div className="mt-2 min-h-[98px] rounded-md border border-line/60 bg-panel2/70 px-3 py-2">
+        <div className="mt-1.5 rounded-md border border-line/60 bg-panel2/70 px-2 py-1.5">
           <div className="inline-flex rounded border border-line/60 bg-panel px-2 py-0.5 text-[10px] uppercase tracking-wide text-mute">
             Snapshot Missing
           </div>
-          <div className="mt-2 text-xs text-text">{emptyText}</div>
-          <div className="mt-1 text-[11px] text-mute">Snapshot capture was not available for this record.</div>
+          <div className="mt-1 text-xs text-text">{emptyText}</div>
         </div>
       ) : (
-        <div className="mt-2 grid grid-cols-[48px_repeat(2,minmax(0,1fr))] gap-x-2 gap-y-1 text-xs">
+        <div className="mt-1.5 grid grid-cols-[48px_repeat(2,minmax(0,1fr))] gap-x-2 gap-y-0.5 text-[13px]">
           <span className="text-mute">Param</span>
           <span className="text-right text-mute">Value</span>
           <span className="text-right text-mute">{delta ? "Delta" : ""}</span>
@@ -653,9 +647,9 @@ function ComparisonBlock({
                 </div>
                 <div className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
                   <span className="text-mute">{mode === "before-after" ? "Before" : "Preview"}</span>
-                  <span className="text-right text-text">{formatMetricValue(row.before, row.key)}</span>
+                  <span className="text-right text-text">{formatComparisonMetricValue(row.before, row.key, "reference")}</span>
                   <span className="text-mute">{mode === "before-after" ? "After" : "Actual"}</span>
-                  <span className="text-right text-text">{formatMetricValue(row.after, row.key)}</span>
+                  <span className="text-right text-text">{formatComparisonMetricValue(row.after, row.key, "actual")}</span>
                   <span className="text-mute">{mode === "before-after" ? "Delta" : "Gap"}</span>
                   <span className={`text-right font-semibold ${comparisonValueTone(row.result)}`}>
                     {formatMetricDelta(row.deltaRaw, row.key)}
@@ -691,6 +685,9 @@ function TelemetryComparisonBlock({
   const chartRows = useMemo(() => buildTelemetryChartRows(comparison), [comparison]);
   const xMin = chartRows.length > 0 ? chartRows[0].xMin : -30;
   const xMax = chartRows.length > 0 ? chartRows[chartRows.length - 1].xMin : 30;
+  const targetBand = comparison?.target_band ?? null;
+  const targetTempCenter = comparison?.target_temp ?? null;
+  const yDomain = useMemo(() => buildTelemetryYDomain(chartRows, targetTempCenter, targetBand), [chartRows, targetTempCenter, targetBand]);
   const hasBaseline = Boolean(comparison && comparison.baseline_curve.length >= minCurvePoints);
   const hasPreview = Boolean(comparison && comparison.preview_curve.length >= minCurvePoints);
   const hasActual = Boolean(comparison && comparison.actual_curve.length >= minCurvePoints);
@@ -753,9 +750,21 @@ function TelemetryComparisonBlock({
                 <YAxis
                   stroke="#7fa6b8"
                   width={56}
+                  domain={yDomain}
                   tick={{ fontSize: 11 }}
                   tickFormatter={(value) => `${Number(value).toFixed(1)}°C`}
                 />
+                {typeof targetTempCenter === "number" && typeof targetBand === "number" && targetBand > 0 && (
+                  <ReferenceArea
+                    x1={xMin}
+                    x2={xMax}
+                    y1={targetTempCenter - targetBand}
+                    y2={targetTempCenter + targetBand}
+                    fill="rgba(42,212,160,0.05)"
+                    stroke="rgba(42,212,160,0.18)"
+                    strokeWidth={0.6}
+                  />
+                )}
                 <Tooltip
                   contentStyle={{ background: "rgba(5, 24, 34, 0.95)", border: "1px solid rgba(41,240,255,0.35)", borderRadius: 8 }}
                   itemStyle={{ color: "#c7e4f1", fontSize: 12 }}
@@ -771,14 +780,24 @@ function TelemetryComparisonBlock({
                   label={{ value: "Applied", position: "insideTopRight", fill: "rgba(42,212,160,0.82)", fontSize: 10 }}
                 />
                 <Line type="monotone" dataKey="baseline" connectNulls={false} stroke="#f9c74f" strokeWidth={2.1} dot={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="preview" connectNulls={false} stroke="#ff8a5b" strokeWidth={2.1} dot={false} isAnimationActive={false} />
+                <Line
+                  type="monotone"
+                  dataKey="preview"
+                  connectNulls={false}
+                  stroke="#ff9e66"
+                  strokeWidth={2.4}
+                  strokeDasharray="5 3"
+                  strokeOpacity={0.95}
+                  dot={false}
+                  isAnimationActive={false}
+                />
                 <Line type="monotone" dataKey="actual" connectNulls={false} stroke="#29f0ff" strokeWidth={2.8} strokeOpacity={0.98} dot={false} isAnimationActive={false} />
                 <Line
                   type="monotone"
                   dataKey="target"
                   connectNulls
                   stroke="#84b3a4"
-                  strokeOpacity={0.3}
+                  strokeOpacity={0.18}
                   strokeWidth={1}
                   strokeDasharray="3 3"
                   dot={false}
@@ -808,6 +827,9 @@ function TelemetryComparisonBlock({
             <ChartLegend label="Preview" sampleClass="bg-[#ff8a5b]" muted={!hasPreview} />
             <ChartLegend label="Actual" sampleClass="bg-[#29f0ff]" muted={!hasActual} />
             <ChartLegend label="Target" sampleClass="bg-[#2ad4a0]" />
+            {typeof targetBand === "number" && targetBand > 0 && (
+              <span className="text-mute/80">Band: ±{targetBand.toFixed(2)}°C</span>
+            )}
             <span className="text-mute/80">t=0: AI recommendation applied</span>
           </div>
         </>
@@ -833,13 +855,15 @@ function StatusBadge({ status }: { status: EvaluationStatus }) {
   );
 }
 
-function MetricStatusBadge({ status }: { status: "Improved" | "Worse" | "Unchanged" }) {
+function MetricStatusBadge({ status }: { status: "Improved" | "Worse" | "Unchanged" | "Not Comparable" }) {
   const tone =
     status === "Improved"
       ? "border-accent/50 bg-accent/10 text-accent"
       : status === "Worse"
         ? "border-danger/50 bg-danger/10 text-danger"
-        : "border-line/70 bg-panel text-mute";
+        : status === "Not Comparable"
+          ? "border-neon/35 bg-neon/10 text-neon"
+          : "border-line/70 bg-panel text-mute";
   return <span className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${tone}`}>{status}</span>;
 }
 
@@ -933,7 +957,7 @@ type ComparisonMetricRow = {
   before: number | null;
   after: number | null;
   deltaRaw: number | null;
-  result: "Improved" | "Worse" | "Unchanged";
+  result: "Improved" | "Worse" | "Unchanged" | "Not Comparable";
 };
 
 const METRIC_META: Record<MetricKey, { label: string; direction: MetricDirection }> = {
@@ -949,9 +973,10 @@ function metricDirection(metricKey: MetricKey): MetricDirection {
   return METRIC_META[metricKey].direction;
 }
 
-function comparisonValueTone(result: "Improved" | "Worse" | "Unchanged"): string {
+function comparisonValueTone(result: "Improved" | "Worse" | "Unchanged" | "Not Comparable"): string {
   if (result === "Improved") return "text-accent";
   if (result === "Worse") return "text-danger";
+  if (result === "Not Comparable") return "text-neon";
   return "text-mute";
 }
 
@@ -1005,8 +1030,29 @@ function buildComparisonRows(
   for (const key of keys) {
     const after = afterValueFromSummary(actualSummary, key);
     const mixedDelta = mixedDeltaFromComparison(comparison, key);
-    if (after == null || mixedDelta == null || Number.isNaN(after) || Number.isNaN(mixedDelta)) {
-      rows.push({ key, label: METRIC_META[key].label, before: null, after: null, deltaRaw: null, result: "Unchanged" });
+
+    // Settling time is only comparable when both reference and actual are present.
+    // If either side is missing (for example "not settled"), keep visible values but mark Not Comparable.
+    if (after == null || Number.isNaN(after)) {
+      rows.push({
+        key,
+        label: METRIC_META[key].label,
+        before: null,
+        after: null,
+        deltaRaw: null,
+        result: "Not Comparable",
+      });
+      continue;
+    }
+    if (mixedDelta == null || Number.isNaN(mixedDelta)) {
+      rows.push({
+        key,
+        label: METRIC_META[key].label,
+        before: null,
+        after,
+        deltaRaw: null,
+        result: "Not Comparable",
+      });
       continue;
     }
     const reference = rebuildReferenceFromMixedDelta(key, after, mixedDelta);
@@ -1023,15 +1069,22 @@ function buildComparisonRows(
   return rows;
 }
 
-function formatMetricValue(value: number | null, metricKey: MetricKey): string {
-  if (value == null || Number.isNaN(value)) return "N/A";
+function formatComparisonMetricValue(
+  value: number | null,
+  metricKey: MetricKey,
+  role: "reference" | "actual"
+): string {
+  if (value == null || Number.isNaN(value)) {
+    if (metricKey === "settling_sec") return role === "actual" ? "Not settled" : "Unavailable";
+    return "Unavailable";
+  }
   if (metricKey === "in_band_ratio" || metricKey === "saturation_ratio") return `${(value * 100).toFixed(1)}%`;
   if (metricKey === "settling_sec") return `${value.toFixed(1)}s`;
   return `${value.toFixed(3)}°C`;
 }
 
 function formatMetricDelta(value: number | null, metricKey: MetricKey): string {
-  if (value == null || Number.isNaN(value)) return "N/A";
+  if (value == null || Number.isNaN(value)) return "Unavailable";
   const prefix = value > 0 ? "+" : "";
   if (metricKey === "in_band_ratio" || metricKey === "saturation_ratio") return `${prefix}${(value * 100).toFixed(2)}%`;
   if (metricKey === "settling_sec") return `${prefix}${value.toFixed(1)}s`;
@@ -1043,6 +1096,7 @@ function summarizeComparisonOverall(
   rows: ComparisonMetricRow[]
 ): { headline: string; reason: string } {
   const available = rows.filter((row) => row.deltaRaw != null) as Array<ComparisonMetricRow & { deltaRaw: number }>;
+  const notComparableCount = rows.filter((row) => row.result === "Not Comparable").length;
   if (available.length === 0) return { headline: "No comparable metrics available.", reason: "" };
 
   const improved = available.filter((row) => row.result === "Improved");
@@ -1056,7 +1110,10 @@ function summarizeComparisonOverall(
       worse.length === 0
         ? "Actual behavior aligned with preview on most metrics."
         : `Largest gap: ${topMetricNames(worse.map((row) => ({ key: row.key, magnitude: Math.abs(normalizedMetricDelta(row.key, row.deltaRaw)) })))}.`;
-    return { headline: `Prediction Gap: ${gapLevel}.`, reason };
+    return {
+      headline: `Prediction Gap: ${gapLevel}.`,
+      reason: notComparableCount > 0 ? `${reason} ${notComparableCount} metric(s) were not comparable.` : reason,
+    };
   }
 
   if (score > 0.2) {
@@ -1064,18 +1121,26 @@ function summarizeComparisonOverall(
       worse.length === 0
         ? "Improvements were consistent across all available metrics."
         : `Dominant negatives: ${topMetricNames(worse.map((row) => ({ key: row.key, magnitude: Math.abs(normalizedMetricDelta(row.key, row.deltaRaw)) })))}.`;
-    return { headline: "Overall Result: Improved real-device behavior after apply.", reason };
+    return {
+      headline: "Overall Result: Improved real-device behavior after apply.",
+      reason: notComparableCount > 0 ? `${reason} ${notComparableCount} metric(s) were not comparable.` : reason,
+    };
   }
   if (score < -0.2) {
     const reason =
       improved.length === 0
         ? `Main degradation came from ${topMetricNames(worse.map((row) => ({ key: row.key, magnitude: Math.abs(normalizedMetricDelta(row.key, row.deltaRaw)) })))}.`
         : `Main improvement came from ${topMetricNames(improved.map((row) => ({ key: row.key, magnitude: Math.abs(normalizedMetricDelta(row.key, row.deltaRaw)) })))} but was outweighed by ${topMetricNames(worse.map((row) => ({ key: row.key, magnitude: Math.abs(normalizedMetricDelta(row.key, row.deltaRaw)) })))}.`;
-    return { headline: "Overall Result: Worse real-device behavior after apply.", reason };
+    return {
+      headline: "Overall Result: Worse real-device behavior after apply.",
+      reason: notComparableCount > 0 ? `${reason} ${notComparableCount} metric(s) were not comparable.` : reason,
+    };
   }
   return {
     headline: "Overall Result: No significant before-vs-after change detected.",
-    reason: "Improvements and degradations were mixed and near-balanced.",
+    reason:
+      (notComparableCount > 0 ? `${notComparableCount} metric(s) were not comparable. ` : "") +
+      "Improvements and degradations were mixed and near-balanced.",
   };
 }
 
@@ -1142,6 +1207,37 @@ function buildTelemetryChartRows(comparison: AITelemetryComparison | null): Tele
   }
 
   return [...map.values()].sort((a, b) => a.xMin - b.xMin);
+}
+
+function buildTelemetryYDomain(
+  rows: TelemetryChartRow[],
+  targetTempCenter: number | null,
+  targetBand: number | null
+): [number, number] {
+  const values: number[] = [];
+  for (const row of rows) {
+    if (typeof row.baseline === "number") values.push(row.baseline);
+    if (typeof row.preview === "number") values.push(row.preview);
+    if (typeof row.actual === "number") values.push(row.actual);
+    if (typeof row.target === "number") values.push(row.target);
+  }
+  if (typeof targetTempCenter === "number") values.push(targetTempCenter);
+  if (typeof targetTempCenter === "number" && typeof targetBand === "number" && targetBand > 0) {
+    values.push(targetTempCenter - targetBand, targetTempCenter + targetBand);
+  }
+  if (values.length === 0) return [35, 39];
+
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  const span = max - min;
+  const minSpan = Math.max(0.8, typeof targetBand === "number" && targetBand > 0 ? targetBand * 2.6 : 0.8);
+  if (span < minSpan) {
+    const pad = (minSpan - span) / 2;
+    min -= pad;
+    max += pad;
+  }
+  const margin = Math.max(0.08, (max - min) * 0.1);
+  return [Number((min - margin).toFixed(2)), Number((max + margin).toFixed(2))];
 }
 
 function formatRelativeMinuteLabel(value: number): string {

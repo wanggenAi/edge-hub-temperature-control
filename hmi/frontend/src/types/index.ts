@@ -219,6 +219,7 @@ export interface AITelemetryComparison {
   preview_curve: AITelemetryComparisonPoint[];
   actual_curve: AITelemetryComparisonPoint[];
   target_temp?: number | null;
+  target_band?: number | null;
   preview_source: "stored" | "reconstructed" | "unavailable" | string;
   partial_post_apply_window: boolean;
   missing_curves: Array<"baseline" | "preview" | "actual" | string>;

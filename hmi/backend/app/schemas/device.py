@@ -202,6 +202,7 @@ class AITelemetryComparisonOut(BaseModel):
     preview_curve: list[AITelemetryComparisonPointOut] = []
     actual_curve: list[AITelemetryComparisonPointOut] = []
     target_temp: Optional[float] = None
+    target_band: Optional[float] = None
     preview_source: str = "unavailable"
     partial_post_apply_window: bool = False
     missing_curves: list[str] = []
