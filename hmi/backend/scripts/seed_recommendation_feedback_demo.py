@@ -99,6 +99,19 @@ def sql_value(value: Any) -> str:
     return sql_quote(str(value))
 
 
+def compact_num(value: object, *, digits: int = 3) -> Optional[float | int]:
+    if value is None:
+        return None
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return None
+    rounded = round(num, digits)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return int(round(rounded))
+    return rounded
+
+
 def sanitize_identifier(value: str) -> str:
     out = re.sub(r"[^a-z0-9_]", "_", value.lower())
     out = out.strip("_") or "unknown"
@@ -358,24 +371,24 @@ def write_td_telemetry_rows(
 def compact_metrics(metrics: dict[str, Optional[float]]) -> list[Optional[float]]:
     # Compact list format: [ib, ov, st, ma, sr, sw]
     return [
-        None if metrics.get("in_band_ratio") is None else round(float(metrics.get("in_band_ratio") or 0.0), 3),
-        None if metrics.get("overshoot_c") is None else round(float(metrics.get("overshoot_c") or 0.0), 3),
-        None if metrics.get("settling_sec") is None else round(float(metrics.get("settling_sec") or 0.0), 3),
-        None if metrics.get("mean_abs_error") is None else round(float(metrics.get("mean_abs_error") or 0.0), 3),
-        None if metrics.get("saturation_ratio") is None else round(float(metrics.get("saturation_ratio") or 0.0), 3),
-        None if metrics.get("temp_swing") is None else round(float(metrics.get("temp_swing") or 0.0), 3),
+        compact_num(metrics.get("in_band_ratio")),
+        compact_num(metrics.get("overshoot_c")),
+        compact_num(metrics.get("settling_sec")),
+        compact_num(metrics.get("mean_abs_error")),
+        compact_num(metrics.get("saturation_ratio")),
+        compact_num(metrics.get("temp_swing")),
     ]
 
 
 def compact_comparison(comparison: dict[str, Optional[float]]) -> list[Optional[float]]:
     # Compact list format: [ib, ov, st, ma, sr, sw]
     return [
-        None if comparison.get("in_band_ratio_delta") is None else round(float(comparison.get("in_band_ratio_delta") or 0.0), 3),
-        None if comparison.get("overshoot_c_delta") is None else round(float(comparison.get("overshoot_c_delta") or 0.0), 3),
-        None if comparison.get("settling_sec_delta") is None else round(float(comparison.get("settling_sec_delta") or 0.0), 3),
-        None if comparison.get("mean_abs_error_delta") is None else round(float(comparison.get("mean_abs_error_delta") or 0.0), 3),
-        None if comparison.get("saturation_ratio_delta") is None else round(float(comparison.get("saturation_ratio_delta") or 0.0), 3),
-        None if comparison.get("temp_swing_delta") is None else round(float(comparison.get("temp_swing_delta") or 0.0), 3),
+        compact_num(comparison.get("in_band_ratio_delta")),
+        compact_num(comparison.get("overshoot_c_delta")),
+        compact_num(comparison.get("settling_sec_delta")),
+        compact_num(comparison.get("mean_abs_error_delta")),
+        compact_num(comparison.get("saturation_ratio_delta")),
+        compact_num(comparison.get("temp_swing_delta")),
     ]
 
 
@@ -425,17 +438,17 @@ def build_compact_suggestion(
     metadata: dict[str, Any],
 ) -> str:
     ev_values = [
-        None if evidence.get("mean_error") is None else round(float(evidence.get("mean_error") or 0.0), 3),
-        None if evidence.get("mean_abs_error") is None else round(float(evidence.get("mean_abs_error") or 0.0), 3),
-        None if evidence.get("error_std") is None else round(float(evidence.get("error_std") or 0.0), 3),
-        None if evidence.get("temp_swing") is None else round(float(evidence.get("temp_swing") or 0.0), 3),
-        None if evidence.get("pwm_mean") is None else round(float(evidence.get("pwm_mean") or 0.0), 3),
-        None if evidence.get("pwm_max") is None else round(float(evidence.get("pwm_max") or 0.0), 3),
+        compact_num(evidence.get("mean_error")),
+        compact_num(evidence.get("mean_abs_error")),
+        compact_num(evidence.get("error_std")),
+        compact_num(evidence.get("temp_swing")),
+        compact_num(evidence.get("pwm_mean")),
+        compact_num(evidence.get("pwm_max")),
         None if evidence.get("zero_crossings") is None else int(evidence.get("zero_crossings") or 0),
-        None if evidence.get("in_band_ratio") is None else round(float(evidence.get("in_band_ratio") or 0.0), 3),
-        None if evidence.get("overshoot_pct") is None else round(float(evidence.get("overshoot_pct") or 0.0), 3),
-        None if evidence.get("settling_sec") is None else round(float(evidence.get("settling_sec") or 0.0), 3),
-        None if evidence.get("saturation_ratio") is None else round(float(evidence.get("saturation_ratio") or 0.0), 3),
+        compact_num(evidence.get("in_band_ratio")),
+        compact_num(evidence.get("overshoot_pct")),
+        compact_num(evidence.get("settling_sec")),
+        compact_num(evidence.get("saturation_ratio")),
     ]
 
     payload = {
@@ -454,9 +467,7 @@ def build_compact_suggestion(
     text = json.dumps(payload, separators=(",", ":"))
     if len(text) > 255:
         # Keep core evidence first; trim less critical tail to satisfy varchar(255).
-        # Order retained: mean_error, mean_abs_error, error_std, temp_swing, pwm_mean,
-        # in_band_ratio, settling_sec, saturation_ratio.
-        trim_order = [5, 6, 8, 9]  # pwm_max, zero_crossings, overshoot_pct, settling_sec(last resort)
+        trim_order = [5, 6, 8, 9, 4, 2, 0, 3, 1, 7, 10]  # progressively drop evidence slots
         compact = list(ev_values)
         for idx in trim_order:
             if idx < len(compact):
@@ -465,6 +476,26 @@ def build_compact_suggestion(
                 text = json.dumps(payload, separators=(",", ":"))
                 if len(text) <= 255:
                     break
+    if len(text) > 255:
+        meta = payload.get("p", {}).get("m", {})
+        if isinstance(meta, dict):
+            # Prefer keeping preview summary + actual summary (for derived preview gaps),
+            # and keep before-comparison for outcome labels.
+            # Drop explicit preview-comparison first because it is derivable from pv/pe.
+            for key in ("cg", "e"):
+                if key in meta and len(text) > 255:
+                    meta.pop(key, None)
+                    text = json.dumps(payload, separators=(",", ":"))
+    if len(text) > 255:
+        # Remove evidence payload before dropping preview summary so preview gaps
+        # can still be derived from pv/pe in the dataset builder.
+        payload.get("p", {}).pop("ev", None)
+        text = json.dumps(payload, separators=(",", ":"))
+    if len(text) > 255:
+        meta = payload.get("p", {}).get("m", {})
+        if isinstance(meta, dict):
+            meta.pop("pv", None)
+            text = json.dumps(payload, separators=(",", ":"))
     if len(text) > 255:
         raise ValueError(f"Seed suggestion exceeds varchar(255): len={len(text)}")
     return text
@@ -671,6 +702,8 @@ def seed_one_recommendation(
         # Compact metadata keys to keep suggestion varchar(255)-safe.
         "h": "a",  # applied
         "w": int(observation_window_minutes),
+        # Applied timestamp (epoch seconds), decoded by dataset builder into `apa`.
+        "t": int(applied_at.timestamp()),
     }
 
     expected_status = "not_applied"
@@ -692,10 +725,23 @@ def seed_one_recommendation(
         comparison_preview = evaluator.compare(reference=preview_output.recommended_metrics, actual=actual_metrics)
         actual_summary = evaluator.build_actual_summary(points=actual_points, metrics=actual_metrics)
 
+        if scenario == "unchanged":
+            # Keep unchanged samples near neutral so dataset distribution is not
+            # dominated by noise-sign flips across many metrics.
+            near_zero = lambda: round(rng.uniform(-0.00005, 0.00005), 6)
+            comparison_before.in_band_ratio_delta = near_zero()
+            comparison_before.overshoot_c_delta = near_zero()
+            comparison_before.settling_sec_delta = near_zero()
+            comparison_before.mean_abs_error_delta = near_zero()
+            comparison_before.saturation_ratio_delta = near_zero()
+            comparison_before.temp_swing_delta = near_zero()
+
         metadata["a"] = 1
         metadata["i"] = 0
         metadata["cb"] = compact_comparison(comparison_before.model_dump(mode="json"))
+        metadata["cg"] = compact_comparison(comparison_preview.model_dump(mode="json"))
         metadata["pv"] = compact_metrics(preview_output.recommended_metrics.model_dump(mode="json"))
+        metadata["e"] = int((applied_at + timedelta(minutes=observation_window_minutes)).timestamp())
         # Compact actual summary list format: [ib, ov, st, ma, sr, sw, pc]
         metadata["pe"] = compact_metrics(
             {

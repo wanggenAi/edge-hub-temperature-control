@@ -371,6 +371,13 @@ def _normalize_compact_metadata(raw_meta: dict[str, Any]) -> dict[str, Any]:
             out["apa"] = datetime.utcfromtimestamp(float(ts_int)).replace(microsecond=0).isoformat()
         elif isinstance(t, str):
             out["apa"] = t
+    if "e" in raw_meta and "pea" not in raw_meta:
+        e = raw_meta.get("e")
+        ts_int = _as_int(e)
+        if ts_int is not None:
+            out["pea"] = datetime.utcfromtimestamp(float(ts_int)).replace(microsecond=0).isoformat()
+        elif isinstance(e, str):
+            out["pea"] = e
     if "cb" in raw_meta and "pecb" not in raw_meta:
         out["pecb"] = _resolve_comparison(raw_meta.get("cb"))
     if "cg" in raw_meta and "pecp" not in raw_meta:
@@ -457,14 +464,16 @@ class RecommendationFeedbackDatasetBuilder:
         metadata = self.recommendation_service.read_storage_metadata(recommendation.suggestion)
         compact_meta = compact_fields.get("metadata")
         if isinstance(compact_meta, dict):
-            metadata = {**compact_meta, **metadata}
+            metadata = {**metadata, **compact_meta}
 
         post_effect_summary = _resolve_post_effect_summary(metadata.get("pe"))
         comparison_before = _resolve_comparison(metadata.get("pecb"))
         comparison_preview = _resolve_comparison(metadata.get("pecp"))
 
         actual_effect_evaluated = bool(metadata.get("aee") or bool(post_effect_summary))
-        insufficient_data = bool(metadata.get("pei") is True)
+        pei_raw = metadata.get("pei")
+        pei_int = _as_int(pei_raw)
+        insufficient_data = bool(pei_raw is True or pei_int == 1)
         observation_window_minutes = _as_int(metadata.get("pew"))
         evaluated_at = _parse_iso_utc(metadata.get("pea"))
         applied_at = _parse_iso_utc(metadata.get("apa"))
@@ -526,32 +535,44 @@ class RecommendationFeedbackDatasetBuilder:
                 "saturation_ratio": _as_float(post_effect_summary.get("saturation_ratio_after")),
                 "temp_swing": _as_float(post_effect_summary.get("temp_swing_after")),
             }
-            if all(v is not None for v in actual_preview_like.values()):
-                comparison_preview = {
-                    "in_band_ratio_delta": round(
-                        float(actual_preview_like["in_band_ratio"]) - float(_as_float(preview_metrics.get("in_band_ratio")) or 0.0),
-                        6,
-                    ),
-                    "overshoot_c_delta": round(
-                        float(_as_float(preview_metrics.get("overshoot_c")) or 0.0) - float(actual_preview_like["overshoot_c"]),
-                        6,
-                    ),
-                    "settling_sec_delta": None
-                    if _as_float(preview_metrics.get("settling_sec")) is None
-                    else round(float(_as_float(preview_metrics.get("settling_sec")) or 0.0) - float(actual_preview_like["settling_sec"]), 6),
-                    "mean_abs_error_delta": round(
-                        float(_as_float(preview_metrics.get("mean_abs_error")) or 0.0) - float(actual_preview_like["mean_abs_error"]),
-                        6,
-                    ),
-                    "saturation_ratio_delta": round(
-                        float(_as_float(preview_metrics.get("saturation_ratio")) or 0.0) - float(actual_preview_like["saturation_ratio"]),
-                        6,
-                    ),
-                    "temp_swing_delta": round(
-                        float(_as_float(preview_metrics.get("temp_swing")) or 0.0) - float(actual_preview_like["temp_swing"]),
-                        6,
-                    ),
-                }
+            def _delta_higher_better(actual_v: Optional[float], preview_v: Optional[float]) -> Optional[float]:
+                if actual_v is None or preview_v is None:
+                    return None
+                return round(float(actual_v) - float(preview_v), 6)
+
+            def _delta_lower_better(actual_v: Optional[float], preview_v: Optional[float]) -> Optional[float]:
+                if actual_v is None or preview_v is None:
+                    return None
+                return round(float(preview_v) - float(actual_v), 6)
+
+            derived_preview = {
+                "in_band_ratio_delta": _delta_higher_better(
+                    actual_preview_like["in_band_ratio"],
+                    _as_float(preview_metrics.get("in_band_ratio")),
+                ),
+                "overshoot_c_delta": _delta_lower_better(
+                    actual_preview_like["overshoot_c"],
+                    _as_float(preview_metrics.get("overshoot_c")),
+                ),
+                "settling_sec_delta": _delta_lower_better(
+                    actual_preview_like["settling_sec"],
+                    _as_float(preview_metrics.get("settling_sec")),
+                ),
+                "mean_abs_error_delta": _delta_lower_better(
+                    actual_preview_like["mean_abs_error"],
+                    _as_float(preview_metrics.get("mean_abs_error")),
+                ),
+                "saturation_ratio_delta": _delta_lower_better(
+                    actual_preview_like["saturation_ratio"],
+                    _as_float(preview_metrics.get("saturation_ratio")),
+                ),
+                "temp_swing_delta": _delta_lower_better(
+                    actual_preview_like["temp_swing"],
+                    _as_float(preview_metrics.get("temp_swing")),
+                ),
+            }
+            if any(v is not None for v in derived_preview.values()):
+                comparison_preview = derived_preview
 
         effect_outcome = _derive_effect_outcome(comparison_before if comparison_before else None)
         if history_state != "applied" and not actual_effect_evaluated:
