@@ -134,9 +134,29 @@ class OpsModelRuntimeOut(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class OpsAiOverviewOut(BaseModel):
+    as_of: datetime
+    ai_runtime_enabled: bool = False
+    ai_runtime_url: Optional[str] = None
+    runtime_source_breakdown: list[OpsKeyValueCount] = Field(default_factory=list)
+    fallback_ratio: Optional[float] = None
+    fallback_elevated: bool = False
+    recommendation_generated_24h: int = 0
+    recommendation_applied_24h: int = 0
+    recommendation_apply_rate: Optional[float] = None
+    ai_origin_control_actions_24h: int = 0
+    ai_effect_distribution: list[OpsKeyValueCount] = Field(default_factory=list)
+    manual_effect_distribution: list[OpsKeyValueCount] = Field(default_factory=list)
+    ai_improved_ratio: Optional[float] = None
+    manual_improved_ratio: Optional[float] = None
+    ai_sample_count: int = 0
+    manual_sample_count: int = 0
+
+
 class OpsOverviewOut(BaseModel):
     as_of: datetime
     data_hub: OpsDataHubOut
     runtime: OpsRuntimeOut
+    ai_overview: OpsAiOverviewOut
     learning_loop: OpsLearningLoopOut
     models: OpsModelRuntimeOut

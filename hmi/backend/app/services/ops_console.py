@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.db.session import engine
 from app.models.entities import AIRecommendation, ControlAction, ControlActionEvalJob, ControlActionFeedbackSample
 from app.schemas.ops import (
+    OpsAiOverviewOut,
     OpsDataHubOut,
     OpsEvalJobStatusOut,
     OpsKeyValueCount,
@@ -485,6 +486,34 @@ class OpsConsoleService:
     def _rows_to_key_counts(self, rows: list[tuple[str, int]]) -> list[OpsKeyValueCount]:
         return [OpsKeyValueCount(key=str(k), count=int(v)) for k, v in rows]
 
+    def _effect_distribution_for_source(self, db: Session, source: str) -> tuple[list[OpsKeyValueCount], int, Optional[float]]:
+        rows = db.execute(
+            select(ControlActionFeedbackSample.actual_effect_label, func.count(ControlActionFeedbackSample.id))
+            .where(ControlActionFeedbackSample.source == source)
+            .group_by(ControlActionFeedbackSample.actual_effect_label)
+        ).all()
+        raw_map = {str(k or "unknown"): int(v) for k, v in rows}
+        improved = raw_map.get("improved", 0)
+        unchanged = raw_map.get("unchanged", 0)
+        worse = raw_map.get("worse", 0)
+        evaluable_total = improved + unchanged + worse
+        ratio = (improved / evaluable_total) if evaluable_total > 0 else None
+        ordered: list[OpsKeyValueCount] = [
+            OpsKeyValueCount(key="improved", count=improved),
+            OpsKeyValueCount(key="unchanged", count=unchanged),
+            OpsKeyValueCount(key="worse", count=worse),
+        ]
+        for key, count in raw_map.items():
+            if key not in {"improved", "unchanged", "worse"}:
+                ordered.append(OpsKeyValueCount(key=key, count=count))
+        sample_count = int(
+            db.scalar(
+                select(func.count(ControlActionFeedbackSample.id)).where(ControlActionFeedbackSample.source == source)
+            )
+            or 0
+        )
+        return ordered, sample_count, ratio
+
     def _build_learning_loop_metrics(self, db: Session) -> OpsLearningLoopOut:
         now = datetime.utcnow()
         day_ago = now - timedelta(hours=24)
@@ -723,13 +752,61 @@ class OpsConsoleService:
             notes=notes,
         )
 
+    def _build_ai_overview_metrics(self, db: Session, models: OpsModelRuntimeOut) -> OpsAiOverviewOut:
+        now = datetime.utcnow()
+        day_ago = now - timedelta(hours=24)
+        generated = int(models.recommendation_generated_24h or 0)
+        applied = int(models.recommendation_applied_24h or 0)
+        apply_rate = (applied / generated) if generated > 0 else None
+
+        ai_actions_24h = int(
+            db.scalar(
+                select(func.count(ControlAction.id)).where(
+                    ControlAction.source == "ai_recommendation",
+                    ControlAction.applied_at >= day_ago,
+                )
+            )
+            or 0
+        )
+
+        ai_dist, ai_samples, ai_ratio = self._effect_distribution_for_source(db, "ai_recommendation")
+        manual_dist, manual_samples, manual_ratio = self._effect_distribution_for_source(db, "manual_user")
+        fallback_ratio = models.fallback_ratio
+        fallback_elevated = bool(fallback_ratio is not None and fallback_ratio > 0.3)
+        return OpsAiOverviewOut(
+            as_of=now,
+            ai_runtime_enabled=bool(models.ai_runtime_enabled),
+            ai_runtime_url=settings.ai_runtime_url,
+            runtime_source_breakdown=models.runtime_source_breakdown,
+            fallback_ratio=fallback_ratio,
+            fallback_elevated=fallback_elevated,
+            recommendation_generated_24h=generated,
+            recommendation_applied_24h=applied,
+            recommendation_apply_rate=apply_rate,
+            ai_origin_control_actions_24h=ai_actions_24h,
+            ai_effect_distribution=ai_dist,
+            manual_effect_distribution=manual_dist,
+            ai_improved_ratio=ai_ratio,
+            manual_improved_ratio=manual_ratio,
+            ai_sample_count=ai_samples,
+            manual_sample_count=manual_samples,
+        )
+
     def build_overview(self, db: Session) -> OpsOverviewOut:
         now = datetime.utcnow()
         data_hub = self._build_data_hub_metrics()
         runtime = self._build_runtime_metrics()
-        learning = self._build_learning_loop_metrics(db)
         models = self._build_model_runtime_metrics(db)
-        return OpsOverviewOut(as_of=now, data_hub=data_hub, runtime=runtime, learning_loop=learning, models=models)
+        ai_overview = self._build_ai_overview_metrics(db, models)
+        learning = self._build_learning_loop_metrics(db)
+        return OpsOverviewOut(
+            as_of=now,
+            data_hub=data_hub,
+            runtime=runtime,
+            ai_overview=ai_overview,
+            learning_loop=learning,
+            models=models,
+        )
 
     def build_data_hub(self) -> OpsDataHubOut:
         return self._build_data_hub_metrics()

@@ -109,13 +109,15 @@ export function OpsPage() {
   if (error) return <p className="text-sm text-danger">{error}</p>;
   if (!data) return <p className="text-sm text-mute">No ops data available.</p>;
 
-  const { data_hub: hub, runtime, learning_loop: loop, models } = data;
+  const { data_hub: hub, runtime, ai_overview: ai, learning_loop: loop, models } = data;
   const dataHubCpuDisplay =
     hub.data_hub_cpu_usage_pct != null
-      ? `${hub.data_hub_cpu_usage_pct.toFixed(1)}%`
+      ? fmtCpuPct(hub.data_hub_cpu_usage_pct)
       : runtime.process_cpu_usage_pct != null
-        ? `${runtime.process_cpu_usage_pct.toFixed(1)}% (fallback)`
+        ? `${fmtCpuPct(runtime.process_cpu_usage_pct)} (fallback)`
         : "N/A";
+  const aiEffects = toCountMap(ai.ai_effect_distribution);
+  const manualEffects = toCountMap(ai.manual_effect_distribution);
 
   return (
     <div className="space-y-4">
@@ -214,16 +216,83 @@ export function OpsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>AI Learning Loop</CardTitle>
+          <CardTitle>AI Overview</CardTitle>
+          <div className="text-xs text-mute">
+            Shows whether AI runtime is healthy, being used, and delivering value versus manual control.
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-5">
+            <Stat title="AI Runtime" value={ai.ai_runtime_enabled ? "Enabled" : "Disabled"} />
+            <Stat
+              title="Fallback Ratio"
+              value={ai.fallback_ratio == null ? "N/A" : `${(ai.fallback_ratio * 100).toFixed(1)}%`}
+              tone={ai.fallback_elevated ? "critical" : "normal"}
+            />
+            <Stat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
+            <Stat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
+            <Stat
+              title="Apply Rate"
+              value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
+            />
+            <Stat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
+            <Stat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
+            <Stat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
+            <Stat
+              title="AI Improved Ratio"
+              value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}
+            />
+            <Stat
+              title="Manual Improved Ratio"
+              value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
+            />
+          </div>
+          <div className="text-xs text-mute break-all">
+            AI Runtime Source: {ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"} ·
+            AI Runtime URL: {ai.ai_runtime_url || "N/A"}
+          </div>
+          {ai.fallback_elevated && (
+            <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
+              Fallback is elevated. AI runtime may be unavailable or model/runtime confidence may be too low.
+            </div>
+          )}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="rounded border border-line/70 bg-panel2/50 p-3">
+              <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI Outcome (AI-Origin Only)</div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <Stat title="Improved" value={fmtInt(aiEffects.improved)} />
+                <Stat title="Unchanged" value={fmtInt(aiEffects.unchanged)} />
+                <Stat title="Worse" value={fmtInt(aiEffects.worse)} tone={toneByCount(aiEffects.worse)} />
+                <Stat title="Improved Ratio" value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`} />
+              </div>
+            </div>
+            <div className="rounded border border-line/70 bg-panel2/50 p-3">
+              <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI vs Manual Outcome</div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <Stat title="AI Improved" value={fmtInt(aiEffects.improved)} />
+                <Stat title="Manual Improved" value={fmtInt(manualEffects.improved)} />
+                <Stat title="AI Unchanged" value={fmtInt(aiEffects.unchanged)} />
+                <Stat title="Manual Unchanged" value={fmtInt(manualEffects.unchanged)} />
+                <Stat title="AI Worse" value={fmtInt(aiEffects.worse)} tone={toneByCount(aiEffects.worse)} />
+                <Stat title="Manual Worse" value={fmtInt(manualEffects.worse)} tone={toneByCount(manualEffects.worse)} />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Feedback Pipeline</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-6">
             <Stat title="Pending Overdue" value={fmtInt(loop.pending_overdue)} tone={toneByCount(loop.pending_overdue)} />
             <Stat title="Worker Processed 24h" value={fmtInt(loop.worker_processed_24h)} />
-            <Stat title="Eligible Samples" value={fmtInt(loop.training_eligible_total)} />
+            <Stat title="Training-Eligible Samples" value={fmtInt(loop.training_eligible_total)} />
             <Stat title="Eligible 7d" value={fmtInt(loop.training_eligible_7d)} />
-            <Stat title="Retry Pending" value={fmtInt(loop.eval_jobs_by_status.retry_pending)} tone={toneByCount(loop.eval_jobs_by_status.retry_pending)} />
-            <Stat title="Terminal Insufficient" value={fmtInt(loop.eval_jobs_by_status.terminal_insufficient)} tone={toneByCount(loop.eval_jobs_by_status.terminal_insufficient)} />
+            <Stat title="Retry Pending Jobs" value={fmtInt(loop.eval_jobs_by_status.retry_pending)} tone={toneByCount(loop.eval_jobs_by_status.retry_pending)} />
+            <Stat title="Terminal Insufficient Samples" value={fmtInt(loop.eval_jobs_by_status.terminal_insufficient)} tone={toneByCount(loop.eval_jobs_by_status.terminal_insufficient)} />
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
             <KeyCountList title="Control Action Source (Total)" rows={loop.control_actions_by_source_total} />
@@ -236,8 +305,8 @@ export function OpsPage() {
                 { key: "pending", count: loop.eval_jobs_by_status.pending },
                 { key: "running", count: loop.eval_jobs_by_status.running },
                 { key: "done", count: loop.eval_jobs_by_status.done },
-                { key: "retry_pending", count: loop.eval_jobs_by_status.retry_pending },
-                { key: "terminal_insufficient", count: loop.eval_jobs_by_status.terminal_insufficient },
+                { key: "retry pending jobs", count: loop.eval_jobs_by_status.retry_pending },
+                { key: "terminal insufficient samples", count: loop.eval_jobs_by_status.terminal_insufficient },
                 { key: "failed", count: loop.eval_jobs_by_status.failed },
               ]}
             />
@@ -426,6 +495,21 @@ function fmtGcPausePerMin(
   const value = last?.gcPauseDeltaPerMinMs;
   if (value == null || Number.isNaN(value)) return "N/A";
   return `${Number(value).toFixed(1)} ms/min`;
+}
+
+function fmtCpuPct(v: number | null | undefined): string {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return "N/A";
+  if (n > 0 && n < 0.1) return "<0.1%";
+  return `${n.toFixed(2)}%`;
+}
+
+function toCountMap(rows: Array<{ key: string; count: number }>): Record<string, number> {
+  const out: Record<string, number> = { improved: 0, unchanged: 0, worse: 0 };
+  for (const row of rows) {
+    out[row.key] = row.count;
+  }
+  return out;
 }
 
 function toneByCount(v: number | null | undefined): "normal" | "warning" | "critical" {

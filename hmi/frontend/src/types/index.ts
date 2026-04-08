@@ -574,10 +574,30 @@ export interface OpsModelRuntime {
   notes: string[];
 }
 
+export interface OpsAiOverview {
+  as_of: string;
+  ai_runtime_enabled: boolean;
+  ai_runtime_url?: string | null;
+  runtime_source_breakdown: OpsKeyValueCount[];
+  fallback_ratio?: number | null;
+  fallback_elevated: boolean;
+  recommendation_generated_24h: number;
+  recommendation_applied_24h: number;
+  recommendation_apply_rate?: number | null;
+  ai_origin_control_actions_24h: number;
+  ai_effect_distribution: OpsKeyValueCount[];
+  manual_effect_distribution: OpsKeyValueCount[];
+  ai_improved_ratio?: number | null;
+  manual_improved_ratio?: number | null;
+  ai_sample_count: number;
+  manual_sample_count: number;
+}
+
 export interface OpsOverview {
   as_of: string;
   data_hub: OpsDataHub;
   runtime: OpsRuntime;
+  ai_overview: OpsAiOverview;
   learning_loop: OpsLearningLoop;
   models: OpsModelRuntime;
 }
