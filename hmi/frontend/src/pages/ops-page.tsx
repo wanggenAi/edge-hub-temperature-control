@@ -118,6 +118,7 @@ export function OpsPage() {
         : "N/A";
   const aiEffects = toCountMap(ai.ai_effect_distribution);
   const manualEffects = toCountMap(ai.manual_effect_distribution);
+  const aiSummary = buildAiSummary(ai);
 
   return (
     <div className="space-y-4">
@@ -220,6 +221,7 @@ export function OpsPage() {
           <div className="text-xs text-mute">
             Shows whether AI runtime is healthy, being used, and delivering value versus manual control.
           </div>
+          <div className="text-sm text-text">{aiSummary}</div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
@@ -229,7 +231,10 @@ export function OpsPage() {
               value={ai.fallback_ratio == null ? "N/A" : `${(ai.fallback_ratio * 100).toFixed(1)}%`}
               tone={ai.fallback_elevated ? "critical" : "normal"}
             />
-            <Stat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
+            <Stat
+              title="Apply Rate"
+              value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
+            />
             <Stat
               title="AI Improved Ratio"
               value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}
@@ -267,35 +272,41 @@ export function OpsPage() {
                     <td>{fmtInt(aiEffects.worse)}</td>
                     <td>{fmtInt(manualEffects.worse)}</td>
                   </tr>
-                  <tr className="border-t border-line/50">
-                    <td className="py-1 text-mute">Improved Ratio</td>
-                    <td>{ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}</td>
-                    <td>{ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
           <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs text-mute">
             <summary className="cursor-pointer select-none text-mute">Show AI details</summary>
-            <div className="mt-2 grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-              <MiniStat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
-              <MiniStat
-                title="Apply Rate"
-                value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
-              />
-              <MiniStat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
-              <MiniStat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
-              <MiniStat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
-              <MiniStat
-                title="Manual Improved Ratio"
-                value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
-              />
-              <MiniStat
-                title="AI Runtime Source"
-                value={ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"}
-              />
-              <MiniStat title="AI Runtime URL" value={ai.ai_runtime_url || "N/A"} />
+            <div className="mt-2 space-y-3">
+              <div>
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Recommendation Activity</div>
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                  <MiniStat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
+                  <MiniStat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
+                  <MiniStat
+                    title="Apply Rate"
+                    value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
+                  />
+                  <MiniStat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Runtime / Sample Context</div>
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                  <MiniStat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
+                  <MiniStat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
+                  <MiniStat
+                    title="Manual Improved Ratio"
+                    value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
+                  />
+                  <MiniStat
+                    title="AI Runtime Source"
+                    value={ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"}
+                  />
+                </div>
+                <div className="mt-2 text-[11px] text-mute/80 break-all">AI Runtime URL: {ai.ai_runtime_url || "N/A"}</div>
+              </div>
             </div>
           </details>
         </CardContent>
@@ -539,6 +550,40 @@ function toCountMap(rows: Array<{ key: string; count: number }>): Record<string,
     out[row.key] = row.count;
   }
   return out;
+}
+
+function buildAiSummary(ai: {
+  ai_runtime_enabled: boolean;
+  fallback_elevated: boolean;
+  fallback_ratio?: number | null;
+  recommendation_generated_24h: number;
+  ai_improved_ratio?: number | null;
+  manual_improved_ratio?: number | null;
+  ai_sample_count: number;
+  manual_sample_count: number;
+}): string {
+  const status = ai.ai_runtime_enabled ? "AI enabled" : "AI disabled";
+  const fallbackPart =
+    ai.fallback_ratio == null
+      ? "fallback unknown"
+      : ai.fallback_elevated
+        ? `fallback elevated (${(ai.fallback_ratio * 100).toFixed(1)}%)`
+        : `fallback low (${(ai.fallback_ratio * 100).toFixed(1)}%)`;
+  const usagePart =
+    ai.recommendation_generated_24h <= 0
+      ? "recent usage low"
+      : ai.recommendation_generated_24h < 10
+        ? "recent usage light"
+        : "recent usage active";
+  let outcomePart = "outcome signal pending";
+  if (ai.ai_improved_ratio != null && ai.manual_improved_ratio != null) {
+    if (ai.ai_improved_ratio > ai.manual_improved_ratio + 0.03) outcomePart = "AI outcomes currently above manual";
+    else if (ai.ai_improved_ratio + 0.03 < ai.manual_improved_ratio) outcomePart = "AI outcomes currently below manual";
+    else outcomePart = "AI outcomes currently close to manual";
+  } else if (ai.ai_sample_count + ai.manual_sample_count < 5) {
+    outcomePart = "limited evaluated samples";
+  }
+  return `${status}, ${fallbackPart}, ${usagePart}; ${outcomePart}.`;
 }
 
 function toneByCount(v: number | null | undefined): "normal" | "warning" | "critical" {
