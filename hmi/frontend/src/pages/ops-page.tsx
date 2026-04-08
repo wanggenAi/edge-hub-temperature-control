@@ -222,7 +222,7 @@ export function OpsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
             <Stat title="AI Runtime" value={ai.ai_runtime_enabled ? "Enabled" : "Disabled"} />
             <Stat
               title="Fallback Ratio"
@@ -230,54 +230,74 @@ export function OpsPage() {
               tone={ai.fallback_elevated ? "critical" : "normal"}
             />
             <Stat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
-            <Stat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
-            <Stat
-              title="Apply Rate"
-              value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
-            />
-            <Stat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
-            <Stat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
-            <Stat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
             <Stat
               title="AI Improved Ratio"
               value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}
             />
-            <Stat
-              title="Manual Improved Ratio"
-              value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
-            />
-          </div>
-          <div className="text-xs text-mute break-all">
-            AI Runtime Source: {ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"} ·
-            AI Runtime URL: {ai.ai_runtime_url || "N/A"}
           </div>
           {ai.fallback_elevated && (
             <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
               Fallback is elevated. AI runtime may be unavailable or model/runtime confidence may be too low.
             </div>
           )}
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded border border-line/70 bg-panel2/50 p-3">
-              <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI Outcome (AI-Origin Only)</div>
-              <div className="grid gap-2 md:grid-cols-2">
-                <Stat title="Improved" value={fmtInt(aiEffects.improved)} />
-                <Stat title="Unchanged" value={fmtInt(aiEffects.unchanged)} />
-                <Stat title="Worse" value={fmtInt(aiEffects.worse)} tone={toneByCount(aiEffects.worse)} />
-                <Stat title="Improved Ratio" value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`} />
-              </div>
-            </div>
-            <div className="rounded border border-line/70 bg-panel2/50 p-3">
-              <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI vs Manual Outcome</div>
-              <div className="grid gap-2 md:grid-cols-2">
-                <Stat title="AI Improved" value={fmtInt(aiEffects.improved)} />
-                <Stat title="Manual Improved" value={fmtInt(manualEffects.improved)} />
-                <Stat title="AI Unchanged" value={fmtInt(aiEffects.unchanged)} />
-                <Stat title="Manual Unchanged" value={fmtInt(manualEffects.unchanged)} />
-                <Stat title="AI Worse" value={fmtInt(aiEffects.worse)} tone={toneByCount(aiEffects.worse)} />
-                <Stat title="Manual Worse" value={fmtInt(manualEffects.worse)} tone={toneByCount(manualEffects.worse)} />
-              </div>
+          <div className="rounded border border-line/70 bg-panel2/50 p-3">
+            <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI vs Manual Outcome</div>
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-mute">
+                  <tr>
+                    <th className="py-1">Metric</th>
+                    <th className="py-1">AI</th>
+                    <th className="py-1">Manual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-line/50">
+                    <td className="py-1 text-mute">Improved</td>
+                    <td>{fmtInt(aiEffects.improved)}</td>
+                    <td>{fmtInt(manualEffects.improved)}</td>
+                  </tr>
+                  <tr className="border-t border-line/50">
+                    <td className="py-1 text-mute">Unchanged</td>
+                    <td>{fmtInt(aiEffects.unchanged)}</td>
+                    <td>{fmtInt(manualEffects.unchanged)}</td>
+                  </tr>
+                  <tr className="border-t border-line/50">
+                    <td className="py-1 text-mute">Worse</td>
+                    <td>{fmtInt(aiEffects.worse)}</td>
+                    <td>{fmtInt(manualEffects.worse)}</td>
+                  </tr>
+                  <tr className="border-t border-line/50">
+                    <td className="py-1 text-mute">Improved Ratio</td>
+                    <td>{ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}</td>
+                    <td>{ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
+          <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs text-mute">
+            <summary className="cursor-pointer select-none text-mute">Show AI details</summary>
+            <div className="mt-2 grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+              <MiniStat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
+              <MiniStat
+                title="Apply Rate"
+                value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
+              />
+              <MiniStat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
+              <MiniStat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
+              <MiniStat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
+              <MiniStat
+                title="Manual Improved Ratio"
+                value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
+              />
+              <MiniStat
+                title="AI Runtime Source"
+                value={ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"}
+              />
+              <MiniStat title="AI Runtime URL" value={ai.ai_runtime_url || "N/A"} />
+            </div>
+          </details>
         </CardContent>
       </Card>
 
@@ -353,6 +373,15 @@ function Stat({ title, value, tone }: { title: string; value: string; tone?: "no
     <div className="rounded border border-line/70 bg-panel2/60 p-2">
       <div className="text-[11px] uppercase tracking-wide text-mute">{title}</div>
       <div className={`mt-1 text-sm font-semibold break-all ${cls}`}>{value}</div>
+    </div>
+  );
+}
+
+function MiniStat({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded border border-line/50 bg-panel2/40 p-2">
+      <div className="text-[10px] uppercase tracking-wide text-mute">{title}</div>
+      <div className="mt-1 text-xs text-text break-all">{value}</div>
     </div>
   );
 }
