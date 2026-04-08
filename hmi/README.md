@@ -242,6 +242,15 @@ Creates/refreshes relational demo devices:
 - `TC-PREVIEW-SSE` (`steady_state_error`)
 - `TC-PREVIEW-NORMAL` (near-normal)
 
+### Unified Control-Action Feedback Worker
+
+```bash
+cd hmi/backend
+python scripts/run_control_action_feedback_worker.py --batch-size 50
+```
+
+This evaluates pending control actions (AI apply + manual apply) and writes structured feedback samples.
+
 Notes:
 
 - Startup does not perform runtime schema patching.

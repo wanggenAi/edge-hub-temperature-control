@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     recommendation_generate_cooldown_sec: int = 30
     recommendation_generate_new_record_after_sec: int = 600
     recommendation_float_tolerance: float = 0.001
+    ai_runtime_enabled: bool = False
+    ai_runtime_url: str = "http://127.0.0.1:8010"
+    ai_runtime_timeout_seconds: float = 4.0
+    ai_runtime_fail_open: bool = True
     hmi_log_level: str = "INFO"
     hmi_console_log_level: str = "INFO"
     hmi_access_log_level: str = "INFO"

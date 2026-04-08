@@ -19,6 +19,7 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.models.entities import AIRecommendation, Device, DeviceAlarm, DeviceMetric, DeviceParameter, User, UserDevice
+from app.models.entities import ControlAction
 from app.schemas.device import (
     AIRecommendationHistoryItemOut,
     AIRecommendationHistoryResponseOut,
@@ -42,6 +43,7 @@ from app.schemas.device import (
 )
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai.recommendation_service import RecommendationService
+from app.services.ai.runtime_client import AIRuntimeError, ai_runtime_client
 from app.services.ai.post_effect_evaluator import ObservedTelemetryPoint, PostEffectEvaluator
 from app.services.ai.preview_simulator import (
     PREVIEW_DEFAULT_AMBIENT_TEMP,
@@ -66,6 +68,7 @@ from app.services.ai.schemas import (
     PreviewMetrics,
 )
 from app.services.tdengine_client import TdengineClient
+from app.services.control_action_learning import control_action_learning_service
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
@@ -772,220 +775,30 @@ def _pid_is_effectively_applied(
     )
 
 
-def _recommendation_has_actionable_delta(output: RecommendationGenerateOutput, *, tolerance: float) -> bool:
-    if output.problem_type.value == "normal":
-        return False
-    delta = output.delta
-    tol = max(0.0, float(tolerance))
-    return bool(
-        abs(float(delta.kp)) > tol
-        or abs(float(delta.ki)) > tol
-        or abs(float(delta.kd)) > tol
-    )
+def _runtime_decision_from_suggestion(suggestion: str) -> Optional[dict[str, Any]]:
+    meta = recommendation_service.read_storage_metadata(suggestion)
+    decision = meta.get("ard")
+    return dict(decision) if isinstance(decision, dict) else None
 
 
-def _is_demo_preview_device(device_code: str) -> bool:
-    code = str(device_code or "").upper()
-    return code.startswith("TC-PREVIEW-")
-
-
-def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) -> RecommendationGenerateOutput:
-    code = str(device.code or "").upper()
-    def _bounded(value: float, *, low: float, high: float, fallback: float) -> float:
-        if not isinstance(value, (float, int)):
-            return fallback
-        v = float(value)
-        if not (low <= v <= high):
-            return fallback
-        return v
-
-    # Keep demo recommendation ranges physically plausible even if historical DB
-    # values were polluted by legacy stress runs.
-    current = PIDParams(
-        kp=round(_bounded(float(params.kp), low=0.2, high=12.0, fallback=2.6), 4),
-        ki=round(_bounded(float(params.ki), low=0.01, high=3.0, fallback=0.35), 4),
-        kd=round(_bounded(float(params.kd), low=0.0, high=2.5, fallback=0.1), 4),
-    )
-    if "SAT" in code:
-        recommended = PIDParams(
-            kp=round(max(1.5, current.kp * 1.9), 4),
-            ki=round(max(0.08, current.ki * 1.75), 4),
-            kd=round(max(0.08, current.kd + 0.12), 4),
-        )
-        problem_type = "saturation_limited"
-        primary_problem_type = "saturation_limited"
-        secondary_problem_types = ["slow_response"]
-        problem_flags = {
-            "saturation_limited": True,
-            "severe_saturation": True,
-            "oscillation": False,
-            "overshoot_high": False,
-            "steady_state_error": False,
-            "slow_response": True,
-        }
-        expected_effect = "speed_up_response"
-        risk_level = "Medium"
-        confidence = 0.88
-        requires_confirmation = True
-        evidence = {
-            "rule_slow_response": True,
-            "rule_steady_state_error": False,
-            "rule_oscillation": False,
-            "rule_overshoot_high": False,
-            "rule_saturation_limited": True,
-            "rule_severe_saturation": True,
-            "mean_error": -3.85,
-            "mean_abs_error": 4.12,
-            "error_std": 0.74,
-            "temp_swing": 2.16,
-            "pwm_mean": 89.4,
-            "pwm_max": 100.0,
-            "zero_crossings": 0,
-            "in_band_ratio": 0.06,
-            "overshoot_pct": 0.0,
-            "settling_sec": None,
-            "saturation_ratio": 0.64,
-        }
-    elif "OSC" in code:
-        recommended = PIDParams(
-            kp=round(max(0.8, current.kp * 0.72), 4),
-            ki=round(max(0.03, current.ki * 0.55), 4),
-            kd=round(max(0.2, current.kd + 0.18), 4),
-        )
-        problem_type = "oscillation"
-        primary_problem_type = "oscillation"
-        secondary_problem_types = ["overshoot_high"]
-        problem_flags = {
-            "saturation_limited": False,
-            "severe_saturation": False,
-            "oscillation": True,
-            "overshoot_high": True,
-            "steady_state_error": False,
-            "slow_response": False,
-        }
-        expected_effect = "reduce_oscillation"
-        risk_level = "Medium"
-        confidence = 0.84
-        requires_confirmation = True
-        evidence = {
-            "rule_slow_response": False,
-            "rule_steady_state_error": False,
-            "rule_oscillation": True,
-            "rule_overshoot_high": True,
-            "rule_saturation_limited": False,
-            "rule_severe_saturation": False,
-            "mean_error": 0.11,
-            "mean_abs_error": 1.22,
-            "error_std": 0.96,
-            "temp_swing": 3.48,
-            "pwm_mean": 57.9,
-            "pwm_max": 91.7,
-            "zero_crossings": 29,
-            "in_band_ratio": 0.31,
-            "overshoot_pct": 5.2,
-            "settling_sec": None,
-            "saturation_ratio": 0.22,
-        }
-    elif "NORMAL" in code:
-        recommended = PIDParams(
-            kp=round(current.kp, 4),
-            ki=round(current.ki, 4),
-            kd=round(current.kd, 4),
-        )
-        problem_type = "normal"
-        primary_problem_type = "normal"
-        secondary_problem_types = []
-        problem_flags = {
-            "saturation_limited": False,
-            "severe_saturation": False,
-            "oscillation": False,
-            "overshoot_high": False,
-            "steady_state_error": False,
-            "slow_response": False,
-        }
-        expected_effect = "keep_stable"
-        risk_level = "Low"
-        confidence = 0.92
-        requires_confirmation = False
-        evidence = {
-            "rule_slow_response": False,
-            "rule_steady_state_error": False,
-            "rule_oscillation": False,
-            "rule_overshoot_high": False,
-            "rule_saturation_limited": False,
-            "rule_severe_saturation": False,
-            "mean_error": 0.05,
-            "mean_abs_error": 0.18,
-            "error_std": 0.11,
-            "temp_swing": 0.42,
-            "pwm_mean": 44.8,
-            "pwm_max": 58.4,
-            "zero_crossings": 0,
-            "in_band_ratio": 0.91,
-            "overshoot_pct": 0.0,
-            "settling_sec": 96.0,
-            "saturation_ratio": 0.04,
-        }
-    else:
-        recommended = PIDParams(
-            kp=round(max(0.6, current.kp * 1.35), 4),
-            ki=round(max(0.05, current.ki * 1.4), 4),
-            kd=round(max(0.05, current.kd + 0.08), 4),
-        )
-        problem_type = "steady_state_error"
-        primary_problem_type = "steady_state_error"
-        secondary_problem_types = []
-        problem_flags = {
-            "saturation_limited": False,
-            "severe_saturation": False,
-            "oscillation": False,
-            "overshoot_high": False,
-            "steady_state_error": True,
-            "slow_response": False,
-        }
-        expected_effect = "reduce_steady_state_error"
-        risk_level = "Low"
-        confidence = 0.82
-        requires_confirmation = False
-        evidence = {
-            "rule_slow_response": False,
-            "rule_steady_state_error": True,
-            "rule_oscillation": False,
-            "rule_overshoot_high": False,
-            "rule_saturation_limited": False,
-            "rule_severe_saturation": False,
-            "mean_error": -1.12,
-            "mean_abs_error": 1.2,
-            "error_std": 0.42,
-            "temp_swing": 1.34,
-            "pwm_mean": 73.0,
-            "pwm_max": 92.0,
-            "zero_crossings": 1,
-            "in_band_ratio": 0.44,
-            "overshoot_pct": 0.3,
-            "settling_sec": None,
-            "saturation_ratio": 0.26,
-        }
-    delta = PIDParams(
-        kp=round(recommended.kp - current.kp, 4),
-        ki=round(recommended.ki - current.ki, 4),
-        kd=round(recommended.kd - current.kd, 4),
-    )
-    return RecommendationGenerateOutput(
-        problem_type=problem_type,
-        primary_problem_type=primary_problem_type,
-        secondary_problem_types=secondary_problem_types,
-        problem_flags=problem_flags,
-        confidence=confidence,
-        risk_level=risk_level,
-        requires_confirmation=requires_confirmation,
-        current_params=current,
-        recommended_params=recommended,
-        delta=delta,
-        expected_effect=expected_effect,
-        evidence=evidence,
-        generated_at=datetime.utcnow(),
-    )
+def _generate_recommendation_with_runtime(
+    request_payload: RecommendationGenerateInput,
+) -> tuple[RecommendationGenerateOutput, dict[str, Any]]:
+    if not bool(settings.ai_runtime_enabled):
+        generated = recommendation_service.generate(request_payload)
+        return generated, {"runtime_source": "local_backend", "fallback_used": False}
+    try:
+        generated = ai_runtime_client.generate(request_payload)
+        return generated, {"runtime_source": "ai_runtime_service", "fallback_used": False}
+    except AIRuntimeError as exc:
+        if bool(settings.ai_runtime_fail_open):
+            generated = recommendation_service.generate(request_payload)
+            return generated, {
+                "runtime_source": "local_backend",
+                "fallback_used": True,
+                "fallback_reason": str(exc),
+            }
+        raise HTTPException(status_code=503, detail=f"AI runtime unavailable: {exc}") from exc
 
 
 def _parse_iso_utc(value: object) -> Optional[datetime]:
@@ -1343,6 +1156,36 @@ def _dispatch_and_confirm_parameter_update(
     db.commit()
     db.refresh(param)
     return param
+
+
+def _record_control_action_after_apply(
+    *,
+    db: Session,
+    device: Device,
+    source: str,
+    source_ref_id: Optional[int],
+    action_type: str,
+    initiated_by: str,
+    applied_at: datetime,
+    before: dict[str, Any],
+    after: dict[str, Any],
+    context_snapshot: Optional[dict[str, Any]] = None,
+    observation_window_minutes: int = 15,
+) -> ControlAction:
+    action, _job = control_action_learning_service.create_action_and_eval_job(
+        db=db,
+        device=device,
+        source=source,
+        source_ref_id=source_ref_id,
+        action_type=action_type,
+        initiated_by=initiated_by,
+        applied_at=applied_at,
+        before=before,
+        after=after,
+        context_snapshot=context_snapshot,
+        observation_window_minutes=observation_window_minutes,
+    )
+    return action
 
 
 def _hydrate_runtime_parameters(device: Device, param: DeviceParameter) -> None:
@@ -1741,6 +1584,13 @@ def update_parameters(
         raise HTTPException(status_code=404, detail="Parameters not found")
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+    before = {
+        "control_mode": str(param.control_mode or "pid_control"),
+        "target_temp": float(device.target_temp),
+        "kp": float(param.kp),
+        "ki": float(param.ki),
+        "kd": float(param.kd),
+    }
 
     payload_data = payload.model_dump(exclude_none=True)
     if "control_mode" in payload_data:
@@ -1752,13 +1602,36 @@ def update_parameters(
 
     for key, value in payload_data.items():
         setattr(param, key, value)
-    return _dispatch_and_confirm_parameter_update(
+    updated = _dispatch_and_confirm_parameter_update(
         db=db,
         device=device,
         param=param,
         updated_by=current_user.username,
         control_mode_for_publish=str(payload_data["control_mode"]) if "control_mode" in payload_data else None,
     )
+    after = {
+        "control_mode": str(updated.control_mode or "pid_control"),
+        "target_temp": float(device.target_temp),
+        "kp": float(updated.kp),
+        "ki": float(updated.ki),
+        "kd": float(updated.kd),
+    }
+    _record_control_action_after_apply(
+        db=db,
+        device=device,
+        source="manual_user",
+        source_ref_id=None,
+        action_type="pid_apply",
+        initiated_by=current_user.username,
+        applied_at=datetime.utcnow(),
+        before=before,
+        after=after,
+        context_snapshot={
+            "path": "update_parameters",
+            "payload": payload.model_dump(exclude_none=True),
+        },
+    )
+    return updated
 
 
 @router.get("/{device_id}/alarms", response_model=list[AlarmOut])
@@ -1920,11 +1793,7 @@ def generate_ai_recommendation(
         end_ms=end_ms_final,
         limit=limit,
     )
-    if _is_demo_preview_device(device.code):
-        generated = _build_demo_mock_recommendation(device=device, params=params)
-        logger.debug("[GEN-MOCK] device=%s using demo mocked recommendation", device.code)
-    else:
-        generated = recommendation_service.generate(request_payload)
+    generated, runtime_decision = _generate_recommendation_with_runtime(request_payload)
 
     generated_fp = recommendation_service.build_recommendation_fingerprint(generated)
     generated.fingerprint = generated_fp
@@ -1981,59 +1850,8 @@ def generate_ai_recommendation(
         reused.last_generate_reused = True
         reused.reused_count = int(previous_output.reused_count or 0) + 1
         reused.last_accessed_at = generated.generated_at
-        reused.ai_decision = None
+        reused.ai_decision = _runtime_decision_from_suggestion(latest.suggestion)
         return reused
-
-    # Demo-only fallback:
-    # If realtime window currently looks normal/no-change, preview demo devices can
-    # reuse a recent actionable recommendation so demo/apply flow is not blocked.
-    # Real business devices must preserve strict generate semantics.
-    if _is_demo_preview_device(device.code) and not _recommendation_has_actionable_delta(generated, tolerance=tolerance):
-        recent = db.scalars(
-            select(AIRecommendation)
-            .where(AIRecommendation.device_id == device_id)
-            .order_by(AIRecommendation.last_run_at.desc())
-            .limit(20)
-        ).all()
-        for cand in recent:
-            cand_output = recommendation_service.build_output_from_storage(
-                reason=cand.reason,
-                suggestion=cand.suggestion,
-                risk=cand.risk,
-                confidence=float(cand.confidence),
-                generated_at=cand.last_run_at,
-                fallback_current_params=generated.current_params,
-            )
-            if cand_output is None:
-                continue
-            if not _recommendation_has_actionable_delta(cand_output, tolerance=tolerance):
-                continue
-            cand.suggestion = recommendation_service.update_storage_metadata(
-                cand.suggestion,
-                fingerprint=cand_output.fingerprint or generated_fp,
-                last_generate_reused=True,
-                increment_reused_count=True,
-                last_accessed_at=generated.generated_at,
-            )
-            db.commit()
-            reused = cand_output.model_copy(deep=True)
-            reused.recommendation_id = cand.id
-            reused.is_new_record = False
-            reused.reused_existing = True
-            reused.reused_recommendation_id = cand.id
-            reused.generated_at = cand.last_run_at
-            reused.fingerprint = cand_output.fingerprint or generated_fp
-            reused.history_state = cand_output.history_state or "generated"
-            reused.last_generate_reused = True
-            reused.reused_count = int(cand_output.reused_count or 0) + 1
-            reused.last_accessed_at = generated.generated_at
-            reused.ai_decision = None
-            logger.debug(
-                "[GEN-FALLBACK] device=%s generated=no-change -> reused actionable recommendation_id=%s",
-                device.code,
-                cand.id,
-            )
-            return reused
 
     reason, suggestion, risk = recommendation_service.to_storage_fields(
         generated,
@@ -2042,6 +1860,7 @@ def generate_ai_recommendation(
         last_generate_reused=False,
         reused_count=0,
         last_accessed_at=generated.generated_at,
+        runtime_decision=runtime_decision,
     )
     rec = AIRecommendation(
         device_id=device_id,
@@ -2124,6 +1943,13 @@ def apply_ai_recommendation(
         logger.warning("[APPLY-REQ] device_id=%s no parameters found", device_id)
         raise HTTPException(status_code=404, detail="Parameters not found")
     _hydrate_runtime_parameters(device, params)
+    before = {
+        "control_mode": str(params.control_mode or "pid_control"),
+        "target_temp": float(device.target_temp),
+        "kp": float(params.kp),
+        "ki": float(params.ki),
+        "kd": float(params.kd),
+    }
 
     current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
     recommended = recommendation_service.parse_recommended_params(rec.suggestion, current)
@@ -2174,6 +2000,25 @@ def apply_ai_recommendation(
         )
         db.commit()
         db.refresh(params)
+        after = {
+            "control_mode": str(params.control_mode or "pid_control"),
+            "target_temp": float(device.target_temp),
+            "kp": float(params.kp),
+            "ki": float(params.ki),
+            "kd": float(params.kd),
+        }
+        _record_control_action_after_apply(
+            db=db,
+            device=device,
+            source="ai_recommendation",
+            source_ref_id=rec.id,
+            action_type="pid_apply",
+            initiated_by=current_user.username,
+            applied_at=applied_at,
+            before=before,
+            after=after,
+            context_snapshot={"path": "apply_ai_recommendation", "result": "ack_shortcut"},
+        )
         return params
 
     # Idempotency guard:
@@ -2197,6 +2042,25 @@ def apply_ai_recommendation(
         )
         db.commit()
         db.refresh(params)
+        after = {
+            "control_mode": str(params.control_mode or "pid_control"),
+            "target_temp": float(device.target_temp),
+            "kp": float(params.kp),
+            "ki": float(params.ki),
+            "kd": float(params.kd),
+        }
+        _record_control_action_after_apply(
+            db=db,
+            device=device,
+            source="ai_recommendation",
+            source_ref_id=rec.id,
+            action_type="pid_apply",
+            initiated_by=current_user.username,
+            applied_at=applied_at,
+            before=before,
+            after=after,
+            context_snapshot={"path": "apply_ai_recommendation", "result": "idempotent_already_applied"},
+        )
         return params
 
     params.kp = round(float(recommended.kp), 4)
@@ -2211,12 +2075,32 @@ def apply_ai_recommendation(
         applied_at=applied_at,
     )
 
-    return _dispatch_and_confirm_parameter_update(
+    updated = _dispatch_and_confirm_parameter_update(
         db=db,
         device=device,
         param=params,
         updated_by=f"{current_user.username}:ai",
     )
+    after = {
+        "control_mode": str(updated.control_mode or "pid_control"),
+        "target_temp": float(device.target_temp),
+        "kp": float(updated.kp),
+        "ki": float(updated.ki),
+        "kd": float(updated.kd),
+    }
+    _record_control_action_after_apply(
+        db=db,
+        device=device,
+        source="ai_recommendation",
+        source_ref_id=rec.id,
+        action_type="pid_apply",
+        initiated_by=current_user.username,
+        applied_at=applied_at,
+        before=before,
+        after=after,
+        context_snapshot={"path": "apply_ai_recommendation", "result": "dispatched"},
+    )
+    return updated
 
 
 @router.post("/{device_id}/ai-recommendation/preview", response_model=RecommendationPreviewOutput)

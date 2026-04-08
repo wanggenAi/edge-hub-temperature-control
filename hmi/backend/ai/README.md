@@ -10,6 +10,12 @@ This directory centralizes offline model workflows for HMI.
 
 ## Primary Entrypoints
 
+Run standalone AI runtime service:
+
+```bash
+hmi/backend/.venv/bin/python hmi/backend/ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+```
+
 Train models:
 
 ```bash
@@ -35,5 +41,7 @@ hmi/backend/.venv/bin/python hmi/backend/ai/scripts/seed_recommendation_feedback
 
 - Legacy wrappers under `hmi/backend/scripts/` have been removed.
 - Keep command references aligned to `hmi/backend/ai/scripts/*`.
+- Unified control-action feedback loop runbook:
+  - `hmi/backend/ai/docs/README_control_action_learning_loop.md`
 
 Documentation sync date: 2026-04-07.

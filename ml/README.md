@@ -205,3 +205,18 @@ This scaffold is intentionally prepared for next scripts:
 No online modules are imported or modified in runtime paths.
 
 Documentation sync date: 2026-04-07.
+
+## Control-Action Feedback Export
+
+Use the unified control-action feedback table as the offline training source:
+
+```bash
+python ml/scripts/export_control_action_feedback_samples.py
+```
+
+Output:
+- `ml/data/datasets/control_action_feedback_samples.parquet`
+
+By default the exporter keeps only samples with:
+- `is_training_eligible = true`
+- `insufficient_data = false`

@@ -11,6 +11,15 @@ Goal:
 
 ### Active (Keep)
 
+- `start-hmi-dev.sh`
+  - One-command local startup for standalone AI runtime + HMI backend + frontend.
+  - No manual `cd` required.
+  - Supports `--status`, `--restart`, `--with-docker`, `--without-ai`.
+
+- `stop-hmi-dev.sh`
+  - Stops processes started by `start-hmi-dev.sh` (AI runtime/backend/frontend).
+  - Supports `--status`, `--with-docker-down`.
+
 - `reset-dev-databases.sh`
   - Resets PostgreSQL + TDengine dev data while preserving schema/stables.
   - Used by local integration workflows.
