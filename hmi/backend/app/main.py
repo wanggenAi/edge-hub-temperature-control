@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ai_runtime, alarms, auth, devices, history, storage_rules, stream, users
+from app.api.routes import alarms, auth, devices, history, storage_rules, stream, users
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.session import SessionLocal
@@ -51,4 +51,3 @@ app.include_router(alarms.router)
 app.include_router(storage_rules.router)
 app.include_router(history.router)
 app.include_router(stream.router)
-app.include_router(ai_runtime.router)

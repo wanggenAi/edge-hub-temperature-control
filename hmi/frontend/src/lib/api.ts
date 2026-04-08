@@ -1,7 +1,4 @@
 import type {
-  AIRuntimeConfig,
-  AIRuntimeRecommendationDebug,
-  AIRuntimeStatus,
   AIPostEffectEvaluation,
   AITelemetryComparison,
   AIPreviewSimulation,
@@ -232,16 +229,6 @@ export const api = {
     }
     const suffix = sp.toString() ? `?${sp.toString()}` : "";
     return request<AITelemetryComparison>(`/devices/${deviceId}/ai-recommendation/${recommendationId}/telemetry-comparison${suffix}`);
-  },
-  aiRuntimeConfig: () => request<AIRuntimeConfig>("/ai/runtime/config"),
-  updateAiRuntimeConfig: (payload: Partial<AIRuntimeConfig>) =>
-    request<AIRuntimeConfig>("/ai/runtime/config", { method: "PUT", body: JSON.stringify(payload) }),
-  aiRuntimeStatus: () => request<AIRuntimeStatus>("/ai/runtime/status"),
-  aiRuntimeRecommendationDebug: (params: { device_id?: number } = {}) => {
-    const sp = new URLSearchParams();
-    if (typeof params.device_id === "number") sp.set("device_id", String(params.device_id));
-    const suffix = sp.toString() ? `?${sp.toString()}` : "";
-    return request<AIRuntimeRecommendationDebug>(`/ai/runtime/recommendation-debug${suffix}`);
   },
   users: () => request<UserItem[]>("/users"),
   createUser: (payload: { username: string; email: string; password: string; roles: string[] }) =>

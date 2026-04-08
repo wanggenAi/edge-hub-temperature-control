@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Activity, Bell, BrainCircuit, Database, Gauge, HardDrive, History, LogOut, PanelLeftClose, PanelLeftOpen, Settings2, Users } from "lucide-react";
+import { Activity, Bell, BrainCircuit, Database, Gauge, HardDrive, History, LogOut, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react";
 
 import { useAuth } from "@/app/auth";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +38,6 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           <nav className="space-y-1">
             <NavItem to="/" icon={<Gauge className="h-4 w-4" />} label="Overview" collapsed={collapsed} />
             <NavItem to="/ai" icon={<BrainCircuit className="h-4 w-4" />} label="Post-Apply Validation" collapsed={collapsed} end />
-            <NavItem to="/ai/runtime" icon={<Settings2 className="h-4 w-4" />} label="AI Runtime" collapsed={collapsed} />
             <NavItem to="/devices/manage" icon={<HardDrive className="h-4 w-4" />} label="Device Management" collapsed={collapsed} />
             <NavItem to="/alarms" icon={<Bell className="h-4 w-4" />} label="Alarms" collapsed={collapsed} />
             <NavItem to="/history" icon={<History className="h-4 w-4" />} label="History" collapsed={collapsed} />

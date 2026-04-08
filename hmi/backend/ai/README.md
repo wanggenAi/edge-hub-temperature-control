@@ -1,21 +1,14 @@
 # AI Module
 
-This directory centralizes AI runtime and offline model workflows to keep HMI
-web-layer code isolated from model lifecycle changes.
+This directory centralizes offline model workflows for HMI.
 
 ## Layout
 
-- `scripts/`: runtime service, model training, ranking, feedback export/seed
+- `scripts/`: model training, ranking, feedback export/seed
 - `docs/`: usage guides for each AI script
 - `../artifacts/`: local model artifacts and reports
 
 ## Primary Entrypoints
-
-Run AI runtime service:
-
-```bash
-hmi/backend/.venv/bin/python hmi/backend/ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
-```
 
 Train models:
 

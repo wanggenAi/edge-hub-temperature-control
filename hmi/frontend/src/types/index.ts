@@ -137,47 +137,6 @@ export interface AIGeneratedRecommendation {
   ai_decision?: Record<string, unknown> | null;
 }
 
-export interface AIRuntimeConfig {
-  problem_classifier_enabled: boolean;
-  success_predictor_enabled: boolean;
-  preview_gap_predictor_enabled: boolean;
-  candidate_ranker_enabled: boolean;
-  problem_classifier_model_path: string;
-  success_model_path: string;
-  preview_gap_model_path: string;
-  success_model_variant: string;
-  preview_gap_model_variant: string;
-  ranker_alpha: number;
-  ranker_beta: number;
-  high_gap_penalty_threshold: number;
-  ranker_candidate_count: number;
-  use_problem_classifier_for_candidate_bias: boolean;
-}
-
-export interface AIRuntimeModelState {
-  enabled: boolean;
-  loaded: boolean;
-  available: boolean;
-  path?: string | null;
-  variant?: string | null;
-  error?: string | null;
-}
-
-export interface AIRuntimeStatus {
-  problem_classifier: AIRuntimeModelState;
-  success_predictor: AIRuntimeModelState;
-  preview_gap_predictor: AIRuntimeModelState;
-  candidate_ranker: AIRuntimeModelState;
-}
-
-export interface AIRuntimeRecommendationDebug {
-  device_id?: number | null;
-  recommendation_id?: number | null;
-  source: string;
-  generated_at: string;
-  decision: Record<string, unknown>;
-}
-
 export interface AIPreviewCurvePoint {
   time_s: number;
   temp: number;

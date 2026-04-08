@@ -276,7 +276,7 @@ export function AIPage() {
                     ].map(([label, value]) => (
                       <div key={label} className="rounded border border-line/60 bg-panel2/70 px-2 py-1">
                         <div className="text-[10px] uppercase tracking-wide text-mute">{label}</div>
-                        <div className="mt-0.5 truncate text-[14px] font-semibold leading-tight text-text">{value}</div>
+                        <div className="mt-0.5 whitespace-normal break-words text-[14px] font-semibold leading-tight text-text">{value}</div>
                       </div>
                     ))}
                   </div>
@@ -294,18 +294,22 @@ export function AIPage() {
                       emptyText="Recommended snapshot unavailable."
                     />
                   </div>
-                  <div className="grid gap-2 md:grid-cols-3">
+                  <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                     <SimpleInfoCard
                       title="Secondary Issues"
-                      content={formatStringList(readSecondaryProblems(currentRecord).map((item) => formatLabel(item)))}
+                      content={renderTagList(readSecondaryProblems(currentRecord).map((item) => formatLabel(item)))}
                     />
                     <SimpleInfoCard
                       title="Triggered Rules"
-                      content={formatStringList(readTriggeredRules(currentRecord).map((item) => formatLabel(item)))}
+                      content={renderTagList(readTriggeredRules(currentRecord).map((item) => formatLabel(item)))}
+                    />
+                    <SimpleInfoCard
+                      title="Problem Flags"
+                      content={renderFlagList(readProblemFlags(currentRecord))}
                     />
                     <SimpleInfoCard
                       title="Key Metrics"
-                      content={formatKeyMetrics(readKeyMetrics(currentRecord))}
+                      content={renderMetricsList(readKeyMetrics(currentRecord))}
                     />
                   </div>
                 </div>
@@ -590,7 +594,7 @@ function ParamBlock({
   );
 }
 
-function SimpleInfoCard({ title, content }: { title: string; content: string }) {
+function SimpleInfoCard({ title, content }: { title: string; content: React.ReactNode }) {
   return (
     <div className="rounded border border-line/70 bg-panel px-2 py-2">
       <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">{title}</div>
@@ -970,6 +974,42 @@ function readTriggeredRules(record: AIRecommendationHistoryItem): string[] {
     .map(([rule]) => rule);
 }
 
+function readProblemFlags(record: AIRecommendationHistoryItem): Array<{ key: string; enabled: boolean }> {
+  const known: string[] = [
+    "saturation_limited",
+    "severe_saturation",
+    "oscillation",
+    "overshoot_high",
+    "steady_state_error",
+    "slow_response",
+  ];
+  const rawFlags = record.problem_flags && typeof record.problem_flags === "object" ? record.problem_flags : {};
+  const byFlag = new Map<string, boolean>();
+  for (const key of known) byFlag.set(key, false);
+  for (const [key, value] of Object.entries(rawFlags)) {
+    byFlag.set(key, Boolean(value));
+  }
+
+  // Legacy fallback from evidence flags.
+  if (Object.keys(rawFlags).length === 0) {
+    const legacy = record as unknown as { evidence?: Record<string, unknown> };
+    const evidence = legacy.evidence && typeof legacy.evidence === "object" ? legacy.evidence : {};
+    const mapping: Array<[string, string]> = [
+      ["saturation_limited", "rule_saturation_limited"],
+      ["severe_saturation", "rule_severe_saturation"],
+      ["oscillation", "rule_oscillation"],
+      ["overshoot_high", "rule_overshoot_high"],
+      ["steady_state_error", "rule_steady_state_error"],
+      ["slow_response", "rule_slow_response"],
+    ];
+    for (const [flag, evidenceKey] of mapping) {
+      if (evidenceKey in evidence) byFlag.set(flag, Boolean((evidence as Record<string, unknown>)[evidenceKey]));
+    }
+  }
+
+  return Array.from(byFlag.entries()).map(([key, enabled]) => ({ key, enabled }));
+}
+
 function readKeyMetrics(record: AIRecommendationHistoryItem): Record<string, number> {
   if (record.key_metrics && typeof record.key_metrics === "object") return record.key_metrics;
   const legacy = record as unknown as { evidence?: Record<string, unknown> };
@@ -999,11 +1039,46 @@ function formatStringList(items: string[]): string {
   return items.length > 0 ? items.join(", ") : "None";
 }
 
-function formatKeyMetrics(metrics: Record<string, number>): string {
-  const rows = Object.entries(metrics)
-    .slice(0, 4)
-    .map(([key, value]) => `${formatLabel(key)}=${Number.isInteger(value) ? value : value.toFixed(3)}`);
-  return rows.length > 0 ? rows.join(" | ") : "Not available";
+function renderTagList(items: string[]): React.ReactNode {
+  if (items.length === 0) return <span className="text-mute">None</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item) => (
+        <span key={item} className="rounded border border-line/60 bg-panel2 px-1.5 py-0.5 text-[11px] text-text">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function renderFlagList(flags: Array<{ key: string; enabled: boolean }>): React.ReactNode {
+  if (flags.length === 0) return <span className="text-mute">Not available</span>;
+  return (
+    <div className="space-y-1">
+      {flags.map((flag) => (
+        <div key={flag.key} className="flex items-center justify-between gap-2 rounded border border-line/60 bg-panel2 px-1.5 py-0.5">
+          <span className="text-[11px] text-mute">{formatLabel(flag.key)}</span>
+          <span className={flag.enabled ? "text-[11px] font-semibold text-accent" : "text-[11px] font-semibold text-mute"}>{flag.enabled ? "ON" : "OFF"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function renderMetricsList(metrics: Record<string, number>): React.ReactNode {
+  const rows = Object.entries(metrics);
+  if (rows.length === 0) return <span className="text-mute">Not available</span>;
+  return (
+    <div className="space-y-1">
+      {rows.slice(0, 8).map(([key, value]) => (
+        <div key={key} className="flex items-center justify-between gap-2 rounded border border-line/60 bg-panel2 px-1.5 py-0.5">
+          <span className="text-[11px] text-mute">{formatLabel(key)}</span>
+          <span className="text-[11px] font-semibold text-text">{Number.isInteger(value) ? value : value.toFixed(3)}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function readOptionalControlMode(record: AIRecommendationHistoryItem | null): string | null {
