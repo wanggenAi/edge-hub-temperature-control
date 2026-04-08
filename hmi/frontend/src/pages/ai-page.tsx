@@ -268,7 +268,7 @@ export function AIPage() {
                   <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                     {[
                       ["Recommendation ID", String(currentRecord.recommendation_id)],
-                      ["Problem", formatLabel(currentRecord.problem_type)],
+                      ["Primary Issue", formatLabel(readPrimaryProblemType(currentRecord))],
                       ["Expected Effect", currentRecord.expected_effect ? formatLabel(currentRecord.expected_effect) : "-"],
                       ["Risk", currentRecord.risk_level ?? "-"],
                       ["Applied At", formatDateTime(currentRecord.applied_at ?? currentRecord.generated_at)],
@@ -292,6 +292,20 @@ export function AIPage() {
                       params={currentRecord.recommended_params}
                       delta={currentRecord.delta}
                       emptyText="Recommended snapshot unavailable."
+                    />
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <SimpleInfoCard
+                      title="Secondary Issues"
+                      content={formatStringList(readSecondaryProblems(currentRecord).map((item) => formatLabel(item)))}
+                    />
+                    <SimpleInfoCard
+                      title="Triggered Rules"
+                      content={formatStringList(readTriggeredRules(currentRecord).map((item) => formatLabel(item)))}
+                    />
+                    <SimpleInfoCard
+                      title="Key Metrics"
+                      content={formatKeyMetrics(readKeyMetrics(currentRecord))}
                     />
                   </div>
                 </div>
@@ -572,6 +586,15 @@ function ParamBlock({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function SimpleInfoCard({ title, content }: { title: string; content: string }) {
+  return (
+    <div className="rounded border border-line/70 bg-panel px-2 py-2">
+      <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">{title}</div>
+      <div className="mt-1 text-xs text-text">{content}</div>
     </div>
   );
 }
@@ -913,6 +936,74 @@ function normalizeHistoryState(record: AIRecommendationHistoryItem | null): Reco
 
 function formatHistoryState(value: RecommendationState): string {
   return value;
+}
+
+function readPrimaryProblemType(record: AIRecommendationHistoryItem): string {
+  return (record.primary_problem_type || record.problem_type || "unknown").trim();
+}
+
+function readSecondaryProblems(record: AIRecommendationHistoryItem): string[] {
+  const list = Array.isArray(record.secondary_problem_types) ? record.secondary_problem_types : [];
+  return list.filter((item) => item && item !== readPrimaryProblemType(record));
+}
+
+function readTriggeredRules(record: AIRecommendationHistoryItem): string[] {
+  const rawFlags = record.problem_flags && typeof record.problem_flags === "object" ? record.problem_flags : {};
+  const fromFlags = Object.entries(rawFlags)
+    .filter(([, value]) => Boolean(value))
+    .map(([key]) => key);
+  if (fromFlags.length > 0) return fromFlags;
+
+  // Legacy compatibility: recover from key_metrics/evidence-era payloads when flags are absent.
+  const legacy = record as unknown as { key_metrics?: Record<string, unknown>; evidence?: Record<string, unknown> };
+  const evidence = legacy.evidence && typeof legacy.evidence === "object" ? legacy.evidence : {};
+  const mapping: Array<[string, string]> = [
+    ["saturation_limited", "rule_saturation_limited"],
+    ["severe_saturation", "rule_severe_saturation"],
+    ["oscillation", "rule_oscillation"],
+    ["overshoot_high", "rule_overshoot_high"],
+    ["steady_state_error", "rule_steady_state_error"],
+    ["slow_response", "rule_slow_response"],
+  ];
+  return mapping
+    .filter(([, key]) => Boolean((evidence as Record<string, unknown>)[key]))
+    .map(([rule]) => rule);
+}
+
+function readKeyMetrics(record: AIRecommendationHistoryItem): Record<string, number> {
+  if (record.key_metrics && typeof record.key_metrics === "object") return record.key_metrics;
+  const legacy = record as unknown as { evidence?: Record<string, unknown> };
+  const evidence = legacy.evidence && typeof legacy.evidence === "object" ? legacy.evidence : {};
+  const metricKeys = [
+    "mean_error",
+    "mean_abs_error",
+    "error_std",
+    "temp_swing",
+    "pwm_mean",
+    "pwm_max",
+    "zero_crossings",
+    "in_band_ratio",
+    "overshoot_pct",
+    "settling_sec",
+    "saturation_ratio",
+  ];
+  const out: Record<string, number> = {};
+  for (const key of metricKeys) {
+    const raw = (evidence as Record<string, unknown>)[key];
+    if (typeof raw === "number" && Number.isFinite(raw)) out[key] = raw;
+  }
+  return out;
+}
+
+function formatStringList(items: string[]): string {
+  return items.length > 0 ? items.join(", ") : "None";
+}
+
+function formatKeyMetrics(metrics: Record<string, number>): string {
+  const rows = Object.entries(metrics)
+    .slice(0, 4)
+    .map(([key, value]) => `${formatLabel(key)}=${Number.isInteger(value) ? value : value.toFixed(3)}`);
+  return rows.length > 0 ? rows.join(" | ") : "Not available";
 }
 
 function readOptionalControlMode(record: AIRecommendationHistoryItem | null): string | null {

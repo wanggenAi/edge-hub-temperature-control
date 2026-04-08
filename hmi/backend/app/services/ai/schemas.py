@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.services.ai.enums import ExpectedEffect, ProblemType, RiskLevel
 
@@ -69,6 +69,9 @@ class RecommendationGenerateInput(BaseModel):
 
 class RecommendationGenerateOutput(BaseModel):
     problem_type: ProblemType
+    primary_problem_type: ProblemType = ProblemType.NORMAL
+    secondary_problem_types: list[ProblemType] = Field(default_factory=list)
+    problem_flags: dict[str, bool] = Field(default_factory=dict)
     confidence: float
     risk_level: RiskLevel
     requires_confirmation: bool
@@ -88,6 +91,19 @@ class RecommendationGenerateOutput(BaseModel):
     reused_count: Optional[int] = None
     last_accessed_at: Optional[datetime] = None
     ai_decision: Optional[dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def _sync_problem_fields(self) -> "RecommendationGenerateOutput":
+        # Backward compatibility: keep legacy problem_type aligned to primary_problem_type.
+        if self.primary_problem_type is None:
+            self.primary_problem_type = self.problem_type
+        self.problem_type = self.primary_problem_type
+        self.secondary_problem_types = [
+            item
+            for item in self.secondary_problem_types
+            if item != self.primary_problem_type
+        ]
+        return self
 
 
 class PreviewCurvePoint(BaseModel):

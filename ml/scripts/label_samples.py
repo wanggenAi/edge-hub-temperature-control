@@ -71,7 +71,7 @@ def is_steady_like(sample: pd.Series, thresholds: Dict[str, float]) -> bool:
     return slope <= thresholds["slow_response_rise_slope_max"] or abs(temp_end - temp_start) <= target_band
 
 
-def classify_problem_type(sample: pd.Series, thresholds: Dict[str, float]) -> str:
+def compute_problem_flags(sample: pd.Series, thresholds: Dict[str, float]) -> Dict[str, bool]:
     saturation_ratio = safe_float(sample.get("saturation_ratio"), 0.0)
     zero_crossings = safe_float(sample.get("zero_crossings"), 0.0)
     error_std = safe_float(sample.get("error_std"), 0.0)
@@ -80,38 +80,45 @@ def classify_problem_type(sample: pd.Series, thresholds: Dict[str, float]) -> st
     mean_abs_error = safe_float(sample.get("mean_abs_error"), 0.0)
     rise_slope = safe_float(sample.get("rise_slope"), 0.0)
 
-    # 1) severe saturation
-    if saturation_ratio >= thresholds["saturation_ratio_high"]:
-        return "saturation_limited"
+    return {
+        "saturation_limited": saturation_ratio >= thresholds["saturation_ratio_high"],
+        "oscillation": (
+            zero_crossings >= thresholds["oscillation_zero_crossings"]
+            and error_std >= thresholds["oscillation_error_std"]
+        ),
+        "overshoot_high": overshoot_pct >= thresholds["overshoot_pct_high"],
+        "steady_state_error": (
+            in_band_ratio < thresholds["normal_in_band_ratio"]
+            and mean_abs_error >= thresholds["steady_state_error_mean_abs_min"]
+            and is_steady_like(sample, thresholds)
+        ),
+        "slow_response": (
+            in_band_ratio < thresholds["low_in_band_ratio"]
+            and rise_slope <= thresholds["slow_response_rise_slope_max"]
+        ),
+    }
 
-    # 2) oscillation
-    if (
-        zero_crossings >= thresholds["oscillation_zero_crossings"]
-        and error_std >= thresholds["oscillation_error_std"]
-    ):
-        return "oscillation"
 
-    # 3) overshoot high
-    if overshoot_pct >= thresholds["overshoot_pct_high"]:
-        return "overshoot_high"
+def derive_problem_labels(problem_flags: Dict[str, bool]) -> Tuple[str, list[str]]:
+    priority = [
+        "saturation_limited",
+        "oscillation",
+        "overshoot_high",
+        "steady_state_error",
+        "slow_response",
+    ]
+    primary = "normal"
+    for label in priority:
+        if problem_flags.get(label):
+            primary = label
+            break
+    secondary = [label for label in priority if problem_flags.get(label) and label != primary]
+    return primary, secondary
 
-    # 4) steady-state error
-    if (
-        in_band_ratio < thresholds["normal_in_band_ratio"]
-        and mean_abs_error >= thresholds["steady_state_error_mean_abs_min"]
-        and is_steady_like(sample, thresholds)
-    ):
-        return "steady_state_error"
 
-    # 5) slow response
-    if (
-        in_band_ratio < thresholds["low_in_band_ratio"]
-        and rise_slope <= thresholds["slow_response_rise_slope_max"]
-    ):
-        return "slow_response"
-
-    # 6) normal
-    return "normal"
+def classify_problem_type(sample: pd.Series, thresholds: Dict[str, float]) -> str:
+    primary, _secondary = derive_problem_labels(compute_problem_flags(sample, thresholds))
+    return primary
 
 
 def main() -> None:
@@ -125,12 +132,20 @@ def main() -> None:
     df = pd.read_parquet(input_path)
     if df.empty:
         out = df.copy()
+        out["primary_problem_type"] = pd.Series(dtype="string")
+        out["secondary_problem_types"] = pd.Series(dtype="object")
+        out["problem_flags"] = pd.Series(dtype="object")
         out["problem_type"] = pd.Series(dtype="string")
         out["label_version"] = pd.Series(dtype="string")
         out["labeled_at"] = pd.Series(dtype="string")
     else:
         out = df.copy()
-        out["problem_type"] = out.apply(lambda r: classify_problem_type(r, thresholds), axis=1)
+        out["problem_flags"] = out.apply(lambda r: compute_problem_flags(r, thresholds), axis=1)
+        labels = out["problem_flags"].apply(derive_problem_labels)
+        out["primary_problem_type"] = labels.apply(lambda item: item[0])
+        out["secondary_problem_types"] = labels.apply(lambda item: item[1])
+        # Backward compatibility for existing training/evaluation pipeline.
+        out["problem_type"] = out["primary_problem_type"]
         out["label_version"] = LABEL_VERSION
         out["labeled_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -141,7 +156,7 @@ def main() -> None:
     print(f"[label] input_rows={len(df)}")
     print(f"[label] output_rows={len(out)}")
     if not out.empty:
-        counts = out["problem_type"].value_counts(dropna=False).to_dict()
+        counts = out["primary_problem_type"].value_counts(dropna=False).to_dict()
         print(f"[label] class_distribution={counts}")
     print(f"[label] output={out_path}")
 

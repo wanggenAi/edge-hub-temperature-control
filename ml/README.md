@@ -167,9 +167,15 @@ Output:
 - `ml/data/datasets/labeled_samples.parquet`
 
 Adds:
+- `primary_problem_type`
+- `secondary_problem_types`
+- `problem_flags`
 - `problem_type`
 - `label_version`
 - `labeled_at`
+
+Compatibility:
+- `problem_type` is kept and equals `primary_problem_type`.
 
 Supported `problem_type` classes:
 - `normal`

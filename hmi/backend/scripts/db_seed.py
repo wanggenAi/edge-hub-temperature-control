@@ -17,18 +17,30 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Seed HMI backend relational data")
     parser.add_argument("--rules", action="store_true", help="Seed default alarm rules")
     parser.add_argument("--demo", action="store_true", help="Seed demo users/devices/metrics")
+    parser.add_argument(
+        "--preview-ai-demo",
+        action="store_true",
+        help="Seed TC-PREVIEW-* AI recommendation demo devices/cases",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    if not args.rules and not args.demo:
-        raise SystemExit("No seed action selected. Use --rules and/or --demo.")
+    if not args.rules and not args.demo and not args.preview_ai_demo:
+        raise SystemExit("No seed action selected. Use --rules, --demo and/or --preview-ai-demo.")
 
     db = SessionLocal()
     try:
-        seed_database(db, with_default_alarm_rules=args.rules, with_demo_data=args.demo)
+        seed_database(
+            db,
+            with_default_alarm_rules=args.rules,
+            with_demo_data=args.demo,
+            with_preview_ai_demo=args.preview_ai_demo,
+        )
     finally:
         db.close()
 
-    print(f"Seed completed (rules={args.rules}, demo={args.demo}).")
+    print(
+        f"Seed completed (rules={args.rules}, demo={args.demo}, preview_ai_demo={args.preview_ai_demo})."
+    )

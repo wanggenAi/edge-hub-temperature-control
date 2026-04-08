@@ -106,6 +106,9 @@ export interface AITuningParams {
 
 export interface AIGeneratedRecommendation {
   problem_type: "normal" | "slow_response" | "steady_state_error" | "overshoot_high" | "oscillation" | "saturation_limited" | string;
+  primary_problem_type?: string;
+  secondary_problem_types?: string[];
+  problem_flags?: Record<string, boolean>;
   confidence: number;
   risk_level: "Low" | "Medium" | "High" | string;
   requires_confirmation: boolean;
@@ -274,6 +277,10 @@ export interface AIRecommendationHistoryItem {
   device_name: string;
   device_line: string;
   device_location: string;
+  primary_problem_type?: string;
+  secondary_problem_types?: string[];
+  problem_flags?: Record<string, boolean>;
+  key_metrics?: Record<string, number>;
   problem_type: string;
   expected_effect?: string | null;
   risk_level?: string | null;

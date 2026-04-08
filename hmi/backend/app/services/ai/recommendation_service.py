@@ -34,17 +34,18 @@ class RecommendationService:
 
     def generate(self, payload: RecommendationGenerateInput) -> RecommendationGenerateOutput:
         features = extract_features(payload)
-        problem_type, confidence, rules = classify_problem(payload, features)
+        primary_problem_type, secondary_problem_types, problem_flags, confidence = classify_problem(payload, features)
         current_params, recommended_params, delta, risk_level, requires_confirmation, expected_effect = build_recommendation(
-            problem_type, payload.current_params
+            primary_problem_type, payload.current_params
         )
 
         evidence: dict[str, Union[float, int, str, bool, None]] = {
-            "rule_saturation_limited": rules.get("saturation_limited", False),
-            "rule_oscillation": rules.get("oscillation", False),
-            "rule_overshoot_high": rules.get("overshoot_high", False),
-            "rule_steady_state_error": rules.get("steady_state_error", False),
-            "rule_slow_response": rules.get("slow_response", False),
+            "rule_saturation_limited": problem_flags.get("saturation_limited", False),
+            "rule_severe_saturation": problem_flags.get("severe_saturation", False),
+            "rule_oscillation": problem_flags.get("oscillation", False),
+            "rule_overshoot_high": problem_flags.get("overshoot_high", False),
+            "rule_steady_state_error": problem_flags.get("steady_state_error", False),
+            "rule_slow_response": problem_flags.get("slow_response", False),
             "mean_error": round(features.mean_error, 4),
             "mean_abs_error": round(features.mean_abs_error, 4),
             "error_std": round(features.error_std, 4),
@@ -59,7 +60,10 @@ class RecommendationService:
         }
 
         return RecommendationGenerateOutput(
-            problem_type=problem_type,
+            problem_type=primary_problem_type,
+            primary_problem_type=primary_problem_type,
+            secondary_problem_types=secondary_problem_types,
+            problem_flags=problem_flags,
             confidence=round(confidence, 4),
             risk_level=risk_level,
             requires_confirmation=requires_confirmation,
@@ -74,6 +78,9 @@ class RecommendationService:
     def build_recommendation_fingerprint(self, output: RecommendationGenerateOutput) -> str:
         canonical = {
             "problem_type": output.problem_type.value,
+            "primary_problem_type": output.primary_problem_type.value,
+            "secondary_problem_types": [item.value for item in output.secondary_problem_types],
+            "problem_flags": {k: bool(v) for k, v in sorted((output.problem_flags or {}).items())},
             "expected_effect": output.expected_effect.value,
             "risk_level": output.risk_level.value,
             "requires_confirmation": bool(output.requires_confirmation),
@@ -95,7 +102,13 @@ class RecommendationService:
         *,
         tolerance: float,
     ) -> bool:
-        if current.problem_type.value != previous.problem_type.value:
+        if current.primary_problem_type.value != previous.primary_problem_type.value:
+            return False
+        current_secondary = [item.value for item in current.secondary_problem_types]
+        previous_secondary = [item.value for item in previous.secondary_problem_types]
+        if current_secondary != previous_secondary:
+            return False
+        if (current.problem_flags or {}) != (previous.problem_flags or {}):
             return False
         if current.expected_effect.value != previous.expected_effect.value:
             return False
@@ -149,9 +162,12 @@ class RecommendationService:
         suggestion = json.dumps(
             {
                 "f": "ai_rec",
-                "v": "1",
+                "v": "2",
                 "p": {
                     "t": output.problem_type.value,
+                    "pt": output.primary_problem_type.value,
+                    "st": [item.value for item in output.secondary_problem_types],
+                    "pf": {key: bool(value) for key, value in output.problem_flags.items()},
                     "e": output.expected_effect.value,
                     "r": output.risk_level.value,
                     "c": round(output.confidence, 4),
@@ -159,6 +175,7 @@ class RecommendationService:
                     "cp": current,
                     "rp": recommended,
                     "d": delta,
+                    "evidence": output.evidence,
                     # Metadata keeps recommendation history semantics without schema migration.
                     "m": metadata,
                 },
@@ -358,7 +375,13 @@ class RecommendationService:
 
         reason_problem, reason_effect = self.parse_reason_fields(reason)
         risk_level, requires_confirmation = self.parse_risk_fields(risk)
-        problem_type = parsed.get("problem_type") or reason_problem or "normal"
+        primary_problem_type = parsed.get("primary_problem_type") or parsed.get("problem_type") or reason_problem or "normal"
+        secondary_problem_types = parsed.get("secondary_problem_types")
+        if not isinstance(secondary_problem_types, list):
+            secondary_problem_types = []
+        problem_flags = parsed.get("problem_flags")
+        if not isinstance(problem_flags, dict):
+            problem_flags = self._problem_flags_from_evidence(parsed.get("evidence"))
         expected_effect = parsed.get("expected_effect") or reason_effect or "keep_stable"
         risk_text = parsed.get("risk_level") or risk_level or "Low"
         requires = parsed.get("requires_confirmation")
@@ -368,7 +391,10 @@ class RecommendationService:
 
         try:
             output = RecommendationGenerateOutput(
-                problem_type=problem_type,
+                problem_type=primary_problem_type,
+                primary_problem_type=primary_problem_type,
+                secondary_problem_types=secondary_problem_types,
+                problem_flags=problem_flags,
                 confidence=self._round(float(confidence)),
                 risk_level=risk_text,
                 requires_confirmation=bool(requires),
@@ -454,6 +480,16 @@ class RecommendationService:
             payload = body["p"]
             if isinstance(payload.get("t"), str):
                 parsed["problem_type"] = payload.get("t")
+            if isinstance(payload.get("pt"), str):
+                parsed["primary_problem_type"] = payload.get("pt")
+            if isinstance(payload.get("st"), list):
+                parsed["secondary_problem_types"] = [
+                    item for item in payload.get("st", []) if isinstance(item, str)
+                ]
+            if isinstance(payload.get("pf"), dict):
+                parsed["problem_flags"] = {
+                    str(key): bool(value) for key, value in payload.get("pf", {}).items()
+                }
             if isinstance(payload.get("e"), str):
                 parsed["expected_effect"] = payload.get("e")
             if isinstance(payload.get("r"), str):
@@ -474,6 +510,16 @@ class RecommendationService:
         if isinstance(payload_obj, dict):
             if isinstance(payload_obj.get("problem_type"), str):
                 parsed["problem_type"] = payload_obj.get("problem_type")
+            if isinstance(payload_obj.get("primary_problem_type"), str):
+                parsed["primary_problem_type"] = payload_obj.get("primary_problem_type")
+            if isinstance(payload_obj.get("secondary_problem_types"), list):
+                parsed["secondary_problem_types"] = [
+                    item for item in payload_obj.get("secondary_problem_types", []) if isinstance(item, str)
+                ]
+            if isinstance(payload_obj.get("problem_flags"), dict):
+                parsed["problem_flags"] = {
+                    str(key): bool(value) for key, value in payload_obj.get("problem_flags", {}).items()
+                }
             if isinstance(payload_obj.get("expected_effect"), str):
                 parsed["expected_effect"] = payload_obj.get("expected_effect")
             if isinstance(payload_obj.get("risk_level"), str):
@@ -491,6 +537,27 @@ class RecommendationService:
             if parsed:
                 return parsed
         return None
+
+    @staticmethod
+    def _problem_flags_from_evidence(evidence: Any) -> dict[str, bool]:
+        if not isinstance(evidence, dict):
+            return {}
+        mapping = {
+            "saturation_limited": "rule_saturation_limited",
+            "severe_saturation": "rule_severe_saturation",
+            "oscillation": "rule_oscillation",
+            "overshoot_high": "rule_overshoot_high",
+            "steady_state_error": "rule_steady_state_error",
+            "slow_response": "rule_slow_response",
+        }
+        out: dict[str, bool] = {}
+        for key, evidence_key in mapping.items():
+            if evidence_key in evidence:
+                out[key] = bool(evidence.get(evidence_key))
+        return out
+
+    def problem_flags_from_evidence(self, evidence: Any) -> dict[str, bool]:
+        return self._problem_flags_from_evidence(evidence)
 
     def parse_recommended_params(self, suggestion: str, current_params: PIDParams) -> Optional[PIDParams]:
         if not suggestion:

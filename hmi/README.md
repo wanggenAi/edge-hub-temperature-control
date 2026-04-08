@@ -252,6 +252,19 @@ cd hmi/backend
 python scripts/db_seed.py --rules --demo
 ```
 
+### Seed AI preview demo devices (optional, local UI verification)
+
+```bash
+cd hmi/backend
+python scripts/db_seed.py --preview-ai-demo
+```
+
+Creates/refreshes relational demo devices:
+- `TC-PREVIEW-SAT-SLOW` (`saturation_limited` + `slow_response`)
+- `TC-PREVIEW-OSC-OVS` (`oscillation` + `overshoot_high`)
+- `TC-PREVIEW-SSE` (`steady_state_error`)
+- `TC-PREVIEW-NORMAL` (near-normal)
+
 Notes:
 
 - Startup does not perform runtime schema patching.

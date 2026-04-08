@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DeviceBase(BaseModel):
@@ -215,6 +215,10 @@ class AIRecommendationHistoryItemOut(BaseModel):
     device_name: str
     device_line: str
     device_location: str
+    primary_problem_type: str
+    secondary_problem_types: list[str] = Field(default_factory=list)
+    problem_flags: dict[str, bool] = Field(default_factory=dict)
+    key_metrics: dict[str, float] = Field(default_factory=dict)
     problem_type: str
     expected_effect: Optional[str] = None
     risk_level: Optional[str] = None

@@ -953,7 +953,19 @@ export function DeviceDetailPage() {
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
                   <div className="text-[11px] uppercase tracking-wide text-mute">Diagnosis</div>
                   <div className="mt-1 text-xs text-mute">
-                    Problem Type: <span className="text-text">{aiGenerated?.problem_type ?? "Not generated"}</span>
+                    Primary Issue: <span className="text-text">{aiGenerated ? formatLabel(derivePrimaryProblemType(aiGenerated)) : "Not generated"}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-mute">
+                    Secondary Issues:{" "}
+                    <span className="text-text">
+                      {aiGenerated ? formatProblemList(deriveSecondaryProblemTypes(aiGenerated)) : "N/A"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-mute">
+                    Triggered Rules:{" "}
+                    <span className="text-text">
+                      {aiGenerated ? formatRuleList(deriveTriggeredRuleKeys(aiGenerated)) : "N/A"}
+                    </span>
                   </div>
                   <div className="mt-1 text-xs text-mute">
                     Risk Level: <span className="text-text">{aiGenerated?.risk_level ?? "N/A"}</span>
@@ -1643,6 +1655,55 @@ function formatExpectedEffect(value: string): string {
   return map[value] ?? value;
 }
 
+function formatLabel(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+}
+
+function derivePrimaryProblemType(data: AIGeneratedRecommendation): string {
+  return (data.primary_problem_type || data.problem_type || "unknown").trim();
+}
+
+function deriveSecondaryProblemTypes(data: AIGeneratedRecommendation): string[] {
+  const items = Array.isArray(data.secondary_problem_types) ? data.secondary_problem_types : [];
+  return items.filter((item) => item && item !== derivePrimaryProblemType(data));
+}
+
+function deriveProblemFlags(data: AIGeneratedRecommendation): Record<string, boolean> {
+  if (data.problem_flags && typeof data.problem_flags === "object") {
+    return data.problem_flags;
+  }
+  const evidence = data.evidence ?? {};
+  const mapping: Array<[string, string]> = [
+    ["saturation_limited", "rule_saturation_limited"],
+    ["severe_saturation", "rule_severe_saturation"],
+    ["oscillation", "rule_oscillation"],
+    ["overshoot_high", "rule_overshoot_high"],
+    ["steady_state_error", "rule_steady_state_error"],
+    ["slow_response", "rule_slow_response"],
+  ];
+  const out: Record<string, boolean> = {};
+  for (const [key, evidenceKey] of mapping) {
+    if (evidenceKey in evidence) out[key] = Boolean(evidence[evidenceKey]);
+  }
+  return out;
+}
+
+function deriveTriggeredRuleKeys(data: AIGeneratedRecommendation): string[] {
+  return Object.entries(deriveProblemFlags(data))
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([rule]) => rule);
+}
+
+function formatProblemList(items: string[]): string {
+  if (!items.length) return "None";
+  return items.map((item) => formatLabel(item)).join(", ");
+}
+
+function formatRuleList(items: string[]): string {
+  if (!items.length) return "None";
+  return items.map((item) => formatLabel(item)).join(", ");
+}
+
 function formatMetricNumber(value: number): string {
   if (!Number.isFinite(value)) return "-";
   if (Number.isInteger(value)) return String(value);
@@ -1934,16 +1995,23 @@ function parseStoredAiRecommendation(
   recommendation: AIRecommendation,
   current_params: { kp: number; ki: number; kd: number }
 ): Partial<AIGeneratedRecommendation> & {
+  primary_problem_type?: string;
+  secondary_problem_types?: string[];
+  problem_flags?: Record<string, boolean>;
   recommended_params?: { kp: number; ki: number; kd: number };
   delta?: { kp: number; ki: number; kd: number };
 } {
   const reasonFields = parseReasonFields(recommendation.reason);
   const riskFields = parseRiskFields(recommendation.risk);
   const parsed: Partial<AIGeneratedRecommendation> & {
+    primary_problem_type?: string;
+    secondary_problem_types?: string[];
+    problem_flags?: Record<string, boolean>;
     recommended_params?: { kp: number; ki: number; kd: number };
     delta?: { kp: number; ki: number; kd: number };
   } = {
     problem_type: reasonFields.problem_type,
+    primary_problem_type: reasonFields.problem_type,
     expected_effect: reasonFields.expected_effect,
     risk_level: riskFields.risk_level,
     requires_confirmation: riskFields.requires_confirmation,
@@ -1960,6 +2028,15 @@ function parseStoredAiRecommendation(
 
   const extractFromObject = (obj: Record<string, unknown>) => {
     if (!parsed.problem_type && typeof obj.problem_type === "string") parsed.problem_type = obj.problem_type;
+    if (!parsed.primary_problem_type && typeof obj.primary_problem_type === "string") parsed.primary_problem_type = obj.primary_problem_type;
+    if (!parsed.secondary_problem_types && Array.isArray(obj.secondary_problem_types)) {
+      parsed.secondary_problem_types = obj.secondary_problem_types.filter((item): item is string => typeof item === "string");
+    }
+    if (!parsed.problem_flags && obj.problem_flags && typeof obj.problem_flags === "object" && !Array.isArray(obj.problem_flags)) {
+      parsed.problem_flags = Object.fromEntries(
+        Object.entries(obj.problem_flags as Record<string, unknown>).map(([key, value]) => [key, Boolean(value)])
+      );
+    }
     if (!parsed.expected_effect && typeof obj.expected_effect === "string") parsed.expected_effect = obj.expected_effect;
     if (!parsed.risk_level && typeof obj.risk_level === "string") parsed.risk_level = normalizeRiskLevel(obj.risk_level);
     if (parsed.requires_confirmation === undefined && typeof obj.requires_confirmation === "boolean") {
@@ -1983,6 +2060,15 @@ function parseStoredAiRecommendation(
       if (body.f === "ai_rec" && body.p && typeof body.p === "object" && !Array.isArray(body.p)) {
         const p = body.p as Record<string, unknown>;
         if (typeof p.t === "string") parsed.problem_type = p.t;
+        if (typeof p.pt === "string") parsed.primary_problem_type = p.pt;
+        if (Array.isArray(p.st)) {
+          parsed.secondary_problem_types = p.st.filter((item): item is string => typeof item === "string");
+        }
+        if (p.pf && typeof p.pf === "object" && !Array.isArray(p.pf)) {
+          parsed.problem_flags = Object.fromEntries(
+            Object.entries(p.pf as Record<string, unknown>).map(([key, value]) => [key, Boolean(value)])
+          );
+        }
         if (typeof p.e === "string") parsed.expected_effect = p.e;
         if (typeof p.r === "string") parsed.risk_level = normalizeRiskLevel(p.r);
         if (typeof p.rc === "boolean") parsed.requires_confirmation = p.rc;
@@ -2050,12 +2136,16 @@ function buildRecoveredAiGenerated(
       });
 
   const problem_type = parsed.problem_type || (isZeroDelta(delta.kp) && isZeroDelta(delta.ki) && isZeroDelta(delta.kd) ? "normal" : "unknown");
+  const primary_problem_type = parsed.primary_problem_type || problem_type;
   const expected_effect = parsed.expected_effect || (problem_type === "normal" ? "keep_stable" : "limited_gain_expected");
   const requires_confirmation =
     typeof parsed.requires_confirmation === "boolean" ? parsed.requires_confirmation : problem_type !== "normal";
 
   return {
-    problem_type,
+    problem_type: primary_problem_type,
+    primary_problem_type,
+    secondary_problem_types: parsed.secondary_problem_types ?? [],
+    problem_flags: parsed.problem_flags ?? {},
     confidence: Number.isFinite(recommendation.confidence) ? recommendation.confidence : 0,
     risk_level: parsed.risk_level || "N/A",
     requires_confirmation,

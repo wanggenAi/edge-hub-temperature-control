@@ -107,6 +107,43 @@ def _normalize_control_mode(value: Optional[str]) -> Optional[str]:
     return mode
 
 
+# Runtime guardrails to reject corrupted ACK/telemetry PID values.
+_RUNTIME_PID_BOUNDS = {
+    "kp": (0.0, 100.0),
+    "ki": (0.0, 50.0),
+    "kd": (0.0, 50.0),
+}
+
+
+def _safe_runtime_pid(value: object, *, key: str) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    if v != v:  # NaN
+        return None
+    low, high = _RUNTIME_PID_BOUNDS[key]
+    if v < low or v > high:
+        return None
+    return v
+
+
+def _apply_runtime_pid_if_valid(param: DeviceParameter, *, source: dict, log_prefix: str) -> bool:
+    updated = False
+    for key in ("kp", "ki", "kd"):
+        candidate = _safe_runtime_pid(source.get(key), key=key)
+        if candidate is None:
+            raw = source.get(key)
+            if raw is not None:
+                logger.warning("[%s] ignore invalid %s=%s", log_prefix, key, raw)
+            continue
+        setattr(param, key, candidate)
+        updated = True
+    return updated
+
+
 def _load_live_snapshot(device_code: str) -> dict:
     if not tdengine.enabled():
         return {}
@@ -332,9 +369,52 @@ def _build_ai_history_item(
             observation_window_minutes = None
     evaluated_at = _parse_iso_utc(meta.get("pea"))
 
-    problem_type = parsed.problem_type.value if parsed else (recommendation_service.parse_reason_fields(rec.reason)[0] or "unknown")
-    expected_effect = parsed.expected_effect.value if parsed else recommendation_service.parse_reason_fields(rec.reason)[1]
-    risk_level = parsed.risk_level.value if parsed else recommendation_service.parse_risk_fields(rec.risk)[0]
+    reason_problem, reason_effect = recommendation_service.parse_reason_fields(rec.reason)
+    risk_text, _ = recommendation_service.parse_risk_fields(rec.risk)
+    problem_type = parsed.problem_type.value if parsed else (reason_problem or "unknown")
+    primary_problem_type = (
+        parsed.primary_problem_type.value
+        if parsed
+        else (reason_problem or problem_type or "unknown")
+    )
+    secondary_problem_types = (
+        [item.value for item in parsed.secondary_problem_types]
+        if parsed
+        else []
+    )
+    problem_flags = (
+        {str(key): bool(value) for key, value in (parsed.problem_flags or {}).items()}
+        if parsed
+        else {}
+    )
+    evidence = (
+        parsed.evidence
+        if parsed and isinstance(parsed.evidence, dict)
+        else {}
+    )
+    if not problem_flags:
+        problem_flags = recommendation_service.problem_flags_from_evidence(evidence)
+    key_metrics = {
+        str(key): float(value)
+        for key, value in evidence.items()
+        if isinstance(value, (int, float))
+        and str(key)
+        in {
+            "mean_error",
+            "mean_abs_error",
+            "error_std",
+            "temp_swing",
+            "pwm_mean",
+            "pwm_max",
+            "zero_crossings",
+            "in_band_ratio",
+            "overshoot_pct",
+            "settling_sec",
+            "saturation_ratio",
+        }
+    }
+    expected_effect = parsed.expected_effect.value if parsed else reason_effect
+    risk_level = parsed.risk_level.value if parsed else risk_text
     history_state_raw = parsed.history_state if parsed else (str(meta.get("hs")) if meta.get("hs") is not None else None)
     history_state = str(history_state_raw or "").strip().lower()
     if history_state not in {"generated", "previewed", "applied", "dismissed", "expired"}:
@@ -358,6 +438,10 @@ def _build_ai_history_item(
         device_name=device.name,
         device_line=device.line,
         device_location=device.location,
+        primary_problem_type=primary_problem_type,
+        secondary_problem_types=secondary_problem_types,
+        problem_flags=problem_flags,
+        key_metrics=key_metrics,
         problem_type=problem_type,
         expected_effect=expected_effect,
         risk_level=risk_level,
@@ -711,24 +795,49 @@ def _is_demo_preview_device(device_code: str) -> bool:
 
 def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) -> RecommendationGenerateOutput:
     code = str(device.code or "").upper()
-    current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
-    if "SLOW" in code:
+    def _bounded(value: float, *, low: float, high: float, fallback: float) -> float:
+        if not isinstance(value, (float, int)):
+            return fallback
+        v = float(value)
+        if not (low <= v <= high):
+            return fallback
+        return v
+
+    # Keep demo recommendation ranges physically plausible even if historical DB
+    # values were polluted by legacy stress runs.
+    current = PIDParams(
+        kp=round(_bounded(float(params.kp), low=0.2, high=12.0, fallback=2.6), 4),
+        ki=round(_bounded(float(params.ki), low=0.01, high=3.0, fallback=0.35), 4),
+        kd=round(_bounded(float(params.kd), low=0.0, high=2.5, fallback=0.1), 4),
+    )
+    if "SAT" in code:
         recommended = PIDParams(
             kp=round(max(1.5, current.kp * 1.9), 4),
             ki=round(max(0.08, current.ki * 1.75), 4),
             kd=round(max(0.08, current.kd + 0.12), 4),
         )
-        problem_type = "slow_response"
+        problem_type = "saturation_limited"
+        primary_problem_type = "saturation_limited"
+        secondary_problem_types = ["slow_response"]
+        problem_flags = {
+            "saturation_limited": True,
+            "severe_saturation": True,
+            "oscillation": False,
+            "overshoot_high": False,
+            "steady_state_error": False,
+            "slow_response": True,
+        }
         expected_effect = "speed_up_response"
         risk_level = "Medium"
         confidence = 0.88
         requires_confirmation = True
         evidence = {
             "rule_slow_response": True,
-            "rule_steady_state_error": True,
+            "rule_steady_state_error": False,
             "rule_oscillation": False,
             "rule_overshoot_high": False,
-            "rule_saturation_limited": False,
+            "rule_saturation_limited": True,
+            "rule_severe_saturation": True,
             "mean_error": -3.85,
             "mean_abs_error": 4.12,
             "error_std": 0.74,
@@ -748,6 +857,16 @@ def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) 
             kd=round(max(0.2, current.kd + 0.18), 4),
         )
         problem_type = "oscillation"
+        primary_problem_type = "oscillation"
+        secondary_problem_types = ["overshoot_high"]
+        problem_flags = {
+            "saturation_limited": False,
+            "severe_saturation": False,
+            "oscillation": True,
+            "overshoot_high": True,
+            "steady_state_error": False,
+            "slow_response": False,
+        }
         expected_effect = "reduce_oscillation"
         risk_level = "Medium"
         confidence = 0.84
@@ -758,6 +877,7 @@ def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) 
             "rule_oscillation": True,
             "rule_overshoot_high": True,
             "rule_saturation_limited": False,
+            "rule_severe_saturation": False,
             "mean_error": 0.11,
             "mean_abs_error": 1.22,
             "error_std": 0.96,
@@ -770,6 +890,46 @@ def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) 
             "settling_sec": None,
             "saturation_ratio": 0.22,
         }
+    elif "NORMAL" in code:
+        recommended = PIDParams(
+            kp=round(current.kp, 4),
+            ki=round(current.ki, 4),
+            kd=round(current.kd, 4),
+        )
+        problem_type = "normal"
+        primary_problem_type = "normal"
+        secondary_problem_types = []
+        problem_flags = {
+            "saturation_limited": False,
+            "severe_saturation": False,
+            "oscillation": False,
+            "overshoot_high": False,
+            "steady_state_error": False,
+            "slow_response": False,
+        }
+        expected_effect = "keep_stable"
+        risk_level = "Low"
+        confidence = 0.92
+        requires_confirmation = False
+        evidence = {
+            "rule_slow_response": False,
+            "rule_steady_state_error": False,
+            "rule_oscillation": False,
+            "rule_overshoot_high": False,
+            "rule_saturation_limited": False,
+            "rule_severe_saturation": False,
+            "mean_error": 0.05,
+            "mean_abs_error": 0.18,
+            "error_std": 0.11,
+            "temp_swing": 0.42,
+            "pwm_mean": 44.8,
+            "pwm_max": 58.4,
+            "zero_crossings": 0,
+            "in_band_ratio": 0.91,
+            "overshoot_pct": 0.0,
+            "settling_sec": 96.0,
+            "saturation_ratio": 0.04,
+        }
     else:
         recommended = PIDParams(
             kp=round(max(0.6, current.kp * 1.35), 4),
@@ -777,6 +937,16 @@ def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) 
             kd=round(max(0.05, current.kd + 0.08), 4),
         )
         problem_type = "steady_state_error"
+        primary_problem_type = "steady_state_error"
+        secondary_problem_types = []
+        problem_flags = {
+            "saturation_limited": False,
+            "severe_saturation": False,
+            "oscillation": False,
+            "overshoot_high": False,
+            "steady_state_error": True,
+            "slow_response": False,
+        }
         expected_effect = "reduce_steady_state_error"
         risk_level = "Low"
         confidence = 0.82
@@ -787,6 +957,7 @@ def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) 
             "rule_oscillation": False,
             "rule_overshoot_high": False,
             "rule_saturation_limited": False,
+            "rule_severe_saturation": False,
             "mean_error": -1.12,
             "mean_abs_error": 1.2,
             "error_std": 0.42,
@@ -806,6 +977,9 @@ def _build_demo_mock_recommendation(*, device: Device, params: DeviceParameter) 
     )
     return RecommendationGenerateOutput(
         problem_type=problem_type,
+        primary_problem_type=primary_problem_type,
+        secondary_problem_types=secondary_problem_types,
+        problem_flags=problem_flags,
         confidence=confidence,
         risk_level=risk_level,
         requires_confirmation=requires_confirmation,
@@ -1164,12 +1338,7 @@ def _dispatch_and_confirm_parameter_update(
     logger.warning("[APPLY] device=%s total_elapsed_ms=%s", device.code, int((time.monotonic() - flow_t0) * 1000))
 
     # Persist runtime-confirmed values so UI and DB reflect actual device state immediately.
-    if ack.get("kp") is not None:
-        param.kp = float(ack.get("kp") or param.kp)
-    if ack.get("ki") is not None:
-        param.ki = float(ack.get("ki") or param.ki)
-    if ack.get("kd") is not None:
-        param.kd = float(ack.get("kd") or param.kd)
+    _apply_runtime_pid_if_valid(param, source=ack, log_prefix="APPLY-ACK-PID")
     if ack.get("control_mode"):
         param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
     if ack.get("target_temp_c") is not None:
@@ -1187,17 +1356,15 @@ def _hydrate_runtime_parameters(device: Device, param: DeviceParameter) -> None:
     # Prefer runtime-confirmed params_ack values to keep UI and AI inputs aligned with device runtime state.
     ack = _latest_params_ack(device.code)
     if ack and bool(ack.get("success") is True):
-        if ack.get("kp") is not None:
-            param.kp = float(ack.get("kp") or param.kp)
-        if ack.get("ki") is not None:
-            param.ki = float(ack.get("ki") or param.ki)
-        if ack.get("kd") is not None:
-            param.kd = float(ack.get("kd") or param.kd)
-        if ack.get("control_mode"):
-            param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
-        if ack.get("target_temp_c") is not None:
-            device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
-        return
+        has_valid_runtime_pid = _apply_runtime_pid_if_valid(param, source=ack, log_prefix="HYDRATE-ACK-PID")
+        if not has_valid_runtime_pid:
+            logger.warning("[HYDRATE-ACK-PID] device=%s ack exists but PID invalid; fallback to telemetry", device.code)
+        else:
+            if ack.get("control_mode"):
+                param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
+            if ack.get("target_temp_c") is not None:
+                device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
+            return
 
     # Fallback to latest telemetry snapshot when params_ack stream is unavailable.
     sql = (
@@ -1208,12 +1375,7 @@ def _hydrate_runtime_parameters(device: Device, param: DeviceParameter) -> None:
     if not result.rows:
         return
     row = tdengine.row_to_dict(result.columns, result.rows[0])
-    if row.get("kp") is not None:
-        param.kp = float(row.get("kp") or param.kp)
-    if row.get("ki") is not None:
-        param.ki = float(row.get("ki") or param.ki)
-    if row.get("kd") is not None:
-        param.kd = float(row.get("kd") or param.kd)
+    _apply_runtime_pid_if_valid(param, source=row, log_prefix="HYDRATE-TELEMETRY-PID")
     if row.get("control_mode"):
         param.control_mode = _normalize_control_mode(str(row.get("control_mode"))) or param.control_mode
     if row.get("target_temp_c") is not None:

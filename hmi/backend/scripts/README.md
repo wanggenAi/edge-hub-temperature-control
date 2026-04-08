@@ -5,7 +5,7 @@ This directory is intentionally minimal.
 ## Active scripts
 
 - `db_migrate.py`: run Alembic migration to head
-- `db_seed.py`: seed default rules/demo relational data
+- `db_seed.py`: seed default rules/demo relational data (supports `TC-PREVIEW-*` AI demo cases)
 
 ## Archived scripts
 
@@ -27,6 +27,7 @@ AI runtime/training scripts are intentionally maintained under:
 cd hmi/backend
 python scripts/db_migrate.py
 python scripts/db_seed.py --rules
+python scripts/db_seed.py --preview-ai-demo
 ```
 
 Documentation sync date: 2026-04-07.
