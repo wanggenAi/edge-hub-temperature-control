@@ -486,6 +486,25 @@ class OpsConsoleService:
     def _rows_to_key_counts(self, rows: list[tuple[str, int]]) -> list[OpsKeyValueCount]:
         return [OpsKeyValueCount(key=str(k), count=int(v)) for k, v in rows]
 
+    def _normalize_runtime_source(self, raw_source: object, *, fallback_used: Optional[bool]) -> str:
+        source = str(raw_source or "").strip().lower()
+        legacy_map = {
+            "remote_ai_service": "ai_runtime_service",
+            "remote_runtime": "ai_runtime_service",
+            "ai_runtime": "ai_runtime_service",
+            "local": "local_backend",
+            "backend_local": "local_backend",
+        }
+        if source in legacy_map:
+            return legacy_map[source]
+        if source in {"ai_runtime_service", "local_backend"}:
+            return source
+        # Keep project clean: do not surface legacy/unknown runtime-source labels in Ops UI.
+        # If missing, derive best effort from fallback marker; otherwise default to active runtime path.
+        if fallback_used is True:
+            return "local_backend"
+        return "ai_runtime_service"
+
     def _effect_distribution_for_source(self, db: Session, source: str) -> tuple[list[OpsKeyValueCount], int, Optional[float]]:
         rows = db.execute(
             select(ControlActionFeedbackSample.actual_effect_label, func.count(ControlActionFeedbackSample.id))
@@ -706,7 +725,8 @@ class OpsConsoleService:
             ard = meta.get("ard")
             if not isinstance(ard, dict):
                 continue
-            src = str(ard.get("runtime_source") or "unknown")
+            fallback_marker: Optional[bool] = bool(ard.get("fallback_used")) if "fallback_used" in ard else None
+            src = self._normalize_runtime_source(ard.get("runtime_source"), fallback_used=fallback_marker)
             source_counter[src] += 1
             if "fallback_used" in ard:
                 fallback_total += 1
@@ -737,6 +757,11 @@ class OpsConsoleService:
         if not settings.ai_runtime_enabled:
             notes.append("AI runtime is disabled in backend settings; local fallback path is expected.")
 
+        ordered_sources = [
+            OpsKeyValueCount(key="ai_runtime_service", count=int(source_counter.get("ai_runtime_service", 0))),
+            OpsKeyValueCount(key="local_backend", count=int(source_counter.get("local_backend", 0))),
+        ]
+
         return OpsModelRuntimeOut(
             as_of=now,
             active_model_version=active_version,
@@ -744,7 +769,7 @@ class OpsConsoleService:
             last_trained_at=last_trained_at,
             last_promoted_at=last_promoted_at,
             archived_model_artifact_count=archive_count,
-            runtime_source_breakdown=[OpsKeyValueCount(key=k, count=v) for k, v in source_counter.most_common()],
+            runtime_source_breakdown=ordered_sources,
             fallback_ratio=fallback_ratio,
             recommendation_generated_24h=generated_24h,
             recommendation_applied_24h=applied_24h,
