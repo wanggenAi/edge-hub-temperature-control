@@ -44,7 +44,7 @@ Current scope:
 Current non-goals:
 
 - HMI
-- web API
+- business web API
 - control command entry
 - optimizer logic
 - microservice splitting
@@ -215,6 +215,29 @@ Use these stats together with:
 - `writerConcurrency`
 - `prefetch`
 - `overflow`
+
+## Actuator Metrics Endpoint (JVM / GC / Heap)
+
+The data hub now exposes Spring Actuator metrics for developer observability.
+
+Default endpoint:
+
+- `http://127.0.0.1:8081/actuator/prometheus`
+
+Relevant JVM metrics for the Ops Console:
+
+- `jvm_memory_used_bytes{area="heap"}`
+- `jvm_memory_max_bytes{area="heap"}`
+- `jvm_memory_used_bytes{area="nonheap"}`
+- `jvm_gc_pause_seconds_count` / `jvm_gc_collection_seconds_count`
+- `jvm_gc_pause_seconds_sum` / `jvm_gc_collection_seconds_sum`
+- `jvm_threads_live_threads`
+
+Configured in `config/application.properties`:
+
+- `management.server.port=8081`
+- `management.endpoints.web.exposure.include=health,info,metrics,prometheus`
+- `management.prometheus.metrics.export.enabled=true`
 
 ## Telemetry Persistence Filtering
 

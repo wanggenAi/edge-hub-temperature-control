@@ -1170,7 +1170,7 @@ def _record_control_action_after_apply(
     before: dict[str, Any],
     after: dict[str, Any],
     context_snapshot: Optional[dict[str, Any]] = None,
-    observation_window_minutes: int = 15,
+    observation_window_minutes: Optional[int] = None,
 ) -> ControlAction:
     action, _job = control_action_learning_service.create_action_and_eval_job(
         db=db,
@@ -1953,6 +1953,10 @@ def apply_ai_recommendation(
 
     current = PIDParams(kp=float(params.kp), ki=float(params.ki), kd=float(params.kd))
     recommended = recommendation_service.parse_recommended_params(rec.suggestion, current)
+    rec_payload = recommendation_service.parse_suggestion_payload(rec.suggestion) or {}
+    primary_problem_type_ctx = rec_payload.get("primary_problem_type") or rec_payload.get("problem_type")
+    if not isinstance(primary_problem_type_ctx, str):
+        primary_problem_type_ctx = None
     if not recommended:
         logger.warning("[APPLY-REQ] device_id=%s recommendation parse failed -> dismiss", device_id)
         params.updated_by = f"{current_user.username}:ai-noop"
@@ -2017,7 +2021,11 @@ def apply_ai_recommendation(
             applied_at=applied_at,
             before=before,
             after=after,
-            context_snapshot={"path": "apply_ai_recommendation", "result": "ack_shortcut"},
+            context_snapshot={
+                "path": "apply_ai_recommendation",
+                "result": "ack_shortcut",
+                "primary_problem_type": primary_problem_type_ctx,
+            },
         )
         return params
 
@@ -2059,7 +2067,11 @@ def apply_ai_recommendation(
             applied_at=applied_at,
             before=before,
             after=after,
-            context_snapshot={"path": "apply_ai_recommendation", "result": "idempotent_already_applied"},
+            context_snapshot={
+                "path": "apply_ai_recommendation",
+                "result": "idempotent_already_applied",
+                "primary_problem_type": primary_problem_type_ctx,
+            },
         )
         return params
 
@@ -2098,7 +2110,11 @@ def apply_ai_recommendation(
         applied_at=applied_at,
         before=before,
         after=after,
-        context_snapshot={"path": "apply_ai_recommendation", "result": "dispatched"},
+        context_snapshot={
+            "path": "apply_ai_recommendation",
+            "result": "dispatched",
+            "primary_problem_type": primary_problem_type_ctx,
+        },
     )
     return updated
 

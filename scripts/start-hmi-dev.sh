@@ -170,6 +170,10 @@ if [[ ! -f "$BACKEND_PID_FILE" ]]; then
       AI_RUNTIME_ENABLED="$([[ "$WITH_AI" -eq 1 ]] && echo true || echo false)" \
       AI_RUNTIME_URL="http://127.0.0.1:8010" \
       AI_RUNTIME_FAIL_OPEN="true" \
+      OPS_ENABLE_EXTERNAL_METRICS="true" \
+      OPS_RUNTIME_METRICS_URL="${OPS_RUNTIME_METRICS_URL:-http://127.0.0.1:8081/actuator/prometheus}" \
+      OPS_DATA_HUB_METRICS_URL="${OPS_DATA_HUB_METRICS_URL:-http://127.0.0.1:8081/actuator/prometheus}" \
+      OPS_METRICS_TIMEOUT_SECONDS="${OPS_METRICS_TIMEOUT_SECONDS:-2}" \
       "$BACKEND_DIR/.venv/bin/uvicorn" app.main:app --host 127.0.0.1 --port 8000 \
       >"$BACKEND_LOG_FILE" 2>&1 &
     echo $! >"$BACKEND_PID_FILE"

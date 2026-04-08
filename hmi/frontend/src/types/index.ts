@@ -445,3 +445,139 @@ export interface SummaryDetailResponse {
   summary: SummaryItem;
   metrics: Metric[];
 }
+
+export interface OpsKeyValueCount {
+  key: string;
+  count: number;
+}
+
+export interface OpsTrendPoint {
+  ts: string;
+  mqtt_ingress_tps?: number | null;
+  consume_tps?: number | null;
+  dropped_delta?: number | null;
+  queue_depth?: number | null;
+  parse_fail_delta?: number | null;
+  persist_fail_delta?: number | null;
+  tdengine_write_failed_delta?: number | null;
+}
+
+export interface OpsDataHub {
+  as_of: string;
+  source: string;
+  available: boolean;
+  interval_seconds?: number | null;
+  mqtt_ingress_tps?: number | null;
+  mqtt_egress_tps?: number | null;
+  data_hub_consume_tps?: number | null;
+  queue_depth?: number | null;
+  dropped_total?: number | null;
+  dropped_delta?: number | null;
+  outcome_ingress_drop_delta?: number | null;
+  outcome_pipeline_drop_delta?: number | null;
+  outcome_parse_fail_delta?: number | null;
+  outcome_persist_fail_delta?: number | null;
+  outcome_telemetry_skip_delta?: number | null;
+  outcome_control_topic_delta?: number | null;
+  outcome_persisted_delta?: number | null;
+  accounting_unaccounted_delta?: number | null;
+  telemetry_persisted_delta?: number | null;
+  params_set_delta?: number | null;
+  params_ack_delta?: number | null;
+  device_status_delta?: number | null;
+  discard_reasons_top: OpsKeyValueCount[];
+  tdengine_write_success_total?: number | null;
+  tdengine_write_failed_total?: number | null;
+  tdengine_write_success_delta?: number | null;
+  tdengine_write_failed_delta?: number | null;
+  data_hub_cpu_usage_pct?: number | null;
+  trend: OpsTrendPoint[];
+}
+
+export interface OpsRuntime {
+  as_of: string;
+  source: string;
+  process_uptime_seconds: number;
+  process_thread_count: number;
+  process_cpu_usage_pct?: number | null;
+  load_avg_1m?: number | null;
+  load_avg_5m?: number | null;
+  load_avg_15m?: number | null;
+  db_pool_size?: number | null;
+  db_pool_checked_in?: number | null;
+  db_pool_checked_out?: number | null;
+  db_pool_overflow?: number | null;
+  db_pool_status?: string | null;
+  jvm_metrics_available: boolean;
+  jvm_heap_used_mb?: number | null;
+  jvm_heap_max_mb?: number | null;
+  jvm_non_heap_used_mb?: number | null;
+  jvm_gc_count?: number | null;
+  jvm_gc_pause_ms?: number | null;
+  jvm_gc_pause_max_ms?: number | null;
+  jvm_thread_count?: number | null;
+  ai_runtime_enabled: boolean;
+  ai_runtime_url?: string | null;
+  ai_runtime_log_updated_at?: string | null;
+  data_hub_log_updated_at?: string | null;
+}
+
+export interface OpsEvalJobStatus {
+  pending: number;
+  running: number;
+  done: number;
+  retry_pending: number;
+  terminal_insufficient: number;
+  failed: number;
+}
+
+export interface OpsRecentEvalJob {
+  job_id: number;
+  control_action_id: number;
+  device_id: number;
+  source: string;
+  status: string;
+  attempt_count: number;
+  scheduled_at: string;
+  updated_at: string;
+  last_error?: string | null;
+}
+
+export interface OpsLearningLoop {
+  as_of: string;
+  control_actions_by_source_total: OpsKeyValueCount[];
+  control_actions_by_source_24h: OpsKeyValueCount[];
+  eval_jobs_by_status: OpsEvalJobStatus;
+  pending_overdue: number;
+  worker_processed_24h: number;
+  worker_last_activity_at?: string | null;
+  sample_quality_distribution: OpsKeyValueCount[];
+  training_eligible_total: number;
+  training_eligible_7d: number;
+  training_eligible_daily_7d: OpsTrendPoint[];
+  actual_effect_distribution: OpsKeyValueCount[];
+  recent_jobs: OpsRecentEvalJob[];
+}
+
+export interface OpsModelRuntime {
+  as_of: string;
+  active_model_version?: string | null;
+  candidate_model_version?: string | null;
+  last_trained_at?: string | null;
+  last_promoted_at?: string | null;
+  archived_model_artifact_count: number;
+  runtime_source_breakdown: OpsKeyValueCount[];
+  fallback_ratio?: number | null;
+  recommendation_generated_24h: number;
+  recommendation_applied_24h: number;
+  ai_runtime_enabled: boolean;
+  notes: string[];
+}
+
+export interface OpsOverview {
+  as_of: string;
+  data_hub: OpsDataHub;
+  runtime: OpsRuntime;
+  learning_loop: OpsLearningLoop;
+  models: OpsModelRuntime;
+}

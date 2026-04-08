@@ -6,7 +6,7 @@ This directory is intentionally minimal.
 
 - `db_migrate.py`: run Alembic migration to head
 - `db_seed.py`: seed default rules/demo relational data (supports `TC-PREVIEW-*` AI demo cases)
-- `run_control_action_feedback_worker.py`: evaluate pending control-action feedback jobs
+- `run_control_action_feedback_worker.py`: one-shot batch evaluator for pending control-action feedback jobs
 
 ## Archived scripts
 
@@ -31,5 +31,9 @@ python scripts/db_seed.py --rules
 python scripts/db_seed.py --preview-ai-demo
 python scripts/run_control_action_feedback_worker.py --batch-size 50
 ```
+
+Recommended scheduling:
+- trigger `run_control_action_feedback_worker.py` externally every `10` minutes
+- avoid per-minute execution; delayed batches reduce premature insufficient-data evaluations
 
 Documentation sync date: 2026-04-07.

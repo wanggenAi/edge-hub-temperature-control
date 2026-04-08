@@ -75,6 +75,44 @@ uvicorn app.main:app --reload
 
 API docs: `http://127.0.0.1:8000/docs`
 
+## Developer Ops Console (Admin)
+
+This is a developer/operator observability page (not a device-alert page).
+
+- Frontend route: `/ops` (admin only)
+- Backend endpoints:
+  - `GET /ops/overview`
+  - `GET /ops/data-hub`
+  - `GET /ops/runtime`
+  - `GET /ops/learning-loop`
+  - `GET /ops/models`
+
+MVP signals included:
+- Data Hub / MQTT ingest health (ingress TPS, consume TPS, queue depth, drop counters, discard reasons)
+- Platform/runtime basics (process uptime, thread count, load average, DB pool pressure)
+- Unified control-action learning loop health (action source counts, eval job status, sample quality, eligibility, effect labels)
+- Model/runtime health (active/candidate artifact info, runtime source breakdown, fallback ratio)
+
+Data Hub key metrics are sourced from real `datahub.stats` log groups (not inferred):
+- `mqtt[...]`, `accounting[...]`, `outcome_delta[...]`, `tdengine[...]`, `buffer[...]`, `delta[...]`
+- Ops page renders trend charts for:
+  - ingress vs consume TPS
+  - drop/failure deltas
+  - queue depth
+
+Optional lightweight external metrics integration (for JVM/Data Hub exporters):
+
+```env
+OPS_ENABLE_EXTERNAL_METRICS=true
+OPS_RUNTIME_METRICS_URL=http://127.0.0.1:8081/actuator/prometheus
+OPS_DATA_HUB_METRICS_URL=http://127.0.0.1:8081/actuator/prometheus
+OPS_METRICS_TIMEOUT_SECONDS=2
+```
+
+Behavior:
+- if external endpoint is reachable, Ops Console overlays JVM/runtime metrics from that endpoint
+- if endpoint is unavailable, Ops Console keeps using local process + log-derived metrics (safe fallback)
+
 Seed accounts:
 
 - admin / admin123
@@ -250,6 +288,10 @@ python scripts/run_control_action_feedback_worker.py --batch-size 50
 ```
 
 This evaluates pending control actions (AI apply + manual apply) and writes structured feedback samples.
+
+Recommended production/dev scheduling:
+- run this script externally every `10` minutes (cron/systemd/K8s CronJob)
+- keep it as one-shot batch execution, not a tight internal polling loop
 
 Notes:
 

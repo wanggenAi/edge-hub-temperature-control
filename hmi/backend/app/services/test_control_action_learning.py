@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -16,7 +17,11 @@ from app.models.entities import (
     DeviceMetric,
     DeviceParameter,
 )
-from app.services.control_action_learning import control_action_learning_service
+from app.services.control_action_learning import (
+    _derive_quality,
+    control_action_learning_service,
+)
+from scripts.run_control_action_feedback_worker import process_eval_job
 
 
 class ControlActionLearningTests(unittest.TestCase):
@@ -44,6 +49,10 @@ class ControlActionLearningTests(unittest.TestCase):
             kd=0.1,
             control_mode="pid_control",
             target_band=0.5,
+            steady_window_samples=12,
+            overshoot_limit_pct=3.0,
+            saturation_warn_ratio=0.3,
+            saturation_high_ratio=0.6,
             pwm_saturation_threshold=85.0,
             updated_by="unittest",
         )
@@ -63,11 +72,78 @@ class ControlActionLearningTests(unittest.TestCase):
         finally:
             self.db.close()
 
-    def _insert_metrics(self, *, apply_at: datetime, enough: bool = True) -> None:
-        before_count = 20 if enough else 2
-        after_count = 20 if enough else 3
+    def _make_ai_suggestion(self, primary_problem_type: str) -> str:
+        payload = {
+            "f": "ai_rec",
+            "v": "2",
+            "p": {
+                "t": primary_problem_type,
+                "pt": primary_problem_type,
+                "st": [],
+                "pf": {},
+                "e": "keep_stable",
+                "r": "Low",
+                "c": 0.8,
+                "rc": False,
+                "cp": {"kp": 2.2, "ki": 0.3, "kd": 0.1},
+                "rp": {"kp": 2.1, "ki": 0.28, "kd": 0.12},
+                "d": {"kp": -0.1, "ki": -0.02, "kd": 0.02},
+                "evidence": {},
+                "m": {},
+            },
+        }
+        return json.dumps(payload, separators=(",", ":"))
+
+    def _create_ai_recommendation(self, primary_problem_type: str = "normal") -> AIRecommendation:
+        rec = AIRecommendation(
+            device_id=self.device.id,
+            reason=f"{primary_problem_type}; effect=keep_stable",
+            suggestion=self._make_ai_suggestion(primary_problem_type),
+            confidence=0.8,
+            risk="Low; requires_confirmation=False",
+            last_run_at=datetime.utcnow(),
+        )
+        self.db.add(rec)
+        self.db.commit()
+        self.db.refresh(rec)
+        return rec
+
+    def _create_action(
+        self,
+        *,
+        source: str,
+        source_ref_id: int | None = None,
+        applied_at: datetime | None = None,
+        observation_window_minutes: int | None = None,
+        scheduled_at: datetime | None = None,
+        context_snapshot: dict | None = None,
+    ) -> tuple[ControlAction, ControlActionEvalJob]:
+        return control_action_learning_service.create_action_and_eval_job(
+            db=self.db,
+            device=self.device,
+            source=source,
+            source_ref_id=source_ref_id,
+            action_type="pid_apply",
+            initiated_by="operator1",
+            applied_at=applied_at or datetime.utcnow(),
+            before={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.2, "ki": 0.3, "kd": 0.1},
+            after={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.4, "ki": 0.34, "kd": 0.12},
+            context_snapshot=context_snapshot or {},
+            observation_window_minutes=observation_window_minutes,
+            scheduled_at=scheduled_at,
+        )
+
+    def _insert_metrics(
+        self,
+        *,
+        apply_at: datetime,
+        before_count: int = 20,
+        after_count: int = 20,
+        target_shift: float = 0.0,
+        offline_after_ratio: float = 0.0,
+    ) -> None:
         for i in range(before_count):
-            ts = apply_at - timedelta(minutes=15) + timedelta(seconds=i * 40)
+            ts = apply_at - timedelta(minutes=20) + timedelta(seconds=i * 45)
             temp = 36.6 + 0.02 * i
             err = temp - 37.0
             self.db.add(
@@ -84,129 +160,137 @@ class ControlActionLearningTests(unittest.TestCase):
                 )
             )
         for i in range(after_count):
-            ts = apply_at + timedelta(seconds=i * 40)
-            temp = 36.9 + 0.005 * i
-            err = temp - 37.0
+            ts = apply_at + timedelta(seconds=i * 45)
+            temp = 36.9 + 0.004 * i
+            target = 37.0 + target_shift
+            err = temp - target
+            status = "offline" if i < int(after_count * offline_after_ratio) else "active"
             self.db.add(
                 DeviceMetric(
                     device_id=self.device.id,
                     timestamp=ts,
                     current_temp=temp,
-                    target_temp=37.0,
+                    target_temp=target,
                     error=err,
                     pwm_output=52.0,
-                    status="active",
+                    status=status,
                     in_spec=abs(err) <= 0.5,
                     is_alarm=False,
                 )
             )
         self.db.commit()
 
-    def test_manual_action_creates_control_action_and_pending_job(self) -> None:
+    def test_new_eval_job_scheduled_after_observation_window_manual_default(self) -> None:
         apply_at = datetime.utcnow()
-        action, job = control_action_learning_service.create_action_and_eval_job(
-            db=self.db,
-            device=self.device,
-            source="manual_user",
-            source_ref_id=None,
-            action_type="pid_apply",
-            initiated_by="operator1",
-            applied_at=apply_at,
-            before={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.2, "ki": 0.3, "kd": 0.1},
-            after={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.5, "ki": 0.34, "kd": 0.12},
-            context_snapshot={"from_test": True},
-        )
-        self.assertEqual(action.source, "manual_user")
-        self.assertEqual(action.status, "pending_eval")
-        self.assertEqual(job.status, "pending")
-        self.assertEqual(job.control_action_id, action.id)
+        _action, job = self._create_action(source="manual_user", applied_at=apply_at)
+        self.assertEqual(job.observation_window_minutes, 20)
+        delta = job.scheduled_at - apply_at
+        self.assertAlmostEqual(delta.total_seconds(), 20 * 60, delta=3)
 
-    def test_ai_action_creates_control_action_and_pending_job(self) -> None:
-        rec = AIRecommendation(
-            device_id=self.device.id,
-            reason="slow_response; effect=speed_up_response",
-            suggestion="Kp:+0.2 Ki:+0.05 Kd:0",
-            confidence=0.8,
-            risk="Medium; requires_confirmation=True",
-            last_run_at=datetime.utcnow(),
+    def test_new_eval_job_scheduled_after_observation_window_ai_policy(self) -> None:
+        rec = self._create_ai_recommendation("slow_response")
+        apply_at = datetime.utcnow()
+        _action, job = self._create_action(source="ai_recommendation", source_ref_id=rec.id, applied_at=apply_at)
+        self.assertEqual(job.observation_window_minutes, 25)
+        delta = job.scheduled_at - apply_at
+        self.assertAlmostEqual(delta.total_seconds(), 25 * 60, delta=3)
+
+    def test_worker_reschedules_too_early_jobs_and_increments_retry(self) -> None:
+        apply_at = datetime.utcnow()
+        _action, job = self._create_action(
+            source="manual_user",
+            applied_at=apply_at,
+            scheduled_at=apply_at,
+            observation_window_minutes=20,
         )
-        self.db.add(rec)
+        category = process_eval_job(db=self.db, job=job, now_dt=apply_at)
+        self.assertEqual(category, "rescheduled")
+        self.db.refresh(job)
+        self.assertEqual(job.status, "pending")
+        self.assertEqual(job.attempt_count, 1)
+        self.assertGreater(job.scheduled_at, apply_at)
+
+    def test_worker_retry_exhaustion_causes_terminal_status(self) -> None:
+        apply_at = datetime.utcnow()
+        _action, job = self._create_action(
+            source="manual_user",
+            applied_at=apply_at,
+            scheduled_at=apply_at,
+            observation_window_minutes=20,
+        )
+        job.attempt_count = control_action_learning_service.policy.max_retry_count
         self.db.commit()
-        self.db.refresh(rec)
 
-        action, job = control_action_learning_service.create_action_and_eval_job(
-            db=self.db,
-            device=self.device,
-            source="ai_recommendation",
-            source_ref_id=rec.id,
-            action_type="pid_apply",
-            initiated_by="operator1",
-            applied_at=datetime.utcnow(),
-            before={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.2, "ki": 0.3, "kd": 0.1},
-            after={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.0, "ki": 0.28, "kd": 0.1},
-            context_snapshot={"from_test": True},
-        )
-        self.assertEqual(action.source, "ai_recommendation")
-        self.assertEqual(action.source_ref_id, rec.id)
-        self.assertEqual(job.status, "pending")
+        category = process_eval_job(db=self.db, job=job, now_dt=apply_at)
+        self.assertEqual(category, "terminal_insufficient")
+        self.db.refresh(job)
+        self.assertEqual(job.status, "insufficient_data")
+        self.assertIn("retry_exhausted", str(job.last_error))
 
-    def test_evaluation_persists_feedback_sample_and_is_idempotent(self) -> None:
-        apply_at = datetime.utcnow() - timedelta(minutes=12)
-        action, _job = control_action_learning_service.create_action_and_eval_job(
-            db=self.db,
-            device=self.device,
+    def test_manual_origin_sample_persists_pre_action_feature_snapshot(self) -> None:
+        apply_at = datetime.utcnow() - timedelta(minutes=30)
+        action, _job = self._create_action(
             source="manual_user",
-            source_ref_id=None,
-            action_type="pid_apply",
-            initiated_by="operator1",
             applied_at=apply_at,
-            before={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.2, "ki": 0.3, "kd": 0.1},
-            after={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.4, "ki": 0.34, "kd": 0.12},
+            observation_window_minutes=20,
+            scheduled_at=apply_at,
         )
-        self._insert_metrics(apply_at=apply_at, enough=True)
+        self._insert_metrics(apply_at=apply_at, before_count=30, after_count=30)
 
-        first = control_action_learning_service.evaluate_control_action(
-            db=self.db,
-            control_action=action,
-            observation_window_minutes=10,
-            now_dt=datetime.utcnow(),
-        )
-        self.assertEqual(first.status, "done")
-        self.assertIsNotNone(first.sample_id)
-
-        second = control_action_learning_service.evaluate_control_action(
-            db=self.db,
-            control_action=action,
-            observation_window_minutes=10,
-            now_dt=datetime.utcnow(),
-        )
-        self.assertEqual(second.status, "done")
-        rows = self.db.scalars(
-            select(ControlActionFeedbackSample).where(ControlActionFeedbackSample.control_action_id == action.id)
-        ).all()
-        self.assertEqual(len(rows), 1)
-
-    def test_insufficient_data_is_marked(self) -> None:
-        apply_at = datetime.utcnow() - timedelta(minutes=2)
-        action, _job = control_action_learning_service.create_action_and_eval_job(
-            db=self.db,
-            device=self.device,
-            source="manual_user",
-            source_ref_id=None,
-            action_type="pid_apply",
-            initiated_by="operator1",
-            applied_at=apply_at,
-            before={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.2, "ki": 0.3, "kd": 0.1},
-            after={"control_mode": "pid_control", "target_temp": 37.0, "kp": 2.4, "ki": 0.34, "kd": 0.12},
-        )
-        self._insert_metrics(apply_at=apply_at, enough=False)
         result = control_action_learning_service.evaluate_control_action(
             db=self.db,
             control_action=action,
-            observation_window_minutes=10,
+            observation_window_minutes=20,
             now_dt=datetime.utcnow(),
         )
-        self.assertEqual(result.status, "insufficient_data")
+        self.assertEqual(result.status, "done")
+        sample = self.db.scalar(
+            select(ControlActionFeedbackSample).where(ControlActionFeedbackSample.control_action_id == action.id)
+        )
+        self.assertIsNotNone(sample)
+        assert sample is not None
+        self.assertIsNotNone(sample.mean_error)
+        self.assertIsNotNone(sample.mean_abs_error)
+        self.assertIsNotNone(sample.error_std)
+        self.assertIsNotNone(sample.temp_swing)
+        self.assertIsNotNone(sample.pwm_mean)
+        self.assertIsNotNone(sample.in_band_ratio)
+
+    def test_sample_quality_and_eligibility_policy(self) -> None:
+        self.assertEqual(_derive_quality(insufficient_data=False, reasons=[]), ("high", True, None))
+        self.assertEqual(_derive_quality(insufficient_data=False, reasons=["baseline_unavailable"]), ("medium", True, "baseline_unavailable"))
+        low_quality = _derive_quality(insufficient_data=False, reasons=["baseline_unavailable", "minor_noise"]) 
+        self.assertEqual(low_quality[0], "low")
+        self.assertFalse(low_quality[1])
+        reject_quality = _derive_quality(insufficient_data=True, reasons=["not_enough_post_apply_points"])
+        self.assertEqual(reject_quality[0], "reject")
+        self.assertFalse(reject_quality[1])
+
+    def test_existing_ai_origin_sample_flow_still_works(self) -> None:
+        rec = self._create_ai_recommendation("oscillation")
+        apply_at = datetime.utcnow() - timedelta(minutes=40)
+        action, _job = self._create_action(
+            source="ai_recommendation",
+            source_ref_id=rec.id,
+            applied_at=apply_at,
+            observation_window_minutes=12,
+            scheduled_at=apply_at,
+        )
+        self._insert_metrics(apply_at=apply_at, before_count=25, after_count=25)
+
+        result = control_action_learning_service.evaluate_control_action(
+            db=self.db,
+            control_action=action,
+            observation_window_minutes=12,
+            now_dt=datetime.utcnow(),
+        )
+        self.assertEqual(result.status, "done")
+        sample = self.db.scalar(
+            select(ControlActionFeedbackSample).where(ControlActionFeedbackSample.control_action_id == action.id)
+        )
+        self.assertIsNotNone(sample)
+        assert sample is not None
+        self.assertEqual(sample.source, "ai_recommendation")
 
 
 if __name__ == "__main__":

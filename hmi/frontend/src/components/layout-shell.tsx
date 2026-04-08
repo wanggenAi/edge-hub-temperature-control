@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Activity, Bell, BrainCircuit, Database, Gauge, HardDrive, History, LogOut, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react";
+import { Activity, Bell, BrainCircuit, Database, Gauge, HardDrive, History, LogOut, PanelLeftClose, PanelLeftOpen, Settings2, Users } from "lucide-react";
 
 import { useAuth } from "@/app/auth";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,9 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
             <NavItem to="/devices/manage" icon={<HardDrive className="h-4 w-4" />} label="Device Management" collapsed={collapsed} />
             <NavItem to="/alarms" icon={<Bell className="h-4 w-4" />} label="Alarms" collapsed={collapsed} />
             <NavItem to="/history" icon={<History className="h-4 w-4" />} label="History" collapsed={collapsed} />
+            {hasRole("admin") && (
+              <NavItem to="/ops" icon={<Settings2 className="h-4 w-4" />} label="DevOps Console" collapsed={collapsed} />
+            )}
             {hasRole("admin") && (
               <NavItem to="/storage-rules" icon={<Database className="h-4 w-4" />} label="Storage Rules" collapsed={collapsed} />
             )}

@@ -16,6 +16,11 @@ import type {
   Me,
   Metric,
   MetricWindowStats,
+  OpsDataHub,
+  OpsLearningLoop,
+  OpsModelRuntime,
+  OpsOverview,
+  OpsRuntime,
   PagedDevices,
   Parameter,
   SummaryDetailResponse,
@@ -289,4 +294,9 @@ export const api = {
       )}${params.device_id ? `&device_id=${params.device_id}` : ""}`
     ),
   summaryDetail: (id: number) => request<SummaryDetailResponse>(`/history/summaries/${id}`),
+  opsOverview: () => request<OpsOverview>("/ops/overview"),
+  opsDataHub: () => request<OpsDataHub>("/ops/data-hub"),
+  opsRuntime: () => request<OpsRuntime>("/ops/runtime"),
+  opsLearningLoop: () => request<OpsLearningLoop>("/ops/learning-loop"),
+  opsModels: () => request<OpsModelRuntime>("/ops/models"),
 };

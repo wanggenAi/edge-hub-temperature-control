@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     ai_runtime_url: str = "http://127.0.0.1:8010"
     ai_runtime_timeout_seconds: float = 4.0
     ai_runtime_fail_open: bool = True
+    ops_enable_external_metrics: bool = False
+    ops_data_hub_metrics_url: str = ""
+    ops_runtime_metrics_url: str = ""
+    ops_metrics_timeout_seconds: float = 2.0
     hmi_log_level: str = "INFO"
     hmi_console_log_level: str = "INFO"
     hmi_access_log_level: str = "INFO"
