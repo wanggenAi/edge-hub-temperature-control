@@ -43,6 +43,7 @@ from app.schemas.device import (
 )
 from app.services.mqtt_publisher import MqttPublisher
 from app.services.ai.recommendation_service import RecommendationService
+from app.services.ai.recommendation_orchestrator import RecommendationOrchestrator
 from app.services.ai.runtime_client import AIRuntimeError, ai_runtime_client
 from app.services.ai.post_effect_evaluator import ObservedTelemetryPoint, PostEffectEvaluator
 from app.services.ai.preview_simulator import (
@@ -74,6 +75,7 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
 recommendation_service = RecommendationService()
+recommendation_orchestrator = RecommendationOrchestrator(recommendation_service)
 preview_simulator = RecommendationPreviewSimulator()
 post_effect_evaluator = PostEffectEvaluator()
 logger = logging.getLogger(__name__)
@@ -785,19 +787,27 @@ def _generate_recommendation_with_runtime(
     request_payload: RecommendationGenerateInput,
 ) -> tuple[RecommendationGenerateOutput, dict[str, Any]]:
     if not bool(settings.ai_runtime_enabled):
-        generated = recommendation_service.generate(request_payload)
-        return generated, {"runtime_source": "local_backend", "fallback_used": False}
+        result = recommendation_orchestrator.generate_ranked_recommendation(
+            payload=request_payload,
+            runtime_source="local_backend",
+            fallback_used=False,
+        )
+        return result.output, result.runtime_decision
     try:
         generated = ai_runtime_client.generate(request_payload)
-        return generated, {"runtime_source": "ai_runtime_service", "fallback_used": False}
+        runtime_decision = generated.ai_decision if isinstance(generated.ai_decision, dict) else {}
+        if not runtime_decision:
+            runtime_decision = {"runtime_source": "ai_runtime_service", "fallback_used": False}
+        return generated, runtime_decision
     except AIRuntimeError as exc:
         if bool(settings.ai_runtime_fail_open):
-            generated = recommendation_service.generate(request_payload)
-            return generated, {
-                "runtime_source": "local_backend",
-                "fallback_used": True,
-                "fallback_reason": str(exc),
-            }
+            result = recommendation_orchestrator.generate_ranked_recommendation(
+                payload=request_payload,
+                runtime_source="local_backend",
+                fallback_used=True,
+                fallback_reason=str(exc),
+            )
+            return result.output, result.runtime_decision
         raise HTTPException(status_code=503, detail=f"AI runtime unavailable: {exc}") from exc
 
 

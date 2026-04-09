@@ -24,6 +24,8 @@ class RecommendationRankingContext:
     step_sec: int = 30
     control_mode: str = "pid_control"
     predicted_problem_type: Optional[str] = None
+    secondary_problem_types: Optional[list[str]] = None
+    problem_flags: Optional[dict[str, bool]] = None
 
 
 @dataclass
@@ -160,18 +162,54 @@ class RecommendationRanker:
             )
 
         predicted_problem = (context.predicted_problem_type or "").strip().lower()
+        secondary = {str(item or "").strip().lower() for item in (context.secondary_problem_types or []) if str(item or "").strip()}
+        flags = {str(k): bool(v) for k, v in (context.problem_flags or {}).items()}
 
-        conservative_scale = (0.65, 0.65, 1.10)
-        aggressive_scale = (1.35, 1.25, 0.90)
-        settling_scale = (1.20, 1.00, 0.95)
+        # 1) Defaults
+        conservative_scale = [0.65, 0.65, 1.10]
+        aggressive_scale = [1.35, 1.25, 0.90]
+        settling_scale = [1.20, 1.00, 0.95]
 
+        # 2) Primary-problem profile (main direction)
         if predicted_problem in {"overshoot_high", "oscillation", "saturation_limited"}:
-            aggressive_scale = (1.15, 1.05, 1.00)
-            settling_scale = (1.10, 0.95, 1.05)
+            aggressive_scale = [1.15, 1.05, 1.00]
+            settling_scale = [1.10, 0.95, 1.05]
         elif predicted_problem in {"slow_response", "steady_state_error"}:
-            conservative_scale = (0.70, 0.70, 1.05)
-            aggressive_scale = (1.45, 1.30, 0.88)
-            settling_scale = (1.28, 1.08, 0.92)
+            conservative_scale = [0.70, 0.70, 1.05]
+            aggressive_scale = [1.45, 1.30, 0.88]
+            settling_scale = [1.28, 1.08, 0.92]
+
+        # 3) Secondary-problem refinements (refine; do not override primary)
+        if {"overshoot_high", "oscillation"} & secondary:
+            aggressive_scale[0] *= 0.90
+            aggressive_scale[1] *= 0.88
+            aggressive_scale[2] = max(aggressive_scale[2], 1.02)
+            settling_scale[2] = max(settling_scale[2], 1.05)
+        if {"steady_state_error", "slow_response"} <= secondary or (
+            predicted_problem == "steady_state_error" and "slow_response" in secondary
+        ) or (predicted_problem == "slow_response" and "steady_state_error" in secondary):
+            aggressive_scale[1] *= 1.08
+            settling_scale[0] *= 1.05
+        elif "steady_state_error" in secondary:
+            aggressive_scale[1] *= 1.06
+        elif "slow_response" in secondary:
+            settling_scale[0] *= 1.06
+
+        # 4) Safety constraints from flags
+        if flags.get("saturation_limited") or flags.get("severe_saturation"):
+            conservative_scale[0] *= 0.95
+            conservative_scale[1] *= 0.92
+            aggressive_scale[0] = min(aggressive_scale[0], 1.10)
+            aggressive_scale[1] = min(aggressive_scale[1], 1.08)
+            aggressive_scale[2] = max(aggressive_scale[2], 1.02)
+        if flags.get("overshoot_high") or flags.get("oscillation"):
+            aggressive_scale[0] = min(aggressive_scale[0], 1.18)
+            aggressive_scale[1] = min(aggressive_scale[1], 1.12)
+            aggressive_scale[2] = max(aggressive_scale[2], 1.03)
+
+        conservative_scale = tuple(float(v) for v in conservative_scale)
+        aggressive_scale = tuple(float(v) for v in aggressive_scale)
+        settling_scale = tuple(float(v) for v in settling_scale)
 
         # Ensure overshoot-guard behavior is consistent with its name.
         # We always make Kp/Ki more conservative than rule_center, and force Kd
@@ -219,6 +257,45 @@ class RecommendationRanker:
                 m_kd=settling_scale[2],
                 strategy_note="Bias toward faster settling with moderate Kp boost.",
             ),
+        ]
+
+        # 5) Multi-problem compromise candidates (small, explainable set)
+        if predicted_problem == "oscillation" and ("overshoot_high" in secondary or flags.get("overshoot_high")):
+            candidates.append(
+                build_from_multiplier(
+                    candidate_id="oscillation_overshoot_balance",
+                    m_kp=0.78,
+                    m_ki=0.70,
+                    m_kd=1.28 if float(base_rec.kd) >= float(baseline.kd) else 1.10,
+                    strategy_note="Bias toward oscillation suppression while preserving extra overshoot damping.",
+                )
+            )
+        if (
+            (predicted_problem == "steady_state_error" and "slow_response" in secondary)
+            or (predicted_problem == "slow_response" and "steady_state_error" in secondary)
+        ):
+            candidates.append(
+                build_from_multiplier(
+                    candidate_id="sse_speed_balance",
+                    m_kp=1.12,
+                    m_ki=1.18,
+                    m_kd=0.96,
+                    strategy_note="Balances steady-state correction with moderate response-speed improvement.",
+                )
+            )
+        if flags.get("saturation_limited") or flags.get("severe_saturation"):
+            candidates.append(
+                build_from_multiplier(
+                    candidate_id="saturation_safe_recovery",
+                    m_kp=0.75,
+                    m_ki=0.70,
+                    m_kd=1.12,
+                    strategy_note="Conservative recovery candidate due to saturation headroom constraints.",
+                )
+            )
+
+        candidates.extend(
+            [
             build_from_multiplier(
                 candidate_id="baseline_hold",
                 m_kp=0.0,
@@ -226,7 +303,8 @@ class RecommendationRanker:
                 m_kd=0.0,
                 strategy_note="Hold baseline PID to quantify no-change reference.",
             ),
-        ]
+            ]
+        )
         return candidates[: self.candidate_count]
 
     def _simulate_preview_summary(

@@ -16,11 +16,13 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.ai.recommendation_service import RecommendationService  # noqa: E402
+from app.services.ai.recommendation_orchestrator import RecommendationOrchestrator  # noqa: E402
 from app.services.ai.schemas import RecommendationGenerateInput, RecommendationGenerateOutput  # noqa: E402
 
 
 app = FastAPI(title="EdgeHub AI Runtime Service")
 recommendation_service = RecommendationService()
+recommendation_orchestrator = RecommendationOrchestrator(recommendation_service)
 
 
 @app.get("/health")
@@ -30,9 +32,12 @@ def health() -> dict[str, object]:
 
 @app.post("/v1/recommendations/generate", response_model=RecommendationGenerateOutput)
 def generate_recommendation(payload: RecommendationGenerateInput) -> RecommendationGenerateOutput:
-    output = recommendation_service.generate(payload)
-    output.ai_decision = {"runtime_source": "ai_runtime_service", "fallback_used": False}
-    return output
+    result = recommendation_orchestrator.generate_ranked_recommendation(
+        payload=payload,
+        runtime_source="ai_runtime_service",
+        fallback_used=False,
+    )
+    return result.output
 
 
 def main() -> None:
