@@ -29,7 +29,6 @@ class RecommendationOrchestrator:
     def __init__(self, recommendation_service: RecommendationService) -> None:
         self.recommendation_service = recommendation_service
         self._ranker: Optional[RecommendationRanker] = None
-        self._ranker_error: Optional[str] = None
 
     def _artifact_candidates(self, *paths: str) -> list[Path]:
         root = _repo_root()
@@ -44,13 +43,10 @@ class RecommendationOrchestrator:
     def _load_ranker(self) -> RecommendationRanker:
         if self._ranker is not None:
             return self._ranker
-        if self._ranker_error is not None:
-            raise RuntimeError(self._ranker_error)
         try:
             import joblib  # type: ignore
         except Exception as exc:  # pragma: no cover - env dependent
-            self._ranker_error = f"joblib_import_failed: {exc}"
-            raise RuntimeError(self._ranker_error) from exc
+            raise RuntimeError(f"joblib_import_failed: {exc}") from exc
 
         success_path = self._first_existing(
             self._artifact_candidates(
@@ -69,8 +65,7 @@ class RecommendationOrchestrator:
             )
         )
         if success_path is None or gap_path is None:
-            self._ranker_error = "ranker_model_not_found"
-            raise RuntimeError(self._ranker_error)
+            raise RuntimeError("ranker_model_not_found")
 
         try:
             success_model = joblib.load(success_path)
@@ -78,8 +73,7 @@ class RecommendationOrchestrator:
             self._ranker = RecommendationRanker(success_model=success_model, preview_gap_model=preview_gap_model)
             return self._ranker
         except Exception as exc:
-            self._ranker_error = f"ranker_model_load_failed: {exc}"
-            raise RuntimeError(self._ranker_error) from exc
+            raise RuntimeError(f"ranker_model_load_failed: {exc}") from exc
 
     @staticmethod
     def _to_pid_dict(params: PIDParams) -> dict[str, float]:

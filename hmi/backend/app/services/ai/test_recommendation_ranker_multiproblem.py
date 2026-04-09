@@ -88,7 +88,19 @@ class RecommendationRankerMultiProblemTests(unittest.TestCase):
         # Secondary steady-state_error adds Ki-aware compromise candidate.
         self.assertGreater(float(balance.recommended_params.ki), float(rule_center.recommended_params.ki))
 
+    def test_baseline_hold_always_present_with_default_count_in_multiproblem_case(self) -> None:
+        ranker = RecommendationRanker(success_model=object(), preview_gap_model=object(), candidate_count=6)
+        ctx = self._context(
+            primary="oscillation",
+            secondary=["overshoot_high"],
+            flags={"overshoot_high": True},
+        )
+        candidates = ranker.generate_candidates(context=ctx)
+        ids = [c.candidate_id for c in candidates]
+        self.assertEqual(len(ids), 6)
+        self.assertIn("rule_center", ids)
+        self.assertIn("baseline_hold", ids)
+
 
 if __name__ == "__main__":
     unittest.main()
-

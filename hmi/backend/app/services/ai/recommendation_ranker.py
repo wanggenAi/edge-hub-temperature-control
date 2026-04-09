@@ -221,14 +221,21 @@ class RecommendationRanker:
         else:
             overshoot_delta_kd = abs(float(base_delta.kd)) * 0.35
 
-        candidates = [
-            build_from_multiplier(
-                candidate_id="rule_center",
-                m_kp=1.0,
-                m_ki=1.0,
-                m_kd=1.0,
-                strategy_note="Keep the current rule recommendation as the center candidate.",
-            ),
+        rule_center = build_from_multiplier(
+            candidate_id="rule_center",
+            m_kp=1.0,
+            m_ki=1.0,
+            m_kd=1.0,
+            strategy_note="Keep the current rule recommendation as the center candidate.",
+        )
+        baseline_hold = build_from_multiplier(
+            candidate_id="baseline_hold",
+            m_kp=0.0,
+            m_ki=0.0,
+            m_kd=0.0,
+            strategy_note="Hold baseline PID to quantify no-change reference.",
+        )
+        optional_candidates = [
             build_from_multiplier(
                 candidate_id="conservative",
                 m_kp=conservative_scale[0],
@@ -261,7 +268,7 @@ class RecommendationRanker:
 
         # 5) Multi-problem compromise candidates (small, explainable set)
         if predicted_problem == "oscillation" and ("overshoot_high" in secondary or flags.get("overshoot_high")):
-            candidates.append(
+            optional_candidates.append(
                 build_from_multiplier(
                     candidate_id="oscillation_overshoot_balance",
                     m_kp=0.78,
@@ -274,7 +281,7 @@ class RecommendationRanker:
             (predicted_problem == "steady_state_error" and "slow_response" in secondary)
             or (predicted_problem == "slow_response" and "steady_state_error" in secondary)
         ):
-            candidates.append(
+            optional_candidates.append(
                 build_from_multiplier(
                     candidate_id="sse_speed_balance",
                     m_kp=1.12,
@@ -284,7 +291,7 @@ class RecommendationRanker:
                 )
             )
         if flags.get("saturation_limited") or flags.get("severe_saturation"):
-            candidates.append(
+            optional_candidates.append(
                 build_from_multiplier(
                     candidate_id="saturation_safe_recovery",
                     m_kp=0.75,
@@ -294,18 +301,19 @@ class RecommendationRanker:
                 )
             )
 
-        candidates.extend(
-            [
-            build_from_multiplier(
-                candidate_id="baseline_hold",
-                m_kp=0.0,
-                m_ki=0.0,
-                m_kd=0.0,
-                strategy_note="Hold baseline PID to quantify no-change reference.",
-            ),
-            ]
-        )
-        return candidates[: self.candidate_count]
+        # Always preserve rule_center + baseline_hold, then fill remaining slots by priority.
+        selected: list[CandidateRecommendation] = [rule_center]
+        seen = {"rule_center"}
+        for item in optional_candidates:
+            if item.candidate_id in seen:
+                continue
+            if len(selected) >= max(2, self.candidate_count - 1):
+                break
+            selected.append(item)
+            seen.add(item.candidate_id)
+        if "baseline_hold" not in seen:
+            selected.append(baseline_hold)
+        return selected[: self.candidate_count]
 
     def _simulate_preview_summary(
         self,

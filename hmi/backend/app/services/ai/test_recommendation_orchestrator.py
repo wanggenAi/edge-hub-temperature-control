@@ -122,7 +122,36 @@ class RecommendationOrchestratorTests(unittest.TestCase):
         self.assertTrue(bool(result.runtime_decision.get("fallback_used")))
         self.assertIn("ranking_fallback_reason", result.runtime_decision)
 
+    def test_ranker_failure_does_not_block_future_retry(self) -> None:
+        service = RecommendationService()
+        orchestrator = RecommendationOrchestrator(service)
+        calls = {"n": 0}
+
+        def flaky_loader():  # type: ignore[no-untyped-def]
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("ranker_model_not_found")
+            return _FakeRanker()
+
+        orchestrator._load_ranker = flaky_loader  # type: ignore[method-assign]
+        payload = self._payload()
+
+        first = orchestrator.generate_ranked_recommendation(
+            payload=payload,
+            runtime_source="ai_runtime_service",
+            fallback_used=False,
+        )
+        self.assertFalse(bool(first.runtime_decision.get("ranking_used")))
+        self.assertTrue(bool(first.runtime_decision.get("ranking_fallback_used")))
+
+        second = orchestrator.generate_ranked_recommendation(
+            payload=payload,
+            runtime_source="ai_runtime_service",
+            fallback_used=False,
+        )
+        self.assertTrue(bool(second.runtime_decision.get("ranking_used")))
+        self.assertFalse(bool(second.runtime_decision.get("ranking_fallback_used")))
+
 
 if __name__ == "__main__":
     unittest.main()
-
