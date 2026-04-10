@@ -733,6 +733,46 @@ export interface OpsAiRuntimeReliability {
   balance_selected_ratio?: number | null;
 }
 
+export interface OpsModelLifecycleRun {
+  id: number;
+  lifecycle_run_id: string;
+  model_family: string;
+  trigger_source: string;
+  status: string;
+  promoted: boolean;
+  dry_run: boolean;
+  reason?: string | null;
+  gate_reasons: string[];
+  training_sample_count: number;
+  new_eligible_samples_since_last: number;
+  recent_eligible_samples_7d: number;
+  validation_size?: number | null;
+  candidate_artifact_dir?: string | null;
+  active_artifact_dir_before?: string | null;
+  archive_artifact_dir?: string | null;
+  comparison_summary?: Record<string, unknown> | null;
+  started_at: string;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpsModelLifecycleStatus {
+  as_of: string;
+  enabled: boolean;
+  check_interval_seconds: number;
+  last_run_at?: string | null;
+  last_run_status?: string | null;
+  last_trigger_source?: string | null;
+  last_promoted_at?: string | null;
+  last_promoted_model_family?: string | null;
+  last_rejected_at?: string | null;
+  last_rejected_reason?: string | null;
+  last_skipped_at?: string | null;
+  last_skipped_reason?: string | null;
+  recent_runs: OpsModelLifecycleRun[];
+}
+
 export interface OpsAiObservability {
   as_of: string;
   health_summary: OpsAiHealthSummary;
@@ -747,6 +787,7 @@ export interface OpsAiObservability {
   online_outcome_quality: OpsAiOnlineOutcomes;
   drift_data_health: OpsAiDriftDataHealth;
   runtime_reliability: OpsAiRuntimeReliability;
+  model_lifecycle?: OpsModelLifecycleStatus | null;
   primary_metrics: string[];
   secondary_metrics: string[];
 }

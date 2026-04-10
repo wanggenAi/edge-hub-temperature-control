@@ -310,6 +310,7 @@ function AiObservabilityView({ data }: { data: OpsAiObservability }) {
   const online = data.online_outcome_quality;
   const drift = data.drift_data_health;
   const runtime = data.runtime_reliability;
+  const lifecycle = data.model_lifecycle;
   const judgments = {
     offlineQuality: data.offline_quality,
     evidenceConfidence: data.evidence_confidence,
@@ -355,6 +356,65 @@ function AiObservabilityView({ data }: { data: OpsAiObservability }) {
           </div>
         </CardContent>
       </Card>
+
+      {lifecycle ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Model Lifecycle (Candidate Training + Promote Gate)</CardTitle>
+            <div className="text-xs text-mute">Shows last retrain/promotion decision and why it passed, failed, or was skipped.</div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5">
+              <Stat title="Lifecycle Worker" value={lifecycle.enabled ? "Enabled" : "Disabled"} />
+              <Stat title="Last Run Status" value={lifecycle.last_run_status || "N/A"} />
+              <Stat title="Last Trigger" value={lifecycle.last_trigger_source || "N/A"} />
+              <Stat title="Last Promoted Family" value={lifecycle.last_promoted_model_family || "N/A"} />
+              <Stat title="Last Run At" value={fmtDate(lifecycle.last_run_at)} />
+            </div>
+            {lifecycle.last_rejected_reason ? (
+              <div className="rounded border border-warning/50 bg-warning/10 p-2 text-xs text-warning">
+                Last rejection reason: {lifecycle.last_rejected_reason}
+              </div>
+            ) : null}
+            {lifecycle.last_skipped_reason ? (
+              <div className="rounded border border-line/70 bg-panel2/40 p-2 text-xs text-mute">
+                Last skipped reason: {lifecycle.last_skipped_reason}
+              </div>
+            ) : null}
+            <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs">
+              <summary className="cursor-pointer text-mute">Show recent lifecycle runs</summary>
+              <div className="mt-2 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-left text-mute">
+                    <tr>
+                      <th className="py-1">Run</th>
+                      <th>Family</th>
+                      <th>Status</th>
+                      <th>Promoted</th>
+                      <th>Validation</th>
+                      <th>New Eligible</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lifecycle.recent_runs.map((r) => (
+                      <tr key={r.id} className="border-t border-line/50">
+                        <td className="py-1">{r.lifecycle_run_id}</td>
+                        <td>{r.model_family}</td>
+                        <td>{r.status}</td>
+                        <td>{r.promoted ? "Yes" : "No"}</td>
+                        <td>{fmtInt(r.validation_size ?? null)}</td>
+                        <td>{fmtInt(r.new_eligible_samples_since_last)}</td>
+                        <td className="max-w-[360px] truncate">{r.reason || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -613,12 +673,13 @@ function RunbookDialog({
   const resolvedKey: RunbookModuleKey = moduleKey ?? "offline_model_quality";
   const fallbackEntry = AI_OPS_RUNBOOK_REGISTRY[resolvedKey];
   const ctx = statusContext[resolvedKey];
+  const fallbackMarkdown = `# ${fallbackEntry.title}\n\nDefault runbook content is unavailable.`;
   const [runbook, setRunbook] = useState<OpsRunbook>(() => ({
     key: fallbackEntry.key,
     title: fallbackEntry.title,
     section: fallbackEntry.section,
     tags: fallbackEntry.tags,
-    markdown_body: fallbackEntry.markdown,
+    markdown_body: fallbackMarkdown,
     is_active: true,
     is_customized: false,
     version: 1,
@@ -630,7 +691,14 @@ function RunbookDialog({
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editorTab, setEditorTab] = useState<"edit" | "preview">("edit");
-  const [draft, setDraft] = useState(runbook.markdown_body);
+  const [draft, setDraft] = useState({
+    title: runbook.title,
+    section: runbook.section,
+    tagsText: runbook.tags.join(", "),
+    markdownBody: runbook.markdown_body,
+    isActive: runbook.is_active,
+  });
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -646,25 +714,38 @@ function RunbookDialog({
       .then((res) => {
         if (cancelled) return;
         setRunbook(res);
-        setDraft(res.markdown_body);
+        setDraft({
+          title: res.title,
+          section: res.section,
+          tagsText: res.tags.join(", "),
+          markdownBody: res.markdown_body,
+          isActive: res.is_active,
+        });
       })
       .catch((e) => {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
-        setRunbook({
+        const fallback: OpsRunbook = {
           key: fallbackEntry.key,
           title: fallbackEntry.title,
           section: fallbackEntry.section,
           tags: fallbackEntry.tags,
-          markdown_body: fallbackEntry.markdown,
+          markdown_body: fallbackMarkdown,
           is_active: true,
           is_customized: false,
           version: 1,
           updated_by: "default_template",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+        };
+        setRunbook(fallback);
+        setDraft({
+          title: fallback.title,
+          section: fallback.section,
+          tagsText: fallback.tags.join(", "),
+          markdownBody: fallback.markdown_body,
+          isActive: fallback.is_active,
         });
-        setDraft(fallbackEntry.markdown);
       })
       .finally(() => {
         if (cancelled) return;
@@ -673,15 +754,44 @@ function RunbookDialog({
     return () => {
       cancelled = true;
     };
-  }, [moduleKey, resolvedKey, fallbackEntry.key, fallbackEntry.markdown, fallbackEntry.section, fallbackEntry.tags, fallbackEntry.title]);
+  }, [moduleKey, resolvedKey, fallbackEntry.key, fallbackEntry.section, fallbackEntry.tags, fallbackEntry.title, fallbackMarkdown]);
 
   const saveRunbook = async () => {
+    const normalizedTitle = draft.title.trim();
+    const normalizedSection = draft.section.trim();
+    const normalizedMarkdown = draft.markdownBody.trim();
+    const normalizedTags = normalizeTagText(draft.tagsText);
+    if (!normalizedTitle) {
+      setValidationError("Title must not be blank.");
+      return;
+    }
+    if (!normalizedSection) {
+      setValidationError("Section must not be blank.");
+      return;
+    }
+    if (!normalizedMarkdown) {
+      setValidationError("Markdown body must not be blank.");
+      return;
+    }
+    setValidationError(null);
     setSaving(true);
     setError(null);
     try {
-      const res = await api.updateOpsRunbook(resolvedKey, { markdown_body: draft });
+      const res = await api.updateOpsRunbook(resolvedKey, {
+        title: normalizedTitle,
+        section: normalizedSection,
+        tags: normalizedTags,
+        markdown_body: normalizedMarkdown,
+        is_active: draft.isActive,
+      });
       setRunbook(res);
-      setDraft(res.markdown_body);
+      setDraft({
+        title: res.title,
+        section: res.section,
+        tagsText: res.tags.join(", "),
+        markdownBody: res.markdown_body,
+        isActive: res.is_active,
+      });
       setIsEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -698,8 +808,15 @@ function RunbookDialog({
     try {
       const res = await api.resetOpsRunbookDefault(resolvedKey);
       setRunbook(res);
-      setDraft(res.markdown_body);
+      setDraft({
+        title: res.title,
+        section: res.section,
+        tagsText: res.tags.join(", "),
+        markdownBody: res.markdown_body,
+        isActive: res.is_active,
+      });
       setIsEditing(false);
+      setValidationError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -743,6 +860,9 @@ function RunbookDialog({
           </div>
         </div>
         {error ? <div className="mb-2 rounded border border-danger/50 bg-danger/10 p-2 text-xs text-danger">{error}</div> : null}
+        {validationError ? (
+          <div className="mb-2 rounded border border-warning/50 bg-warning/10 p-2 text-xs text-warning">{validationError}</div>
+        ) : null}
         {loading ? <p className="text-xs text-mute">Loading runbook...</p> : null}
         {isEditing && canEdit ? (
           <div className="space-y-2 rounded border border-line/70 bg-panel2/30 p-3">
@@ -764,7 +884,14 @@ function RunbookDialog({
                   size="sm"
                   onClick={() => {
                     setIsEditing(false);
-                    setDraft(runbook.markdown_body);
+                    setDraft({
+                      title: runbook.title,
+                      section: runbook.section,
+                      tagsText: runbook.tags.join(", "),
+                      markdownBody: runbook.markdown_body,
+                      isActive: runbook.is_active,
+                    });
+                    setValidationError(null);
                   }}
                   disabled={saving || resetting}
                 >
@@ -776,14 +903,67 @@ function RunbookDialog({
               </div>
             </div>
             {editorTab === "edit" ? (
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                className="h-[60vh] w-full resize-y rounded border border-line bg-panel p-2 text-xs text-text outline-none"
-              />
+              <div className="space-y-2">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wide text-mute">Key (read-only)</label>
+                    <input
+                      value={runbook.key}
+                      readOnly
+                      className="h-8 w-full rounded border border-line bg-panel2 px-2 text-xs text-mute"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wide text-mute">Active</label>
+                    <label className="flex h-8 items-center gap-2 rounded border border-line bg-panel px-2 text-xs text-text">
+                      <input
+                        type="checkbox"
+                        checked={draft.isActive}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, isActive: e.target.checked }))}
+                      />
+                      Enabled
+                    </label>
+                  </div>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wide text-mute">Title</label>
+                    <input
+                      value={draft.title}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
+                      className="h-8 w-full rounded border border-line bg-panel px-2 text-xs text-text outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] uppercase tracking-wide text-mute">Section</label>
+                    <input
+                      value={draft.section}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, section: e.target.value }))}
+                      className="h-8 w-full rounded border border-line bg-panel px-2 text-xs text-text outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] uppercase tracking-wide text-mute">Tags (comma-separated)</label>
+                  <input
+                    value={draft.tagsText}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, tagsText: e.target.value }))}
+                    className="h-8 w-full rounded border border-line bg-panel px-2 text-xs text-text outline-none"
+                    placeholder="fallback, runtime-health"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] uppercase tracking-wide text-mute">Markdown Body</label>
+                  <textarea
+                    value={draft.markdownBody}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, markdownBody: e.target.value }))}
+                    className="h-[50vh] w-full resize-y rounded border border-line bg-panel p-2 text-xs text-text outline-none"
+                  />
+                </div>
+              </div>
             ) : (
               <div className="rounded border border-line/70 bg-panel p-3">
-                <RunbookMarkdown markdown={draft} />
+                <RunbookMarkdown markdown={draft.markdownBody} />
               </div>
             )}
           </div>
@@ -795,6 +975,18 @@ function RunbookDialog({
       </div>
     </div>
   );
+}
+
+function normalizeTagText(tagsText: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of tagsText.split(",")) {
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
 }
 
 function RunbookMarkdown({ markdown }: { markdown: string }) {

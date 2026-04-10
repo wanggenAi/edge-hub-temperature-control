@@ -29,6 +29,7 @@ class RecommendationOrchestrator:
     def __init__(self, recommendation_service: RecommendationService) -> None:
         self.recommendation_service = recommendation_service
         self._ranker: Optional[RecommendationRanker] = None
+        self._ranker_signature: Optional[tuple[str, str, float, float]] = None
         self._default_candidate_limit = 6
 
     def _artifact_candidates(self, *paths: str) -> list[Path]:
@@ -41,9 +42,16 @@ class RecommendationOrchestrator:
                 return path
         return None
 
+    @staticmethod
+    def _signature(success_path: Path, gap_path: Path) -> tuple[str, str, float, float]:
+        return (
+            str(success_path.resolve()),
+            str(gap_path.resolve()),
+            float(success_path.stat().st_mtime),
+            float(gap_path.stat().st_mtime),
+        )
+
     def _load_ranker(self) -> RecommendationRanker:
-        if self._ranker is not None:
-            return self._ranker
         try:
             import joblib  # type: ignore
         except Exception as exc:  # pragma: no cover - env dependent
@@ -67,11 +75,15 @@ class RecommendationOrchestrator:
         )
         if success_path is None or gap_path is None:
             raise RuntimeError("ranker_model_not_found")
+        signature = self._signature(success_path, gap_path)
+        if self._ranker is not None and self._ranker_signature == signature:
+            return self._ranker
 
         try:
             success_model = joblib.load(success_path)
             preview_gap_model = joblib.load(gap_path)
             self._ranker = RecommendationRanker(success_model=success_model, preview_gap_model=preview_gap_model)
+            self._ranker_signature = signature
             return self._ranker
         except Exception as exc:
             raise RuntimeError(f"ranker_model_load_failed: {exc}") from exc

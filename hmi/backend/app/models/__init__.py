@@ -11,6 +11,7 @@ from app.models.entities import (  # noqa: F401
     DeviceMetric,
     DeviceParameter,
     DeviceSummary,
+    ModelLifecycleRun,
     OpsRunbook,
     Role,
     User,

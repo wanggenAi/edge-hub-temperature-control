@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import engine
-from app.models.entities import AIRecommendation, ControlAction, ControlActionEvalJob, ControlActionFeedbackSample
+from app.models.entities import AIRecommendation, ControlAction, ControlActionEvalJob, ControlActionFeedbackSample, ModelLifecycleRun
 from app.schemas.ops import (
     OpsAiConfusionMatrixOut,
     OpsAiDataQualityOut,
@@ -41,6 +41,8 @@ from app.schemas.ops import (
     OpsKeyValueCount,
     OpsLearningLoopOut,
     OpsModelRuntimeOut,
+    OpsModelLifecycleRunOut,
+    OpsModelLifecycleStatusOut,
     OpsOverviewOut,
     OpsRecentEvalJobOut,
     OpsRuntimeOut,
@@ -838,6 +840,57 @@ class OpsConsoleService:
             recommendation_applied_24h=applied_24h,
             ai_runtime_enabled=bool(settings.ai_runtime_enabled),
             notes=notes,
+        )
+
+    def _build_model_lifecycle_status(self, db: Session, *, limit: int = 20) -> OpsModelLifecycleStatusOut:
+        rows = db.scalars(
+            select(ModelLifecycleRun).order_by(ModelLifecycleRun.started_at.desc(), ModelLifecycleRun.id.desc()).limit(
+                max(1, min(int(limit), 200))
+            )
+        ).all()
+        last_run = rows[0] if rows else None
+        last_promoted = next((x for x in rows if bool(x.promoted)), None)
+        last_rejected = next((x for x in rows if x.status == "rejected"), None)
+        last_skipped = next((x for x in rows if x.status == "skipped"), None)
+        return OpsModelLifecycleStatusOut(
+            as_of=datetime.utcnow(),
+            enabled=bool(settings.model_lifecycle_enabled),
+            check_interval_seconds=int(settings.model_lifecycle_check_interval_seconds),
+            last_run_at=last_run.started_at if last_run else None,
+            last_run_status=last_run.status if last_run else None,
+            last_trigger_source=last_run.trigger_source if last_run else None,
+            last_promoted_at=last_promoted.completed_at if last_promoted else None,
+            last_promoted_model_family=last_promoted.model_family if last_promoted else None,
+            last_rejected_at=last_rejected.completed_at if last_rejected else None,
+            last_rejected_reason=last_rejected.reason if last_rejected else None,
+            last_skipped_at=last_skipped.completed_at if last_skipped else None,
+            last_skipped_reason=last_skipped.reason if last_skipped else None,
+            recent_runs=[
+                OpsModelLifecycleRunOut(
+                    id=row.id,
+                    lifecycle_run_id=row.lifecycle_run_id,
+                    model_family=row.model_family,
+                    trigger_source=row.trigger_source,
+                    status=row.status,
+                    promoted=bool(row.promoted),
+                    dry_run=bool(row.dry_run),
+                    reason=row.reason,
+                    gate_reasons=[str(x) for x in (row.gate_reasons or [])],
+                    training_sample_count=int(row.training_sample_count or 0),
+                    new_eligible_samples_since_last=int(row.new_eligible_samples_since_last or 0),
+                    recent_eligible_samples_7d=int(row.recent_eligible_samples_7d or 0),
+                    validation_size=row.validation_size,
+                    candidate_artifact_dir=row.candidate_artifact_dir,
+                    active_artifact_dir_before=row.active_artifact_dir_before,
+                    archive_artifact_dir=row.archive_artifact_dir,
+                    comparison_summary=row.comparison_summary if isinstance(row.comparison_summary, dict) else None,
+                    started_at=row.started_at,
+                    completed_at=row.completed_at,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at,
+                )
+                for row in rows
+            ],
         )
 
     def _build_ai_overview_metrics(self, db: Session, models: OpsModelRuntimeOut) -> OpsAiOverviewOut:
@@ -1670,6 +1723,7 @@ class OpsConsoleService:
             online_outcome_quality=OpsAiOnlineOutcomesOut(window_24h=online_24h, window_7d=online_7d),
             drift_data_health=drift,
             runtime_reliability=runtime,
+            model_lifecycle=self._build_model_lifecycle_status(db, limit=10),
             primary_metrics=[
                 "success_model_macro_f1",
                 "preview_gap_model_macro_f1",

@@ -283,6 +283,46 @@ class OpsAiRuntimeReliabilityOut(BaseModel):
     balance_selected_ratio: Optional[float] = None
 
 
+class OpsModelLifecycleRunOut(BaseModel):
+    id: int
+    lifecycle_run_id: str
+    model_family: str
+    trigger_source: str
+    status: str
+    promoted: bool = False
+    dry_run: bool = False
+    reason: Optional[str] = None
+    gate_reasons: list[str] = Field(default_factory=list)
+    training_sample_count: int = 0
+    new_eligible_samples_since_last: int = 0
+    recent_eligible_samples_7d: int = 0
+    validation_size: Optional[int] = None
+    candidate_artifact_dir: Optional[str] = None
+    active_artifact_dir_before: Optional[str] = None
+    archive_artifact_dir: Optional[str] = None
+    comparison_summary: Optional[dict] = None
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class OpsModelLifecycleStatusOut(BaseModel):
+    as_of: datetime
+    enabled: bool = False
+    check_interval_seconds: int = 0
+    last_run_at: Optional[datetime] = None
+    last_run_status: Optional[str] = None
+    last_trigger_source: Optional[str] = None
+    last_promoted_at: Optional[datetime] = None
+    last_promoted_model_family: Optional[str] = None
+    last_rejected_at: Optional[datetime] = None
+    last_rejected_reason: Optional[str] = None
+    last_skipped_at: Optional[datetime] = None
+    last_skipped_reason: Optional[str] = None
+    recent_runs: list[OpsModelLifecycleRunOut] = Field(default_factory=list)
+
+
 class OpsAiObservabilityOut(BaseModel):
     as_of: datetime
     health_summary: OpsAiHealthSummaryOut
@@ -297,6 +337,7 @@ class OpsAiObservabilityOut(BaseModel):
     online_outcome_quality: OpsAiOnlineOutcomesOut
     drift_data_health: OpsAiDriftDataHealthOut
     runtime_reliability: OpsAiRuntimeReliabilityOut
+    model_lifecycle: Optional[OpsModelLifecycleStatusOut] = None
     primary_metrics: list[str] = Field(default_factory=list)
     secondary_metrics: list[str] = Field(default_factory=list)
 

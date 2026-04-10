@@ -18,6 +18,8 @@ import type {
   MetricWindowStats,
   OpsDataHub,
   OpsAiObservability,
+  OpsModelLifecycleRun,
+  OpsModelLifecycleStatus,
   OpsRunbook,
   OpsRunbookList,
   OpsRunbookUpdateInput,
@@ -304,6 +306,13 @@ export const api = {
   opsLearningLoop: () => request<OpsLearningLoop>("/ops/learning-loop"),
   opsModels: () => request<OpsModelRuntime>("/ops/models"),
   opsAiObservability: () => request<OpsAiObservability>("/ops/ai/observability"),
+  opsAiModelLifecycleStatus: () => request<OpsModelLifecycleStatus>("/ops/ai/model-lifecycle/status"),
+  opsAiModelLifecycleRuns: (limit = 20) =>
+    request<OpsModelLifecycleRun[]>(`/ops/ai/model-lifecycle/runs?limit=${Math.max(1, Math.min(200, Math.floor(limit)))}`),
+  runOpsAiModelLifecycle: (params: { dry_run?: boolean } = {}) =>
+    request<Record<string, unknown>>(`/ops/ai/model-lifecycle/run?dry_run=${params.dry_run ? "true" : "false"}`, {
+      method: "POST",
+    }),
   opsRunbooks: () => request<OpsRunbookList>("/ops/runbooks"),
   opsRunbook: (key: string) => request<OpsRunbook>(`/ops/runbooks/${encodeURIComponent(key)}`),
   updateOpsRunbook: (key: string, payload: OpsRunbookUpdateInput) =>

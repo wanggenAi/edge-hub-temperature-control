@@ -70,6 +70,17 @@ class Settings(BaseSettings):
     ops_ai_judgment_runtime_high_fallback_max: float = 0.30
     ops_ai_judgment_runtime_low_ranking_used_max: float = 0.20
     ops_ai_judgment_runtime_low_non_rule_center_max: float = 0.15
+    model_lifecycle_enabled: bool = False
+    model_lifecycle_check_interval_seconds: int = 1800
+    model_lifecycle_min_new_eligible_samples: int = 30
+    model_lifecycle_min_recent_eligible_samples_7d: int = 40
+    model_lifecycle_min_hours_between_runs: int = 12
+    model_lifecycle_min_validation_samples: int = 30
+    model_lifecycle_max_macro_f1_regression: float = 0.02
+    model_lifecycle_max_danger_recall_regression: float = 0.03
+    model_lifecycle_max_danger_misclass_regression: float = 0.05
+    model_lifecycle_min_macro_f1_improvement: float = 0.0
+    model_lifecycle_min_first_promotion_danger_recall: float = 0.50
     hmi_log_level: str = "INFO"
     hmi_console_log_level: str = "INFO"
     hmi_access_log_level: str = "INFO"

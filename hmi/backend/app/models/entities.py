@@ -336,6 +336,40 @@ class ControlActionFeedbackSample(Base):
     device: Mapped[Device] = relationship(back_populates="control_action_feedback_samples")
 
 
+class ModelLifecycleRun(Base):
+    __tablename__ = "model_lifecycle_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    lifecycle_run_id: Mapped[str] = mapped_column(String(64), index=True)
+    model_family: Mapped[str] = mapped_column(String(64), index=True)
+    trigger_source: Mapped[str] = mapped_column(String(32), default="scheduled")
+    status: Mapped[str] = mapped_column(String(32), default="skipped", index=True)
+    promoted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    dry_run: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gate_reasons: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    training_sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    new_eligible_samples_since_last: Mapped[int] = mapped_column(Integer, default=0)
+    recent_eligible_samples_7d: Mapped[int] = mapped_column(Integer, default=0)
+    validation_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    candidate_artifact_dir: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    candidate_metrics_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    active_artifact_dir_before: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    active_metrics_path_before: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    archive_artifact_dir: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    candidate_metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    active_metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    comparison_summary: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+
+
 class OpsRunbook(Base):
     __tablename__ = "ops_runbooks"
 
