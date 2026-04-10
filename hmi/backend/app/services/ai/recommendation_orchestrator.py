@@ -29,6 +29,7 @@ class RecommendationOrchestrator:
     def __init__(self, recommendation_service: RecommendationService) -> None:
         self.recommendation_service = recommendation_service
         self._ranker: Optional[RecommendationRanker] = None
+        self._default_candidate_limit = 6
 
     def _artifact_candidates(self, *paths: str) -> list[Path]:
         root = _repo_root()
@@ -109,6 +110,8 @@ class RecommendationOrchestrator:
             "base_recommended_params": self._to_pid_dict(base_output.recommended_params),
             "selected_candidate_id": "rule_center",
             "candidate_count": 1,
+            "evaluated_candidate_count": 1,
+            "configured_candidate_limit": int(self._default_candidate_limit),
         }
         if fallback_reason:
             runtime_decision["fallback_reason"] = str(fallback_reason)
@@ -154,9 +157,12 @@ class RecommendationOrchestrator:
                     "ranking_fallback_used": False,
                     "selected_candidate_id": str(top.get("candidate_id") or "rule_center"),
                     "candidate_count": int(len(ranked)),
+                    "evaluated_candidate_count": int(len(ranked)),
+                    "configured_candidate_limit": int(getattr(ranker, "candidate_count", self._default_candidate_limit)),
                     "top_score": float(top.get("total_score", 0.0)),
                     "top_success_score": float((top.get("success_model") or {}).get("success_score", 0.0)),
                     "top_gap_score": float((top.get("preview_gap_model") or {}).get("gap_score", 0.0)),
+                    "ranked_candidates": ranked,
                     "top_1_candidate_id": str(top.get("candidate_id") or "rule_center"),
                     "top_1_candidate": {
                         "candidate_id": str(top.get("candidate_id") or "rule_center"),
@@ -175,6 +181,7 @@ class RecommendationOrchestrator:
                     "ranking_fallback_reason": str(exc),
                     "selected_candidate_id": "rule_center",
                     "candidate_count": int(runtime_decision.get("candidate_count") or 1),
+                    "evaluated_candidate_count": int(runtime_decision.get("candidate_count") or 1),
                 }
             )
 

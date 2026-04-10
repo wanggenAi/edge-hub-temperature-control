@@ -18,6 +18,18 @@ type TimePreset = "30m" | "1h" | "3h" | "24h" | "7d" | "30d" | "custom";
 type RecommendationState = "generated" | "previewed" | "applied" | "dismissed" | "expired";
 type EvaluationStatus = "Pending" | "Completed" | "Not Available" | "Insufficient Data";
 type MetricKey = "in_band_ratio" | "overshoot_c" | "settling_sec" | "mean_abs_error" | "saturation_ratio" | "temp_swing";
+type PidTuple = { kp: number; ki: number; kd: number };
+type DecisionCandidate = {
+  rank: number | null;
+  candidateId: string;
+  strategyNote: string;
+  recommendedParams: PidTuple | null;
+  delta: PidTuple | null;
+  successScore: number | null;
+  gapScore: number | null;
+  totalScore: number | null;
+  raw: Record<string, unknown>;
+};
 
 export function AIPage() {
   const { devices } = useDevices();
@@ -118,6 +130,8 @@ export function AIPage() {
     if (selectedDeviceId == null) return null;
     return devices.find((device) => device.id === selectedDeviceId) ?? null;
   }, [devices, selectedDeviceId]);
+
+  const decisionTrace = useMemo(() => buildDecisionTrace(currentRecord), [currentRecord]);
 
   const searchableDevices = useMemo(() => {
     const q = devicePickerQuery.trim().toLowerCase();
@@ -269,6 +283,7 @@ export function AIPage() {
                     {[
                       ["Recommendation ID", String(currentRecord.recommendation_id)],
                       ["Primary Issue", formatLabel(readPrimaryProblemType(currentRecord))],
+                      ["Selected Candidate", decisionTrace?.selectedCandidateId || "rule_center"],
                       ["Expected Effect", currentRecord.expected_effect ? formatLabel(currentRecord.expected_effect) : "-"],
                       ["Risk", currentRecord.risk_level ?? "-"],
                       ["Applied At", formatDateTime(currentRecord.applied_at ?? currentRecord.generated_at)],
@@ -280,7 +295,7 @@ export function AIPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="grid items-start gap-2 md:grid-cols-2">
+                  <div className={`grid items-start gap-2 ${decisionTrace?.ruleCenterParams ? "xl:grid-cols-3" : "md:grid-cols-2"}`}>
                     <ParamBlock
                       title="Baseline Params"
                       params={currentRecord.current_params}
@@ -288,30 +303,26 @@ export function AIPage() {
                       emptyText="No baseline snapshot."
                     />
                     <ParamBlock
-                      title="Recommended / Delta"
+                      title="Final Selected Recommendation / Delta"
                       params={currentRecord.recommended_params}
                       delta={currentRecord.delta}
                       emptyText="Recommended snapshot unavailable."
                     />
+                    {decisionTrace?.ruleCenterParams && (
+                      <ParamBlock
+                        title="Rule Center (Base Before Ranking)"
+                        params={decisionTrace.ruleCenterParams}
+                        delta={decisionTrace.ruleCenterDelta}
+                        emptyText="Rule-center snapshot unavailable."
+                      />
+                    )}
                   </div>
-                  <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                    <SimpleInfoCard
-                      title="Secondary Issues"
-                      content={renderTagList(readSecondaryProblems(currentRecord).map((item) => formatLabel(item)))}
+                  {decisionTrace && (
+                    <DecisionProvenanceSection
+                      record={currentRecord}
+                      trace={decisionTrace}
                     />
-                    <SimpleInfoCard
-                      title="Triggered Rules"
-                      content={renderTagList(readTriggeredRules(currentRecord).map((item) => formatLabel(item)))}
-                    />
-                    <SimpleInfoCard
-                      title="Problem Flags"
-                      content={renderFlagList(readProblemFlags(currentRecord))}
-                    />
-                    <SimpleInfoCard
-                      title="Key Metrics"
-                      content={renderMetricsList(readKeyMetrics(currentRecord))}
-                    />
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -599,6 +610,171 @@ function SimpleInfoCard({ title, content }: { title: string; content: React.Reac
     <div className="rounded border border-line/70 bg-panel px-2 py-2">
       <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">{title}</div>
       <div className="mt-1 text-xs text-text">{content}</div>
+    </div>
+  );
+}
+
+function DecisionProvenanceSection({
+  record,
+  trace,
+}: {
+  record: AIRecommendationHistoryItem;
+  trace: ReturnType<typeof buildDecisionTrace>;
+}) {
+  if (!trace) return null;
+  const rankingStatus = trace.rankingUsed
+    ? `Ranking selected \`${trace.selectedCandidateId}\` from ${trace.evaluatedCandidateCount} evaluated candidates.`
+    : trace.rankingFallbackUsed
+      ? "Ranking was unavailable; final recommendation fell back to rule_center."
+      : "Ranking did not run; final recommendation uses rule_center.";
+
+  return (
+    <details className="rounded-lg border border-neon/30 bg-panel px-3 py-3" open={false}>
+      <summary className="cursor-pointer select-none">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">Decision Provenance</div>
+        <div className="mt-1 text-xs text-text">
+          Selected: <span className="font-semibold">{trace.selectedCandidateId}</span> · {rankingStatus}
+        </div>
+      </summary>
+      <div className="mt-3 space-y-3">
+        <div className="text-xs text-text">{trace.whySelected}</div>
+
+        <div className="grid gap-2 md:grid-cols-2">
+          <SimpleInfoCard
+            title="Rule Diagnosis"
+            content={
+              <div className="space-y-1">
+                <div><span className="text-mute">Primary:</span> {formatLabel(readPrimaryProblemType(record))}</div>
+                <div><span className="text-mute">Secondary:</span> {formatStringList(readSecondaryProblems(record).map((item) => formatLabel(item)))}</div>
+                <div><span className="text-mute">Triggered:</span> {formatStringList(readTriggeredRules(record).map((item) => formatLabel(item)))}</div>
+                <div className="pt-1">{renderFlagList(readProblemFlags(record))}</div>
+              </div>
+            }
+          />
+          <SimpleInfoCard
+            title="Ranking Decision"
+            content={
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Ranking Used</span><span>{trace.rankingUsed ? "Yes" : "No"}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Ranking Fallback</span><span>{trace.rankingFallbackUsed ? "Yes" : "No"}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Selected Candidate</span><span className="font-semibold">{trace.selectedCandidateId}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Candidates Evaluated</span><span>{trace.evaluatedCandidateCount}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Configured Max Candidates</span><span>{trace.configuredCandidateLimit ?? "N/A"}</span></div>
+                <div className="text-[11px] text-mute pt-1">
+                  Candidate count may vary by diagnosis context, safety constraints, and the configured ranking limit.
+                </div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Top Score</span><span>{fmtMaybe(trace.topScore)}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Top Success Score</span><span>{fmtMaybe(trace.topSuccessScore)}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-mute">Top Gap Score</span><span>{fmtMaybe(trace.topGapScore)}</span></div>
+              </div>
+            }
+          />
+        </div>
+        <SimpleInfoCard title="Supporting Key Metrics" content={renderMetricsList(readKeyMetrics(record))} />
+
+        {trace.ruleCenterParams && (
+          <details className="rounded border border-line/70 bg-panel2/40 px-2 py-2">
+            <summary className="cursor-pointer select-none text-xs text-mute">Rule Center Details (base before ranking)</summary>
+            <div className="mt-2 grid grid-cols-[52px_repeat(2,minmax(0,1fr))] gap-x-2 gap-y-0.5 text-xs text-text">
+              <span className="text-mute">Param</span>
+              <span className="text-right text-mute">Value</span>
+              <span className="text-right text-mute">Delta</span>
+              <span>Kp</span>
+              <span className="text-right">{trace.ruleCenterParams.kp.toFixed(4)}</span>
+              <span className="text-right text-neon">{trace.ruleCenterDelta ? withSign(trace.ruleCenterDelta.kp) : "-"}</span>
+              <span>Ki</span>
+              <span className="text-right">{trace.ruleCenterParams.ki.toFixed(4)}</span>
+              <span className="text-right text-neon">{trace.ruleCenterDelta ? withSign(trace.ruleCenterDelta.ki) : "-"}</span>
+              <span>Kd</span>
+              <span className="text-right">{trace.ruleCenterParams.kd.toFixed(4)}</span>
+              <span className="text-right text-neon">{trace.ruleCenterDelta ? withSign(trace.ruleCenterDelta.kd) : "-"}</span>
+            </div>
+          </details>
+        )}
+
+        <CandidateComparisonTable trace={trace} />
+
+        <details className="rounded border border-line/70 bg-panel2/40 px-2 py-2">
+          <summary className="cursor-pointer select-none text-xs text-mute">Show raw runtime decision</summary>
+          <div className="mt-2 text-xs text-mute">
+            <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded border border-line/60 bg-panel px-2 py-2 text-[11px] text-text">
+              {JSON.stringify(trace.aiDecision ?? {}, null, 2)}
+            </pre>
+          </div>
+        </details>
+      </div>
+    </details>
+  );
+}
+
+function CandidateComparisonTable({
+  trace,
+}: {
+  trace: NonNullable<ReturnType<typeof buildDecisionTrace>>;
+}) {
+  if (trace.candidates.length === 0) {
+    return (
+      <div className="rounded border border-line/70 bg-panel2/40 px-2 py-2 text-xs text-mute">
+        Candidate comparison is unavailable for this record.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-line/70 bg-panel2/40 px-2 py-2">
+      <div className="text-[11px] uppercase tracking-[0.14em] text-neon/80">Candidate Comparison</div>
+      <div className="mt-1 text-[11px] text-mute">
+        {trace.allCandidatesDisplayed
+          ? `Showing all ${trace.displayedCandidateCount} evaluated candidates`
+          : `Showing top ${trace.displayedCandidateCount} of ${trace.evaluatedCandidateCount} evaluated candidates`}
+      </div>
+      <div className="mt-1 overflow-auto">
+        <table className="w-full min-w-[980px] text-xs">
+          <thead className="text-left text-mute">
+            <tr>
+              <th className="py-1">Rank</th>
+              <th className="py-1">Candidate</th>
+              <th className="py-1">Strategy</th>
+              <th className="py-1">Recommended Params</th>
+              <th className="py-1">Delta</th>
+              <th className="py-1">Δ vs Rule Center</th>
+              <th className="py-1 text-right">Success Score</th>
+              <th className="py-1 text-right">Gap Score</th>
+              <th className="py-1 text-right">Total Score</th>
+              <th className="py-1">Selected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trace.candidates.map((candidate) => {
+              const selected = candidate.candidateId === trace.selectedCandidateId;
+              const isRuleCenter = candidate.candidateId === "rule_center";
+              const diffFromRuleCenter = diffPidTuple(candidate.recommendedParams, trace.ruleCenterParams);
+              return (
+                <tr
+                  key={candidate.candidateId}
+                  className={`border-t border-line/60 ${selected ? "bg-neon/15" : isRuleCenter ? "bg-panel/60" : ""}`}
+                >
+                  <td className="py-1">{candidate.rank ?? "-"}</td>
+                  <td className="py-1 font-semibold text-text">
+                    <div className="flex items-center gap-1.5">
+                      <span>{candidate.candidateId}</span>
+                      {selected && <span className="rounded border border-accent/50 bg-accent/10 px-1 py-0.5 text-[10px] text-accent">Selected</span>}
+                      {isRuleCenter && <span className="rounded border border-line/70 bg-panel px-1 py-0.5 text-[10px] text-mute">Base</span>}
+                    </div>
+                  </td>
+                  <td className="py-1 text-mute max-w-[260px] truncate" title={candidate.strategyNote || ""}>{candidate.strategyNote || "-"}</td>
+                  <td className="py-1">{formatPidTuple(candidate.recommendedParams)}</td>
+                  <td className="py-1">{formatPidTuple(candidate.delta, true)}</td>
+                  <td className="py-1">{formatPidTuple(diffFromRuleCenter, true)}</td>
+                  <td className="py-1 text-right tabular-nums">{fmtMaybe(candidate.successScore)}</td>
+                  <td className="py-1 text-right tabular-nums">{fmtMaybe(candidate.gapScore)}</td>
+                  <td className="py-1 text-right tabular-nums">{fmtMaybe(candidate.totalScore)}</td>
+                  <td className="py-1">{selected ? "Yes" : "No"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1067,16 +1243,40 @@ function renderFlagList(flags: Array<{ key: string; enabled: boolean }>): React.
 }
 
 function renderMetricsList(metrics: Record<string, number>): React.ReactNode {
-  const rows = Object.entries(metrics);
+  const preferred = ["mean_abs_error", "error_std", "temp_swing", "zero_crossings", "in_band_ratio", "saturation_ratio"];
+  const allRows = Object.entries(metrics);
+  const rows = [
+    ...preferred
+      .filter((key) => key in metrics)
+      .map((key) => [key, metrics[key]] as [string, number]),
+    ...allRows.filter(([key]) => !preferred.includes(key)),
+  ];
   if (rows.length === 0) return <span className="text-mute">Not available</span>;
+  const compactRows = rows.slice(0, 6);
+  const restRows = rows.slice(6);
   return (
-    <div className="space-y-1">
-      {rows.slice(0, 8).map(([key, value]) => (
-        <div key={key} className="flex items-center justify-between gap-2 rounded border border-line/60 bg-panel2 px-1.5 py-0.5">
-          <span className="text-[11px] text-mute">{formatLabel(key)}</span>
-          <span className="text-[11px] font-semibold text-text">{Number.isInteger(value) ? value : value.toFixed(3)}</span>
-        </div>
-      ))}
+    <div className="space-y-1.5">
+      <div className="grid gap-1 sm:grid-cols-2">
+        {compactRows.map(([key, value]) => (
+          <div key={key} className="flex items-center justify-between gap-2 rounded border border-line/60 bg-panel2 px-1.5 py-0.5">
+            <span className="text-[11px] text-mute">{formatLabel(key)}</span>
+            <span className="text-[11px] font-semibold text-text">{Number.isInteger(value) ? value : value.toFixed(3)}</span>
+          </div>
+        ))}
+      </div>
+      {restRows.length > 0 && (
+        <details>
+          <summary className="cursor-pointer select-none text-[11px] text-mute">Show more metrics</summary>
+          <div className="mt-1 grid gap-1 sm:grid-cols-2">
+            {restRows.map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between gap-2 rounded border border-line/60 bg-panel2 px-1.5 py-0.5">
+                <span className="text-[11px] text-mute">{formatLabel(key)}</span>
+                <span className="text-[11px] font-semibold text-text">{Number.isInteger(value) ? value : value.toFixed(3)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -1113,6 +1313,233 @@ function formatSeconds(value?: number | null): string {
 function withSign(value: number): string {
   const fixed = value.toFixed(4);
   return value > 0 ? `+${fixed}` : fixed;
+}
+
+function buildDecisionTrace(record: AIRecommendationHistoryItem | null): {
+  aiDecision: Record<string, unknown> | null;
+  ruleCenterParams: PidTuple | null;
+  ruleCenterDelta: PidTuple | null;
+  rankingUsed: boolean;
+  rankingFallbackUsed: boolean;
+  selectedCandidateId: string;
+  candidateCount: number | null;
+  evaluatedCandidateCount: number;
+  configuredCandidateLimit: number | null;
+  displayedCandidateCount: number;
+  allCandidatesDisplayed: boolean;
+  topScore: number | null;
+  topSuccessScore: number | null;
+  topGapScore: number | null;
+  candidates: DecisionCandidate[];
+  whySelected: string;
+} | null {
+  if (!record) return null;
+  const aiDecision = record.ai_decision && typeof record.ai_decision === "object" && !Array.isArray(record.ai_decision)
+    ? (record.ai_decision as Record<string, unknown>)
+    : null;
+  const baseline = toPidTuple(record.current_params);
+  const finalRecommended = toPidTuple(record.recommended_params);
+  const selectedCandidateId =
+    readText(aiDecision?.selected_candidate_id) ||
+    readText(aiDecision?.top_1_candidate_id) ||
+    "rule_center";
+  const rankingUsed = Boolean(aiDecision?.ranking_used);
+  const rankingFallbackUsed = Boolean(aiDecision?.ranking_fallback_used);
+  const candidateCount = readNumber(aiDecision?.candidate_count);
+  const configuredCandidateLimit = inferConfiguredCandidateLimit(aiDecision);
+  const topScore = readNumber(aiDecision?.top_score);
+  const topSuccessScore = readNumber(aiDecision?.top_success_score);
+  const topGapScore = readNumber(aiDecision?.top_gap_score);
+  const ruleCenterParams =
+    toPidTuple(aiDecision?.base_recommended_params) ||
+    (selectedCandidateId === "rule_center" ? finalRecommended : null);
+  const ruleCenterDelta = baseline && ruleCenterParams ? {
+    kp: ruleCenterParams.kp - baseline.kp,
+    ki: ruleCenterParams.ki - baseline.ki,
+    kd: ruleCenterParams.kd - baseline.kd,
+  } : null;
+
+  const candidates = toDecisionCandidates(aiDecision, selectedCandidateId);
+  const evaluatedCandidateCount =
+    readNumber(aiDecision?.evaluated_candidate_count) ??
+    candidateCount ??
+    candidates.length;
+  const displayedCandidateCount = candidates.length;
+  const allCandidatesDisplayed = displayedCandidateCount >= evaluatedCandidateCount;
+  const whySelected = buildWhySelectedSummary({
+    primaryProblemType: readPrimaryProblemType(record),
+    secondaryProblemTypes: readSecondaryProblems(record),
+    selectedCandidateId,
+    rankingUsed,
+    rankingFallbackUsed,
+    topScore,
+    topSuccessScore,
+    topGapScore,
+    hasRuleCenter: Boolean(ruleCenterParams),
+  });
+
+  return {
+    aiDecision,
+    ruleCenterParams,
+    ruleCenterDelta,
+    rankingUsed,
+    rankingFallbackUsed,
+    selectedCandidateId,
+    candidateCount,
+    evaluatedCandidateCount,
+    configuredCandidateLimit,
+    displayedCandidateCount,
+    allCandidatesDisplayed,
+    topScore,
+    topSuccessScore,
+    topGapScore,
+    candidates,
+    whySelected,
+  };
+}
+
+function buildWhySelectedSummary({
+  primaryProblemType,
+  secondaryProblemTypes,
+  selectedCandidateId,
+  rankingUsed,
+  rankingFallbackUsed,
+  topScore,
+  topSuccessScore,
+  topGapScore,
+  hasRuleCenter,
+}: {
+  primaryProblemType: string;
+  secondaryProblemTypes: string[];
+  selectedCandidateId: string;
+  rankingUsed: boolean;
+  rankingFallbackUsed: boolean;
+  topScore: number | null;
+  topSuccessScore: number | null;
+  topGapScore: number | null;
+  hasRuleCenter: boolean;
+}): string {
+  const secondaryText =
+    secondaryProblemTypes.length > 0
+      ? ` with secondary ${secondaryProblemTypes.map((item) => formatLabel(item)).join(", ")}`
+      : "";
+  const diagnosis = `Rule diagnosis identified ${formatLabel(primaryProblemType)}${secondaryText}.`;
+  if (!rankingUsed) {
+    if (rankingFallbackUsed) {
+      return `${diagnosis} Ranking was unavailable, so the system fell back to \`rule_center\`.`;
+    }
+    return `${diagnosis} Ranking was not used, so the final recommendation remained \`rule_center\`.`;
+  }
+  if (selectedCandidateId === "rule_center" || !hasRuleCenter) {
+    return `${diagnosis} The model kept \`rule_center\` because no alternative candidate achieved a better overall score.`;
+  }
+  const successPart = topSuccessScore != null ? `higher expected success (${topSuccessScore.toFixed(3)})` : "higher expected success";
+  const gapPart = topGapScore != null ? `acceptable preview-gap risk (${topGapScore.toFixed(3)})` : "acceptable preview-gap risk";
+  const scorePart = topScore != null ? `overall score ${topScore.toFixed(3)}` : "overall score";
+  return `${diagnosis} Ranking selected \`${selectedCandidateId}\` over \`rule_center\` because it delivered ${successPart} with ${gapPart}, resulting in a better ${scorePart}.`;
+}
+
+function toDecisionCandidates(
+  aiDecision: Record<string, unknown> | null,
+  selectedCandidateId: string
+): DecisionCandidate[] {
+  const rankedRaw = Array.isArray(aiDecision?.ranked_candidates) ? aiDecision?.ranked_candidates : [];
+  const fromRanked = rankedRaw
+    .map((item) => toDecisionCandidate(item))
+    .filter((item): item is DecisionCandidate => item != null);
+  if (fromRanked.length > 0) return fromRanked;
+
+  const top1 = aiDecision?.top_1_candidate;
+  const topCandidate = toDecisionCandidate(top1);
+  if (topCandidate) {
+    return [{ ...topCandidate, rank: topCandidate.rank ?? 1 }];
+  }
+  if (selectedCandidateId) {
+    return [{
+      rank: 1,
+      candidateId: selectedCandidateId,
+      strategyNote: "",
+      recommendedParams: toPidTuple(aiDecision?.base_recommended_params),
+      delta: null,
+      successScore: readNumber(aiDecision?.top_success_score),
+      gapScore: readNumber(aiDecision?.top_gap_score),
+      totalScore: readNumber(aiDecision?.top_score),
+      raw: aiDecision ?? {},
+    }];
+  }
+  return [];
+}
+
+function toDecisionCandidate(value: unknown): DecisionCandidate | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  const candidateId = readText(item.candidate_id);
+  if (!candidateId) return null;
+  return {
+    rank: readNumber(item.rank),
+    candidateId,
+    strategyNote: readText(item.strategy_note) || "",
+    recommendedParams: toPidTuple(item.recommended_params),
+    delta: toPidTuple(item.delta),
+    successScore:
+      readNumber((item.success_model as Record<string, unknown> | undefined)?.success_score) ??
+      readNumber(item.success_score),
+    gapScore:
+      readNumber((item.preview_gap_model as Record<string, unknown> | undefined)?.gap_score) ??
+      readNumber(item.preview_gap_score),
+    totalScore: readNumber(item.total_score),
+    raw: item,
+  };
+}
+
+function toPidTuple(value: unknown): PidTuple | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const src = value as Record<string, unknown>;
+  const kp = Number(src.kp);
+  const ki = Number(src.ki);
+  const kd = Number(src.kd);
+  if (!Number.isFinite(kp) || !Number.isFinite(ki) || !Number.isFinite(kd)) return null;
+  return { kp, ki, kd };
+}
+
+function readNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function inferConfiguredCandidateLimit(aiDecision: Record<string, unknown> | null): number | null {
+  const explicit = readNumber(aiDecision?.configured_candidate_limit);
+  if (explicit != null) return explicit;
+  const evaluated = readNumber(aiDecision?.evaluated_candidate_count) ?? readNumber(aiDecision?.candidate_count);
+  if (evaluated != null) return evaluated;
+  const runtimeSource = typeof aiDecision?.runtime_source === "string" ? aiDecision.runtime_source : "";
+  // Local backend ranker currently uses default candidate limit = 6.
+  if (runtimeSource === "local_backend") return 6;
+  return null;
+}
+
+function readText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function fmtMaybe(value: number | null): string {
+  if (value == null || Number.isNaN(value)) return "N/A";
+  return value.toFixed(3);
+}
+
+function formatPidTuple(value: PidTuple | null, signed = false): string {
+  if (!value) return "N/A";
+  if (!signed) return `Kp ${value.kp.toFixed(4)} · Ki ${value.ki.toFixed(4)} · Kd ${value.kd.toFixed(4)}`;
+  return `Kp ${withSign(value.kp)} · Ki ${withSign(value.ki)} · Kd ${withSign(value.kd)}`;
+}
+
+function diffPidTuple(value: PidTuple | null, base: PidTuple | null): PidTuple | null {
+  if (!value || !base) return null;
+  return {
+    kp: value.kp - base.kp,
+    ki: value.ki - base.ki,
+    kd: value.kd - base.kd,
+  };
 }
 
 type MetricDirection = "higher-better" | "lower-better";

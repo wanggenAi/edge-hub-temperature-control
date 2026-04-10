@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -242,6 +242,7 @@ class AIRecommendationHistoryItemOut(BaseModel):
     comparison_to_before: Optional[AIPostEffectComparisonOut] = None
     comparison_to_preview: Optional[AIPostEffectComparisonOut] = None
     effect_outcome: str = "pending"
+    ai_decision: Optional[dict[str, Any]] = None
 
 
 class AIRecommendationHistoryStatsOut(BaseModel):

@@ -8,6 +8,11 @@ import { api } from "@/lib/api";
 import type { OpsOverview } from "@/types";
 
 export function OpsPage() {
+  const [activeTab, setActiveTab] = useState<"platform" | "ai">(() => {
+    if (typeof window === "undefined") return "platform";
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab === "ai" ? "ai" : "platform";
+  });
   const [data, setData] = useState<OpsOverview | null>(null);
   const [runtimeHistory, setRuntimeHistory] = useState<
     Array<{
@@ -105,6 +110,16 @@ export function OpsPage() {
     return () => window.clearInterval(timer);
   }, [load]);
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (activeTab === "platform") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", activeTab);
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, [activeTab]);
+
   if (loading) return <p className="text-sm text-mute">Loading Ops Console...</p>;
   if (error) return <p className="text-sm text-danger">{error}</p>;
   if (!data) return <p className="text-sm text-mute">No ops data available.</p>;
@@ -116,9 +131,14 @@ export function OpsPage() {
       : runtime.process_cpu_usage_pct != null
         ? `${fmtCpuPct(runtime.process_cpu_usage_pct)} (fallback)`
         : "N/A";
-  const aiEffects = toCountMap(ai.ai_effect_distribution);
-  const manualEffects = toCountMap(ai.manual_effect_distribution);
-  const aiSummary = buildAiSummary(ai);
+  const aiTabData =
+    activeTab === "ai"
+      ? {
+          aiEffects: toCountMap(ai.ai_effect_distribution),
+          manualEffects: toCountMap(ai.manual_effect_distribution),
+          aiSummary: buildAiSummary(ai),
+        }
+      : null;
 
   return (
     <div className="space-y-4">
@@ -137,244 +157,301 @@ export function OpsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Data Hub / MQTT / Ingestion</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="text-xs uppercase tracking-wide text-mute">Ops Views</div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-            <Stat title="MQTT Ingress TPS" value={fmtNum(hub.mqtt_ingress_tps)} />
-            <Stat title="Consume TPS" value={fmtNum(hub.data_hub_consume_tps)} />
-            <Stat
-              title="Data Hub CPU"
-              value={dataHubCpuDisplay}
+        <CardContent>
+          <div role="tablist" aria-label="Ops sections" className="flex flex-wrap gap-2">
+            <TabButton
+              active={activeTab === "platform"}
+              onClick={() => setActiveTab("platform")}
+              label="Platform"
+              id="ops-tab-platform"
+              controls="ops-panel-platform"
             />
-            <Stat title="Queue Depth" value={fmtInt(hub.queue_depth)} />
-          </div>
-          <div className="text-xs text-mute break-all">
-            Source: {hub.source} · Available: {hub.available ? "Yes" : "No"} · Interval: {fmtNum(hub.interval_seconds)}s
-          </div>
-          <div className="rounded border border-line/70 bg-panel2/50 p-3 text-xs text-mute">
-            Source Mapping:
-            `Ingress TPS = mqtt[mqtt_received_delta] / interval`, `Consume TPS = accounting[accounted_delta] / interval`,
-            `Queue Depth = buffer[current_buffer_size]`, `Data Hub CPU = process_cpu_usage/system_cpu_usage`.
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <OpsLineChart
-              title="Ingress vs Consume TPS"
-              data={dataHubChartRows}
-              series={[
-                { key: "mqtt_ingress_tps", name: "Ingress TPS", color: "#22d3ee" },
-                { key: "consume_tps", name: "Consume TPS", color: "#34d399" },
-              ]}
-            />
-            <OpsLineChart
-              title="Queue Depth"
-              data={dataHubChartRows}
-              series={[{ key: "queue_depth", name: "Queue", color: "#60a5fa" }]}
+            <TabButton
+              active={activeTab === "ai"}
+              onClick={() => setActiveTab("ai")}
+              label="AI"
+              id="ops-tab-ai"
+              controls="ops-panel-ai"
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>JVM Runtime (Memory / GC)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-mute">
-            <Badge className="border-line text-mute">JVM Metrics: {runtime.jvm_metrics_available ? "Connected" : "Not Connected (MVP)"}</Badge>
-            <Badge className="border-line text-mute">Runtime Metrics Source: {runtime.source}</Badge>
-            <span>Auto refresh: 15s</span>
-          </div>
-          <div className="grid gap-2 md:grid-cols-3">
-            <Stat title="JVM Heap Used" value={runtime.jvm_heap_used_mb == null ? "N/A" : `${runtime.jvm_heap_used_mb.toFixed(1)} MB`} />
-            <Stat title="JVM Heap Max" value={runtime.jvm_heap_max_mb == null ? "N/A" : `${runtime.jvm_heap_max_mb.toFixed(1)} MB`} />
-            <Stat title="JVM Non-Heap" value={runtime.jvm_non_heap_used_mb == null ? "N/A" : `${runtime.jvm_non_heap_used_mb.toFixed(1)} MB`} />
-            <Stat title="JVM GC Count" value={fmtInt(runtime.jvm_gc_count)} />
-            <Stat title="GC Pause Δ (1m est.)" value={fmtGcPausePerMin(jvmChartRows)} />
-            <Stat title="GC Pause Max (single)" value={runtime.jvm_gc_pause_max_ms == null ? "N/A" : `${runtime.jvm_gc_pause_max_ms.toFixed(1)} ms`} />
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <OpsLineChart
-              title="Heap Used (%) Trend"
-              data={jvmChartRows}
-              series={[{ key: "heapUsedPct", name: "Heap Used %", color: "#22d3ee" }]}
-              yDomain={[0, 100]}
-              yFormatter={(v) => `${Number(v).toFixed(0)}%`}
-            />
-            <OpsLineChart
-              title="GC Pressure Trend"
-              data={jvmChartRows}
-              series={[
-                { key: "gcCountDelta", name: "GC Count Δ", color: "#34d399" },
-                { key: "gcPauseDeltaPerMinMs", name: "GC Pause Δ / min (ms)", color: "#f59e0b" },
-                { key: "gcPauseMaxMs", name: "GC Pause Max (ms)", color: "#fb7185" },
-              ]}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {activeTab === "platform" && (
+        <div id="ops-panel-platform" role="tabpanel" aria-labelledby="ops-tab-platform" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Hub / MQTT / Ingestion</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                <Stat title="MQTT Ingress TPS" value={fmtNum(hub.mqtt_ingress_tps)} />
+                <Stat title="Consume TPS" value={fmtNum(hub.data_hub_consume_tps)} />
+                <Stat title="Data Hub CPU" value={dataHubCpuDisplay} />
+                <Stat title="Queue Depth" value={fmtInt(hub.queue_depth)} />
+              </div>
+              <div className="text-xs text-mute break-all">
+                Source: {hub.source} · Available: {hub.available ? "Yes" : "No"} · Interval: {fmtNum(hub.interval_seconds)}s
+              </div>
+              <div className="rounded border border-line/70 bg-panel2/50 p-3 text-xs text-mute">
+                Source Mapping:
+                `Ingress TPS = mqtt[mqtt_received_delta] / interval`, `Consume TPS = accounting[accounted_delta] / interval`,
+                `Queue Depth = buffer[current_buffer_size]`, `Data Hub CPU = process_cpu_usage/system_cpu_usage`.
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <OpsLineChart
+                  title="Ingress vs Consume TPS"
+                  data={dataHubChartRows}
+                  series={[
+                    { key: "mqtt_ingress_tps", name: "Ingress TPS", color: "#22d3ee" },
+                    { key: "consume_tps", name: "Consume TPS", color: "#34d399" },
+                  ]}
+                />
+                <OpsLineChart
+                  title="Queue Depth"
+                  data={dataHubChartRows}
+                  series={[{ key: "queue_depth", name: "Queue", color: "#60a5fa" }]}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Overview</CardTitle>
-          <div className="text-xs text-mute">
-            Shows whether AI runtime is healthy, being used, and delivering value versus manual control.
-          </div>
-          <div className="text-sm text-text">{aiSummary}</div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-            <Stat title="AI Runtime" value={ai.ai_runtime_enabled ? "Enabled" : "Disabled"} />
-            <Stat
-              title="Fallback Ratio"
-              value={ai.fallback_ratio == null ? "N/A" : `${(ai.fallback_ratio * 100).toFixed(1)}%`}
-              tone={ai.fallback_elevated ? "critical" : "normal"}
-            />
-            <Stat
-              title="Apply Rate"
-              value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
-            />
-            <Stat
-              title="AI Improved Ratio"
-              value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}
-            />
-          </div>
-          {ai.fallback_elevated && (
-            <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
-              Fallback is elevated. AI runtime may be unavailable or model/runtime confidence may be too low.
-            </div>
-          )}
-          <div className="rounded border border-line/70 bg-panel2/50 p-3">
-            <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI vs Manual Outcome</div>
-            <div className="overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-mute">
-                  <tr>
-                    <th className="py-1">Metric</th>
-                    <th className="py-1">AI</th>
-                    <th className="py-1">Manual</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t border-line/50">
-                    <td className="py-1 text-mute">Improved</td>
-                    <td>{fmtInt(aiEffects.improved)}</td>
-                    <td>{fmtInt(manualEffects.improved)}</td>
-                  </tr>
-                  <tr className="border-t border-line/50">
-                    <td className="py-1 text-mute">Unchanged</td>
-                    <td>{fmtInt(aiEffects.unchanged)}</td>
-                    <td>{fmtInt(manualEffects.unchanged)}</td>
-                  </tr>
-                  <tr className="border-t border-line/50">
-                    <td className="py-1 text-mute">Worse</td>
-                    <td>{fmtInt(aiEffects.worse)}</td>
-                    <td>{fmtInt(manualEffects.worse)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs text-mute">
-            <summary className="cursor-pointer select-none text-mute">Show AI details</summary>
-            <div className="mt-2 space-y-3">
-              <div>
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Recommendation Activity</div>
-                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                  <MiniStat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
-                  <MiniStat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
-                  <MiniStat
-                    title="Apply Rate"
-                    value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
-                  />
-                  <MiniStat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
+          <Card>
+            <CardHeader>
+              <CardTitle>JVM Runtime (Memory / GC)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-mute">
+                <Badge className="border-line text-mute">JVM Metrics: {runtime.jvm_metrics_available ? "Connected" : "Not Connected (MVP)"}</Badge>
+                <Badge className="border-line text-mute">Runtime Metrics Source: {runtime.source}</Badge>
+                <span>Auto refresh: 15s</span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <Stat title="JVM Heap Used" value={runtime.jvm_heap_used_mb == null ? "N/A" : `${runtime.jvm_heap_used_mb.toFixed(1)} MB`} />
+                <Stat title="JVM Heap Max" value={runtime.jvm_heap_max_mb == null ? "N/A" : `${runtime.jvm_heap_max_mb.toFixed(1)} MB`} />
+                <Stat title="JVM Non-Heap" value={runtime.jvm_non_heap_used_mb == null ? "N/A" : `${runtime.jvm_non_heap_used_mb.toFixed(1)} MB`} />
+                <Stat title="JVM GC Count" value={fmtInt(runtime.jvm_gc_count)} />
+                <Stat title="GC Pause Δ (1m est.)" value={fmtGcPausePerMin(jvmChartRows)} />
+                <Stat title="GC Pause Max (single)" value={runtime.jvm_gc_pause_max_ms == null ? "N/A" : `${runtime.jvm_gc_pause_max_ms.toFixed(1)} ms`} />
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <OpsLineChart
+                  title="Heap Used (%) Trend"
+                  data={jvmChartRows}
+                  series={[{ key: "heapUsedPct", name: "Heap Used %", color: "#22d3ee" }]}
+                  yDomain={[0, 100]}
+                  yFormatter={(v) => `${Number(v).toFixed(0)}%`}
+                />
+                <OpsLineChart
+                  title="GC Pressure Trend"
+                  data={jvmChartRows}
+                  series={[
+                    { key: "gcCountDelta", name: "GC Count Δ", color: "#34d399" },
+                    { key: "gcPauseDeltaPerMinMs", name: "GC Pause Δ / min (ms)", color: "#f59e0b" },
+                    { key: "gcPauseMaxMs", name: "GC Pause Max (ms)", color: "#fb7185" },
+                  ]}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "ai" && (
+        <div id="ops-panel-ai" role="tabpanel" aria-labelledby="ops-tab-ai" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Overview</CardTitle>
+              <div className="text-xs text-mute">
+                Shows whether AI runtime is healthy, being used, and delivering value versus manual control.
+              </div>
+              <div className="text-sm text-text">{aiTabData?.aiSummary}</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                <Stat title="AI Runtime" value={ai.ai_runtime_enabled ? "Enabled" : "Disabled"} />
+                <Stat
+                  title="Fallback Ratio"
+                  value={ai.fallback_ratio == null ? "N/A" : `${(ai.fallback_ratio * 100).toFixed(1)}%`}
+                  tone={ai.fallback_elevated ? "critical" : "normal"}
+                />
+                <Stat
+                  title="Apply Rate"
+                  value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
+                />
+                <Stat
+                  title="AI Improved Ratio"
+                  value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}
+                />
+              </div>
+              {ai.fallback_elevated && (
+                <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
+                  Fallback is elevated. AI runtime may be unavailable or model/runtime confidence may be too low.
+                </div>
+              )}
+              <div className="rounded border border-line/70 bg-panel2/50 p-3">
+                <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI vs Manual Outcome</div>
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-mute">
+                      <tr>
+                        <th className="py-1">Metric</th>
+                        <th className="py-1">AI</th>
+                        <th className="py-1">Manual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-t border-line/50">
+                        <td className="py-1 text-mute">Improved</td>
+                        <td>{fmtInt(aiTabData?.aiEffects.improved)}</td>
+                        <td>{fmtInt(aiTabData?.manualEffects.improved)}</td>
+                      </tr>
+                      <tr className="border-t border-line/50">
+                        <td className="py-1 text-mute">Unchanged</td>
+                        <td>{fmtInt(aiTabData?.aiEffects.unchanged)}</td>
+                        <td>{fmtInt(aiTabData?.manualEffects.unchanged)}</td>
+                      </tr>
+                      <tr className="border-t border-line/50">
+                        <td className="py-1 text-mute">Worse</td>
+                        <td>{fmtInt(aiTabData?.aiEffects.worse)}</td>
+                        <td>{fmtInt(aiTabData?.manualEffects.worse)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div>
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Runtime / Sample Context</div>
-                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                  <MiniStat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
-                  <MiniStat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
-                  <MiniStat
-                    title="Manual Improved Ratio"
-                    value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
-                  />
-                  <MiniStat
-                    title="AI Runtime Source"
-                    value={ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"}
-                  />
+              <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs text-mute">
+                <summary className="cursor-pointer select-none text-mute">Show AI details</summary>
+                <div className="mt-2 space-y-3">
+                  <div>
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Recommendation Activity</div>
+                    <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                      <MiniStat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
+                      <MiniStat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
+                      <MiniStat
+                        title="Apply Rate"
+                        value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
+                      />
+                      <MiniStat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Runtime / Sample Context</div>
+                    <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                      <MiniStat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
+                      <MiniStat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
+                      <MiniStat
+                        title="Manual Improved Ratio"
+                        value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
+                      />
+                      <MiniStat
+                        title="AI Runtime Source"
+                        value={ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"}
+                      />
+                    </div>
+                    <div className="mt-2 text-[11px] text-mute/80 break-all">AI Runtime URL: {ai.ai_runtime_url || "N/A"}</div>
+                  </div>
                 </div>
-                <div className="mt-2 text-[11px] text-mute/80 break-all">AI Runtime URL: {ai.ai_runtime_url || "N/A"}</div>
+              </details>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feedback Pipeline</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-6">
+                <Stat title="Pending Overdue" value={fmtInt(loop.pending_overdue)} tone={toneByCount(loop.pending_overdue)} />
+                <Stat title="Worker Processed 24h" value={fmtInt(loop.worker_processed_24h)} />
+                <Stat title="Training-Eligible Samples" value={fmtInt(loop.training_eligible_total)} />
+                <Stat title="Eligible 7d" value={fmtInt(loop.training_eligible_7d)} />
+                <Stat title="Retry Pending Jobs" value={fmtInt(loop.eval_jobs_by_status.retry_pending)} tone={toneByCount(loop.eval_jobs_by_status.retry_pending)} />
+                <Stat title="Terminal Insufficient Samples" value={fmtInt(loop.eval_jobs_by_status.terminal_insufficient)} tone={toneByCount(loop.eval_jobs_by_status.terminal_insufficient)} />
               </div>
-            </div>
-          </details>
-        </CardContent>
-      </Card>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <KeyCountList title="Control Action Source (Total)" rows={loop.control_actions_by_source_total} />
+                <KeyCountList title="Control Action Source (24h)" rows={loop.control_actions_by_source_24h} />
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                <KeyCountList
+                  title="Eval Job Status"
+                  rows={[
+                    { key: "pending", count: loop.eval_jobs_by_status.pending },
+                    { key: "running", count: loop.eval_jobs_by_status.running },
+                    { key: "done", count: loop.eval_jobs_by_status.done },
+                    { key: "retry pending jobs", count: loop.eval_jobs_by_status.retry_pending },
+                    { key: "terminal insufficient samples", count: loop.eval_jobs_by_status.terminal_insufficient },
+                    { key: "failed", count: loop.eval_jobs_by_status.failed },
+                  ]}
+                />
+                <KeyCountList title="Sample Quality" rows={loop.sample_quality_distribution} />
+                <KeyCountList title="Actual Effect" rows={loop.actual_effect_distribution} />
+              </div>
+              <RecentJobsTable rows={loop.recent_jobs} />
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Feedback Pipeline</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-6">
-            <Stat title="Pending Overdue" value={fmtInt(loop.pending_overdue)} tone={toneByCount(loop.pending_overdue)} />
-            <Stat title="Worker Processed 24h" value={fmtInt(loop.worker_processed_24h)} />
-            <Stat title="Training-Eligible Samples" value={fmtInt(loop.training_eligible_total)} />
-            <Stat title="Eligible 7d" value={fmtInt(loop.training_eligible_7d)} />
-            <Stat title="Retry Pending Jobs" value={fmtInt(loop.eval_jobs_by_status.retry_pending)} tone={toneByCount(loop.eval_jobs_by_status.retry_pending)} />
-            <Stat title="Terminal Insufficient Samples" value={fmtInt(loop.eval_jobs_by_status.terminal_insufficient)} tone={toneByCount(loop.eval_jobs_by_status.terminal_insufficient)} />
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <KeyCountList title="Control Action Source (Total)" rows={loop.control_actions_by_source_total} />
-            <KeyCountList title="Control Action Source (24h)" rows={loop.control_actions_by_source_24h} />
-          </div>
-          <div className="grid gap-3 lg:grid-cols-3">
-            <KeyCountList
-              title="Eval Job Status"
-              rows={[
-                { key: "pending", count: loop.eval_jobs_by_status.pending },
-                { key: "running", count: loop.eval_jobs_by_status.running },
-                { key: "done", count: loop.eval_jobs_by_status.done },
-                { key: "retry pending jobs", count: loop.eval_jobs_by_status.retry_pending },
-                { key: "terminal insufficient samples", count: loop.eval_jobs_by_status.terminal_insufficient },
-                { key: "failed", count: loop.eval_jobs_by_status.failed },
-              ]}
-            />
-            <KeyCountList title="Sample Quality" rows={loop.sample_quality_distribution} />
-            <KeyCountList title="Actual Effect" rows={loop.actual_effect_distribution} />
-          </div>
-          <RecentJobsTable rows={loop.recent_jobs} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Model / Runtime Health</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-6">
-            <Stat title="Active Model" value={models.active_model_version || "N/A"} />
-            <Stat title="Candidate Model" value={models.candidate_model_version || "N/A"} />
-            <Stat title="Fallback Ratio" value={models.fallback_ratio == null ? "N/A" : `${(models.fallback_ratio * 100).toFixed(1)}%`} />
-            <Stat title="Generated 24h" value={fmtInt(models.recommendation_generated_24h)} />
-            <Stat title="Applied 24h" value={fmtInt(models.recommendation_applied_24h)} />
-            <Stat title="Archived Artifacts" value={fmtInt(models.archived_model_artifact_count)} />
-          </div>
-          <div className="text-xs text-mute">
-            Last trained: {fmtDate(models.last_trained_at)} · Last promoted: {fmtDate(models.last_promoted_at)}
-          </div>
-          <KeyCountList title="Runtime Source Breakdown" rows={models.runtime_source_breakdown} />
-          {models.notes.length > 0 && (
-            <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
-              {models.notes.map((n) => (
-                <div key={n}>{n}</div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Model / Runtime Health</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-6">
+                <Stat title="Active Model" value={models.active_model_version || "N/A"} />
+                <Stat title="Candidate Model" value={models.candidate_model_version || "N/A"} />
+                <Stat title="Fallback Ratio" value={models.fallback_ratio == null ? "N/A" : `${(models.fallback_ratio * 100).toFixed(1)}%`} />
+                <Stat title="Generated 24h" value={fmtInt(models.recommendation_generated_24h)} />
+                <Stat title="Applied 24h" value={fmtInt(models.recommendation_applied_24h)} />
+                <Stat title="Archived Artifacts" value={fmtInt(models.archived_model_artifact_count)} />
+              </div>
+              <div className="text-xs text-mute">
+                Last trained: {fmtDate(models.last_trained_at)} · Last promoted: {fmtDate(models.last_promoted_at)}
+              </div>
+              <KeyCountList title="Runtime Source Breakdown" rows={models.runtime_source_breakdown} />
+              {models.notes.length > 0 && (
+                <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
+                  {models.notes.map((n) => (
+                    <div key={n}>{n}</div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+  id,
+  controls,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  id: string;
+  controls: string;
+}) {
+  return (
+    <Button
+      id={id}
+      role="tab"
+      aria-selected={active}
+      aria-controls={controls}
+      variant={active ? "default" : "ghost"}
+      className={active ? "border border-line" : ""}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
   );
 }
 

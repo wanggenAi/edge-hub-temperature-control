@@ -476,6 +476,7 @@ def _build_ai_history_item(
         comparison_to_before=comparison_before,
         comparison_to_preview=comparison_preview,
         effect_outcome=effect_outcome,
+        ai_decision=_runtime_decision_from_suggestion(rec.suggestion),
     )
 
 
@@ -780,7 +781,56 @@ def _pid_is_effectively_applied(
 def _runtime_decision_from_suggestion(suggestion: str) -> Optional[dict[str, Any]]:
     meta = recommendation_service.read_storage_metadata(suggestion)
     decision = meta.get("ard")
-    return dict(decision) if isinstance(decision, dict) else None
+    if not isinstance(decision, dict):
+        return None
+    return _normalize_runtime_decision(dict(decision))
+
+
+def _safe_int(value: object) -> Optional[int]:
+    try:
+        if value is None:
+            return None
+        parsed = int(value)
+        return parsed if parsed >= 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_runtime_decision(decision: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(decision)
+    runtime_source = str(normalized.get("runtime_source") or "ai_runtime_service").strip() or "ai_runtime_service"
+    normalized["runtime_source"] = runtime_source
+    normalized["fallback_used"] = bool(normalized.get("fallback_used", False))
+    normalized["ranking_used"] = bool(normalized.get("ranking_used", False))
+    normalized["ranking_fallback_used"] = bool(normalized.get("ranking_fallback_used", False))
+    selected_candidate_id = str(normalized.get("selected_candidate_id") or "rule_center").strip() or "rule_center"
+    normalized["selected_candidate_id"] = selected_candidate_id
+
+    ranked = normalized.get("ranked_candidates")
+    ranked_count = len(ranked) if isinstance(ranked, list) else None
+    candidate_count = _safe_int(normalized.get("candidate_count"))
+    if candidate_count is None:
+        if ranked_count is not None:
+            candidate_count = ranked_count
+        elif selected_candidate_id:
+            candidate_count = 1
+    if candidate_count is None:
+        candidate_count = 1
+    normalized["candidate_count"] = int(candidate_count)
+
+    evaluated_count = _safe_int(normalized.get("evaluated_candidate_count"))
+    if evaluated_count is None:
+        evaluated_count = int(candidate_count)
+    normalized["evaluated_candidate_count"] = int(evaluated_count)
+
+    configured_limit = _safe_int(normalized.get("configured_candidate_limit"))
+    if configured_limit is None:
+        # Global contract:
+        # - local_backend ranker defaults to 6
+        # - ai_runtime_service may omit this; fall back to evaluated_count to avoid null semantics
+        configured_limit = 6 if runtime_source == "local_backend" else int(evaluated_count)
+    normalized["configured_candidate_limit"] = int(max(configured_limit, evaluated_count))
+    return normalized
 
 
 def _generate_recommendation_with_runtime(
@@ -792,13 +842,17 @@ def _generate_recommendation_with_runtime(
             runtime_source="local_backend",
             fallback_used=False,
         )
-        return result.output, result.runtime_decision
+        normalized = _normalize_runtime_decision(dict(result.runtime_decision))
+        result.output.ai_decision = normalized
+        return result.output, normalized
     try:
         generated = ai_runtime_client.generate(request_payload)
         runtime_decision = generated.ai_decision if isinstance(generated.ai_decision, dict) else {}
         if not runtime_decision:
             runtime_decision = {"runtime_source": "ai_runtime_service", "fallback_used": False}
-        return generated, runtime_decision
+        normalized = _normalize_runtime_decision(dict(runtime_decision))
+        generated.ai_decision = normalized
+        return generated, normalized
     except AIRuntimeError as exc:
         if bool(settings.ai_runtime_fail_open):
             result = recommendation_orchestrator.generate_ranked_recommendation(
@@ -807,7 +861,9 @@ def _generate_recommendation_with_runtime(
                 fallback_used=True,
                 fallback_reason=str(exc),
             )
-            return result.output, result.runtime_decision
+            normalized = _normalize_runtime_decision(dict(result.runtime_decision))
+            result.output.ai_decision = normalized
+            return result.output, normalized
         raise HTTPException(status_code=503, detail=f"AI runtime unavailable: {exc}") from exc
 
 

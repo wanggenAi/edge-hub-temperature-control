@@ -263,6 +263,7 @@ export interface AIRecommendationHistoryItem {
   comparison_to_before?: AIPostEffectComparison | null;
   comparison_to_preview?: AIPostEffectComparison | null;
   effect_outcome: "improved" | "unchanged" | "worse" | "pending" | string;
+  ai_decision?: Record<string, unknown> | null;
 }
 
 export interface AIRecommendationHistoryStats {
