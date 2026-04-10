@@ -3,12 +3,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import { useAuth } from "@/app/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { AI_OPS_RUNBOOK_REGISTRY, type RunbookModuleKey } from "@/runbooks/ai-ops/registry";
-import type { OpsAiModelEvaluation, OpsAiObservability, OpsOverview } from "@/types";
+import type { OpsAiModelEvaluation, OpsAiObservability, OpsOverview, OpsRunbook } from "@/types";
 
 export function OpsPage() {
   const [activeTab, setActiveTab] = useState<"platform" | "ai">(() => {
@@ -301,6 +302,8 @@ export function OpsPage() {
 }
 
 function AiObservabilityView({ data }: { data: OpsAiObservability }) {
+  const { hasRole } = useAuth();
+  const canEditRunbook = hasRole("admin");
   const [activeRunbook, setActiveRunbook] = useState<RunbookModuleKey | null>(null);
   const hs = data.health_summary;
   const offline = data.offline_evaluation;
@@ -582,6 +585,7 @@ function AiObservabilityView({ data }: { data: OpsAiObservability }) {
         moduleKey={activeRunbook}
         onClose={() => setActiveRunbook(null)}
         statusContext={buildRunbookStatusContext(data)}
+        canEdit={canEditRunbook}
       />
     </>
   );
@@ -599,14 +603,112 @@ function RunbookDialog({
   moduleKey,
   onClose,
   statusContext,
+  canEdit,
 }: {
   moduleKey: RunbookModuleKey | null;
   onClose: () => void;
   statusContext: Record<RunbookModuleKey, { value: string; tone: string; reason: string }>;
+  canEdit: boolean;
 }) {
+  const resolvedKey: RunbookModuleKey = moduleKey ?? "offline_model_quality";
+  const fallbackEntry = AI_OPS_RUNBOOK_REGISTRY[resolvedKey];
+  const ctx = statusContext[resolvedKey];
+  const [runbook, setRunbook] = useState<OpsRunbook>(() => ({
+    key: fallbackEntry.key,
+    title: fallbackEntry.title,
+    section: fallbackEntry.section,
+    tags: fallbackEntry.tags,
+    markdown_body: fallbackEntry.markdown,
+    is_active: true,
+    is_customized: false,
+    version: 1,
+    updated_by: "default_template",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editorTab, setEditorTab] = useState<"edit" | "preview">("edit");
+  const [draft, setDraft] = useState(runbook.markdown_body);
+  const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  useEffect(() => {
+    if (!moduleKey) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setIsEditing(false);
+    setEditorTab("edit");
+    void api
+      .opsRunbook(resolvedKey)
+      .then((res) => {
+        if (cancelled) return;
+        setRunbook(res);
+        setDraft(res.markdown_body);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : String(e));
+        setRunbook({
+          key: fallbackEntry.key,
+          title: fallbackEntry.title,
+          section: fallbackEntry.section,
+          tags: fallbackEntry.tags,
+          markdown_body: fallbackEntry.markdown,
+          is_active: true,
+          is_customized: false,
+          version: 1,
+          updated_by: "default_template",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        setDraft(fallbackEntry.markdown);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [moduleKey, resolvedKey, fallbackEntry.key, fallbackEntry.markdown, fallbackEntry.section, fallbackEntry.tags, fallbackEntry.title]);
+
+  const saveRunbook = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.updateOpsRunbook(resolvedKey, { markdown_body: draft });
+      setRunbook(res);
+      setDraft(res.markdown_body);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetRunbook = async () => {
+    const shouldReset = window.confirm("Reset this runbook to default markdown template?");
+    if (!shouldReset) return;
+    setResetting(true);
+    setError(null);
+    try {
+      const res = await api.resetOpsRunbookDefault(resolvedKey);
+      setRunbook(res);
+      setDraft(res.markdown_body);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (!moduleKey) return null;
-  const entry = AI_OPS_RUNBOOK_REGISTRY[moduleKey];
-  const ctx = statusContext[moduleKey];
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 p-0" onClick={onClose}>
       <div
@@ -616,45 +718,109 @@ function RunbookDialog({
         <div className="mb-3 flex items-start justify-between gap-2">
           <div>
             <div className="text-xs uppercase tracking-wide text-neon">Runbook</div>
-            <h3 className="text-lg font-semibold text-text">{entry.title}</h3>
+            <h3 className="text-lg font-semibold text-text">{runbook.title}</h3>
             <div className="mt-1 text-xs text-mute">
               Current status: <span className={toneClass(toneFromServer(ctx.tone))}>{ctx.value}</span>
             </div>
             <div className="mt-1 text-xs text-mute">Reason: {ctx.reason}</div>
             <div className="mt-1 text-[11px] text-mute">
-              Section: <span className="text-text">{entry.section}</span> · Tags: {entry.tags.join(", ")}
+              Section: <span className="text-text">{runbook.section}</span> · Tags: {runbook.tags.join(", ")}
+            </div>
+            <div className="mt-1 text-[11px] text-mute">
+              Status: {runbook.is_customized ? "Customized" : "Default"} · Version: {runbook.version} · Updated by:{" "}
+              {runbook.updated_by || "system"} · Updated at: {fmtDate(runbook.updated_at)}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex items-center gap-1">
+            {canEdit && !isEditing ? (
+              <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+                Edit
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
-        <div className="rounded border border-line/70 bg-panel2/30 p-3">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              h1: ({ children }) => <h1 className="mb-3 text-xl font-semibold text-text">{children}</h1>,
-              h2: ({ children }) => <h2 className="mb-2 mt-4 text-sm font-semibold text-neon">{children}</h2>,
-              p: ({ children }) => <p className="mb-2 text-xs leading-6 text-mute">{children}</p>,
-              ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 text-xs text-mute">{children}</ul>,
-              ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 text-xs text-mute">{children}</ol>,
-              li: ({ children }) => <li>{children}</li>,
-              code: ({ children }) => (
-                <code className="rounded bg-panel px-1 py-0.5 text-[11px] text-neon">{children}</code>
-              ),
-              pre: ({ children }) => <pre className="mb-2 overflow-auto rounded border border-line/70 bg-panel p-2 text-xs">{children}</pre>,
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noreferrer" className="text-neon underline">
-                  {children}
-                </a>
-              ),
-            }}
-          >
-            {entry.markdown}
-          </ReactMarkdown>
-        </div>
+        {error ? <div className="mb-2 rounded border border-danger/50 bg-danger/10 p-2 text-xs text-danger">{error}</div> : null}
+        {loading ? <p className="text-xs text-mute">Loading runbook...</p> : null}
+        {isEditing && canEdit ? (
+          <div className="space-y-2 rounded border border-line/70 bg-panel2/30 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <Button variant={editorTab === "edit" ? "default" : "ghost"} size="sm" onClick={() => setEditorTab("edit")}>
+                  Edit
+                </Button>
+                <Button variant={editorTab === "preview" ? "default" : "ghost"} size="sm" onClick={() => setEditorTab("preview")}>
+                  Preview
+                </Button>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={resetRunbook} disabled={saving || resetting}>
+                  {resetting ? "Resetting..." : "Reset to Default"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setDraft(runbook.markdown_body);
+                  }}
+                  disabled={saving || resetting}
+                >
+                  Cancel
+                </Button>
+                <Button variant="default" size="sm" onClick={saveRunbook} disabled={saving || resetting}>
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+            {editorTab === "edit" ? (
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="h-[60vh] w-full resize-y rounded border border-line bg-panel p-2 text-xs text-text outline-none"
+              />
+            ) : (
+              <div className="rounded border border-line/70 bg-panel p-3">
+                <RunbookMarkdown markdown={draft} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded border border-line/70 bg-panel2/30 p-3">
+            <RunbookMarkdown markdown={runbook.markdown_body} />
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function RunbookMarkdown({ markdown }: { markdown: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => <h1 className="mb-3 text-xl font-semibold text-text">{children}</h1>,
+        h2: ({ children }) => <h2 className="mb-2 mt-4 text-sm font-semibold text-neon">{children}</h2>,
+        p: ({ children }) => <p className="mb-2 text-xs leading-6 text-mute">{children}</p>,
+        ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 text-xs text-mute">{children}</ul>,
+        ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 text-xs text-mute">{children}</ol>,
+        li: ({ children }) => <li>{children}</li>,
+        code: ({ children }) => <code className="rounded bg-panel px-1 py-0.5 text-[11px] text-neon">{children}</code>,
+        pre: ({ children }) => (
+          <pre className="mb-2 overflow-auto rounded border border-line/70 bg-panel p-2 text-xs">{children}</pre>
+        ),
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noreferrer" className="text-neon underline">
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {markdown}
+    </ReactMarkdown>
   );
 }
 

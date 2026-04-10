@@ -750,3 +750,29 @@ export interface OpsAiObservability {
   primary_metrics: string[];
   secondary_metrics: string[];
 }
+
+export interface OpsRunbook {
+  key: string;
+  title: string;
+  section: string;
+  tags: string[];
+  markdown_body: string;
+  is_active: boolean;
+  is_customized: boolean;
+  version: number;
+  updated_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpsRunbookList {
+  items: OpsRunbook[];
+}
+
+export interface OpsRunbookUpdateInput {
+  title?: string;
+  section?: string;
+  tags?: string[];
+  markdown_body?: string;
+  is_active?: boolean;
+}

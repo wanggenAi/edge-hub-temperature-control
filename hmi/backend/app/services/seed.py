@@ -23,6 +23,7 @@ from app.models.entities import (
 from app.services.ai.enums import ExpectedEffect, ProblemType, RiskLevel
 from app.services.ai.recommendation_service import RecommendationService
 from app.services.ai.schemas import PIDParams, RecommendationGenerateOutput
+from app.services.ops_runbook_service import ops_runbook_service
 
 
 ROLE_DATA = [
@@ -673,6 +674,7 @@ def seed_database(
     with_demo_data: bool = False,
     with_preview_ai_demo: bool = False,
 ) -> None:
+    ops_runbook_service.ensure_defaults_seeded(db)
     if with_default_alarm_rules:
         seed_alarm_rules(db)
     if with_demo_data:

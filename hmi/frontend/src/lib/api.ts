@@ -18,6 +18,9 @@ import type {
   MetricWindowStats,
   OpsDataHub,
   OpsAiObservability,
+  OpsRunbook,
+  OpsRunbookList,
+  OpsRunbookUpdateInput,
   OpsLearningLoop,
   OpsModelRuntime,
   OpsOverview,
@@ -301,4 +304,10 @@ export const api = {
   opsLearningLoop: () => request<OpsLearningLoop>("/ops/learning-loop"),
   opsModels: () => request<OpsModelRuntime>("/ops/models"),
   opsAiObservability: () => request<OpsAiObservability>("/ops/ai/observability"),
+  opsRunbooks: () => request<OpsRunbookList>("/ops/runbooks"),
+  opsRunbook: (key: string) => request<OpsRunbook>(`/ops/runbooks/${encodeURIComponent(key)}`),
+  updateOpsRunbook: (key: string, payload: OpsRunbookUpdateInput) =>
+    request<OpsRunbook>(`/ops/runbooks/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  resetOpsRunbookDefault: (key: string) =>
+    request<OpsRunbook>(`/ops/runbooks/${encodeURIComponent(key)}/reset-default`, { method: "POST" }),
 };

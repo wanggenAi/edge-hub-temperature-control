@@ -334,3 +334,20 @@ class ControlActionFeedbackSample(Base):
 
     control_action: Mapped[ControlAction] = relationship(back_populates="feedback_samples")
     device: Mapped[Device] = relationship(back_populates="control_action_feedback_samples")
+
+
+class OpsRunbook(Base):
+    __tablename__ = "ops_runbooks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    key: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    section: Mapped[str] = mapped_column(String(64), default="general", index=True)
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    markdown_body: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    is_customized: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
