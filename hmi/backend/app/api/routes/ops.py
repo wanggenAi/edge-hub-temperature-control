@@ -5,7 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db_dep, require_roles
 from app.models.entities import User
-from app.schemas.ops import OpsDataHubOut, OpsLearningLoopOut, OpsModelRuntimeOut, OpsOverviewOut, OpsRuntimeOut
+from app.schemas.ops import (
+    OpsAiObservabilityOut,
+    OpsDataHubOut,
+    OpsLearningLoopOut,
+    OpsModelRuntimeOut,
+    OpsOverviewOut,
+    OpsRuntimeOut,
+)
 from app.services.ops_console import ops_console_service
 
 router = APIRouter(prefix="/ops", tags=["ops"])
@@ -47,3 +54,11 @@ def get_ops_models(
     _: User = Depends(require_roles("admin")),
 ) -> OpsModelRuntimeOut:
     return ops_console_service.build_models(db)
+
+
+@router.get("/ai/observability", response_model=OpsAiObservabilityOut)
+def get_ops_ai_observability(
+    db: Session = Depends(get_db_dep),
+    _: User = Depends(require_roles("admin")),
+) -> OpsAiObservabilityOut:
+    return ops_console_service.build_ai_observability(db)

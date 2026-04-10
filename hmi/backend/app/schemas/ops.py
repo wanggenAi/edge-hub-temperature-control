@@ -153,6 +153,141 @@ class OpsAiOverviewOut(BaseModel):
     manual_sample_count: int = 0
 
 
+class OpsAiHealthSummaryOut(BaseModel):
+    overall_model_health: str = "Untrusted"
+    success_model_macro_f1: Optional[float] = None
+    preview_gap_model_macro_f1: Optional[float] = None
+    recall_worse: Optional[float] = None
+    recall_high_gap: Optional[float] = None
+    fallback_ratio: Optional[float] = None
+    ai_improved_ratio: Optional[float] = None
+    manual_improved_ratio: Optional[float] = None
+    ai_vs_manual_improved_delta: Optional[float] = None
+    feature_drift_status: str = "Unknown"
+    label_drift_status: str = "Unknown"
+    interpretation: str = ""
+
+
+class OpsAiWhyStatusOut(BaseModel):
+    status: str = "Untrusted"
+    summary: str = ""
+    reasons: list[str] = Field(default_factory=list)
+
+
+class OpsAiPerClassMetricOut(BaseModel):
+    label: str
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+    f1: Optional[float] = None
+    support: Optional[int] = None
+
+
+class OpsAiConfusionMatrixOut(BaseModel):
+    labels: list[str] = Field(default_factory=list)
+    matrix: list[list[int]] = Field(default_factory=list)
+    note: Optional[str] = None
+
+
+class OpsAiModelEvaluationOut(BaseModel):
+    model_key: Optional[str] = None
+    model_name: Optional[str] = None
+    artifact_path: Optional[str] = None
+    artifact_timestamp: Optional[datetime] = None
+    validation_size: Optional[int] = None
+    accuracy: Optional[float] = None
+    macro_precision: Optional[float] = None
+    macro_recall: Optional[float] = None
+    macro_f1: Optional[float] = None
+    per_class: list[OpsAiPerClassMetricOut] = Field(default_factory=list)
+    confusion: OpsAiConfusionMatrixOut = Field(default_factory=OpsAiConfusionMatrixOut)
+    training_label_distribution: list[OpsKeyValueCount] = Field(default_factory=list)
+
+
+class OpsAiOfflineEvaluationOut(BaseModel):
+    success_model: OpsAiModelEvaluationOut
+    preview_gap_model: OpsAiModelEvaluationOut
+
+
+class OpsAiOutcomeBreakdownOut(BaseModel):
+    improved: int = 0
+    unchanged: int = 0
+    worse: int = 0
+    total: int = 0
+    improved_ratio: Optional[float] = None
+    worse_ratio: Optional[float] = None
+
+
+class OpsAiOnlineWindowOut(BaseModel):
+    window: str
+    ai: OpsAiOutcomeBreakdownOut
+    manual: OpsAiOutcomeBreakdownOut
+    ai_vs_manual_improved_delta: Optional[float] = None
+
+
+class OpsAiOnlineOutcomesOut(BaseModel):
+    window_24h: OpsAiOnlineWindowOut
+    window_7d: OpsAiOnlineWindowOut
+
+
+class OpsAiFeatureDriftOut(BaseModel):
+    feature: str
+    baseline_mean: Optional[float] = None
+    baseline_p50: Optional[float] = None
+    baseline_p95: Optional[float] = None
+    recent_mean: Optional[float] = None
+    recent_p50: Optional[float] = None
+    recent_p95: Optional[float] = None
+    delta_ratio: Optional[float] = None
+    status: str = "Unknown"
+
+
+class OpsAiLabelDriftOut(BaseModel):
+    label_group: str
+    label: str
+    training_ratio: Optional[float] = None
+    recent_ratio: Optional[float] = None
+    delta_abs: Optional[float] = None
+
+
+class OpsAiDataQualityOut(BaseModel):
+    recent_feedback_sample_count: int = 0
+    usable_for_training_ratio: Optional[float] = None
+    label_coverage: Optional[str] = None
+    sample_quality_distribution: list[OpsKeyValueCount] = Field(default_factory=list)
+
+
+class OpsAiDriftDataHealthOut(BaseModel):
+    feature_drift_status: str = "Unknown"
+    label_drift_status: str = "Unknown"
+    feature_drift: list[OpsAiFeatureDriftOut] = Field(default_factory=list)
+    label_drift: list[OpsAiLabelDriftOut] = Field(default_factory=list)
+    data_quality: OpsAiDataQualityOut = Field(default_factory=OpsAiDataQualityOut)
+
+
+class OpsAiRuntimeReliabilityOut(BaseModel):
+    ranking_used_ratio: Optional[float] = None
+    ranking_fallback_used_ratio: Optional[float] = None
+    runtime_fallback_ratio: Optional[float] = None
+    candidate_selection_distribution: list[OpsKeyValueCount] = Field(default_factory=list)
+    rule_center_selected_ratio: Optional[float] = None
+    baseline_hold_selected_ratio: Optional[float] = None
+    conservative_selected_ratio: Optional[float] = None
+    aggressive_selected_ratio: Optional[float] = None
+    balance_selected_ratio: Optional[float] = None
+
+
+class OpsAiObservabilityOut(BaseModel):
+    as_of: datetime
+    health_summary: OpsAiHealthSummaryOut
+    why_this_status: OpsAiWhyStatusOut
+    offline_evaluation: OpsAiOfflineEvaluationOut
+    online_outcome_quality: OpsAiOnlineOutcomesOut
+    drift_data_health: OpsAiDriftDataHealthOut
+    runtime_reliability: OpsAiRuntimeReliabilityOut
+    primary_metrics: list[str] = Field(default_factory=list)
+    secondary_metrics: list[str] = Field(default_factory=list)
+
+
 class OpsOverviewOut(BaseModel):
     as_of: datetime
     data_hub: OpsDataHubOut

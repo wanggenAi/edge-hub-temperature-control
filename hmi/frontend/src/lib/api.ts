@@ -17,6 +17,7 @@ import type {
   Metric,
   MetricWindowStats,
   OpsDataHub,
+  OpsAiObservability,
   OpsLearningLoop,
   OpsModelRuntime,
   OpsOverview,
@@ -299,4 +300,5 @@ export const api = {
   opsRuntime: () => request<OpsRuntime>("/ops/runtime"),
   opsLearningLoop: () => request<OpsLearningLoop>("/ops/learning-loop"),
   opsModels: () => request<OpsModelRuntime>("/ops/models"),
+  opsAiObservability: () => request<OpsAiObservability>("/ops/ai/observability"),
 };

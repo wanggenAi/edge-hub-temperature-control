@@ -6,8 +6,9 @@ import json
 import os
 from pathlib import Path
 import re
+import statistics
 import threading
-from typing import Optional
+from typing import Any, Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -18,7 +19,22 @@ from app.core.config import settings
 from app.db.session import engine
 from app.models.entities import AIRecommendation, ControlAction, ControlActionEvalJob, ControlActionFeedbackSample
 from app.schemas.ops import (
+    OpsAiConfusionMatrixOut,
+    OpsAiDataQualityOut,
+    OpsAiDriftDataHealthOut,
+    OpsAiFeatureDriftOut,
     OpsAiOverviewOut,
+    OpsAiHealthSummaryOut,
+    OpsAiLabelDriftOut,
+    OpsAiModelEvaluationOut,
+    OpsAiObservabilityOut,
+    OpsAiOfflineEvaluationOut,
+    OpsAiOnlineOutcomesOut,
+    OpsAiOnlineWindowOut,
+    OpsAiOutcomeBreakdownOut,
+    OpsAiPerClassMetricOut,
+    OpsAiRuntimeReliabilityOut,
+    OpsAiWhyStatusOut,
     OpsDataHubOut,
     OpsEvalJobStatusOut,
     OpsKeyValueCount,
@@ -148,6 +164,43 @@ def _first_json_metric(obj: dict, *keys: str) -> Optional[float]:
             except (TypeError, ValueError):
                 continue
     return None
+
+
+def _safe_float(raw: Any) -> Optional[float]:
+    try:
+        if raw is None:
+            return None
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(raw: Any) -> Optional[int]:
+    try:
+        if raw is None:
+            return None
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pct(values: list[float], q: float) -> Optional[float]:
+    if not values:
+        return None
+    sorted_vals = sorted(values)
+    if len(sorted_vals) == 1:
+        return float(sorted_vals[0])
+    pos = (len(sorted_vals) - 1) * max(0.0, min(1.0, q))
+    lo = int(pos)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    frac = pos - lo
+    return float(sorted_vals[lo] * (1.0 - frac) + sorted_vals[hi] * frac)
+
+
+def _ratio(num: int, den: int) -> Optional[float]:
+    if den <= 0:
+        return None
+    return float(num) / float(den)
 
 
 class OpsConsoleService:
@@ -815,6 +868,562 @@ class OpsConsoleService:
             manual_improved_ratio=manual_ratio,
             ai_sample_count=ai_samples,
             manual_sample_count=manual_samples,
+        )
+
+    def _artifact_metrics_path(self, artifact_dir_name: str, metrics_file: str) -> Optional[Path]:
+        root = _repo_root()
+        path = root / "hmi/backend/artifacts" / artifact_dir_name / metrics_file
+        if path.exists() and path.is_file():
+            return path
+        return None
+
+    def _load_json_file(self, path: Optional[Path]) -> dict[str, Any]:
+        if path is None:
+            return {}
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                body = json.load(f)
+            return body if isinstance(body, dict) else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def _pick_offline_model(self, body: dict[str, Any]) -> tuple[Optional[str], dict[str, Any]]:
+        models = body.get("models")
+        if not isinstance(models, dict) or not models:
+            return None, {}
+        if isinstance(models.get("baseline"), dict):
+            return "baseline", dict(models.get("baseline") or {})
+        for key, payload in models.items():
+            if isinstance(payload, dict):
+                return str(key), dict(payload)
+        return None, {}
+
+    def _build_confusion_note(self, labels: list[str], matrix: list[list[int]], model_scope: str) -> Optional[str]:
+        if not labels or not matrix:
+            return None
+        strongest: Optional[tuple[str, int]] = None
+        for i, row in enumerate(matrix):
+            if i >= len(labels):
+                continue
+            for j, val in enumerate(row):
+                if i == j or j >= len(labels):
+                    continue
+                if not isinstance(val, int):
+                    continue
+                if strongest is None or val > strongest[1]:
+                    strongest = (f"{labels[i]} -> {labels[j]}", val)
+        if strongest is None or strongest[1] <= 0:
+            return f"{model_scope} confusion is relatively clean."
+        return f"Most confusion: {strongest[0]} ({strongest[1]} samples)."
+
+    def _build_model_evaluation(
+        self,
+        *,
+        artifact_dir_name: str,
+        metrics_file: str,
+        expected_labels: list[str],
+        model_scope: str,
+    ) -> OpsAiModelEvaluationOut:
+        path = self._artifact_metrics_path(artifact_dir_name, metrics_file)
+        body = self._load_json_file(path)
+        model_key, selected = self._pick_offline_model(body)
+        report = selected.get("classification_report")
+        report_map = report if isinstance(report, dict) else {}
+        per_class: list[OpsAiPerClassMetricOut] = []
+        for label in expected_labels:
+            row = report_map.get(label)
+            row_map = row if isinstance(row, dict) else {}
+            per_class.append(
+                OpsAiPerClassMetricOut(
+                    label=label,
+                    precision=_safe_float(row_map.get("precision")),
+                    recall=_safe_float(row_map.get("recall")),
+                    f1=_safe_float(row_map.get("f1-score")),
+                    support=_safe_int(row_map.get("support")),
+                )
+            )
+        labels_raw = selected.get("confusion_matrix_labels")
+        labels = [str(item) for item in labels_raw] if isinstance(labels_raw, list) else []
+        matrix_raw = selected.get("confusion_matrix")
+        matrix: list[list[int]] = []
+        if isinstance(matrix_raw, list):
+            for row in matrix_raw:
+                if isinstance(row, list):
+                    matrix.append([int(v) for v in row if isinstance(v, (int, float))])
+        training_label_distribution: list[OpsKeyValueCount] = []
+        dataset = body.get("dataset")
+        if isinstance(dataset, dict) and isinstance(dataset.get("label_distribution"), dict):
+            dist_map = dataset.get("label_distribution") or {}
+            for label in expected_labels:
+                training_label_distribution.append(
+                    OpsKeyValueCount(key=label, count=int(dist_map.get(label) or 0))
+                )
+        artifact_rel = str(path.relative_to(_repo_root())) if path is not None else None
+        artifact_ts = datetime.utcfromtimestamp(path.stat().st_mtime) if path is not None else None
+        return OpsAiModelEvaluationOut(
+            model_key=model_key,
+            model_name=str(selected.get("model_name")) if selected.get("model_name") is not None else None,
+            artifact_path=artifact_rel,
+            artifact_timestamp=artifact_ts,
+            validation_size=_safe_int(selected.get("validation_size")),
+            accuracy=_safe_float(selected.get("accuracy")),
+            macro_precision=_safe_float(selected.get("macro_precision")),
+            macro_recall=_safe_float(selected.get("macro_recall")),
+            macro_f1=_safe_float(selected.get("macro_f1")),
+            per_class=per_class,
+            confusion=OpsAiConfusionMatrixOut(
+                labels=labels,
+                matrix=matrix,
+                note=self._build_confusion_note(labels, matrix, model_scope=model_scope),
+            ),
+            training_label_distribution=training_label_distribution,
+        )
+
+    def _build_outcome_breakdown(self, db: Session, *, source: str, since: datetime) -> OpsAiOutcomeBreakdownOut:
+        rows = db.execute(
+            select(ControlActionFeedbackSample.actual_effect_label, func.count(ControlActionFeedbackSample.id))
+            .where(
+                ControlActionFeedbackSample.source == source,
+                ControlActionFeedbackSample.applied_at >= since,
+            )
+            .group_by(ControlActionFeedbackSample.actual_effect_label)
+        ).all()
+        mapped = {str(k or "unknown"): int(v) for k, v in rows}
+        improved = int(mapped.get("improved", 0))
+        unchanged = int(mapped.get("unchanged", 0))
+        worse = int(mapped.get("worse", 0))
+        total = improved + unchanged + worse
+        return OpsAiOutcomeBreakdownOut(
+            improved=improved,
+            unchanged=unchanged,
+            worse=worse,
+            total=total,
+            improved_ratio=_ratio(improved, total),
+            worse_ratio=_ratio(worse, total),
+        )
+
+    def _build_online_window(self, db: Session, *, label: str, since: datetime) -> OpsAiOnlineWindowOut:
+        ai = self._build_outcome_breakdown(db, source="ai_recommendation", since=since)
+        manual = self._build_outcome_breakdown(db, source="manual_user", since=since)
+        delta = None
+        if ai.improved_ratio is not None and manual.improved_ratio is not None:
+            delta = ai.improved_ratio - manual.improved_ratio
+        return OpsAiOnlineWindowOut(window=label, ai=ai, manual=manual, ai_vs_manual_improved_delta=delta)
+
+    def _read_feature_samples(
+        self,
+        db: Session,
+        *,
+        feature: str,
+        since: Optional[datetime],
+        until: Optional[datetime],
+    ) -> list[float]:
+        if not hasattr(ControlActionFeedbackSample, feature):
+            return []
+        column = getattr(ControlActionFeedbackSample, feature)
+        stmt = select(column).where(
+            ControlActionFeedbackSample.is_training_eligible.is_(True),
+            column.isnot(None),
+        )
+        if since is not None:
+            stmt = stmt.where(ControlActionFeedbackSample.applied_at >= since)
+        if until is not None:
+            stmt = stmt.where(ControlActionFeedbackSample.applied_at < until)
+        vals = [float(v) for v in db.scalars(stmt.limit(5000)).all() if isinstance(v, (int, float))]
+        return vals
+
+    def _feature_drift_level(self, delta_ratio: Optional[float]) -> str:
+        if delta_ratio is None:
+            return "Unknown"
+        n = abs(delta_ratio)
+        if n >= 0.4:
+            return "High"
+        if n >= 0.2:
+            return "Medium"
+        return "Low"
+
+    def _aggregate_level(self, levels: list[str]) -> str:
+        if any(l == "High" for l in levels):
+            return "High"
+        if any(l == "Medium" for l in levels):
+            return "Medium"
+        if any(l == "Low" for l in levels):
+            return "Low"
+        if any(l == "Insufficient data" for l in levels):
+            return "Insufficient data"
+        return "Unknown"
+
+    def _build_drift_data_health(
+        self,
+        db: Session,
+        *,
+        success_eval: OpsAiModelEvaluationOut,
+        gap_eval: OpsAiModelEvaluationOut,
+    ) -> OpsAiDriftDataHealthOut:
+        now = datetime.utcnow()
+        recent_since = now - timedelta(days=7)
+        baseline_until = recent_since
+        features = [
+            "mean_abs_error",
+            "error_std",
+            "zero_crossings",
+            "in_band_ratio",
+            "saturation_ratio",
+            "delta_kp",
+            "delta_ki",
+            "delta_kd",
+            "settling_sec",
+            "overshoot_pct",
+        ]
+        rows: list[OpsAiFeatureDriftOut] = []
+        levels: list[str] = []
+        for feature in features:
+            recent_vals = self._read_feature_samples(db, feature=feature, since=recent_since, until=None)
+            baseline_vals = self._read_feature_samples(db, feature=feature, since=None, until=baseline_until)
+            if len(baseline_vals) < 20:
+                baseline_vals = self._read_feature_samples(db, feature=feature, since=None, until=None)
+            if not recent_vals or not baseline_vals:
+                levels.append("Insufficient data")
+                rows.append(OpsAiFeatureDriftOut(feature=feature, status="Insufficient data"))
+                continue
+            baseline_mean = float(statistics.fmean(baseline_vals))
+            recent_mean = float(statistics.fmean(recent_vals))
+            denom = max(abs(baseline_mean), 1e-6)
+            delta_ratio = (recent_mean - baseline_mean) / denom
+            status = self._feature_drift_level(delta_ratio)
+            levels.append(status)
+            rows.append(
+                OpsAiFeatureDriftOut(
+                    feature=feature,
+                    baseline_mean=baseline_mean,
+                    baseline_p50=_pct(baseline_vals, 0.5),
+                    baseline_p95=_pct(baseline_vals, 0.95),
+                    recent_mean=recent_mean,
+                    recent_p50=_pct(recent_vals, 0.5),
+                    recent_p95=_pct(recent_vals, 0.95),
+                    delta_ratio=delta_ratio,
+                    status=status,
+                )
+            )
+
+        label_rows: list[OpsAiLabelDriftOut] = []
+        label_levels: list[str] = []
+
+        def _label_ratio_map(rows_in: list[tuple[Optional[str], int]]) -> dict[str, float]:
+            total = sum(v for _, v in rows_in)
+            if total <= 0:
+                return {}
+            return {str(k): float(v) / float(total) for k, v in rows_in if k}
+
+        success_train = {r.key: r.count for r in success_eval.training_label_distribution}
+        gap_train = {r.key: r.count for r in gap_eval.training_label_distribution}
+        success_train_total = sum(success_train.values())
+        gap_train_total = sum(gap_train.values())
+
+        success_live_rows = db.execute(
+            select(ControlActionFeedbackSample.actual_effect_label, func.count(ControlActionFeedbackSample.id))
+            .where(ControlActionFeedbackSample.applied_at >= recent_since)
+            .group_by(ControlActionFeedbackSample.actual_effect_label)
+        ).all()
+        gap_live_rows = db.execute(
+            select(ControlActionFeedbackSample.preview_gap_label, func.count(ControlActionFeedbackSample.id))
+            .where(ControlActionFeedbackSample.applied_at >= recent_since)
+            .group_by(ControlActionFeedbackSample.preview_gap_label)
+        ).all()
+        success_live = _label_ratio_map([(k, int(v)) for k, v in success_live_rows])
+        gap_live = _label_ratio_map([(k, int(v)) for k, v in gap_live_rows])
+
+        for label in ("improved", "unchanged", "worse"):
+            train_ratio = (float(success_train.get(label, 0)) / float(success_train_total)) if success_train_total > 0 else None
+            live_ratio = success_live.get(label)
+            delta_abs = abs((live_ratio or 0.0) - (train_ratio or 0.0)) if (train_ratio is not None or live_ratio is not None) else None
+            if delta_abs is not None:
+                label_levels.append("High" if delta_abs >= 0.25 else "Medium" if delta_abs >= 0.12 else "Low")
+            else:
+                label_levels.append("Insufficient data")
+            label_rows.append(
+                OpsAiLabelDriftOut(
+                    label_group="success_label",
+                    label=label,
+                    training_ratio=train_ratio,
+                    recent_ratio=live_ratio,
+                    delta_abs=delta_abs,
+                )
+            )
+        for label in ("low", "medium", "high"):
+            train_ratio = (float(gap_train.get(label, 0)) / float(gap_train_total)) if gap_train_total > 0 else None
+            live_ratio = gap_live.get(label)
+            delta_abs = abs((live_ratio or 0.0) - (train_ratio or 0.0)) if (train_ratio is not None or live_ratio is not None) else None
+            if delta_abs is not None:
+                label_levels.append("High" if delta_abs >= 0.25 else "Medium" if delta_abs >= 0.12 else "Low")
+            else:
+                label_levels.append("Insufficient data")
+            label_rows.append(
+                OpsAiLabelDriftOut(
+                    label_group="preview_gap_label",
+                    label=label,
+                    training_ratio=train_ratio,
+                    recent_ratio=live_ratio,
+                    delta_abs=delta_abs,
+                )
+            )
+
+        recent_count = int(
+            db.scalar(
+                select(func.count(ControlActionFeedbackSample.id)).where(ControlActionFeedbackSample.applied_at >= recent_since)
+            )
+            or 0
+        )
+        recent_usable = int(
+            db.scalar(
+                select(func.count(ControlActionFeedbackSample.id)).where(
+                    ControlActionFeedbackSample.applied_at >= recent_since,
+                    ControlActionFeedbackSample.is_training_eligible.is_(True),
+                )
+            )
+            or 0
+        )
+        quality_rows = db.execute(
+            select(ControlActionFeedbackSample.sample_quality, func.count(ControlActionFeedbackSample.id))
+            .where(ControlActionFeedbackSample.applied_at >= recent_since)
+            .group_by(ControlActionFeedbackSample.sample_quality)
+        ).all()
+        success_live_labels = {str(k) for k, _ in success_live_rows if k}
+        gap_live_labels = {str(k) for k, _ in gap_live_rows if k}
+        label_coverage = f"success {len(success_live_labels)}/3, gap {len(gap_live_labels)}/3"
+        return OpsAiDriftDataHealthOut(
+            feature_drift_status=self._aggregate_level(levels),
+            label_drift_status=self._aggregate_level(label_levels),
+            feature_drift=rows,
+            label_drift=label_rows,
+            data_quality=OpsAiDataQualityOut(
+                recent_feedback_sample_count=recent_count,
+                usable_for_training_ratio=_ratio(recent_usable, recent_count),
+                label_coverage=label_coverage,
+                sample_quality_distribution=self._rows_to_key_counts(
+                    [(str(k or "unknown"), int(v)) for k, v in quality_rows]
+                ),
+            ),
+        )
+
+    def _build_runtime_reliability(self, db: Session) -> OpsAiRuntimeReliabilityOut:
+        recs = db.scalars(select(AIRecommendation).order_by(AIRecommendation.last_run_at.desc()).limit(500)).all()
+        ranking_used_true = 0
+        ranking_used_total = 0
+        ranking_fb_true = 0
+        ranking_fb_total = 0
+        fallback_true = 0
+        fallback_total = 0
+        selected_counter: Counter[str] = Counter()
+        selected_total = 0
+        for rec in recs:
+            meta = self._rec_service.read_storage_metadata(rec.suggestion)
+            ard = meta.get("ard")
+            if not isinstance(ard, dict):
+                continue
+            if "ranking_used" in ard:
+                ranking_used_total += 1
+                if bool(ard.get("ranking_used")):
+                    ranking_used_true += 1
+            if "ranking_fallback_used" in ard:
+                ranking_fb_total += 1
+                if bool(ard.get("ranking_fallback_used")):
+                    ranking_fb_true += 1
+            if "fallback_used" in ard:
+                fallback_total += 1
+                if bool(ard.get("fallback_used")):
+                    fallback_true += 1
+            candidate_id = str(ard.get("selected_candidate_id") or "").strip()
+            if candidate_id:
+                selected_counter[candidate_id] += 1
+                selected_total += 1
+        ordered = [OpsKeyValueCount(key=k, count=v) for k, v in selected_counter.most_common()]
+
+        def _candidate_ratio(candidate_key: str) -> Optional[float]:
+            return _ratio(int(selected_counter.get(candidate_key, 0)), selected_total)
+
+        conservative_count = sum(v for k, v in selected_counter.items() if "conservative" in k)
+        aggressive_count = sum(v for k, v in selected_counter.items() if "aggressive" in k)
+        balance_count = sum(v for k, v in selected_counter.items() if "balance" in k)
+        return OpsAiRuntimeReliabilityOut(
+            ranking_used_ratio=_ratio(ranking_used_true, ranking_used_total),
+            ranking_fallback_used_ratio=_ratio(ranking_fb_true, ranking_fb_total),
+            runtime_fallback_ratio=_ratio(fallback_true, fallback_total),
+            candidate_selection_distribution=ordered,
+            rule_center_selected_ratio=_candidate_ratio("rule_center"),
+            baseline_hold_selected_ratio=_candidate_ratio("baseline_hold"),
+            conservative_selected_ratio=_ratio(conservative_count, selected_total),
+            aggressive_selected_ratio=_ratio(aggressive_count, selected_total),
+            balance_selected_ratio=_ratio(balance_count, selected_total),
+        )
+
+    def _derive_health_summary(
+        self,
+        *,
+        success_eval: OpsAiModelEvaluationOut,
+        gap_eval: OpsAiModelEvaluationOut,
+        outcomes_7d: OpsAiOnlineWindowOut,
+        drift: OpsAiDriftDataHealthOut,
+        runtime: OpsAiRuntimeReliabilityOut,
+    ) -> tuple[OpsAiHealthSummaryOut, OpsAiWhyStatusOut]:
+        success_macro_f1 = success_eval.macro_f1
+        gap_macro_f1 = gap_eval.macro_f1
+        recall_worse = next((p.recall for p in success_eval.per_class if p.label == "worse"), None)
+        recall_high = next((p.recall for p in gap_eval.per_class if p.label == "high"), None)
+        fallback_ratio = runtime.runtime_fallback_ratio
+        ai_ratio = outcomes_7d.ai.improved_ratio
+        manual_ratio = outcomes_7d.manual.improved_ratio
+        delta = outcomes_7d.ai_vs_manual_improved_delta
+        reasons: list[str] = []
+        artifact_max_age_days = max(1, int(settings.ops_ai_health_artifact_max_age_days))
+        artifact_cutoff = datetime.utcnow() - timedelta(days=artifact_max_age_days)
+        success_artifact_stale = (
+            success_eval.artifact_timestamp is None or success_eval.artifact_timestamp < artifact_cutoff
+        )
+        gap_artifact_stale = gap_eval.artifact_timestamp is None or gap_eval.artifact_timestamp < artifact_cutoff
+
+        if success_macro_f1 is None or gap_macro_f1 is None:
+            status = "Untrusted"
+            reasons.append("Offline evaluation artifacts are missing or unreadable.")
+        elif success_artifact_stale or gap_artifact_stale:
+            status = "Untrusted"
+            reasons.append(f"Offline evaluation artifacts are stale (older than {artifact_max_age_days} days).")
+        elif (
+            recall_worse is not None and recall_worse < float(settings.ops_ai_health_untrusted_danger_recall_critical)
+        ) or (
+            recall_high is not None and recall_high < float(settings.ops_ai_health_untrusted_danger_recall_critical)
+        ):
+            status = "Untrusted"
+            reasons.append("Dangerous-class recall is critically low.")
+        elif (
+            fallback_ratio is not None
+            and fallback_ratio >= float(settings.ops_ai_health_untrusted_fallback_critical)
+        ):
+            status = "Untrusted"
+            reasons.append("Runtime fallback is too high, so model-driven decisions are not reliable.")
+        else:
+            status = "Good"
+            if (
+                (success_macro_f1 is not None and success_macro_f1 < float(settings.ops_ai_health_poor_success_macro_f1_max))
+                or (gap_macro_f1 is not None and gap_macro_f1 < float(settings.ops_ai_health_poor_gap_macro_f1_max))
+                or (recall_worse is not None and recall_worse < float(settings.ops_ai_health_poor_danger_recall_max))
+                or (recall_high is not None and recall_high < float(settings.ops_ai_health_poor_danger_recall_max))
+                or (fallback_ratio is not None and fallback_ratio > float(settings.ops_ai_health_poor_fallback_min))
+                or (delta is not None and delta < float(settings.ops_ai_health_poor_ai_manual_delta_min))
+                or drift.feature_drift_status == "High"
+                or drift.label_drift_status == "High"
+            ):
+                status = "Poor"
+            elif (
+                (success_macro_f1 is not None and success_macro_f1 < float(settings.ops_ai_health_watch_success_macro_f1_max))
+                or (gap_macro_f1 is not None and gap_macro_f1 < float(settings.ops_ai_health_watch_gap_macro_f1_max))
+                or (recall_worse is not None and recall_worse < float(settings.ops_ai_health_watch_danger_recall_max))
+                or (recall_high is not None and recall_high < float(settings.ops_ai_health_watch_danger_recall_max))
+                or (fallback_ratio is not None and fallback_ratio > float(settings.ops_ai_health_watch_fallback_min))
+                or (delta is not None and delta < float(settings.ops_ai_health_watch_ai_manual_delta_min))
+                or drift.feature_drift_status == "Medium"
+                or drift.label_drift_status == "Medium"
+            ):
+                status = "Watch"
+
+        if success_macro_f1 is not None:
+            reasons.append(f"Success macro F1 {success_macro_f1:.3f}.")
+        if gap_macro_f1 is not None:
+            reasons.append(f"Preview-gap macro F1 {gap_macro_f1:.3f}.")
+        if recall_worse is not None:
+            reasons.append(f"Recall(worse) {recall_worse:.3f}.")
+        if recall_high is not None:
+            reasons.append(f"Recall(high) {recall_high:.3f}.")
+        if fallback_ratio is not None:
+            reasons.append(f"Fallback ratio {fallback_ratio * 100:.1f}%.")
+        if delta is not None:
+            reasons.append(f"AI vs manual improved delta {delta * 100:.1f}pp (7d).")
+        reasons.append(f"Feature drift: {drift.feature_drift_status}.")
+        reasons.append(f"Label drift: {drift.label_drift_status}.")
+
+        if status == "Good":
+            interpretation = "Models are healthy: macro F1 is stable, dangerous-class recall is acceptable, and fallback remains low."
+        elif status == "Watch":
+            interpretation = "Offline quality is acceptable, but one or more risk indicators need attention (dangerous-class recall, drift, or fallback)."
+        elif status == "Poor":
+            interpretation = "Model quality or production reliability is weak; investigate dangerous-class recall, drift, and online outcomes before trusting recommendations."
+        else:
+            interpretation = "Current AI outputs are not trustworthy due to severe recall/fallback issues or missing offline evidence."
+
+        summary = " ".join(reasons[:3]) if reasons else "Status based on offline quality, online outcomes, drift, and runtime reliability."
+        return (
+            OpsAiHealthSummaryOut(
+                overall_model_health=status,
+                success_model_macro_f1=success_macro_f1,
+                preview_gap_model_macro_f1=gap_macro_f1,
+                recall_worse=recall_worse,
+                recall_high_gap=recall_high,
+                fallback_ratio=fallback_ratio,
+                ai_improved_ratio=ai_ratio,
+                manual_improved_ratio=manual_ratio,
+                ai_vs_manual_improved_delta=delta,
+                feature_drift_status=drift.feature_drift_status,
+                label_drift_status=drift.label_drift_status,
+                interpretation=interpretation,
+            ),
+            OpsAiWhyStatusOut(status=status, summary=summary, reasons=reasons),
+        )
+
+    def build_ai_observability(self, db: Session) -> OpsAiObservabilityOut:
+        now = datetime.utcnow()
+        success_eval = self._build_model_evaluation(
+            artifact_dir_name="recommendation_success",
+            metrics_file="recommendation_success_metrics.json",
+            expected_labels=["improved", "unchanged", "worse"],
+            model_scope="Success model",
+        )
+        gap_eval = self._build_model_evaluation(
+            artifact_dir_name="preview_gap",
+            metrics_file="preview_gap_metrics.json",
+            expected_labels=["low", "medium", "high"],
+            model_scope="Preview-gap model",
+        )
+        online_24h = self._build_online_window(db, label="24h", since=now - timedelta(hours=24))
+        online_7d = self._build_online_window(db, label="7d", since=now - timedelta(days=7))
+        drift = self._build_drift_data_health(db, success_eval=success_eval, gap_eval=gap_eval)
+        runtime = self._build_runtime_reliability(db)
+        health_summary, why = self._derive_health_summary(
+            success_eval=success_eval,
+            gap_eval=gap_eval,
+            outcomes_7d=online_7d,
+            drift=drift,
+            runtime=runtime,
+        )
+        return OpsAiObservabilityOut(
+            as_of=now,
+            health_summary=health_summary,
+            why_this_status=why,
+            offline_evaluation=OpsAiOfflineEvaluationOut(
+                success_model=success_eval,
+                preview_gap_model=gap_eval,
+            ),
+            online_outcome_quality=OpsAiOnlineOutcomesOut(window_24h=online_24h, window_7d=online_7d),
+            drift_data_health=drift,
+            runtime_reliability=runtime,
+            primary_metrics=[
+                "success_model_macro_f1",
+                "preview_gap_model_macro_f1",
+                "recall_worse",
+                "recall_high_gap",
+                "ai_improved_ratio",
+                "ai_vs_manual_improved_delta",
+                "fallback_ratio",
+                "feature_drift_status",
+                "label_drift_status",
+            ],
+            secondary_metrics=[
+                "accuracy",
+                "macro_precision",
+                "macro_recall",
+                "per_class_precision_recall_f1",
+                "confusion_matrix",
+                "candidate_selection_distribution",
+            ],
         )
 
     def build_overview(self, db: Session) -> OpsOverviewOut:

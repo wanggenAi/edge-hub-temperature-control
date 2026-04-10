@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import type { OpsOverview } from "@/types";
+import type { OpsAiModelEvaluation, OpsAiObservability, OpsOverview } from "@/types";
 
 export function OpsPage() {
   const [activeTab, setActiveTab] = useState<"platform" | "ai">(() => {
@@ -14,6 +14,9 @@ export function OpsPage() {
     return tab === "ai" ? "ai" : "platform";
   });
   const [data, setData] = useState<OpsOverview | null>(null);
+  const [aiObs, setAiObs] = useState<OpsAiObservability | null>(null);
+  const [aiObsLoading, setAiObsLoading] = useState(false);
+  const [aiObsError, setAiObsError] = useState<string | null>(null);
   const [runtimeHistory, setRuntimeHistory] = useState<
     Array<{
       ts: string;
@@ -99,6 +102,19 @@ export function OpsPage() {
     }
   }, []);
 
+  const loadAiObservability = useCallback(async (silent = false) => {
+    if (!silent) setAiObsLoading(true);
+    setAiObsError(null);
+    try {
+      const res = await api.opsAiObservability();
+      setAiObs(res);
+    } catch (e) {
+      setAiObsError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiObsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -106,9 +122,18 @@ export function OpsPage() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       void load(true);
+      if (activeTab === "ai") {
+        void loadAiObservability(true);
+      }
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [activeTab, load, loadAiObservability]);
+
+  useEffect(() => {
+    if (activeTab === "ai" && !aiObs && !aiObsLoading) {
+      void loadAiObservability();
+    }
+  }, [activeTab, aiObs, aiObsLoading, loadAiObservability]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -124,21 +149,13 @@ export function OpsPage() {
   if (error) return <p className="text-sm text-danger">{error}</p>;
   if (!data) return <p className="text-sm text-mute">No ops data available.</p>;
 
-  const { data_hub: hub, runtime, ai_overview: ai, learning_loop: loop, models } = data;
+  const { data_hub: hub, runtime } = data;
   const dataHubCpuDisplay =
     hub.data_hub_cpu_usage_pct != null
       ? fmtCpuPct(hub.data_hub_cpu_usage_pct)
       : runtime.process_cpu_usage_pct != null
         ? `${fmtCpuPct(runtime.process_cpu_usage_pct)} (fallback)`
         : "N/A";
-  const aiTabData =
-    activeTab === "ai"
-      ? {
-          aiEffects: toCountMap(ai.ai_effect_distribution),
-          manualEffects: toCountMap(ai.manual_effect_distribution),
-          aiSummary: buildAiSummary(ai),
-        }
-      : null;
 
   return (
     <div className="space-y-4">
@@ -150,7 +167,16 @@ export function OpsPage() {
               Last refreshed: {generatedAtText} · Separate from device alarms/end-user views
             </div>
           </div>
-          <Button variant="ghost" onClick={() => load(true)} disabled={refreshing}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              void load(true);
+              if (activeTab === "ai") {
+                void loadAiObservability(true);
+              }
+            }}
+            disabled={refreshing}
+          >
             {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
         </CardHeader>
@@ -262,169 +288,487 @@ export function OpsPage() {
 
       {activeTab === "ai" && (
         <div id="ops-panel-ai" role="tabpanel" aria-labelledby="ops-tab-ai" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Overview</CardTitle>
-              <div className="text-xs text-mute">
-                Shows whether AI runtime is healthy, being used, and delivering value versus manual control.
-              </div>
-              <div className="text-sm text-text">{aiTabData?.aiSummary}</div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                <Stat title="AI Runtime" value={ai.ai_runtime_enabled ? "Enabled" : "Disabled"} />
-                <Stat
-                  title="Fallback Ratio"
-                  value={ai.fallback_ratio == null ? "N/A" : `${(ai.fallback_ratio * 100).toFixed(1)}%`}
-                  tone={ai.fallback_elevated ? "critical" : "normal"}
-                />
-                <Stat
-                  title="Apply Rate"
-                  value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
-                />
-                <Stat
-                  title="AI Improved Ratio"
-                  value={ai.ai_improved_ratio == null ? "N/A" : `${(ai.ai_improved_ratio * 100).toFixed(1)}%`}
-                />
-              </div>
-              {ai.fallback_elevated && (
-                <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
-                  Fallback is elevated. AI runtime may be unavailable or model/runtime confidence may be too low.
-                </div>
-              )}
-              <div className="rounded border border-line/70 bg-panel2/50 p-3">
-                <div className="mb-2 text-xs uppercase tracking-wide text-neon">AI vs Manual Outcome</div>
-                <div className="overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-mute">
-                      <tr>
-                        <th className="py-1">Metric</th>
-                        <th className="py-1">AI</th>
-                        <th className="py-1">Manual</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-t border-line/50">
-                        <td className="py-1 text-mute">Improved</td>
-                        <td>{fmtInt(aiTabData?.aiEffects.improved)}</td>
-                        <td>{fmtInt(aiTabData?.manualEffects.improved)}</td>
-                      </tr>
-                      <tr className="border-t border-line/50">
-                        <td className="py-1 text-mute">Unchanged</td>
-                        <td>{fmtInt(aiTabData?.aiEffects.unchanged)}</td>
-                        <td>{fmtInt(aiTabData?.manualEffects.unchanged)}</td>
-                      </tr>
-                      <tr className="border-t border-line/50">
-                        <td className="py-1 text-mute">Worse</td>
-                        <td>{fmtInt(aiTabData?.aiEffects.worse)}</td>
-                        <td>{fmtInt(aiTabData?.manualEffects.worse)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs text-mute">
-                <summary className="cursor-pointer select-none text-mute">Show AI details</summary>
-                <div className="mt-2 space-y-3">
-                  <div>
-                    <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Recommendation Activity</div>
-                    <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                      <MiniStat title="Generated (24h)" value={fmtInt(ai.recommendation_generated_24h)} />
-                      <MiniStat title="Applied (24h)" value={fmtInt(ai.recommendation_applied_24h)} />
-                      <MiniStat
-                        title="Apply Rate"
-                        value={ai.recommendation_apply_rate == null ? "N/A" : `${(ai.recommendation_apply_rate * 100).toFixed(1)}%`}
-                      />
-                      <MiniStat title="AI-Origin Actions (24h)" value={fmtInt(ai.ai_origin_control_actions_24h)} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-1 text-[10px] uppercase tracking-wide text-neon">Runtime / Sample Context</div>
-                    <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                      <MiniStat title="AI Samples" value={fmtInt(ai.ai_sample_count)} />
-                      <MiniStat title="Manual Samples" value={fmtInt(ai.manual_sample_count)} />
-                      <MiniStat
-                        title="Manual Improved Ratio"
-                        value={ai.manual_improved_ratio == null ? "N/A" : `${(ai.manual_improved_ratio * 100).toFixed(1)}%`}
-                      />
-                      <MiniStat
-                        title="AI Runtime Source"
-                        value={ai.runtime_source_breakdown.map((r) => `${r.key}=${r.count}`).join(", ") || "N/A"}
-                      />
-                    </div>
-                    <div className="mt-2 text-[11px] text-mute/80 break-all">AI Runtime URL: {ai.ai_runtime_url || "N/A"}</div>
-                  </div>
-                </div>
-              </details>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Feedback Pipeline</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-6">
-                <Stat title="Pending Overdue" value={fmtInt(loop.pending_overdue)} tone={toneByCount(loop.pending_overdue)} />
-                <Stat title="Worker Processed 24h" value={fmtInt(loop.worker_processed_24h)} />
-                <Stat title="Training-Eligible Samples" value={fmtInt(loop.training_eligible_total)} />
-                <Stat title="Eligible 7d" value={fmtInt(loop.training_eligible_7d)} />
-                <Stat title="Retry Pending Jobs" value={fmtInt(loop.eval_jobs_by_status.retry_pending)} tone={toneByCount(loop.eval_jobs_by_status.retry_pending)} />
-                <Stat title="Terminal Insufficient Samples" value={fmtInt(loop.eval_jobs_by_status.terminal_insufficient)} tone={toneByCount(loop.eval_jobs_by_status.terminal_insufficient)} />
-              </div>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <KeyCountList title="Control Action Source (Total)" rows={loop.control_actions_by_source_total} />
-                <KeyCountList title="Control Action Source (24h)" rows={loop.control_actions_by_source_24h} />
-              </div>
-              <div className="grid gap-3 lg:grid-cols-3">
-                <KeyCountList
-                  title="Eval Job Status"
-                  rows={[
-                    { key: "pending", count: loop.eval_jobs_by_status.pending },
-                    { key: "running", count: loop.eval_jobs_by_status.running },
-                    { key: "done", count: loop.eval_jobs_by_status.done },
-                    { key: "retry pending jobs", count: loop.eval_jobs_by_status.retry_pending },
-                    { key: "terminal insufficient samples", count: loop.eval_jobs_by_status.terminal_insufficient },
-                    { key: "failed", count: loop.eval_jobs_by_status.failed },
-                  ]}
-                />
-                <KeyCountList title="Sample Quality" rows={loop.sample_quality_distribution} />
-                <KeyCountList title="Actual Effect" rows={loop.actual_effect_distribution} />
-              </div>
-              <RecentJobsTable rows={loop.recent_jobs} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Model / Runtime Health</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-6">
-                <Stat title="Active Model" value={models.active_model_version || "N/A"} />
-                <Stat title="Candidate Model" value={models.candidate_model_version || "N/A"} />
-                <Stat title="Fallback Ratio" value={models.fallback_ratio == null ? "N/A" : `${(models.fallback_ratio * 100).toFixed(1)}%`} />
-                <Stat title="Generated 24h" value={fmtInt(models.recommendation_generated_24h)} />
-                <Stat title="Applied 24h" value={fmtInt(models.recommendation_applied_24h)} />
-                <Stat title="Archived Artifacts" value={fmtInt(models.archived_model_artifact_count)} />
-              </div>
-              <div className="text-xs text-mute">
-                Last trained: {fmtDate(models.last_trained_at)} · Last promoted: {fmtDate(models.last_promoted_at)}
-              </div>
-              <KeyCountList title="Runtime Source Breakdown" rows={models.runtime_source_breakdown} />
-              {models.notes.length > 0 && (
-                <div className="rounded border border-warning/50 bg-warning/10 p-3 text-xs text-warning">
-                  {models.notes.map((n) => (
-                    <div key={n}>{n}</div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {aiObsLoading && !aiObs ? <p className="text-sm text-mute">Loading AI observability...</p> : null}
+          {aiObsError ? <p className="text-sm text-danger">{aiObsError}</p> : null}
+          {aiObs ? <AiObservabilityView data={aiObs} /> : null}
         </div>
       )}
     </div>
   );
+}
+
+function AiObservabilityView({ data }: { data: OpsAiObservability }) {
+  const hs = data.health_summary;
+  const offline = data.offline_evaluation;
+  const online = data.online_outcome_quality;
+  const drift = data.drift_data_health;
+  const runtime = data.runtime_reliability;
+  const judgments = deriveAiJudgments(data);
+  const onlineInsufficient = judgments.onlineUsefulness.value === "Unknown";
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Ops Summary</CardTitle>
+          <div className="text-xs text-mute">Prioritized for one question: is AI trustworthy and useful right now?</div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            <Stat title="Offline Model Quality" value={judgments.offlineQuality.value} tone={judgments.offlineQuality.tone} />
+            <Stat title="Evidence Confidence" value={judgments.evidenceConfidence.value} tone={judgments.evidenceConfidence.tone} />
+            <Stat title="Online Usefulness" value={judgments.onlineUsefulness.value} tone={judgments.onlineUsefulness.tone} />
+            <Stat title="Runtime Influence" value={judgments.runtimeInfluence.value} tone={judgments.runtimeInfluence.tone} />
+          </div>
+          <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-5">
+            <MiniStat title="Success Macro F1" value={fmtPct(hs.success_model_macro_f1)} />
+            <MiniStat title="Gap Macro F1" value={fmtPct(hs.preview_gap_model_macro_f1)} />
+            <MiniStat title="Recall(worse)" value={fmtPct(hs.recall_worse)} />
+            <MiniStat title="Recall(high)" value={fmtPct(hs.recall_high_gap)} />
+            <MiniStat title="Fallback Ratio" value={fmtPct(hs.fallback_ratio)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Why This Status</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p className="text-text">{judgments.offlineQuality.reason}</p>
+          <p className="text-text">{judgments.evidenceConfidence.reason}</p>
+          <p className="text-text">{judgments.onlineUsefulness.reason}</p>
+          <p className="text-text">{judgments.runtimeInfluence.reason}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Offline Model Evaluation (Compact)</CardTitle>
+          <div className="text-xs text-mute">Macro F1 and dangerous-class recall are primary; accuracy is secondary.</div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 xl:grid-cols-2">
+            <CompactOfflineModelCard title="Success Model" model={offline.success_model} dangerClass="worse" />
+            <CompactOfflineModelCard title="Preview Gap Model" model={offline.preview_gap_model} dangerClass="high" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Runtime Influence / Reliability</CardTitle>
+          <div className="text-xs text-mute">Shows whether AI ranking is meaningfully changing final decisions.</div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5">
+            <Stat title="Runtime Influence" value={judgments.runtimeInfluence.value} tone={judgments.runtimeInfluence.tone} />
+            <Stat title="Ranking Used Ratio" value={fmtPct(runtime.ranking_used_ratio)} />
+            <Stat title="Fallback Ratio" value={fmtPct(runtime.runtime_fallback_ratio)} tone={toneByInverse(runtime.runtime_fallback_ratio, 0.25, 0.4)} />
+            <Stat title="Rule Center Selected %" value={fmtPct(runtime.rule_center_selected_ratio)} />
+            <Stat title="Baseline Hold Selected %" value={fmtPct(runtime.baseline_hold_selected_ratio)} />
+          </div>
+          <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs">
+            <summary className="cursor-pointer text-mute">Show candidate distribution details</summary>
+            <div className="mt-2 grid gap-3 xl:grid-cols-2">
+              <KeyCountList title="Candidate Selection Distribution" rows={runtime.candidate_selection_distribution} />
+              <div className="rounded border border-line/70 bg-panel2/50 p-3">
+                <div className="mb-2 text-xs uppercase tracking-wide text-neon">Candidate Strategy Mix</div>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <MiniStat title="Conservative" value={fmtPct(runtime.conservative_selected_ratio)} />
+                  <MiniStat title="Aggressive" value={fmtPct(runtime.aggressive_selected_ratio)} />
+                  <MiniStat title="Balance" value={fmtPct(runtime.balance_selected_ratio)} />
+                </div>
+              </div>
+            </div>
+          </details>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Online Outcome Quality</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {onlineInsufficient ? (
+            <div className="rounded border border-line/70 bg-panel2/40 p-3">
+              <div className="text-sm font-semibold text-text">Online Usefulness: Unknown</div>
+              <div className="mt-1 text-xs text-mute">
+                Insufficient recent evaluated AI/manual samples in the selected window. Avoid high-confidence online conclusions.
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-5">
+              <Stat title="AI Improved Ratio (7d)" value={fmtPct(online.window_7d.ai.improved_ratio)} />
+              <Stat title="Manual Improved Ratio (7d)" value={fmtPct(online.window_7d.manual.improved_ratio)} />
+              <Stat title="AI vs Manual Δ (7d)" value={fmtPct(online.window_7d.ai_vs_manual_improved_delta)} tone={toneByDelta(online.window_7d.ai_vs_manual_improved_delta)} />
+              <Stat title="AI Worse Ratio (7d)" value={fmtPct(online.window_7d.ai.worse_ratio)} />
+              <Stat title="Evaluated Samples (AI/Manual 7d)" value={`${fmtInt(online.window_7d.ai.total)} / ${fmtInt(online.window_7d.manual.total)}`} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Drift & Data Health</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-3">
+            <Stat title="Feature Drift" value={judgments.driftSummary.value} tone={judgments.driftSummary.tone} />
+            <Stat title="Label Drift" value={judgments.labelDriftSummary.value} tone={judgments.labelDriftSummary.tone} />
+            <Stat title="Recent Feedback Samples (7d)" value={fmtInt(drift.data_quality.recent_feedback_sample_count)} />
+          </div>
+          <div className="rounded border border-line/70 bg-panel2/40 p-3 text-xs text-mute">
+            {judgments.driftSummary.reason}
+          </div>
+          <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs">
+            <summary className="cursor-pointer text-mute">Show full drift and sample-health details</summary>
+            <div className="mt-2 space-y-3">
+              <div className="rounded border border-line/70 bg-panel2/50 p-3">
+                <div className="mb-2 text-xs uppercase tracking-wide text-neon">Feature Drift (curated)</div>
+                <div className="overflow-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-left text-mute">
+                      <tr>
+                        <th className="py-1">Feature</th>
+                        <th>Baseline Mean</th>
+                        <th>Recent Mean</th>
+                        <th>Baseline P95</th>
+                        <th>Recent P95</th>
+                        <th>Delta</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drift.feature_drift.map((row) => (
+                        <tr key={row.feature} className="border-t border-line/50">
+                          <td className="py-1 text-text">{row.feature}</td>
+                          <td>{fmtNum(row.baseline_mean, 3)}</td>
+                          <td>{fmtNum(row.recent_mean, 3)}</td>
+                          <td>{fmtNum(row.baseline_p95, 3)}</td>
+                          <td>{fmtNum(row.recent_p95, 3)}</td>
+                          <td>{fmtPct(row.delta_ratio, 1)}</td>
+                          <td className={toneClass(toneByLevel(row.status))}>{row.status || "Unknown"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="grid gap-3 xl:grid-cols-2">
+                <div className="rounded border border-line/70 bg-panel2/50 p-3">
+                  <div className="mb-2 text-xs uppercase tracking-wide text-neon">Label Drift</div>
+                  <div className="overflow-auto">
+                    <table className="w-full text-xs">
+                      <thead className="text-left text-mute">
+                        <tr>
+                          <th className="py-1">Group</th>
+                          <th>Label</th>
+                          <th>Training</th>
+                          <th>Recent</th>
+                          <th>|Δ|</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {drift.label_drift.map((row) => (
+                          <tr key={`${row.label_group}-${row.label}`} className="border-t border-line/50">
+                            <td className="py-1">{row.label_group}</td>
+                            <td>{row.label}</td>
+                            <td>{fmtPct(row.training_ratio)}</td>
+                            <td>{fmtPct(row.recent_ratio)}</td>
+                            <td>{fmtPct(row.delta_abs)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="rounded border border-line/70 bg-panel2/50 p-3">
+                  <div className="mb-2 text-xs uppercase tracking-wide text-neon">Sample Health</div>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-mute">Usable-for-Training Ratio</span>
+                      <span className="text-text font-semibold">{fmtPct(drift.data_quality.usable_for_training_ratio)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 border-t border-line/40 pt-1">
+                      <span className="text-mute">Label Coverage</span>
+                      <span className="text-text font-semibold">{drift.data_quality.label_coverage || "N/A"}</span>
+                    </div>
+                    {drift.data_quality.sample_quality_distribution.map((row) => (
+                      <div key={row.key} className="flex items-center justify-between gap-2 border-t border-line/40 pt-1">
+                        <span className="text-mute">{row.key}</span>
+                        <span className="text-text font-semibold">{row.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+        </CardContent>
+      </Card>
+
+      <details className="rounded border border-line/70 bg-panel2/30 p-3 text-xs">
+        <summary className="cursor-pointer text-mute">Show deeper offline details (per-class + confusion)</summary>
+        <div className="mt-2 grid gap-3 xl:grid-cols-2">
+          <div className="space-y-3">
+            <PerClassTable title="Success Model Per-Class" model={offline.success_model} dangerClass="worse" />
+            <ConfusionMatrixPanel title="Success Model Confusion Matrix" model={offline.success_model} />
+          </div>
+          <div className="space-y-3">
+            <PerClassTable title="Preview Gap Model Per-Class" model={offline.preview_gap_model} dangerClass="high" />
+            <ConfusionMatrixPanel title="Preview Gap Model Confusion Matrix" model={offline.preview_gap_model} />
+          </div>
+        </div>
+      </details>
+    </>
+  );
+}
+
+function CompactOfflineModelCard({
+  title,
+  model,
+  dangerClass,
+}: {
+  title: string;
+  model: OpsAiModelEvaluation;
+  dangerClass: string;
+}) {
+  return (
+    <div className="rounded border border-line/70 bg-panel2/50 p-3 space-y-2">
+      <div className="text-xs uppercase tracking-wide text-neon">{title}</div>
+      <div className="text-xs text-mute break-all">
+        Model: {model.model_name || "N/A"} · Key: {model.model_key || "N/A"} · Valid size: {fmtInt(model.validation_size)}
+      </div>
+      <div className="text-xs text-mute break-all">
+        Artifact: {model.artifact_path || "N/A"} · Updated: {fmtDate(model.artifact_timestamp)}
+      </div>
+      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+        <MiniStat title="Macro F1" value={fmtPct(model.macro_f1)} />
+        <MiniStat title={`Recall(${dangerClass})`} value={fmtPct(findRecall(model, dangerClass))} />
+        <MiniStat title="Validation Size" value={fmtInt(model.validation_size)} />
+        <MiniStat title="Accuracy (secondary)" value={fmtPct(model.accuracy)} />
+      </div>
+      {(model.validation_size ?? 0) < MIN_VALIDATION_SAMPLES && (
+        <div className="rounded border border-warning/50 bg-warning/10 p-2 text-xs text-warning">
+          Validation sample size is too small for high-confidence trust.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PerClassTable({ title, model, dangerClass }: { title: string; model: OpsAiModelEvaluation; dangerClass: string }) {
+  return (
+    <div className="rounded border border-line/70 bg-panel2/50 p-3">
+      <div className="mb-2 text-xs uppercase tracking-wide text-neon">{title}</div>
+      <div className="overflow-auto">
+        <table className="w-full text-xs">
+          <thead className="text-left text-mute">
+            <tr>
+              <th className="py-1">Class</th>
+              <th>Precision</th>
+              <th>Recall</th>
+              <th>F1</th>
+              <th>Support</th>
+            </tr>
+          </thead>
+          <tbody>
+            {model.per_class.map((row) => (
+              <tr key={row.label} className="border-t border-line/50">
+                <td className={`py-1 ${row.label === dangerClass ? "text-warning font-semibold" : "text-text"}`}>{row.label}</td>
+                <td>{fmtPct(row.precision)}</td>
+                <td className={row.label === dangerClass ? toneClass(toneByMetric(row.recall, 0.6, 0.45)) : ""}>{fmtPct(row.recall)}</td>
+                <td>{fmtPct(row.f1)}</td>
+                <td>{fmtInt(row.support)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ConfusionMatrixPanel({ title, model }: { title: string; model: OpsAiModelEvaluation }) {
+  const labels = model.confusion.labels;
+  const matrix = model.confusion.matrix;
+  return (
+    <div className="rounded border border-line/70 bg-panel2/50 p-3 space-y-2">
+      <div className="text-xs uppercase tracking-wide text-neon">{title}</div>
+      {labels.length === 0 || matrix.length === 0 ? (
+        <div className="text-xs text-mute">No confusion matrix available.</div>
+      ) : (
+        <div className="overflow-auto">
+          <table className="w-full text-xs">
+            <thead className="text-left text-mute">
+              <tr>
+                <th className="py-1">Actual \ Pred</th>
+                {labels.map((label) => (
+                  <th key={label}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.map((row, ridx) => (
+                <tr key={`${labels[ridx] || ridx}`} className="border-t border-line/50">
+                  <td className="py-1 text-mute">{labels[ridx] || `row${ridx}`}</td>
+                  {row.map((value, cidx) => (
+                    <td key={`${ridx}-${cidx}`} className={ridx === cidx ? "text-text font-semibold" : "text-mute"}>
+                      {fmtInt(value)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="text-xs text-mute">{model.confusion.note || "-"}</div>
+    </div>
+  );
+}
+
+const MIN_VALIDATION_SAMPLES = 30;
+const MIN_ONLINE_SAMPLES = 10;
+const MIN_DRIFT_RECENT_SAMPLES = 20;
+
+function deriveAiJudgments(data: OpsAiObservability): {
+  offlineQuality: { value: string; tone: "normal" | "warning" | "critical"; reason: string };
+  evidenceConfidence: { value: string; tone: "normal" | "warning" | "critical"; reason: string };
+  onlineUsefulness: { value: string; tone: "normal" | "warning" | "critical"; reason: string };
+  runtimeInfluence: { value: string; tone: "normal" | "warning" | "critical"; reason: string };
+  driftSummary: { value: string; tone: "normal" | "warning" | "critical"; reason: string };
+  labelDriftSummary: { value: string; tone: "normal" | "warning" | "critical" };
+} {
+  const success = data.offline_evaluation.success_model;
+  const gap = data.offline_evaluation.preview_gap_model;
+  const successN = success.validation_size ?? 0;
+  const gapN = gap.validation_size ?? 0;
+  const minValidation = Math.min(successN, gapN);
+  const recallWorse = findRecall(success, "worse");
+  const recallHigh = findRecall(gap, "high");
+  const successF1 = success.macro_f1 ?? null;
+  const gapF1 = gap.macro_f1 ?? null;
+
+  let offlineValue = "Untrusted";
+  let offlineTone: "normal" | "warning" | "critical" = "critical";
+  if (successF1 != null && gapF1 != null && recallWorse != null && recallHigh != null) {
+    if (successF1 >= 0.72 && gapF1 >= 0.65 && recallWorse >= 0.6 && recallHigh >= 0.6) {
+      offlineValue = "Strong";
+      offlineTone = "normal";
+    } else if (successF1 < 0.55 || gapF1 < 0.45 || recallWorse < 0.45 || recallHigh < 0.45) {
+      offlineValue = "Weak";
+      offlineTone = "critical";
+    } else {
+      offlineValue = "Mixed";
+      offlineTone = "warning";
+    }
+  }
+  const offlineReason =
+    offlineValue === "Strong"
+      ? "Offline success-model quality is strong, and dangerous-class recall is acceptable."
+      : offlineValue === "Mixed"
+        ? "Offline success-model quality is acceptable, but preview-gap quality or dangerous-class recall is only moderate."
+        : offlineValue === "Weak"
+          ? "Offline model quality is weak due to low macro F1 or low dangerous-class recall."
+          : "Offline model quality is untrusted because key offline metrics are missing.";
+
+  let confidenceValue = "High";
+  let confidenceTone: "normal" | "warning" | "critical" = "normal";
+  const recentSamples = data.drift_data_health.data_quality.recent_feedback_sample_count ?? 0;
+  if (minValidation < 15 || recentSamples < 8) {
+    confidenceValue = "Low";
+    confidenceTone = "critical";
+  } else if (minValidation < MIN_VALIDATION_SAMPLES || recentSamples < MIN_DRIFT_RECENT_SAMPLES) {
+    confidenceValue = "Medium";
+    confidenceTone = "warning";
+  }
+  const confidenceReason =
+    confidenceValue === "Low"
+      ? "Confidence is low because validation and/or recent evaluated sample sizes are too small."
+      : confidenceValue === "Medium"
+        ? "Confidence is medium: evidence exists, but sample sizes are still limited."
+        : "Confidence is high: validation and recent evidence volumes are adequate.";
+
+  const ai7 = data.online_outcome_quality.window_7d.ai.total ?? 0;
+  const manual7 = data.online_outcome_quality.window_7d.manual.total ?? 0;
+  const delta7 = data.online_outcome_quality.window_7d.ai_vs_manual_improved_delta ?? null;
+  const aiWorse7 = data.online_outcome_quality.window_7d.ai.worse_ratio ?? null;
+  const manualWorse7 = data.online_outcome_quality.window_7d.manual.worse_ratio ?? null;
+  let onlineValue = "Unknown";
+  let onlineTone: "normal" | "warning" | "critical" = "warning";
+  if (ai7 >= MIN_ONLINE_SAMPLES && manual7 >= MIN_ONLINE_SAMPLES && delta7 != null) {
+    if (delta7 > 0.03 && (aiWorse7 == null || manualWorse7 == null || aiWorse7 <= manualWorse7 + 0.02)) {
+      onlineValue = "Positive";
+      onlineTone = "normal";
+    } else if (delta7 < -0.03 || (aiWorse7 != null && manualWorse7 != null && aiWorse7 > manualWorse7 + 0.03)) {
+      onlineValue = "Negative";
+      onlineTone = "critical";
+    } else {
+      onlineValue = "Neutral";
+      onlineTone = "warning";
+    }
+  }
+  const onlineReason =
+    onlineValue === "Unknown"
+      ? "Online usefulness is currently unknown because recent evaluated AI/manual samples are insufficient."
+      : onlineValue === "Positive"
+        ? "Online usefulness is positive: AI outcomes are outperforming manual with acceptable downside."
+        : onlineValue === "Negative"
+          ? "Online usefulness is negative: AI outcomes are below manual or worse-case ratio is elevated."
+          : "Online usefulness is neutral: AI and manual outcomes are currently similar.";
+
+  const rankingUsed = data.runtime_reliability.ranking_used_ratio ?? null;
+  const fallback = data.runtime_reliability.runtime_fallback_ratio ?? null;
+  const ruleCenterSel = data.runtime_reliability.rule_center_selected_ratio ?? null;
+  const nonRuleCenter = ruleCenterSel == null ? null : 1 - ruleCenterSel;
+  let runtimeValue = "Moderate";
+  let runtimeTone: "normal" | "warning" | "critical" = "warning";
+  if (fallback != null && fallback >= 0.6) {
+    runtimeValue = "Bypassed";
+    runtimeTone = "critical";
+  } else if (rankingUsed != null && nonRuleCenter != null) {
+    if (rankingUsed >= 0.5 && nonRuleCenter >= 0.35 && (fallback == null || fallback < 0.3)) {
+      runtimeValue = "High";
+      runtimeTone = "normal";
+    } else if (rankingUsed < 0.2 || nonRuleCenter < 0.15) {
+      runtimeValue = "Low";
+      runtimeTone = "critical";
+    }
+  }
+  const runtimeReason =
+    runtimeValue === "Bypassed"
+      ? "Runtime influence is bypassed because fallback is elevated and model path is not consistently active."
+      : runtimeValue === "High"
+        ? "Runtime influence is high: ranking is active and non-rule-center candidates are frequently selected."
+        : runtimeValue === "Low"
+          ? "Runtime influence is low because most selections still remain at `rule_center` or ranking is rarely used."
+          : "Runtime influence is moderate: model affects some decisions but rule-center still dominates.";
+
+  const featureDrift = data.drift_data_health.feature_drift_status || "Unknown";
+  const labelDrift = data.drift_data_health.label_drift_status || "Unknown";
+  const insufficientDrift = recentSamples < MIN_DRIFT_RECENT_SAMPLES;
+  const driftValue = insufficientDrift ? "Insufficient data" : featureDrift;
+  const driftTone = insufficientDrift ? "warning" : toneByLevel(featureDrift);
+  const driftReason = insufficientDrift
+    ? "Drift is marked as insufficient data because recent feedback sample volume is too low for reliable drift conclusions."
+    : `Feature drift is currently ${featureDrift}. Missing recent data is not treated as high drift.`;
+
+  return {
+    offlineQuality: { value: offlineValue, tone: offlineTone, reason: offlineReason },
+    evidenceConfidence: { value: confidenceValue, tone: confidenceTone, reason: confidenceReason },
+    onlineUsefulness: { value: onlineValue, tone: onlineTone, reason: onlineReason },
+    runtimeInfluence: { value: runtimeValue, tone: runtimeTone, reason: runtimeReason },
+    driftSummary: { value: driftValue, tone: driftTone, reason: driftReason },
+    labelDriftSummary: { value: insufficientDrift ? "Insufficient data" : labelDrift, tone: insufficientDrift ? "warning" : toneByLevel(labelDrift) },
+  };
+}
+
+function findRecall(model: OpsAiModelEvaluation, label: string): number | null {
+  const row = model.per_class.find((p) => p.label === label);
+  return row?.recall ?? null;
 }
 
 function TabButton({
@@ -456,7 +800,7 @@ function TabButton({
 }
 
 function Stat({ title, value, tone }: { title: string; value: string; tone?: "normal" | "warning" | "critical" }) {
-  const cls = tone === "critical" ? "text-danger" : tone === "warning" ? "text-warning" : "text-text";
+  const cls = toneClass(tone);
   return (
     <div className="rounded border border-line/70 bg-panel2/60 p-2">
       <div className="text-[11px] uppercase tracking-wide text-mute">{title}</div>
@@ -537,56 +881,19 @@ function OpsLineChart({
   );
 }
 
-function RecentJobsTable({
-  rows,
-}: {
-  rows: Array<{ job_id: number; control_action_id: number; device_id: number; source: string; status: string; attempt_count: number; scheduled_at: string; updated_at: string; last_error?: string | null }>;
-}) {
-  return (
-    <div className="rounded border border-line/70 bg-panel2/50 p-3">
-      <div className="mb-2 text-xs uppercase tracking-wide text-neon">Recent Eval Jobs</div>
-      <div className="max-h-64 overflow-auto">
-        <table className="w-full text-xs">
-          <thead className="text-left text-mute">
-            <tr>
-              <th className="py-1">Job</th>
-              <th>Action</th>
-              <th>Device</th>
-              <th>Source</th>
-              <th>Status</th>
-              <th>Retry</th>
-              <th>Updated</th>
-              <th>Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.job_id} className="border-t border-line/50">
-                <td className="py-1">{r.job_id}</td>
-                <td>{r.control_action_id}</td>
-                <td>{r.device_id}</td>
-                <td>{r.source}</td>
-                <td>{r.status}</td>
-                <td>{r.attempt_count}</td>
-                <td>{fmtDate(r.updated_at)}</td>
-                <td className="max-w-[280px] truncate">{r.last_error || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function fmtNum(v: number | null | undefined): string {
+function fmtNum(v: number | null | undefined, digits = 2): string {
   if (v == null || Number.isNaN(v)) return "N/A";
-  return Number(v).toFixed(2);
+  return Number(v).toFixed(digits);
 }
 
 function fmtInt(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "N/A";
   return String(Math.round(v));
+}
+
+function fmtPct(v: number | null | undefined, digits = 1): string {
+  if (v == null || Number.isNaN(v)) return "N/A";
+  return `${(Number(v) * 100).toFixed(digits)}%`;
 }
 
 function fmtDate(v: string | null | undefined): string {
@@ -621,51 +928,44 @@ function fmtCpuPct(v: number | null | undefined): string {
   return `${n.toFixed(2)}%`;
 }
 
-function toCountMap(rows: Array<{ key: string; count: number }>): Record<string, number> {
-  const out: Record<string, number> = { improved: 0, unchanged: 0, worse: 0 };
-  for (const row of rows) {
-    out[row.key] = row.count;
-  }
-  return out;
+function toneClass(tone?: "normal" | "warning" | "critical"): string {
+  if (tone === "critical") return "text-danger";
+  if (tone === "warning") return "text-warning";
+  return "text-text";
 }
 
-function buildAiSummary(ai: {
-  ai_runtime_enabled: boolean;
-  fallback_elevated: boolean;
-  fallback_ratio?: number | null;
-  recommendation_generated_24h: number;
-  ai_improved_ratio?: number | null;
-  manual_improved_ratio?: number | null;
-  ai_sample_count: number;
-  manual_sample_count: number;
-}): string {
-  const status = ai.ai_runtime_enabled ? "AI enabled" : "AI disabled";
-  const fallbackPart =
-    ai.fallback_ratio == null
-      ? "fallback unknown"
-      : ai.fallback_elevated
-        ? `fallback elevated (${(ai.fallback_ratio * 100).toFixed(1)}%)`
-        : `fallback low (${(ai.fallback_ratio * 100).toFixed(1)}%)`;
-  const usagePart =
-    ai.recommendation_generated_24h <= 0
-      ? "recent usage low"
-      : ai.recommendation_generated_24h < 10
-        ? "recent usage light"
-        : "recent usage active";
-  let outcomePart = "outcome signal pending";
-  if (ai.ai_improved_ratio != null && ai.manual_improved_ratio != null) {
-    if (ai.ai_improved_ratio > ai.manual_improved_ratio + 0.03) outcomePart = "AI outcomes currently above manual";
-    else if (ai.ai_improved_ratio + 0.03 < ai.manual_improved_ratio) outcomePart = "AI outcomes currently below manual";
-    else outcomePart = "AI outcomes currently close to manual";
-  } else if (ai.ai_sample_count + ai.manual_sample_count < 5) {
-    outcomePart = "limited evaluated samples";
-  }
-  return `${status}, ${fallbackPart}, ${usagePart}; ${outcomePart}.`;
+function toneByMetric(v: number | null | undefined, goodMin: number, poorMax: number): "normal" | "warning" | "critical" {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "warning";
+  if (n < poorMax) return "critical";
+  if (n < goodMin) return "warning";
+  return "normal";
 }
 
-function toneByCount(v: number | null | undefined): "normal" | "warning" | "critical" {
-  const n = Number(v ?? 0);
-  if (n <= 0) return "normal";
-  if (n <= 10) return "warning";
+function toneByInverse(v: number | null | undefined, goodMax: number, poorMin: number): "normal" | "warning" | "critical" {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "warning";
+  if (n >= poorMin) return "critical";
+  if (n >= goodMax) return "warning";
+  return "normal";
+}
+
+function toneByDelta(v: number | null | undefined): "normal" | "warning" | "critical" {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "warning";
+  if (n > 0.03) return "normal";
+  if (n < -0.03) return "critical";
+  return "warning";
+}
+
+function toneByLevel(level: string): "normal" | "warning" | "critical" {
+  if (level === "High") return "critical";
+  if (level === "Medium") return "warning";
+  return "normal";
+}
+
+function toneByHealth(level: string): "normal" | "warning" | "critical" {
+  if (level === "Good") return "normal";
+  if (level === "Watch") return "warning";
   return "critical";
 }

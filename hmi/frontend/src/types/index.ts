@@ -602,3 +602,138 @@ export interface OpsOverview {
   learning_loop: OpsLearningLoop;
   models: OpsModelRuntime;
 }
+
+export interface OpsAiHealthSummary {
+  overall_model_health: "Good" | "Watch" | "Poor" | "Untrusted" | string;
+  success_model_macro_f1?: number | null;
+  preview_gap_model_macro_f1?: number | null;
+  recall_worse?: number | null;
+  recall_high_gap?: number | null;
+  fallback_ratio?: number | null;
+  ai_improved_ratio?: number | null;
+  manual_improved_ratio?: number | null;
+  ai_vs_manual_improved_delta?: number | null;
+  feature_drift_status: string;
+  label_drift_status: string;
+  interpretation: string;
+}
+
+export interface OpsAiWhyStatus {
+  status: string;
+  summary: string;
+  reasons: string[];
+}
+
+export interface OpsAiPerClassMetric {
+  label: string;
+  precision?: number | null;
+  recall?: number | null;
+  f1?: number | null;
+  support?: number | null;
+}
+
+export interface OpsAiConfusionMatrix {
+  labels: string[];
+  matrix: number[][];
+  note?: string | null;
+}
+
+export interface OpsAiModelEvaluation {
+  model_key?: string | null;
+  model_name?: string | null;
+  artifact_path?: string | null;
+  artifact_timestamp?: string | null;
+  validation_size?: number | null;
+  accuracy?: number | null;
+  macro_precision?: number | null;
+  macro_recall?: number | null;
+  macro_f1?: number | null;
+  per_class: OpsAiPerClassMetric[];
+  confusion: OpsAiConfusionMatrix;
+  training_label_distribution: OpsKeyValueCount[];
+}
+
+export interface OpsAiOfflineEvaluation {
+  success_model: OpsAiModelEvaluation;
+  preview_gap_model: OpsAiModelEvaluation;
+}
+
+export interface OpsAiOutcomeBreakdown {
+  improved: number;
+  unchanged: number;
+  worse: number;
+  total: number;
+  improved_ratio?: number | null;
+  worse_ratio?: number | null;
+}
+
+export interface OpsAiOnlineWindow {
+  window: string;
+  ai: OpsAiOutcomeBreakdown;
+  manual: OpsAiOutcomeBreakdown;
+  ai_vs_manual_improved_delta?: number | null;
+}
+
+export interface OpsAiOnlineOutcomes {
+  window_24h: OpsAiOnlineWindow;
+  window_7d: OpsAiOnlineWindow;
+}
+
+export interface OpsAiFeatureDrift {
+  feature: string;
+  baseline_mean?: number | null;
+  baseline_p50?: number | null;
+  baseline_p95?: number | null;
+  recent_mean?: number | null;
+  recent_p50?: number | null;
+  recent_p95?: number | null;
+  delta_ratio?: number | null;
+  status: string;
+}
+
+export interface OpsAiLabelDrift {
+  label_group: string;
+  label: string;
+  training_ratio?: number | null;
+  recent_ratio?: number | null;
+  delta_abs?: number | null;
+}
+
+export interface OpsAiDataQuality {
+  recent_feedback_sample_count: number;
+  usable_for_training_ratio?: number | null;
+  label_coverage?: string | null;
+  sample_quality_distribution: OpsKeyValueCount[];
+}
+
+export interface OpsAiDriftDataHealth {
+  feature_drift_status: string;
+  label_drift_status: string;
+  feature_drift: OpsAiFeatureDrift[];
+  label_drift: OpsAiLabelDrift[];
+  data_quality: OpsAiDataQuality;
+}
+
+export interface OpsAiRuntimeReliability {
+  ranking_used_ratio?: number | null;
+  ranking_fallback_used_ratio?: number | null;
+  runtime_fallback_ratio?: number | null;
+  candidate_selection_distribution: OpsKeyValueCount[];
+  rule_center_selected_ratio?: number | null;
+  baseline_hold_selected_ratio?: number | null;
+  conservative_selected_ratio?: number | null;
+  aggressive_selected_ratio?: number | null;
+  balance_selected_ratio?: number | null;
+}
+
+export interface OpsAiObservability {
+  as_of: string;
+  health_summary: OpsAiHealthSummary;
+  why_this_status: OpsAiWhyStatus;
+  offline_evaluation: OpsAiOfflineEvaluation;
+  online_outcome_quality: OpsAiOnlineOutcomes;
+  drift_data_health: OpsAiDriftDataHealth;
+  runtime_reliability: OpsAiRuntimeReliability;
+  primary_metrics: string[];
+  secondary_metrics: string[];
+}
