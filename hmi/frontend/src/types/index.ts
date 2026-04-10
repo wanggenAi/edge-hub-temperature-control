@@ -624,6 +624,12 @@ export interface OpsAiWhyStatus {
   reasons: string[];
 }
 
+export interface OpsAiJudgment {
+  value: string;
+  tone: "normal" | "warning" | "critical" | string;
+  reason: string;
+}
+
 export interface OpsAiPerClassMetric {
   label: string;
   precision?: number | null;
@@ -697,6 +703,7 @@ export interface OpsAiLabelDrift {
   training_ratio?: number | null;
   recent_ratio?: number | null;
   delta_abs?: number | null;
+  status: string;
 }
 
 export interface OpsAiDataQuality {
@@ -730,6 +737,12 @@ export interface OpsAiObservability {
   as_of: string;
   health_summary: OpsAiHealthSummary;
   why_this_status: OpsAiWhyStatus;
+  offline_quality: OpsAiJudgment;
+  evidence_confidence: OpsAiJudgment;
+  online_usefulness: OpsAiJudgment;
+  runtime_influence: OpsAiJudgment;
+  drift_summary: OpsAiJudgment;
+  label_drift_summary: OpsAiJudgment;
   offline_evaluation: OpsAiOfflineEvaluation;
   online_outcome_quality: OpsAiOnlineOutcomes;
   drift_data_health: OpsAiDriftDataHealth;

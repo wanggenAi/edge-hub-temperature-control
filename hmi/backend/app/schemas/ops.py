@@ -174,6 +174,12 @@ class OpsAiWhyStatusOut(BaseModel):
     reasons: list[str] = Field(default_factory=list)
 
 
+class OpsAiJudgmentOut(BaseModel):
+    value: str
+    tone: str
+    reason: str
+
+
 class OpsAiPerClassMetricOut(BaseModel):
     label: str
     precision: Optional[float] = None
@@ -247,6 +253,7 @@ class OpsAiLabelDriftOut(BaseModel):
     training_ratio: Optional[float] = None
     recent_ratio: Optional[float] = None
     delta_abs: Optional[float] = None
+    status: str = "Unknown"
 
 
 class OpsAiDataQualityOut(BaseModel):
@@ -280,6 +287,12 @@ class OpsAiObservabilityOut(BaseModel):
     as_of: datetime
     health_summary: OpsAiHealthSummaryOut
     why_this_status: OpsAiWhyStatusOut
+    offline_quality: OpsAiJudgmentOut
+    evidence_confidence: OpsAiJudgmentOut
+    online_usefulness: OpsAiJudgmentOut
+    runtime_influence: OpsAiJudgmentOut
+    drift_summary: OpsAiJudgmentOut
+    label_drift_summary: OpsAiJudgmentOut
     offline_evaluation: OpsAiOfflineEvaluationOut
     online_outcome_quality: OpsAiOnlineOutcomesOut
     drift_data_health: OpsAiDriftDataHealthOut

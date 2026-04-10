@@ -25,6 +25,7 @@ from app.schemas.ops import (
     OpsAiFeatureDriftOut,
     OpsAiOverviewOut,
     OpsAiHealthSummaryOut,
+    OpsAiJudgmentOut,
     OpsAiLabelDriftOut,
     OpsAiModelEvaluationOut,
     OpsAiObservabilityOut,
@@ -201,6 +202,15 @@ def _ratio(num: int, den: int) -> Optional[float]:
     if den <= 0:
         return None
     return float(num) / float(den)
+
+
+def _tone_for_value(value: str) -> str:
+    v = str(value or "").strip().lower()
+    if v in {"strong", "positive", "high"}:
+        return "normal"
+    if v in {"mixed", "medium", "moderate", "neutral", "unknown", "insufficient data"}:
+        return "warning"
+    return "critical"
 
 
 class OpsConsoleService:
@@ -1132,15 +1142,30 @@ class OpsConsoleService:
         ).all()
         success_live = _label_ratio_map([(k, int(v)) for k, v in success_live_rows])
         gap_live = _label_ratio_map([(k, int(v)) for k, v in gap_live_rows])
+        min_recent_label_samples = max(1, int(settings.ops_ai_judgment_min_drift_recent_samples))
+        success_recent_labeled = int(sum(int(v) for k, v in success_live_rows if str(k or "") in {"improved", "unchanged", "worse"}))
+        gap_recent_labeled = int(sum(int(v) for k, v in gap_live_rows if str(k or "") in {"low", "medium", "high"}))
+        success_label_data_sufficient = success_recent_labeled >= min_recent_label_samples
+        gap_label_data_sufficient = gap_recent_labeled >= min_recent_label_samples
 
         for label in ("improved", "unchanged", "worse"):
             train_ratio = (float(success_train.get(label, 0)) / float(success_train_total)) if success_train_total > 0 else None
-            live_ratio = success_live.get(label)
-            delta_abs = abs((live_ratio or 0.0) - (train_ratio or 0.0)) if (train_ratio is not None or live_ratio is not None) else None
-            if delta_abs is not None:
-                label_levels.append("High" if delta_abs >= 0.25 else "Medium" if delta_abs >= 0.12 else "Low")
+            if not success_label_data_sufficient:
+                live_ratio = None
+                delta_abs = None
+                row_status = "Insufficient data"
             else:
-                label_levels.append("Insufficient data")
+                live_ratio = float(success_live.get(label, 0.0))
+                if train_ratio is None:
+                    delta_abs = None
+                    row_status = "Unknown"
+                else:
+                    delta_abs = abs(live_ratio - train_ratio)
+                    row_status = "High" if delta_abs >= 0.25 else "Medium" if delta_abs >= 0.12 else "Low"
+            if row_status in {"High", "Medium", "Low"}:
+                label_levels.append(row_status)
+            else:
+                label_levels.append(row_status)
             label_rows.append(
                 OpsAiLabelDriftOut(
                     label_group="success_label",
@@ -1148,16 +1173,27 @@ class OpsConsoleService:
                     training_ratio=train_ratio,
                     recent_ratio=live_ratio,
                     delta_abs=delta_abs,
+                    status=row_status,
                 )
             )
         for label in ("low", "medium", "high"):
             train_ratio = (float(gap_train.get(label, 0)) / float(gap_train_total)) if gap_train_total > 0 else None
-            live_ratio = gap_live.get(label)
-            delta_abs = abs((live_ratio or 0.0) - (train_ratio or 0.0)) if (train_ratio is not None or live_ratio is not None) else None
-            if delta_abs is not None:
-                label_levels.append("High" if delta_abs >= 0.25 else "Medium" if delta_abs >= 0.12 else "Low")
+            if not gap_label_data_sufficient:
+                live_ratio = None
+                delta_abs = None
+                row_status = "Insufficient data"
             else:
-                label_levels.append("Insufficient data")
+                live_ratio = float(gap_live.get(label, 0.0))
+                if train_ratio is None:
+                    delta_abs = None
+                    row_status = "Unknown"
+                else:
+                    delta_abs = abs(live_ratio - train_ratio)
+                    row_status = "High" if delta_abs >= 0.25 else "Medium" if delta_abs >= 0.12 else "Low"
+            if row_status in {"High", "Medium", "Low"}:
+                label_levels.append(row_status)
+            else:
+                label_levels.append(row_status)
             label_rows.append(
                 OpsAiLabelDriftOut(
                     label_group="preview_gap_label",
@@ -1165,6 +1201,7 @@ class OpsConsoleService:
                     training_ratio=train_ratio,
                     recent_ratio=live_ratio,
                     delta_abs=delta_abs,
+                    status=row_status,
                 )
             )
 
@@ -1369,6 +1406,204 @@ class OpsConsoleService:
             OpsAiWhyStatusOut(status=status, summary=summary, reasons=reasons),
         )
 
+    def _build_authoritative_judgments(
+        self,
+        *,
+        success_eval: OpsAiModelEvaluationOut,
+        gap_eval: OpsAiModelEvaluationOut,
+        outcomes_7d: OpsAiOnlineWindowOut,
+        drift: OpsAiDriftDataHealthOut,
+        runtime: OpsAiRuntimeReliabilityOut,
+    ) -> dict[str, OpsAiJudgmentOut]:
+        success_f1 = success_eval.macro_f1
+        gap_f1 = gap_eval.macro_f1
+        recall_worse = next((p.recall for p in success_eval.per_class if p.label == "worse"), None)
+        recall_high = next((p.recall for p in gap_eval.per_class if p.label == "high"), None)
+        success_n = int(success_eval.validation_size or 0)
+        gap_n = int(gap_eval.validation_size or 0)
+        min_validation_n = min(success_n, gap_n)
+
+        # Offline quality
+        if success_f1 is None or gap_f1 is None or recall_worse is None or recall_high is None:
+            offline_value = "Untrusted"
+        elif (
+            success_f1 >= float(settings.ops_ai_judgment_offline_strong_success_macro_f1_min)
+            and gap_f1 >= float(settings.ops_ai_judgment_offline_strong_gap_macro_f1_min)
+            and recall_worse >= float(settings.ops_ai_judgment_offline_strong_danger_recall_min)
+            and recall_high >= float(settings.ops_ai_judgment_offline_strong_danger_recall_min)
+        ):
+            offline_value = "Strong"
+        elif (
+            success_f1 < float(settings.ops_ai_judgment_offline_weak_success_macro_f1_max)
+            or gap_f1 < float(settings.ops_ai_judgment_offline_weak_gap_macro_f1_max)
+            or recall_worse < float(settings.ops_ai_judgment_offline_weak_danger_recall_max)
+            or recall_high < float(settings.ops_ai_judgment_offline_weak_danger_recall_max)
+        ):
+            offline_value = "Weak"
+        else:
+            offline_value = "Mixed"
+        offline_reason = (
+            "Offline success-model quality is strong, and dangerous-class recall is acceptable."
+            if offline_value == "Strong"
+            else "Offline model quality is weak due to low macro F1 or low dangerous-class recall."
+            if offline_value == "Weak"
+            else "Offline model quality is untrusted because key offline metrics are missing."
+            if offline_value == "Untrusted"
+            else "Offline success-model quality is acceptable, but preview-gap quality or dangerous-class recall is only moderate."
+        )
+
+        # Evidence confidence
+        recent_feedback = int(drift.data_quality.recent_feedback_sample_count or 0)
+        min_validation_required = max(1, int(settings.ops_ai_judgment_min_validation_samples))
+        min_drift_recent_required = max(1, int(settings.ops_ai_judgment_min_drift_recent_samples))
+        ai_online_n = int(outcomes_7d.ai.total or 0)
+        manual_online_n = int(outcomes_7d.manual.total or 0)
+        min_online_required = max(1, int(settings.ops_ai_judgment_min_online_samples))
+        if (
+            min_validation_n < max(1, min_validation_required // 2)
+            or recent_feedback < max(1, min_drift_recent_required // 2)
+            or min(ai_online_n, manual_online_n) < max(1, min_online_required // 2)
+        ):
+            evidence_value = "Low"
+        elif (
+            min_validation_n < min_validation_required
+            or recent_feedback < min_drift_recent_required
+            or min(ai_online_n, manual_online_n) < min_online_required
+        ):
+            evidence_value = "Medium"
+        else:
+            evidence_value = "High"
+        evidence_reason = (
+            "Confidence is low because validation and/or recent evaluated sample sizes are too small."
+            if evidence_value == "Low"
+            else "Confidence is medium: evidence exists, but sample sizes are still limited."
+            if evidence_value == "Medium"
+            else "Confidence is high: validation and recent evidence volumes are adequate."
+        )
+
+        # Online usefulness
+        ai_worse = outcomes_7d.ai.worse_ratio
+        manual_worse = outcomes_7d.manual.worse_ratio
+        delta = outcomes_7d.ai_vs_manual_improved_delta
+        if min(ai_online_n, manual_online_n) < min_online_required or delta is None:
+            online_value = "Unknown"
+        elif (
+            delta > float(settings.ops_ai_judgment_online_positive_delta_min)
+            and (
+                ai_worse is None
+                or manual_worse is None
+                or ai_worse <= manual_worse + float(settings.ops_ai_judgment_online_worse_guard_delta)
+            )
+        ):
+            online_value = "Positive"
+        elif (
+            delta < float(settings.ops_ai_judgment_online_negative_delta_max)
+            or (
+                ai_worse is not None
+                and manual_worse is not None
+                and ai_worse > manual_worse + float(settings.ops_ai_judgment_online_worse_guard_delta)
+            )
+        ):
+            online_value = "Negative"
+        else:
+            online_value = "Neutral"
+        online_reason = (
+            "Online usefulness is currently unknown because recent evaluated AI/manual samples are insufficient."
+            if online_value == "Unknown"
+            else "Online usefulness is positive: AI outcomes are outperforming manual with acceptable downside."
+            if online_value == "Positive"
+            else "Online usefulness is negative: AI outcomes are below manual or worse-case ratio is elevated."
+            if online_value == "Negative"
+            else "Online usefulness is currently neutral because AI and manual outcomes are close."
+        )
+
+        # Runtime influence
+        ranking_used = runtime.ranking_used_ratio
+        fallback = runtime.runtime_fallback_ratio
+        rule_center = runtime.rule_center_selected_ratio
+        non_rule_center = None if rule_center is None else max(0.0, 1.0 - float(rule_center))
+        if fallback is not None and fallback >= float(settings.ops_ai_judgment_runtime_bypassed_fallback_min):
+            runtime_value = "Bypassed"
+        elif (
+            ranking_used is not None
+            and non_rule_center is not None
+            and ranking_used >= float(settings.ops_ai_judgment_runtime_high_ranking_used_min)
+            and non_rule_center >= float(settings.ops_ai_judgment_runtime_high_non_rule_center_min)
+            and (fallback is None or fallback <= float(settings.ops_ai_judgment_runtime_high_fallback_max))
+        ):
+            runtime_value = "High"
+        elif (
+            ranking_used is not None
+            and non_rule_center is not None
+            and (
+                ranking_used <= float(settings.ops_ai_judgment_runtime_low_ranking_used_max)
+                or non_rule_center <= float(settings.ops_ai_judgment_runtime_low_non_rule_center_max)
+            )
+        ):
+            runtime_value = "Low"
+        else:
+            runtime_value = "Moderate"
+        runtime_reason = (
+            "Runtime influence is bypassed because fallback is elevated and model path is not consistently active."
+            if runtime_value == "Bypassed"
+            else "Runtime influence is high: ranking is active and non-rule-center candidates are frequently selected."
+            if runtime_value == "High"
+            else "Runtime influence is low because most selections still remain at `rule_center` or ranking is rarely used."
+            if runtime_value == "Low"
+            else "Runtime influence is moderate: ranking contributes, but rule-center still has substantial share."
+        )
+
+        # Drift summaries
+        drift_recent_required = max(1, int(settings.ops_ai_judgment_min_drift_recent_samples))
+        if recent_feedback < drift_recent_required:
+            drift_value = "Insufficient data"
+            drift_reason = (
+                "Drift is marked as insufficient data because recent feedback sample volume is too low for reliable drift conclusions."
+            )
+        else:
+            drift_value = str(drift.feature_drift_status or "Unknown")
+            drift_reason = f"Feature drift is currently {drift_value}. Missing recent data is not treated as high drift."
+        label_drift_value = (
+            "Insufficient data" if recent_feedback < drift_recent_required else str(drift.label_drift_status or "Unknown")
+        )
+
+        return {
+            "offline_quality": OpsAiJudgmentOut(
+                value=offline_value,
+                tone=_tone_for_value(offline_value),
+                reason=offline_reason,
+            ),
+            "evidence_confidence": OpsAiJudgmentOut(
+                value=evidence_value,
+                tone=_tone_for_value(evidence_value),
+                reason=evidence_reason,
+            ),
+            "online_usefulness": OpsAiJudgmentOut(
+                value=online_value,
+                tone=_tone_for_value(online_value),
+                reason=online_reason,
+            ),
+            "runtime_influence": OpsAiJudgmentOut(
+                value=runtime_value,
+                tone=_tone_for_value(runtime_value),
+                reason=runtime_reason,
+            ),
+            "drift_summary": OpsAiJudgmentOut(
+                value=drift_value,
+                tone=_tone_for_value(drift_value),
+                reason=drift_reason,
+            ),
+            "label_drift_summary": OpsAiJudgmentOut(
+                value=label_drift_value,
+                tone=_tone_for_value(label_drift_value),
+                reason=(
+                    "Label drift is marked as insufficient data because recent labeled distributions are not reliable."
+                    if label_drift_value == "Insufficient data"
+                    else f"Label drift is currently {label_drift_value}."
+                ),
+            ),
+        }
+
     def build_ai_observability(self, db: Session) -> OpsAiObservabilityOut:
         now = datetime.utcnow()
         success_eval = self._build_model_evaluation(
@@ -1394,10 +1629,40 @@ class OpsConsoleService:
             drift=drift,
             runtime=runtime,
         )
+        judgments = self._build_authoritative_judgments(
+            success_eval=success_eval,
+            gap_eval=gap_eval,
+            outcomes_7d=online_7d,
+            drift=drift,
+            runtime=runtime,
+        )
+        why = OpsAiWhyStatusOut(
+            status=health_summary.overall_model_health,
+            summary="; ".join(
+                [
+                    judgments["offline_quality"].reason,
+                    judgments["evidence_confidence"].reason,
+                    judgments["online_usefulness"].reason,
+                    judgments["runtime_influence"].reason,
+                ]
+            ),
+            reasons=[
+                judgments["offline_quality"].reason,
+                judgments["evidence_confidence"].reason,
+                judgments["online_usefulness"].reason,
+                judgments["runtime_influence"].reason,
+            ],
+        )
         return OpsAiObservabilityOut(
             as_of=now,
             health_summary=health_summary,
             why_this_status=why,
+            offline_quality=judgments["offline_quality"],
+            evidence_confidence=judgments["evidence_confidence"],
+            online_usefulness=judgments["online_usefulness"],
+            runtime_influence=judgments["runtime_influence"],
+            drift_summary=judgments["drift_summary"],
+            label_drift_summary=judgments["label_drift_summary"],
             offline_evaluation=OpsAiOfflineEvaluationOut(
                 success_model=success_eval,
                 preview_gap_model=gap_eval,
