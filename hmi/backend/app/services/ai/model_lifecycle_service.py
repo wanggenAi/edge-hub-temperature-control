@@ -172,7 +172,7 @@ class ModelLifecycleService:
         except Exception:
             return None
 
-    def _extract_best_model_metrics(self, payload: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    def _extract_best_model_metrics(self, *, family: FamilySpec, payload: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
         if not isinstance(payload, dict):
             return None
         models = payload.get("models")
@@ -184,10 +184,53 @@ class ModelLifecycleService:
                 candidates.append((str(name), m))
         if not candidates:
             return None
-        preferred = [x for x in candidates if x[0] == "tree"] or candidates
-        best = max(preferred, key=lambda x: float((x[1].get("macro_f1") or 0.0)))
+
+        # Fair family-internal winner selection:
+        # compare both baseline/tree with safety-first tie-breaking.
+        def _variant_tuple(item: tuple[str, dict[str, Any]]) -> tuple[float, float, float]:
+            _, metrics = item
+            danger_recall = self._extract_class_metric(metrics, family.danger_label, "recall")
+            danger_mis = self._danger_misclass_rate(
+                metrics,
+                danger_label=family.danger_label,
+                dangerous_pred_labels=family.dangerous_pred_labels,
+            )
+            macro_f1 = float(metrics.get("macro_f1") or 0.0)
+            recall_score = danger_recall if danger_recall is not None else -1.0
+            mis_score = -(danger_mis if danger_mis is not None else 1.0)
+            return (recall_score, mis_score, macro_f1)
+
+        best = candidates[0]
+        for cand in candidates[1:]:
+            b_rec, b_mis, b_f1 = _variant_tuple(best)
+            c_rec, c_mis, c_f1 = _variant_tuple(cand)
+
+            # Safety-first: dangerous recall (higher), then dangerous misclass rate (lower), then macro_f1.
+            if c_rec > b_rec + 0.005:
+                best = cand
+                continue
+            if b_rec > c_rec + 0.005:
+                continue
+
+            if c_mis > b_mis + 0.005:
+                best = cand
+                continue
+            if b_mis > c_mis + 0.005:
+                continue
+
+            if c_f1 > b_f1 + 0.001:
+                best = cand
+                continue
+            if b_f1 > c_f1 + 0.001:
+                continue
+
+            # Final deterministic fallback when very close.
+            if (c_rec, c_mis, c_f1, cand[0]) > (b_rec, b_mis, b_f1, best[0]):
+                best = cand
+
         out = dict(best[1])
         out["model_variant"] = best[0]
+        out["variant_candidates"] = [name for name, _ in candidates]
         return out
 
     def _extract_class_metric(self, metrics: dict[str, Any], label: str, field: str) -> Optional[float]:
@@ -306,6 +349,8 @@ class ModelLifecycleService:
 
         comparison = {
             "active_exists": active_exists,
+            "candidate_model_variant": str(candidate_metrics.get("model_variant") or ""),
+            "active_model_variant": str(active_metrics.get("model_variant") or "") if active_metrics is not None else None,
             "candidate": {
                 "macro_f1": cand_macro_f1,
                 "macro_recall": cand_macro_recall,
@@ -493,9 +538,9 @@ class ModelLifecycleService:
                 continue
 
             candidate_metrics_payload = self._load_json(family_candidate_dir / family.metrics_file)
-            candidate_best = self._extract_best_model_metrics(candidate_metrics_payload)
+            candidate_best = self._extract_best_model_metrics(family=family, payload=candidate_metrics_payload)
             active_metrics_payload = self._load_json(self.active_root / family.metrics_file)
-            active_best = self._extract_best_model_metrics(active_metrics_payload)
+            active_best = self._extract_best_model_metrics(family=family, payload=active_metrics_payload)
 
             if candidate_best is None:
                 row = self._record(
@@ -576,6 +621,8 @@ class ModelLifecycleService:
             family_results.append(
                 {
                     "model_family": family.key,
+                    "candidate_model_variant": str(candidate_best.get("model_variant") or ""),
+                    "active_model_variant": str(active_best.get("model_variant") or "") if active_best is not None else None,
                     "status": row.status,
                     "reason": row.reason,
                     "gate_reasons": gate_reasons,
@@ -601,4 +648,3 @@ class ModelLifecycleService:
 
 
 model_lifecycle_service = ModelLifecycleService()
-
