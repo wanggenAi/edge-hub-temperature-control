@@ -368,19 +368,49 @@ class ModelLifecycleService:
         }
         return len(reasons) == 0, reasons, comparison
 
-    def _archive_and_promote(self, *, family: FamilySpec, candidate_dir: Path, run_tag: str) -> tuple[Optional[str], Optional[str]]:
+    def _archive_and_promote(
+        self,
+        *,
+        family: FamilySpec,
+        candidate_dir: Path,
+        selected_variant: str,
+        run_tag: str,
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
         self.active_root.mkdir(parents=True, exist_ok=True)
         archive_dir = self.archive_root / family.key / run_tag
         archive_dir.mkdir(parents=True, exist_ok=True)
 
         active_before_dir = str(self.active_root)
+        # Archive all existing active files for this family (variant + metadata) before replacement.
         for file in self.active_root.glob(f"{family.artifact_prefix}_*"):
             if file.is_file():
                 shutil.copy2(file, archive_dir / file.name)
-        for file in candidate_dir.glob(f"{family.artifact_prefix}_*"):
+
+        # Guarantee invariant:
+        # after promotion, each model family has exactly one runtime-selectable variant artifact in active.
+        # We enforce this by removing all existing family-scoped active files before copying winner+metadata.
+        for file in self.active_root.glob(f"{family.artifact_prefix}_*"):
             if file.is_file():
+                file.unlink(missing_ok=True)
+
+        winner_joblib_name = f"{family.artifact_prefix}_{selected_variant}.joblib"
+        winner_joblib_path = candidate_dir / winner_joblib_name
+        if not winner_joblib_path.exists() or not winner_joblib_path.is_file():
+            raise RuntimeError(f"winner_artifact_missing: {winner_joblib_path}")
+
+        # Copy only the selected winner variant artifact.
+        shutil.copy2(winner_joblib_path, self.active_root / winner_joblib_name)
+
+        # Copy family metadata used by Ops/audit; never copy losing variant model files.
+        for file in candidate_dir.glob(f"{family.artifact_prefix}_*"):
+            if not file.is_file():
+                continue
+            if file.suffix == ".joblib" and file.name != winner_joblib_name:
+                continue
+            if file.suffix != ".joblib":
                 shutil.copy2(file, self.active_root / file.name)
-        return active_before_dir, str(archive_dir)
+
+        return active_before_dir, str(archive_dir), str(self.active_root / winner_joblib_name)
 
     def _record(
         self,
@@ -579,12 +609,17 @@ class ModelLifecycleService:
             promoted = False
             archive_dir = None
             active_before_dir = str(self.active_root)
+            promoted_active_artifact_path = None
             status = "rejected"
             reason = "promote_gate_rejected"
             if passed and not dry_run:
-                active_before_dir, archive_dir = self._archive_and_promote(
+                selected_variant = str(candidate_best.get("model_variant") or "").strip().lower()
+                if selected_variant not in {"baseline", "tree"}:
+                    raise RuntimeError(f"invalid_selected_variant: {selected_variant or 'empty'}")
+                active_before_dir, archive_dir, promoted_active_artifact_path = self._archive_and_promote(
                     family=family,
                     candidate_dir=family_candidate_dir,
+                    selected_variant=selected_variant,
                     run_tag=run_id,
                 )
                 status = "promoted"
@@ -615,7 +650,11 @@ class ModelLifecycleService:
                 archive_artifact_dir=archive_dir,
                 candidate_metrics=candidate_metrics_payload,
                 active_metrics=active_metrics_payload,
-                comparison_summary=comparison,
+                comparison_summary={
+                    **comparison,
+                    "promoted_active_artifact_path": promoted_active_artifact_path,
+                    "candidate_metrics_path": str(family_candidate_dir / family.metrics_file),
+                },
                 started_at=started,
             )
             family_results.append(

@@ -389,6 +389,8 @@ function AiObservabilityView({ data }: { data: OpsAiObservability }) {
                     <tr>
                       <th className="py-1">Run</th>
                       <th>Family</th>
+                      <th>Candidate Variant</th>
+                      <th>Active Variant</th>
                       <th>Status</th>
                       <th>Promoted</th>
                       <th>Validation</th>
@@ -401,6 +403,8 @@ function AiObservabilityView({ data }: { data: OpsAiObservability }) {
                       <tr key={r.id} className="border-t border-line/50">
                         <td className="py-1">{r.lifecycle_run_id}</td>
                         <td>{r.model_family}</td>
+                        <td>{readLifecycleVariant(r.comparison_summary, "candidate_model_variant") || "N/A"}</td>
+                        <td>{readLifecycleVariant(r.comparison_summary, "active_model_variant") || "N/A"}</td>
                         <td>{r.status}</td>
                         <td>{r.promoted ? "Yes" : "No"}</td>
                         <td>{fmtInt(r.validation_size ?? null)}</td>
@@ -987,6 +991,14 @@ function normalizeTagText(tagsText: string): string[] {
     out.push(normalized);
   }
   return out;
+}
+
+function readLifecycleVariant(summary: Record<string, unknown> | null | undefined, key: string): string | null {
+  if (!summary || typeof summary !== "object") return null;
+  const value = summary[key];
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text || null;
 }
 
 function RunbookMarkdown({ markdown }: { markdown: string }) {
