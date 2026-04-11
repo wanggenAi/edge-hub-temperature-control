@@ -39,7 +39,7 @@ class OpsRunbookService:
         return Path(__file__).resolve().parents[4]
 
     def _default_dir(self) -> Path:
-        return self._repo_root() / "hmi/frontend/src/runbooks/ai-ops"
+        return self._repo_root() / "hmi/backend/app/resources/runbooks/ai-ops"
 
     def _read_default_markdown(self, filename: str) -> str:
         path = self._default_dir() / filename
@@ -52,6 +52,23 @@ class OpsRunbookService:
 
     def _default_map(self) -> dict[str, RunbookDefault]:
         return {item.key: item for item in DEFAULT_RUNBOOKS}
+
+    def _normalize_required_text(self, value: str, *, field_name: str) -> str:
+        normalized = str(value).strip()
+        if not normalized:
+            raise HTTPException(status_code=400, detail=f"{field_name} must not be blank")
+        return normalized
+
+    def _normalize_tags(self, tags: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for tag in tags:
+            normalized = str(tag).strip().lower()
+            if not normalized or normalized in seen:
+                continue
+            out.append(normalized)
+            seen.add(normalized)
+        return out
 
     def _to_out(self, row: OpsRunbook) -> OpsRunbookOut:
         tags = row.tags if isinstance(row.tags, list) else []
@@ -136,13 +153,13 @@ class OpsRunbookService:
             raise HTTPException(status_code=404, detail="Runbook not found")
 
         if payload.title is not None:
-            row.title = str(payload.title).strip() or row.title
+            row.title = self._normalize_required_text(payload.title, field_name="title")
         if payload.section is not None:
-            row.section = str(payload.section).strip() or row.section
+            row.section = self._normalize_required_text(payload.section, field_name="section")
         if payload.tags is not None:
-            row.tags = [str(x) for x in payload.tags]
+            row.tags = self._normalize_tags(payload.tags)
         if payload.markdown_body is not None:
-            row.markdown_body = str(payload.markdown_body)
+            row.markdown_body = self._normalize_required_text(payload.markdown_body, field_name="markdown_body")
         if payload.is_active is not None:
             row.is_active = bool(payload.is_active)
 
