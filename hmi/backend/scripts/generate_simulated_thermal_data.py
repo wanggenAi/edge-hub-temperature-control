@@ -11,7 +11,7 @@ import random
 import sys
 from typing import Any, Optional
 
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 CURRENT_FILE = Path(__file__).resolve()
 BACKEND_ROOT = CURRENT_FILE.parents[1]
@@ -127,8 +127,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metrics-per-minute", type=float, default=4.0)
     parser.add_argument("--actions-per-device", type=int, default=40)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--reset", action="store_true", help="Delete existing device data before generation")
+    parser.add_argument("--reset", action="store_true", help="Delete simulator-owned data only (scoped by device prefix)")
     parser.add_argument("--start-days-ago", type=float, default=14.0)
+    parser.add_argument("--reuse-devices", type=parse_bool, default=True, help="Reuse existing simulator devices by code prefix/index")
+    parser.add_argument("--sim-device-prefix", type=str, default="SIM", help="Simulator device code prefix (default: SIM)")
+    parser.add_argument("--append-only", type=parse_bool, default=True, help="When reusing devices, append after latest metric timestamp")
     parser.add_argument("--include-metrics", type=parse_bool, default=True)
     parser.add_argument("--include-actions", type=parse_bool, default=True)
     parser.add_argument("--include-feedback", type=parse_bool, default=True)
@@ -341,23 +344,30 @@ def compare_actual_to_reference(*, actual: SegmentSummary, ref: SegmentSummary) 
 
 
 def derive_actual_effect_label(comp: dict[str, float]) -> str:
-    votes: list[int] = []
-    if comp.get("in_band_ratio_delta", 0.0) > 0.001:
-        votes.append(1)
-    elif comp.get("in_band_ratio_delta", 0.0) < -0.001:
-        votes.append(-1)
-    for k in ("overshoot_c_delta", "settling_sec_delta", "mean_abs_error_delta", "saturation_ratio_delta", "temp_swing_delta"):
-        v = float(comp.get(k, 0.0))
-        if v > 0.001:
-            votes.append(1)
-        elif v < -0.001:
-            votes.append(-1)
-    if not votes:
-        return "unchanged"
-    score = sum(votes)
-    if score > 0:
+    # Engineering deadbands: small noisy delta should remain unchanged.
+    thresholds = {
+        "in_band_ratio_delta": 0.03,
+        "overshoot_c_delta": 0.25,
+        "settling_sec_delta": 25.0,
+        "mean_abs_error_delta": 0.06,
+        "saturation_ratio_delta": 0.04,
+        "temp_swing_delta": 0.12,
+    }
+    signs: list[int] = []
+    for key, th in thresholds.items():
+        v = float(comp.get(key, 0.0))
+        if v > th:
+            signs.append(1)
+        elif v < -th:
+            signs.append(-1)
+        else:
+            signs.append(0)
+    pos = sum(1 for x in signs if x > 0)
+    neg = sum(1 for x in signs if x < 0)
+    score = sum(signs)
+    if (pos >= 3 and neg == 0) or (score >= 2 and neg <= 1):
         return "improved"
-    if score < 0:
+    if (neg >= 3 and pos == 0) or (score <= -2 and pos <= 1):
         return "worse"
     return "unchanged"
 
@@ -394,6 +404,89 @@ def choose_regime(rng: random.Random) -> Regime:
     if pick < 0.88:
         return REGIMES["saturation_limited"]
     return REGIMES["disturbance_recovery"]
+
+
+def evaluate_action_alignment(*, problem: str, delta_kp: float, delta_ki: float, delta_kd: float) -> float:
+    score = 0.0
+    if problem == "slow_response":
+        score += 1.0 if delta_kp > 0 else -1.0
+        score += 0.6 if delta_ki > 0 else -0.4
+        score += 0.3 if delta_kd <= 0.03 else -0.4
+    elif problem == "steady_state_error":
+        score += 0.5 if delta_kp >= 0 else -0.4
+        score += 1.0 if delta_ki > 0 else -0.8
+        score += 0.2 if abs(delta_kd) <= 0.03 else -0.2
+    elif problem == "overshoot_high":
+        score += 1.0 if delta_kp < 0 else -0.8
+        score += 0.8 if delta_kd > 0 else -0.7
+        score += 0.3 if delta_ki <= 0 else -0.3
+    elif problem == "oscillation":
+        score += 0.9 if delta_kp < 0 else -0.7
+        score += 1.0 if delta_kd > 0 else -0.8
+        score += 0.4 if delta_ki <= 0 else -0.3
+    elif problem == "saturation_limited":
+        score += 0.8 if delta_kp <= 0 else -0.7
+        score += 0.6 if delta_ki <= 0 else -0.5
+        score += 0.2 if delta_kd >= 0 else -0.2
+    else:
+        score += 0.3 if abs(delta_kp) < 0.06 else -0.3
+        score += 0.3 if abs(delta_ki) < 0.03 else -0.2
+        score += 0.2 if abs(delta_kd) < 0.03 else -0.2
+    return clamp(score / 2.5, -1.0, 1.0)
+
+
+def choose_actual_regime(
+    *,
+    problem: str,
+    source: str,
+    alignment: float,
+    rng: random.Random,
+) -> Regime:
+    # Base transition follows pre-action problem; randomness perturbs but does not reset the world.
+    ai_boost = 0.15 if source == "ai_runtime" else -0.05
+    effective = clamp(alignment + ai_boost + rng.uniform(-0.15, 0.15), -1.0, 1.0)
+    disturbance_hit = rng.random() < (0.09 if problem != "disturbance_recovery" else 0.2)
+    if disturbance_hit:
+        return REGIMES["disturbance_recovery"]
+
+    if problem == "slow_response":
+        if effective > 0.35:
+            return REGIMES["success"] if rng.random() < 0.72 else REGIMES["steady_state_error"]
+        if effective < -0.25:
+            return REGIMES["slow_response"] if rng.random() < 0.6 else REGIMES["overshoot_high"]
+        return REGIMES["slow_response"]
+    if problem == "steady_state_error":
+        if effective > 0.35:
+            return REGIMES["success"] if rng.random() < 0.66 else REGIMES["slow_response"]
+        if effective < -0.25:
+            return REGIMES["steady_state_error"] if rng.random() < 0.6 else REGIMES["oscillation"]
+        return REGIMES["steady_state_error"]
+    if problem == "overshoot_high":
+        if effective > 0.35:
+            return REGIMES["success"] if rng.random() < 0.65 else REGIMES["steady_state_error"]
+        if effective < -0.25:
+            return REGIMES["overshoot_high"] if rng.random() < 0.6 else REGIMES["oscillation"]
+        return REGIMES["overshoot_high"]
+    if problem == "oscillation":
+        if effective > 0.35:
+            return REGIMES["success"] if rng.random() < 0.62 else REGIMES["slow_response"]
+        if effective < -0.25:
+            return REGIMES["oscillation"] if rng.random() < 0.65 else REGIMES["overshoot_high"]
+        return REGIMES["oscillation"]
+    if problem == "saturation_limited":
+        if effective > 0.35:
+            return REGIMES["steady_state_error"] if rng.random() < 0.55 else REGIMES["success"]
+        if effective < -0.25:
+            return REGIMES["saturation_limited"]
+        return REGIMES["saturation_limited"] if rng.random() < 0.7 else REGIMES["steady_state_error"]
+    if problem == "disturbance_recovery":
+        if effective > 0.35:
+            return REGIMES["success"] if rng.random() < 0.5 else REGIMES["disturbance_recovery"]
+        return REGIMES["disturbance_recovery"]
+    # success
+    if effective < -0.35:
+        return REGIMES["overshoot_high"] if rng.random() < 0.5 else REGIMES["oscillation"]
+    return REGIMES["success"] if rng.random() < 0.8 else REGIMES["slow_response"]
 
 
 def simulate_segment(
@@ -492,11 +585,108 @@ def flush_metrics(db, rows: list[DeviceMetric], *, batch_size: int) -> None:
         db.flush()
 
 
-def create_device_with_config(*, db, idx: int, rng: random.Random) -> tuple[Device, DeviceParameter, ThermalConfig, PIDParams]:
+def _stable_device_rng(seed: int, code: str) -> random.Random:
+    # Stable per-device random generator (independent of run order).
+    h = 1469598103934665603
+    for ch in f"{seed}:{code}":
+        h ^= ord(ch)
+        h *= 1099511628211
+        h &= 0xFFFFFFFFFFFFFFFF
+    return random.Random(h)
+
+
+def build_device_physics(*, seed: int, code: str, target: float, band: float) -> ThermalConfig:
+    r = _stable_device_rng(seed, code)
+    return ThermalConfig(
+        target_temp=target,
+        target_band=band,
+        ambient_base=r.uniform(18.0, 30.0),
+        capacity=r.uniform(160.0, 420.0),
+        heater_gain=r.uniform(3.8, 8.5),
+        heat_loss=r.uniform(0.014, 0.04),
+        sensor_alpha=r.uniform(0.08, 0.2),
+        sensor_noise_std=r.uniform(0.025, 0.09),
+        dead_time_steps=r.randint(1, 6),
+        pwm_saturation_threshold=r.uniform(84.0, 95.0),
+        overshoot_limit_pct=r.uniform(2.8, 5.2),
+    )
+
+
+def list_simulator_devices(db, *, prefix: str) -> list[Device]:
+    like = f"{prefix}-%"
+    return db.scalars(select(Device).where(Device.code.like(like)).order_by(Device.code.asc())).all()
+
+
+def delete_simulator_data(db, *, prefix: str) -> int:
+    devices = list_simulator_devices(db, prefix=prefix)
+    if not devices:
+        return 0
+    ids = [int(d.id) for d in devices]
+    # Explicit child cleanup scoped to simulator devices only.
+    db.execute(delete(ControlActionFeedbackSample).where(ControlActionFeedbackSample.device_id.in_(ids)))
+    db.execute(delete(ControlActionEvalJob).where(ControlActionEvalJob.device_id.in_(ids)))
+    db.execute(delete(ControlAction).where(ControlAction.device_id.in_(ids)))
+    db.execute(delete(DeviceMetric).where(DeviceMetric.device_id.in_(ids)))
+    db.execute(delete(DeviceParameter).where(DeviceParameter.device_id.in_(ids)))
+    db.execute(delete(Device).where(Device.id.in_(ids)))
+    db.commit()
+    return len(ids)
+
+
+def create_device_with_config(
+    *,
+    db,
+    idx: int,
+    rng: random.Random,
+    global_seed: int,
+    prefix: str,
+    reuse_devices: bool,
+) -> tuple[Device, DeviceParameter, ThermalConfig, PIDParams]:
+    code = f"{prefix}-{idx:03d}"
+    existing = db.scalar(select(Device).where(Device.code == code))
+    if existing is not None and not reuse_devices:
+        raise RuntimeError(f"Device code already exists and reuse is disabled: {code}")
+    if existing is not None:
+        device = existing
+        pid_row = db.scalar(
+            select(DeviceParameter)
+            .where(DeviceParameter.device_id == device.id)
+            .order_by(DeviceParameter.updated_at.desc(), DeviceParameter.id.desc())
+            .limit(1)
+        )
+        if pid_row is None:
+            pid_row = DeviceParameter(
+                device_id=device.id,
+                kp=2.4,
+                ki=0.36,
+                kd=0.08,
+                control_mode="pid_control",
+                target_band=0.6,
+                overshoot_limit_pct=4.0,
+                saturation_warn_ratio=0.30,
+                saturation_high_ratio=0.60,
+                pwm_saturation_threshold=90.0,
+                steady_window_samples=12,
+                sampling_period_ms=250,
+                upload_period_s=10,
+                updated_at=datetime.utcnow(),
+                updated_by="simulator_repair",
+            )
+            db.add(pid_row)
+            db.flush()
+        pid = PIDParams(kp=float(pid_row.kp), ki=float(pid_row.ki), kd=float(pid_row.kd))
+        cfg = build_device_physics(
+            seed=global_seed,
+            code=device.code,
+            target=float(device.target_temp),
+            band=float(pid_row.target_band or 0.6),
+        )
+        return device, pid_row, cfg, pid
+
     target = rng.uniform(42.0, 165.0)
     band = rng.uniform(0.4, 0.9)
     device = Device(
-        code=f"SIM-{idx:03d}",
+        code=code,
         name=f"Simulated Thermal Unit {idx:03d}",
         line=f"Line {1 + ((idx - 1) % 4)}",
         location=f"Zone {chr(65 + ((idx - 1) % 8))}",
@@ -517,19 +707,7 @@ def create_device_with_config(*, db, idx: int, rng: random.Random) -> tuple[Devi
         ki=rng.uniform(0.24, 0.58),
         kd=rng.uniform(0.04, 0.16),
     )
-    cfg = ThermalConfig(
-        target_temp=target,
-        target_band=band,
-        ambient_base=rng.uniform(18.0, 30.0),
-        capacity=rng.uniform(160.0, 420.0),
-        heater_gain=rng.uniform(3.8, 8.5),
-        heat_loss=rng.uniform(0.014, 0.04),
-        sensor_alpha=rng.uniform(0.08, 0.2),
-        sensor_noise_std=rng.uniform(0.025, 0.09),
-        dead_time_steps=rng.randint(1, 6),
-        pwm_saturation_threshold=rng.uniform(84.0, 95.0),
-        overshoot_limit_pct=rng.uniform(2.8, 5.2),
-    )
+    cfg = build_device_physics(seed=global_seed, code=device.code, target=target, band=band)
     param = DeviceParameter(
         device_id=device.id,
         kp=pid.kp,
@@ -695,7 +873,6 @@ def generate_for_device(
             last_error=state.last_error,
             delayed_power=deque(list(state.delayed_power), maxlen=max(1, cfg.dead_time_steps)),
         )
-        old_pid = current_pid
         current_pid = new_pid
         _rows_preview, points_preview, _ = simulate_segment(
             device=device,
@@ -712,8 +889,19 @@ def generate_for_device(
         )
         preview_summary = summarize_window(points_preview, target_band=cfg.target_band)
 
-        # Actual branch: realistic/noisy with disturbances.
-        actual_regime = choose_regime(rng)
+        # Actual branch: condition on pre-action problem + action alignment + source, with stochastic disturbance.
+        alignment = evaluate_action_alignment(
+            problem=primary_problem,
+            delta_kp=float(action.delta_kp or 0.0),
+            delta_ki=float(action.delta_ki or 0.0),
+            delta_kd=float(action.delta_kd or 0.0),
+        )
+        actual_regime = choose_actual_regime(
+            problem=primary_problem,
+            source=source,
+            alignment=alignment,
+            rng=rng,
+        )
         actual_summary = run_steps(obs_steps, actual_regime, clean_preview=False)
         comp_before = compare_actual_to_reference(actual=actual_summary, ref=before_summary)
         comp_preview = compare_actual_to_reference(actual=actual_summary, ref=preview_summary)
@@ -874,8 +1062,8 @@ def main() -> None:
     db = SessionLocal()
     try:
         if args.reset:
-            db.execute(delete(Device))
-            db.commit()
+            deleted = delete_simulator_data(db, prefix=str(args.sim_device_prefix))
+            print(f"[sim] reset scoped to prefix={args.sim_device_prefix}, deleted_devices={deleted}")
 
         totals = {
             "devices": 0,
@@ -889,7 +1077,25 @@ def main() -> None:
         }
 
         for i in range(1, int(args.devices) + 1):
-            device, param_row, cfg, pid = create_device_with_config(db=db, idx=i, rng=rng)
+            device, param_row, cfg, pid = create_device_with_config(
+                db=db,
+                idx=i,
+                rng=rng,
+                global_seed=int(args.seed),
+                prefix=str(args.sim_device_prefix),
+                reuse_devices=bool(args.reuse_devices),
+            )
+            device_start_ts = start_ts
+            if bool(args.append_only):
+                last_metric_ts = db.scalar(select(func.max(DeviceMetric.timestamp)).where(DeviceMetric.device_id == device.id))
+                if last_metric_ts is not None:
+                    device_start_ts = max(device_start_ts, last_metric_ts + timedelta(seconds=step_seconds))
+            if device_start_ts >= end_ts:
+                print(
+                    f"[sim] device={device.code} skipped (append_only window exhausted): "
+                    f"start={device_start_ts.isoformat()} end={end_ts.isoformat()}"
+                )
+                continue
             stats = generate_for_device(
                 db=db,
                 device=device,
@@ -897,7 +1103,7 @@ def main() -> None:
                 cfg=cfg,
                 pid=pid,
                 rng=random.Random(rng.randint(0, 10**9)),
-                start_ts=start_ts,
+                start_ts=device_start_ts,
                 end_ts=end_ts,
                 step_seconds=step_seconds,
                 actions_per_device=max(0, int(args.actions_per_device)),
@@ -925,4 +1131,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
