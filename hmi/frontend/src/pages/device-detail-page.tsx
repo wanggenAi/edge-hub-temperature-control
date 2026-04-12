@@ -1186,19 +1186,19 @@ export function DeviceDetailPage() {
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   disabled={!canWrite}
-                  placeholder={`Kp ${parameters.kp}`}
+                  placeholder={`Kp ${formatPidValue(parameters.kp)}`}
                   value={editing.kp}
                   onChange={(e) => setEditing((s) => ({ ...s, kp: e.target.value }))}
                 />
                 <Input
                   disabled={!canWrite}
-                  placeholder={`Ki ${parameters.ki}`}
+                  placeholder={`Ki ${formatPidValue(parameters.ki)}`}
                   value={editing.ki}
                   onChange={(e) => setEditing((s) => ({ ...s, ki: e.target.value }))}
                 />
                 <Input
                   disabled={!canWrite}
-                  placeholder={`Kd ${parameters.kd}`}
+                  placeholder={`Kd ${formatPidValue(parameters.kd)}`}
                   value={editing.kd}
                   onChange={(e) => setEditing((s) => ({ ...s, kd: e.target.value }))}
                 />
@@ -1628,11 +1628,14 @@ function normalizeApiError(error: unknown): string {
 }
 
 function withSign(value: number): string {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
+  const rounded = Number(value.toFixed(3));
+  if (rounded === 0) return "0";
+  const abs = Math.abs(rounded).toString();
+  return rounded > 0 ? `+${abs}` : `-${abs}`;
 }
 
 function formatPidValue(value: number): string {
-  return value.toFixed(3);
+  return Number(value.toFixed(3)).toString();
 }
 
 function isZeroDelta(value: number): boolean {

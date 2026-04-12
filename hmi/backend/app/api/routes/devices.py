@@ -1482,6 +1482,7 @@ def get_metric_window_stats(
         raise HTTPException(status_code=400, detail="start_ms must be <= end_ms")
 
     points: list[tuple[int, float]] = []
+    relational_fallback_needed = False
     if tdengine.enabled():
         sql = (
             f"SELECT ts, error_c FROM {_tdb()}.telemetry "
@@ -1492,7 +1493,9 @@ def get_metric_window_stats(
         for row_raw in result.rows:
             row = tdengine.row_to_dict(result.columns, row_raw)
             points.append((_ts_value_to_ms(row.get("ts")), float(row.get("error_c") or 0.0)))
-    else:
+        if not points:
+            relational_fallback_needed = True
+    if (not tdengine.enabled()) or relational_fallback_needed:
         rows = db.execute(
             select(DeviceMetric.timestamp, DeviceMetric.error)
             .where(
@@ -1556,6 +1559,7 @@ def get_control_eval(
     current_temp = float(device.current_temp or 0.0)
     target_temp = float(device.target_temp or 0.0)
     pwm_output = float(device.pwm_output or 0.0)
+    relational_fallback_needed = False
 
     if tdengine.enabled():
         sql = (
@@ -1576,7 +1580,9 @@ def get_control_eval(
                     float(row.get("pwm_duty") or 0.0),
                 )
             )
-    else:
+        if not points:
+            relational_fallback_needed = True
+    if (not tdengine.enabled()) or relational_fallback_needed:
         rows = db.execute(
             select(
                 DeviceMetric.timestamp,

@@ -39,6 +39,9 @@ PROBLEM_TYPES = [
     "disturbance_recovery",
 ]
 
+TARGET_TEMP_MIN = 20.0
+TARGET_TEMP_MAX = 45.0
+
 
 @dataclass
 class PIDParams:
@@ -597,10 +600,16 @@ def _stable_device_rng(seed: int, code: str) -> random.Random:
 
 def build_device_physics(*, seed: int, code: str, target: float, band: float) -> ThermalConfig:
     r = _stable_device_rng(seed, code)
+    bounded_target = clamp(float(target), TARGET_TEMP_MIN, TARGET_TEMP_MAX)
+    # Keep ambient meaningfully below target for heater-only plants.
+    ambient_hi = min(34.0, bounded_target - 2.0)
+    ambient_lo = max(10.0, ambient_hi - 10.0)
+    if ambient_lo >= ambient_hi:
+        ambient_lo = max(8.0, ambient_hi - 3.0)
     return ThermalConfig(
-        target_temp=target,
+        target_temp=bounded_target,
         target_band=band,
-        ambient_base=r.uniform(18.0, 30.0),
+        ambient_base=r.uniform(ambient_lo, ambient_hi),
         capacity=r.uniform(160.0, 420.0),
         heater_gain=r.uniform(3.8, 8.5),
         heat_loss=r.uniform(0.014, 0.04),
@@ -648,6 +657,12 @@ def create_device_with_config(
         raise RuntimeError(f"Device code already exists and reuse is disabled: {code}")
     if existing is not None:
         device = existing
+        repaired_target = clamp(float(device.target_temp), TARGET_TEMP_MIN, TARGET_TEMP_MAX)
+        if abs(repaired_target - float(device.target_temp)) > 1e-9:
+            device.target_temp = repaired_target
+            if float(device.current_temp or 0.0) > repaired_target + 8.0:
+                device.current_temp = repaired_target - rng.uniform(0.8, 3.2)
+            device.updated_at = datetime.utcnow()
         pid_row = db.scalar(
             select(DeviceParameter)
             .where(DeviceParameter.device_id == device.id)
@@ -674,6 +689,12 @@ def create_device_with_config(
             )
             db.add(pid_row)
             db.flush()
+        else:
+            repaired_band = clamp(float(pid_row.target_band or 0.6), 0.3, 1.0)
+            if abs(repaired_band - float(pid_row.target_band or 0.0)) > 1e-9:
+                pid_row.target_band = repaired_band
+                pid_row.updated_at = datetime.utcnow()
+                pid_row.updated_by = "simulator_repair"
         pid = PIDParams(kp=float(pid_row.kp), ki=float(pid_row.ki), kd=float(pid_row.kd))
         cfg = build_device_physics(
             seed=global_seed,
@@ -683,7 +704,7 @@ def create_device_with_config(
         )
         return device, pid_row, cfg, pid
 
-    target = rng.uniform(42.0, 165.0)
+    target = rng.uniform(TARGET_TEMP_MIN, TARGET_TEMP_MAX)
     band = rng.uniform(0.4, 0.9)
     device = Device(
         code=code,

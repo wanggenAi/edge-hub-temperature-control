@@ -584,13 +584,13 @@ function ParamBlock({
           <span className="text-right text-mute">Value</span>
           <span className="text-right text-mute">{delta ? "Delta" : ""}</span>
           <span className="text-text">Kp</span>
-          <span className="text-right text-text">{params.kp.toFixed(4)}</span>
+          <span className="text-right text-text">{formatPidValue(params.kp)}</span>
           <span className="text-right text-neon">{delta ? withSign(delta.kp) : ""}</span>
           <span className="text-text">Ki</span>
-          <span className="text-right text-text">{params.ki.toFixed(4)}</span>
+          <span className="text-right text-text">{formatPidValue(params.ki)}</span>
           <span className="text-right text-neon">{delta ? withSign(delta.ki) : ""}</span>
           <span className="text-text">Kd</span>
-          <span className="text-right text-text">{params.kd.toFixed(4)}</span>
+          <span className="text-right text-text">{formatPidValue(params.kd)}</span>
           <span className="text-right text-neon">{delta ? withSign(delta.kd) : ""}</span>
           {controlMode && (
             <>
@@ -680,13 +680,13 @@ function DecisionProvenanceSection({
               <span className="text-right text-mute">Value</span>
               <span className="text-right text-mute">Delta</span>
               <span>Kp</span>
-              <span className="text-right">{trace.ruleCenterParams.kp.toFixed(4)}</span>
+              <span className="text-right">{formatPidValue(trace.ruleCenterParams.kp)}</span>
               <span className="text-right text-neon">{trace.ruleCenterDelta ? withSign(trace.ruleCenterDelta.kp) : "-"}</span>
               <span>Ki</span>
-              <span className="text-right">{trace.ruleCenterParams.ki.toFixed(4)}</span>
+              <span className="text-right">{formatPidValue(trace.ruleCenterParams.ki)}</span>
               <span className="text-right text-neon">{trace.ruleCenterDelta ? withSign(trace.ruleCenterDelta.ki) : "-"}</span>
               <span>Kd</span>
-              <span className="text-right">{trace.ruleCenterParams.kd.toFixed(4)}</span>
+              <span className="text-right">{formatPidValue(trace.ruleCenterParams.kd)}</span>
               <span className="text-right text-neon">{trace.ruleCenterDelta ? withSign(trace.ruleCenterDelta.kd) : "-"}</span>
             </div>
           </details>
@@ -1311,8 +1311,15 @@ function formatSeconds(value?: number | null): string {
 }
 
 function withSign(value: number): string {
-  const fixed = value.toFixed(4);
-  return value > 0 ? `+${fixed}` : fixed;
+  const rounded = Number(value.toFixed(3));
+  if (rounded === 0) return "0";
+  const abs = Math.abs(rounded).toString();
+  return rounded > 0 ? `+${abs}` : `-${abs}`;
+}
+
+function formatPidValue(value: number): string {
+  const rounded = Number(value.toFixed(3));
+  return rounded.toString();
 }
 
 function buildDecisionTrace(record: AIRecommendationHistoryItem | null): {
@@ -1529,7 +1536,7 @@ function fmtMaybe(value: number | null): string {
 
 function formatPidTuple(value: PidTuple | null, signed = false): string {
   if (!value) return "N/A";
-  if (!signed) return `Kp ${value.kp.toFixed(4)} · Ki ${value.ki.toFixed(4)} · Kd ${value.kd.toFixed(4)}`;
+  if (!signed) return `Kp ${formatPidValue(value.kp)} · Ki ${formatPidValue(value.ki)} · Kd ${formatPidValue(value.kd)}`;
   return `Kp ${withSign(value.kp)} · Ki ${withSign(value.ki)} · Kd ${withSign(value.kd)}`;
 }
 
