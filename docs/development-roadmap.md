@@ -68,4 +68,4 @@ Deliverables:
 
 - data path description
 - upper-layer application prototype
-- three-layer integration note
+- end-to-end integration note

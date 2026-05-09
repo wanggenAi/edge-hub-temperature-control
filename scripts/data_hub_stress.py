@@ -4,7 +4,7 @@ MQTT load generator for data-hub ingress stress testing.
 
 Examples:
   python scripts/data_hub_stress.py --duration 60 --rate 1000 --devices 200
-  python scripts/data_hub_stress.py --host 38.14.195.2 --port 1883 --username edgeadmin --password admin123 \
+  python scripts/data_hub_stress.py --host YOUR_BROKER_HOST --port 1883 --username edgeadmin --password YOUR_PASSWORD \
     --duration 120 --rate 2000 --devices 500 --workers 4 --qos 1
 """
 

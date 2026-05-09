@@ -58,4 +58,4 @@ flat and readable naming style, for example:
 
 This keeps the structure simple while making later expansion straightforward.
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

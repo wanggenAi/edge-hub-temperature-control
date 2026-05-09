@@ -1,250 +1,254 @@
-# MQTT Interface Design
+# MQTT Interface Contract
 
 ## 1. Purpose
 
-This document defines the staged MQTT interface design between the edge temperature-control node and the upper layers of the system.
+This document defines the MQTT contract used by the edge temperature-control
+node, HMI backend, and Java Data Hub.
 
-The purpose of this document is:
+The current repository already implements the core MQTT path:
 
-- define the message structure between the edge control layer and upper layers
-- provide a stable interface basis for later implementation
-- support thesis writing related to system integration and interface design
-- keep the communication design clear before broker integration is implemented
+- edge telemetry publish
+- HMI/Data Hub parameter intent through `params/set`
+- edge acknowledgement through `params/ack`
+- config-change notifications for Data Hub rule refresh
 
-At the current stage, this document focuses on interface design only. It does not claim that the MQTT communication path has already been fully implemented.
+The optimizer/recommendation topic is intentionally kept as a reserved extension
+point. In the current implementation, AI recommendations are generated in the
+HMI/backend AI layer and applied through the normal `params/set` command path.
 
-## 2. Interface Scope
+## 2. Implemented Topic Scope
 
-The current interface design focuses on three message categories:
-
-1. telemetry
-2. params/set
-3. optimizer/recommendation
-
-Their roles are:
-
-- telemetry:
-  - periodic status reporting from the edge node
-- params/set:
-  - parameter and mode settings sent from upper layers to the edge node
-- optimizer/recommendation:
-  - future reserved messages for tuning suggestions or optimization recommendations
-
-## 3. Topic Design
-
-The topic hierarchy is organized around `device_id` so that the system can scale from a single simulated node to multiple edge devices later.
-
-Recommended topics:
+Device-scoped topics:
 
 - `edge/temperature/<device_id>/telemetry`
 - `edge/temperature/<device_id>/params/set`
+- `edge/temperature/<device_id>/params/ack`
+
+Configuration notification topics:
+
+- `edgehub/config/alarm-rules/updated`
+- `edgehub/config/storage-rules/updated`
+
+Reserved advisory topic:
+
 - `edge/temperature/<device_id>/optimizer/recommendation`
 
-Design considerations:
+The reserved optimizer topic is not the current device-side apply mechanism. It
+is documented so future work can introduce advisory MQTT messages without
+breaking the implemented telemetry/set/ack contract.
 
-- `edge`:
-  - identifies the edge-side node domain
-- `temperature`:
-  - identifies the application scenario
-- `<device_id>`:
-  - supports multi-device extension
-- final topic level:
-  - separates reporting, parameter update, and future optimization advice
+## 3. Topic Design Rationale
 
-This structure is simple enough for the current stage and still suitable for later expansion into the full three-layer architecture.
+`edge/temperature/<device_id>/...` keeps the contract scalable from one Wokwi
+node to multiple physical or simulated devices.
 
-## 4. Telemetry Payload Design
+The final topic segment separates responsibilities:
 
-The telemetry message is intended for periodic reporting from the edge node to the data hub or upper-layer system.
+- `telemetry`: runtime observation from device to upper layers
+- `params/set`: upper-layer control intent to device
+- `params/ack`: device response after parsing, validation, staging, or apply
+- `optimizer/recommendation`: reserved advisory channel for future direct
+  optimizer-device integration
 
-Recommended payload example:
+This separation is important because a command being published is not the same
+thing as a command being applied. The ACK topic gives the system traceability.
+
+## 4. Telemetry Payload
+
+Telemetry is published periodically by the edge node and consumed by Data Hub.
+The payload is JSON.
+
+Current example:
 
 ```json
 {
   "device_id": "edge-node-001",
-  "timestamp": "2026-03-29T12:00:00Z",
+  "uptime_ms": 50274,
   "target_temp_c": 35.0,
-  "sim_temp_c": 34.99,
-  "sensor_temp_c": 24.00,
-  "error_c": 0.01,
-  "integral_error": 10.98,
-  "control_output": 167.06,
-  "pwm_duty": 167,
-  "pwm_norm": 0.655,
-  "control_mode": "pi_control",
+  "sim_temp_c": 34.98,
+  "sensor_temp_c": 22.0,
+  "sensor_status": "ok",
+  "error_c": 0.03,
+  "integral_error": 13.56,
+  "derivative_error": -0.006,
+  "d_term": 0.0,
+  "control_output": 166.11,
+  "pwm_duty": 166,
+  "pwm_norm": 0.651,
+  "control_period_ms": 1000,
+  "actual_dt_ms": 1628,
+  "dt_error_ms": 628,
+  "saturation_state": "none",
+  "sensor_valid": true,
+  "run_id": "edge-node-001-run-e5850259",
+  "control_mode": "pid_control",
   "controller_version": "pi_tuned_v3_1",
   "kp": 120.0,
   "ki": 12.0,
   "kd": 0.0,
-  "system_state": "running"
+  "system_state": "running",
+  "wifi_connected": true,
+  "mqtt_connected": true,
+  "mqtt_reconnect_count": 2,
+  "mqtt_publish_fail_count": 6,
+  "safety_output_forced_off": false,
+  "fault_latched": false,
+  "fault_reason": "none",
+  "software_max_safe_temp_c": 65.0,
+  "has_pending_params": false,
+  "pending_params_age_ms": 0
 }
 ```
 
-### Field Meaning
+Important field groups:
 
-Current actively meaningful fields:
+- identity: `device_id`, `run_id`, `uptime_ms`
+- process values: `target_temp_c`, `sim_temp_c`, `sensor_temp_c`, `error_c`
+- controller output: `control_output`, `pwm_duty`, `pwm_norm`, `saturation_state`
+- timing quality: `control_period_ms`, `actual_dt_ms`, `dt_error_ms`
+- controller identity: `control_mode`, `controller_version`, `kp`, `ki`, `kd`
+- sensor/safety: `sensor_status`, `sensor_valid`, `fault_latched`, `fault_reason`,
+  `safety_output_forced_off`, `software_max_safe_temp_c`
+- communication state: `wifi_connected`, `mqtt_connected`,
+  `mqtt_reconnect_count`, `mqtt_publish_fail_count`
+- staged config state: `has_pending_params`, `pending_params_age_ms`
 
-- `device_id`
-- `timestamp`
-- `target_temp_c`
-- `sim_temp_c`
-- `sensor_temp_c`
-- `error_c`
-- `integral_error`
-- `control_output`
-- `pwm_duty`
-- `pwm_norm`
-- `control_mode`
-- `controller_version`
-- `kp`
-- `ki`
-- `system_state`
+Notes:
 
-Current reserved or forward-looking fields:
+- `kd` is carried even when the tuned controller behaves as PI (`kd = 0`) so the
+  interface remains PID-compatible.
+- `sim_temp_c` and `sensor_temp_c` are both retained because the current Wokwi
+  simulation uses a virtual controlled temperature while still exposing a
+  physical sensor reference.
+- Data Hub accepts unknown extra JSON fields, so telemetry can evolve without
+  immediately breaking ingestion.
 
-- `kd`
-  - not used by the current PI controller, but reserved for later controller extension
+## 5. Parameter Downlink Payload: `params/set`
 
-## 5. Parameter Downlink Payload Design
+`params/set` is the implemented command-intent path used by HMI manual parameter
+updates and AI recommendation apply actions.
 
-The parameter downlink message is intended for configuration updates from upper layers to the edge node.
-
-Recommended payload example:
+Example:
 
 ```json
 {
   "target_temp_c": 35.0,
-  "kp": 120.0,
-  "ki": 12.0,
+  "kp": 118.0,
+  "ki": 11.5,
   "kd": 0.0,
   "control_period_ms": 1000,
-  "control_mode": "pi_control"
+  "control_mode": "pid_control",
+  "apply_immediately": true,
+  "source": "hmi",
+  "requested_at": "2026-05-09T12:00:00Z"
 }
 ```
 
-### Current vs Reserved Use
-
-Fields that are already meaningful at the current stage:
+Fields parsed by the edge node and Data Hub:
 
 - `target_temp_c`
 - `kp`
 - `ki`
+- `kd`
 - `control_period_ms`
 - `control_mode`
+- `apply_immediately`
 
-Fields mainly reserved for future extension:
+Fields such as `source` and `requested_at` are useful for traceability. The edge
+parser can ignore unsupported metadata while Data Hub can archive the full
+intent payload.
 
-- `kd`
-  - reserved for future PID-compatible interfaces
+Current semantics:
 
-This design allows the future system to update the controller without redesigning the downlink payload structure.
+- `apply_immediately=true`: validated parameters are applied at runtime
+- `apply_immediately=false`: parameters may be staged and later acknowledged as
+  pending, depending on the edge-side handler
+- invalid payloads should result in `params/ack` with a failure ACK type/reason
 
-## 6. Optimizer / AI Recommendation Payload Design
+## 6. Parameter ACK Payload: `params/ack`
 
-The optimizer recommendation message is a reserved interface for future optimization modules.
+The device publishes `params/ack` after it receives and handles a parameter
+message.
 
-Important note:
-
-- this message structure is only a reserved interface
-- it does not mean the current system already implements AI decision-making
-- it is included now so that future optimizer integration does not break the communication model
-
-Recommended payload example:
+Example:
 
 ```json
 {
-  "source": "future_optimizer",
-  "recommended_target_temp_c": 35.0,
-  "recommended_kp": 118.0,
-  "recommended_ki": 11.5,
-  "recommended_kd": 0.0,
-  "reason": "reduce overshoot while maintaining low steady-state error",
-  "confidence": 0.82,
-  "optimization_tag": "pi_tuning_candidate"
+  "device_id": "edge-node-001",
+  "ack_type": "applied",
+  "success": true,
+  "applied_immediately": true,
+  "has_pending_params": false,
+  "target_temp_c": 35.0,
+  "kp": 118.0,
+  "ki": 11.5,
+  "kd": 0.0,
+  "control_period_ms": 1000,
+  "control_mode": "pid_control",
+  "reason": "applied_ok",
+  "uptime_ms": 54322,
+  "sensor_valid": true,
+  "fault_latched": false,
+  "fault_reason": "none",
+  "software_max_safe_temp_c": 65.0
 }
 ```
 
-Recommended fields:
+Common ACK types and reasons:
 
-- `source`
-- `recommended_target_temp_c`
-- `recommended_kp`
-- `recommended_ki`
-- `recommended_kd`
-- `reason`
-- `confidence`
-- `optimization_tag`
+- `applied` / `applied_ok`
+- `staged` / `staged_waiting`
+- `pending_applied` / `pending_params_applied`
+- `parse_error` / `payload_parse_failed`
+- `validation_error` / validation-specific reason
 
-## 7. Field Definition Notes
+Why ACK matters:
 
-### Why `kd` Is Reserved Now
+- HMI can distinguish publish success from device apply success
+- Data Hub can persist command intent and device result as separate facts
+- AI apply can be audited before post-apply telemetry validation begins
 
-Although the current controller is PI-based, reserving `kd` now prevents future interface redesign if the controller evolves toward simplified PID control.
+## 7. AI Recommendation And MQTT Apply
 
-### Why Telemetry, Params, and Optimizer Are Separated
+Current AI recommendation flow:
 
-These three message types serve different responsibilities:
+```text
+HMI/backend AI service
+-> recommendation stored in PostgreSQL
+-> preview simulation stored with recommendation metadata
+-> operator/admin applies recommendation
+-> HMI backend publishes params/set
+-> edge validates/applies parameters
+-> edge publishes params/ack
+-> HMI/Data Hub observe ACK and later telemetry effect
+```
 
-- telemetry:
-  - runtime observation and data collection
-- params/set:
-  - control configuration from upper layers
-- optimizer/recommendation:
-  - future advisory messages that should remain logically separate from direct control commands
+This is why the implemented AI path does not require the edge node to subscribe
+to `optimizer/recommendation` today. The edge only needs to understand the
+normal runtime configuration contract.
 
-This separation supports clean architecture and clearer module boundaries.
+## 8. Data Hub Consumption
 
-### Why `sensor_temp_c` and `sim_temp_c` Are Both Retained
+Data Hub parses and persists the implemented topic types:
 
-In the current simulation stage:
+- telemetry -> `telemetry` supertable / JSONL/log depending on storage mode
+- `params/set` -> `params_set`
+- `params/ack` -> `params_ack`
+- config update topics -> rule/cache refresh notifications
 
-- `sensor_temp_c` represents the physical DS18B20 reading in the simulation
-- `sim_temp_c` represents the virtual thermal state used in the control loop
+The Java parser is intentionally tolerant of extra JSON properties, which keeps
+field additions backward compatible.
 
-Keeping both fields is important because it preserves transparency about what the controller is using and what the sensor is physically reporting in the current setup.
+## 9. Compatibility Rules
 
-### Why `control_mode` and `controller_version` Are Useful
+When extending this contract:
 
-- `control_mode` helps upper layers know whether the node is running threshold, P, PI, or later PID logic
-- `controller_version` helps distinguish experiment and software revisions, which is valuable for debugging, comparison, and thesis traceability
+- prefer additive JSON fields over renaming existing fields
+- keep `device_id` and topic device id consistent
+- preserve `params/set` and `params/ack` separation
+- keep `kd` in payloads even when the active controller is PI-like
+- keep telemetry safety/connectivity fields because they support operations and
+  post-apply diagnosis
+- do not place credentials in committed examples or README files
 
-## 8. Current vs Future Usage
-
-### Fields with direct meaning at the current stage
-
-- `target_temp_c`
-- `sim_temp_c`
-- `sensor_temp_c`
-- `error_c`
-- `integral_error`
-- `control_output`
-- `pwm_duty`
-- `pwm_norm`
-- `control_mode`
-- `controller_version`
-- `kp`
-- `ki`
-- `system_state`
-- `control_period_ms`
-
-### Fields reserved for future system integration
-
-- `kd`
-- optimizer recommendation fields
-- more advanced node-state fields if the system later adds fault states, communication states, or actuator protection states
-
-The design principle is:
-
-- include what is already needed for the current simulation and controller
-- reserve a small number of future fields so later integration does not require breaking changes
-
-## 9. Next-Step Suggestion
-
-The recommended implementation sequence is:
-
-1. abstract the telemetry and parameter message structure in code
-2. standardize the payload generation and parsing logic
-3. connect the edge node to an MQTT broker
-4. integrate the broker into the future data-hub layer
-
-This order keeps the current work focused on interface clarity first and communication implementation second.
+Documentation sync date: 2026-05-09.

@@ -8,7 +8,7 @@ It is one of the active modules in the current repository baseline:
 - data ingestion and storage: `data-hub` (this module)
 - application layer: `hmi`
 - offline data pipeline: `ml`
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.
 
 ## Runtime Baseline
 
@@ -43,11 +43,16 @@ Current scope:
 
 Current non-goals:
 
-- HMI
-- business web API
-- control command entry
-- optimizer logic
+- HMI pages
+- business web API ownership
+- direct control command authoring
+- AI optimizer execution inside Data Hub
 - microservice splitting
+
+AI boundary:
+
+- Data Hub does not generate recommendations or tune PID parameters.
+- Data Hub does persist telemetry, `params/set`, `params/ack`, summaries, alarms, and status events that the HMI/AI layers use for recommendation, validation, and feedback datasets.
 
 Run assumptions:
 

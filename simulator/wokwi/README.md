@@ -2,102 +2,128 @@
 
 ## Purpose
 
-This directory contains the current runnable Wokwi-based edge node module for the project. It is the implementation baseline for the edge control layer and now represents the V3.1 simulation stage.
+This directory contains the runnable Wokwi-based edge node module for the
+project. It is the implementation baseline for the edge control layer and also
+supports a real-hardware build profile.
 
-The goal of this directory is to support engineering verification of the temperature control node in a way that is easy to run, easy to observe, and easy to describe in the thesis.
+The goal is to support engineering verification of a temperature-control node in
+a way that is easy to run, observe, debug, and explain during a thesis defense.
 
 ## Current Version
 
 The current version is **Temperature Control Node V3.1**.
 
-Compared with the initial V3 PI version, this tuned V3.1 version focuses on reducing overshoot and improving convergence smoothness while keeping the controller simple and explainable.
+Compared with the initial V3 PI version, V3.1 focuses on reducing overshoot and
+improving convergence smoothness while keeping the controller simple and
+explainable.
 
 ## Current Implementation
 
-The current simulation node verifies the following functions:
+The current node verifies these functions:
 
-- ESP32 minimum runtime
-- serial communication through the Wokwi Serial Monitor
+- ESP32 runtime bootstrap
+- Wokwi serial observability
 - DS18B20 temperature acquisition as a physical reference value
 - GPIO2 heartbeat status LED
 - GPIO18 PWM output
-- tuned PI controller with a bounded integral state
+- tuned PI controller with bounded integral state
+- PID-compatible runtime parameter structure (`kp`, `ki`, `kd`)
 - virtual thermal model driven by PWM duty cycle
-- telemetry message abstraction aligned with the MQTT interface design
-- structured telemetry publish with serial observability
-- configurable MQTT broker integration for telemetry publish
-- runtime-config-based control parameters
-- params/set subscription with minimal runtime parameter application
-- observable closed-loop temperature regulation behavior
+- structured telemetry payload generation
+- configurable MQTT broker connection
+- MQTT username/password support through local `secrets.h`
+- MQTT telemetry publish to `edge/temperature/<device_id>/telemetry`
+- subscription to `edge/temperature/<device_id>/params/set`
+- runtime parameter parsing, validation, immediate apply, or staging
+- MQTT `params/ack` publish after parse/validation/apply
+- safety/fault/connectivity fields in telemetry
+- simulator and real-hardware build profiles
 
-This is an important engineering step because the simulation has moved from "control interface verification" to "closed-loop process verification".
+This is an important engineering step because the simulation has moved from
+control-interface verification to an observable MQTT-connected closed loop.
 
 ## Files
 
-- `diagram.json`: Wokwi circuit definition, including ESP32, DS18B20, pull-up resistor, status LED, LED resistor, Logic Analyzer, and Serial Monitor wiring
+- `diagram.json`: Wokwi circuit definition, including ESP32, DS18B20, pull-up
+  resistor, status LED, LED resistor, Logic Analyzer, and Serial Monitor wiring
 - `src/sketch.ino`: application bootstrap and wiring entrypoint
-- `src/app/`, `src/controller/`, `src/comms/`, `src/hardware/`: modularized control, messaging, and hardware adapters
+- `src/app/`: edge application loop and integration glue
+- `src/controller/`: PI/PID-compatible control logic
+- `src/comms/`: MQTT gateway, topic handling, telemetry builder, parameter
+  parser, validator, and ACK builder
+- `src/hardware/`: simulator and real-hardware adapters
 - `src/secrets.example.h`: safe template for local Wi-Fi / MQTT settings
-- `platformio.ini`: PlatformIO build configuration for the ESP32 Wokwi project
-- `wokwi.toml`: Wokwi project configuration that points to the generated firmware image
-- `libraries.txt`: required Arduino libraries for the Wokwi project
-- `README.md`: simulation usage notes and engineering explanation
+- `platformio.ini`: PlatformIO build configuration
+- `wokwi.toml`: Wokwi project configuration
+- `libraries.txt`: Arduino libraries used by Wokwi
 
 ## Local Secrets
 
 The project uses a local-only secrets file for Wi-Fi and MQTT credentials.
 
 - `src/secrets.h`: local machine settings, intentionally ignored by Git
-- `src/secrets.example.h`: committed template that documents the expected fields
+- `src/secrets.example.h`: committed template that documents expected fields
 
-When cloning the project on another machine, copy `src/secrets.example.h` to `src/secrets.h` and fill in the local values.
+Create the local file with:
+
+```bash
+cd simulator/wokwi
+cp src/secrets.example.h src/secrets.h
+```
+
+Fill these values locally:
+
+- `kWifiSsid`
+- `kWifiPassword`
+- `kMqttHost`
+- `kMqttPort`
+- `kMqttUsername`
+- `kMqttPassword`
+
+Do not commit real MQTT credentials.
 
 ## How To Run In Wokwi
 
-1. Open Wokwi and create or import an ESP32 Arduino project.
-2. Provide local credentials in `src/secrets.h` if MQTT access is required.
+1. Open the project with the Wokwi VS Code extension.
+2. Provide local credentials in `src/secrets.h`.
 3. Build the firmware with PlatformIO.
-4. Start the simulation from the Wokwi VS Code extension.
+4. Start the Wokwi simulation.
 5. Open the Wokwi Serial Monitor.
 6. Observe:
-   - the simulated temperature rising from a lower initial value
-   - the control error gradually shrinking
-   - the PWM duty cycle decreasing as the simulated temperature approaches the target
-   - the GPIO2 heartbeat LED activity
-   - the GPIO18 waveform through the Logic Analyzer
-   - the JSON-style telemetry payload printed to the serial output
-   - MQTT telemetry publish attempts to the configured broker
-   - incoming `params/set` messages printed to the serial output
+   - simulated temperature rising toward the target
+   - control error shrinking
+   - PWM duty cycle decreasing as the system approaches setpoint
+   - GPIO2 heartbeat LED activity
+   - GPIO18 waveform through Logic Analyzer
+   - JSON telemetry printed to serial
+   - MQTT connect/reconnect/publish status
+   - incoming `params/set` messages
+   - outgoing `params/ack` messages
 
 ## Current Control Logic
 
-The current controller is a simplified PI controller with light anti-windup behavior.
+The current controller is a simplified PI controller with light anti-windup
+behavior and a PID-compatible interface.
 
 Control flow:
 
-1. Read the DS18B20 value as a physical reference reading.
-2. Use the simulated temperature as the controlled process variable.
+1. Read DS18B20 value as a physical reference reading.
+2. Use simulated temperature as the controlled process variable.
 3. Compute the error between target temperature and simulated temperature.
 4. Accumulate the integral of the error once per control period.
 5. Apply integral limiting and a simple anti-windup rule.
-6. If the output is already saturated and the current error would push it further into saturation, pause integral accumulation for that control cycle.
-7. Compute the PI control output and clamp it to the valid PWM range.
-8. Update the thermal model using the PWM duty cycle.
-9. Print both human-readable and CSV-style logs for observation and later experiment recording.
+6. Pause integral accumulation if saturated output would be pushed further into
+   saturation.
+7. Compute control output and clamp it to the valid PWM range.
+8. Update the thermal model using PWM duty cycle.
+9. Publish/print telemetry for observation and downstream ingestion.
 
-This controller is intentionally simple. It is not the final industrial-grade control algorithm of the project, but it is appropriate for the current stage because it is stable, explainable, and suitable for simulation-based experiments.
+The default `kd` is `0.0`, so the tuned default behaves as PI while preserving a
+PID-compatible payload contract.
 
 ## Virtual Thermal Model
 
-The V3 simulation still uses the same first-order virtual thermal model.
-
-State variables and parameters:
-
-- `simulatedTemperatureC`: current simulated controlled temperature
-- `ambientTemperatureC`: surrounding environment temperature
-- `normalizedDuty`: PWM duty cycle normalized to the range `[0, 1]`
-- `heatGainPerCycleC`: heating contribution introduced by PWM during one control cycle
-- `coolingFactor`: passive cooling intensity toward ambient temperature
+The simulation uses a first-order virtual thermal model.
 
 Model equation:
 
@@ -108,135 +134,95 @@ simTemp = simTemp + heatGainPerCycleC * dutyNorm
 
 Interpretation:
 
-- the heating term increases with PWM duty cycle
-- the cooling term increases when the simulated temperature is above ambient temperature
-- the combined effect produces a gradual rise-and-settle behavior that is easy to observe and explain
+- heating increases with PWM duty cycle
+- passive cooling increases when simulated temperature is above ambient
+- the combined effect produces a gradual rise-and-settle behavior suitable for
+  repeatable experiments
 
-## Current Limitations
+## MQTT Contract Implemented Here
 
-The current V3.1 simulation is a useful engineering closed loop, but it is still simplified.
+Implemented topics:
 
-- The controller acts on the simulated temperature rather than on a DS18B20 value that physically changes with heating.
-- The thermal model is a first-order approximation and does not yet represent more complex thermal lag, disturbance, or sensor dynamics.
-- The controller is still a simplified PI controller rather than a full industrial PID strategy.
+- telemetry publish: `edge/temperature/edge-node-001/telemetry`
+- parameter downlink subscribe: `edge/temperature/edge-node-001/params/set`
+- parameter ACK publish: `edge/temperature/edge-node-001/params/ack`
 
-## Why This Step Matters
+Telemetry fields include:
 
-This version is important because it further improves a key limitation that remained after the first PI upgrade:
+- control state: `target_temp_c`, `sim_temp_c`, `error_c`, `pwm_duty`, `pwm_norm`
+- controller parameters: `control_mode`, `controller_version`, `kp`, `ki`, `kd`
+- timing: `control_period_ms`, `actual_dt_ms`, `dt_error_ms`
+- sensor/safety: `sensor_status`, `sensor_valid`, `fault_latched`, `fault_reason`
+- network: `wifi_connected`, `mqtt_connected`, `mqtt_reconnect_count`,
+  `mqtt_publish_fail_count`
+- pending config state: `has_pending_params`, `pending_params_age_ms`
 
-- overshoot and slow integral recovery in the first PI version
+`params/set` supports:
 
-to:
+- `target_temp_c`
+- `kp`
+- `ki`
+- `kd`
+- `control_period_ms`
+- `control_mode`
+- `apply_immediately`
 
-- a smoother PI-based regulation process with bounded integral action and simple anti-windup
+`params/ack` reports:
 
-That makes the simulation much more valuable for thesis writing, experiment planning, and later control refinement.
+- `ack_type`
+- `success`
+- `applied_immediately`
+- `has_pending_params`
+- applied runtime parameters
+- safety/fault state
+- reason and uptime
+
+See `docs/mqtt_interface.md` for the repository-level MQTT contract.
 
 ## Experiment Support
 
-The serial output now includes:
+The serial output and MQTT payloads support:
 
-- a human-readable runtime line
-- a CSV-style line for later copy-and-analyze workflows
-- a JSON-style telemetry line that simulates a future MQTT publish payload
-
-## MQTT Connectivity Preparation
-
-The current version moves beyond serial-only publish simulation and provides a real MQTT path.
-
-Current scope:
-
-- Wi-Fi connection through `Wokwi-GUEST`
-- telemetry publish to a configurable MQTT broker
-- subscription to the node-specific `params/set` topic
-- received `params/set` payloads printed to the serial output
-- supported runtime fields include target temperature, controller gains, control period, and control mode
-- `apply_immediately=true` allows the new parameters to take effect at runtime
-
-Current boundary:
-
-- telemetry publish is real
-- parameter downlink handling is intentionally lightweight rather than a full remote configuration subsystem
-- no broker authentication or production security mechanism is added yet
-
-Why this step matters:
-
-- it validates that the edge node can reach an external broker from Wokwi
-- it validates the telemetry topic and payload structure with a real MQTT path
-- it keeps migration to private/authenticated brokers straightforward
-
-## Message-Structure Preparation
-
-The current code now starts to abstract the future MQTT message structure inside the simulation module.
-
-Current scope:
-
-- telemetry message structure is represented in code
-- parameter-downlink structure is reserved in code
-- optimizer recommendation structure is reserved in code
-
-Important boundary:
-
-- this module is still a simulation-first node, not a production deployment package
-- telemetry publish path is real MQTT in the current baseline
-- parts of the message handling remain intentionally lightweight for rapid simulation iteration
-
-Why this step matters:
-
-- it validates payload field choices before real MQTT integration
-- it stabilizes the message structure early
-- it reduces future integration risk when a real authenticated MQTT broker is added later
-
-This makes it easier to support:
-
-- P vs PI comparison experiments
-- PI initial version vs PI tuned version comparison
-- parameter tuning
+- P/PI/PID-compatible comparison experiments
+- PI initial vs PI tuned comparison
+- parameter tuning demonstrations
 - step-response observation
 - steady-state error experiments
-- disturbance experiments
-- future comparison with simplified PID versions
+- disturbance scenarios through seeded data or script-driven demos
+- AI recommendation apply and post-apply validation demos
 
-## Recommended Next Steps
+## Current Limitations
 
-The most natural next tasks are:
+The simulation is useful and runnable, but it is still simplified:
 
-- refine staged-parameter handling when `apply_immediately=false`
-- add safer runtime application rules for gain updates if needed
-- compare P, PI initial, and PI tuned versions under the same thermal-model parameters
-- tune `Kp` and `Ki` using metrics such as settling time, overshoot, and steady-state error
-- run step-response and steady-state error experiments
-- add disturbance injection scenarios
-- upgrade the controller from proportional control to simplified PID when needed
+- the controller acts on simulated temperature rather than a physically heated
+  DS18B20 value
+- the thermal model is first-order and does not model complex sensor lag or heat
+  distribution
+- the default controller is PI-like (`kd = 0.0`) even though the interface is
+  PID-compatible
+- Wokwi network behavior can produce transient MQTT disconnects, so serial logs
+  and Data Hub metrics should be used together when debugging
 
-Documentation sync date: 2026-04-07.
+These boundaries are thesis-friendly if stated clearly: they show controlled
+scope and explain why seeded/demo data scripts are useful for stable defense
+presentation.
 
-## Build, Flash, and Mode Switch
+## Build, Flash, And Mode Switch
 
 This project supports two build profiles without changing application logic.
 
 - `esp32dev`: simulator-oriented build (`EDGE_BUILD_SIMULATOR=1`, default)
 - `esp32dev-real`: real hardware build (`EDGE_BUILD_SIMULATOR=0`)
 
-### 1) Configure credentials
-
-Create `src/secrets.h` from `src/secrets.example.h` and fill:
-
-- `kWifiSsid`
-- `kWifiPassword`
-- `kMqttHost`
-- `kMqttPort`
-- `kMqttUsername`
-- `kMqttPassword`
-
-### 2) Build simulator mode (Wokwi-compatible)
+Build simulator mode:
 
 ```bash
 cd simulator/wokwi
 ~/.platformio/penv/bin/pio run -e esp32dev
 ```
 
-### 3) Build and flash real hardware
+Build and flash real hardware:
 
 ```bash
 cd simulator/wokwi
@@ -252,19 +238,18 @@ upload_port = /dev/cu.usbserial-xxxx
 monitor_port = /dev/cu.usbserial-xxxx
 ```
 
-### 4) Hardware mapping for real board
+Real-board hardware mapping:
 
 - OneWire bus (DS18B20 DATA): `GPIO21` with external `4.7k` pull-up to `3V3`
 - Heater PWM output (MOSFET gate): `GPIO18`
 - Status LED: `GPIO2`
 
-### 5) Runtime behavior parity
+## Recommended Next Steps
 
-Both modes keep the same edge application capabilities:
+- refine staged-parameter handling when `apply_immediately=false`
+- add safer runtime application rules for large gain updates if needed
+- run comparable experiments for P, PI initial, and PI tuned settings
+- add explicit disturbance injection scenarios for defense demos
+- compare live Wokwi output with seeded post-apply validation scenarios
 
-- Wi-Fi and MQTT reconnect
-- Telemetry publish
-- `params/set` subscribe and runtime apply
-- Validation, `apply_immediately`, staged apply
-- `params/ack` publish
-- Runtime config snapshot and control loop updates
+Documentation sync date: 2026-05-09.

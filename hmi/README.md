@@ -1,63 +1,32 @@
 # Multi-Device Intelligent Temperature Control (HMI)
 
+The HMI module is the operator-facing control plane for EdgeHub. It is not only
+a dashboard: it manages users/devices/rules, reads telemetry and history,
+publishes parameter updates through MQTT, and exposes the AI recommendation,
+preview, apply, ACK, and post-apply validation workflow.
+
 ## Structure
 
 ```text
 hmi/
-├── backend/
+├── backend/               FastAPI backend, SQLAlchemy models, API routes, services
 │   ├── app/
-│   │   ├── api/
-│   │   │   ├── deps.py
-│   │   │   └── routes/
-│   │   │       ├── auth.py
-│   │   │       ├── users.py
-│   │   │       ├── devices.py
-│   │   │       ├── alarms.py
-│   │   │       ├── storage_rules.py
-│   │   │       ├── history.py
-│   │   │       ├── stream.py
-│   │   ├── core/
-│   │   │   ├── config.py
-│   │   │   └── security.py
-│   │   ├── db/
-│   │   │   └── session.py
-│   │   ├── models/
-│   │   │   └── entities.py
-│   │   ├── schemas/
-│   │   │   ├── auth.py
-│   │   │   ├── user.py
-│   │   │   ├── device.py
-│   │   │   ├── alarm.py
-│   │   │   └── history.py
-│   │   ├── services/
-│   │   │   └── seed.py
-│   │   └── main.py
-│   ├── ai/
-│   │   ├── scripts/
-│   │   └── docs/
+│   ├── ai/                Standalone AI runtime scripts and AI docs
+│   ├── scripts/           DB migration/seed and feedback worker scripts
 │   ├── .env.example
 │   └── requirements.txt
-├── frontend/
+├── frontend/              React + TypeScript + Vite frontend
 │   ├── src/
-│   │   ├── app/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── routes/
-│   │   ├── lib/
-│   │   └── types/
 │   ├── .env.example
-│   ├── package.json
-│   ├── tailwind.config.ts
-│   └── vite.config.ts
+│   └── package.json
 └── README.md
 ```
 
 ## Backend Run
 
-Start PostgreSQL first:
+Start PostgreSQL first from the repository root:
 
 ```bash
-cd ..
 docker compose -f docker-compose.postgresql.yml up -d
 ```
 
@@ -73,85 +42,9 @@ python scripts/db_seed.py --rules
 uvicorn app.main:app --reload
 ```
 
-API docs: `http://127.0.0.1:8000/docs`
+API docs:
 
-## Developer Ops Console (Admin)
-
-This is a developer/operator observability page (not a device-alert page).
-
-- Frontend route: `/ops` (admin only)
-- Backend endpoints:
-  - `GET /ops/overview`
-  - `GET /ops/data-hub`
-  - `GET /ops/runtime`
-  - `GET /ops/learning-loop`
-  - `GET /ops/models`
-
-MVP signals included:
-- Data Hub / MQTT ingest health (ingress TPS, consume TPS, queue depth, drop counters, discard reasons)
-- Platform/runtime basics (process uptime, thread count, load average, DB pool pressure)
-- Unified control-action learning loop health (action source counts, eval job status, sample quality, eligibility, effect labels)
-- Model/runtime health (active/candidate artifact info, runtime source breakdown, fallback ratio)
-
-Data Hub key metrics are sourced from real `datahub.stats` log groups (not inferred):
-- `mqtt[...]`, `accounting[...]`, `outcome_delta[...]`, `tdengine[...]`, `buffer[...]`, `delta[...]`
-- Ops page renders trend charts for:
-  - ingress vs consume TPS
-  - drop/failure deltas
-  - queue depth
-
-Optional lightweight external metrics integration (for JVM/Data Hub exporters):
-
-```env
-OPS_ENABLE_EXTERNAL_METRICS=true
-OPS_RUNTIME_METRICS_URL=http://127.0.0.1:8081/actuator/prometheus
-OPS_DATA_HUB_METRICS_URL=http://127.0.0.1:8081/actuator/prometheus
-OPS_METRICS_TIMEOUT_SECONDS=2
-```
-
-Behavior:
-- if external endpoint is reachable, Ops Console overlays JVM/runtime metrics from that endpoint
-- if endpoint is unavailable, Ops Console keeps using local process + log-derived metrics (safe fallback)
-
-Seed accounts:
-
-- admin / admin123
-- operator1 / operator123
-- viewer1 / viewer123
-
-## Backend Logging (File + Rotation)
-
-HMI backend now writes logs to both console and rolling files.
-
-Default log directory:
-
-- `runtime/logs/hmi-backend` (relative to repo root)
-
-Default files:
-
-- `app.log` : application logs
-- `error.log` : `ERROR` and above
-- `access.log` : HTTP access logs (`uvicorn.access`)
-
-Rotation strategy:
-
-- size-based rolling (managed by `loguru`)
-- each file rotates at `HMI_LOG_MAX_BYTES` (default `10MB`)
-- retain `HMI_LOG_BACKUP_COUNT` files (default `14`)
-
-Example `.env` overrides:
-
-```env
-HMI_LOG_LEVEL=INFO
-HMI_CONSOLE_LOG_LEVEL=INFO
-HMI_ACCESS_LOG_LEVEL=INFO
-HMI_LOG_DIR=../../runtime/logs/hmi-backend
-HMI_LOG_MAX_BYTES=10485760
-HMI_LOG_BACKUP_COUNT=14
-HMI_LOG_FILE_NAME=app.log
-HMI_ERROR_LOG_FILE_NAME=error.log
-HMI_ACCESS_LOG_FILE_NAME=access.log
-```
+- `http://127.0.0.1:8000/docs`
 
 ## Frontend Run
 
@@ -162,31 +55,75 @@ npm install
 npm run dev
 ```
 
-Frontend: `http://127.0.0.1:5173`
+Frontend:
+
+- `http://127.0.0.1:5173`
+
+## Optional AI Runtime Service
+
+The backend can call a standalone AI runtime service and safely fall back to the
+local backend AI logic when that runtime is unavailable.
+
+```bash
+cd hmi/backend
+.venv/bin/python ai/scripts/run_ai_service.py --host 127.0.0.1 --port 8010
+```
+
+Relevant settings:
+
+```env
+AI_RUNTIME_ENABLED=true
+AI_RUNTIME_URL=http://127.0.0.1:8010
+AI_RUNTIME_TIMEOUT_SECONDS=2
+```
 
 ## Implemented Scope
 
+Control-plane and user features:
+
 - JWT login + `/auth/me`
 - RBAC (`admin`, `operator`, `viewer`)
-- Multi-device access control (`user_devices`)
-- Device overview page
-- Device management page (search + pagination + create + edit + delete)
-- Alarm center page (global alarm list, time/level ordered, search)
-- Storage rules admin page (global/device scoped raw + summary persistence controls)
-- History page (summary window list + click-through detail metrics)
-- Single device detail page (trend + control-performance panels + gauges + status assessment)
-- Alarm acknowledge action (admin/operator)
-- AI suggestion apply action (admin/operator)
-- Admin user management page (create/edit role/status/delete)
+- multi-device access control (`user_devices`)
+- device overview and single-device detail pages
+- device management page with search, pagination, create, edit, and delete
+- alarm center and alarm acknowledge action
+- storage rules administration
+- history summary/detail views
+- admin user management
 - PostgreSQL-ready relational backend with Alembic migrations
+
+AI and closed-loop decision features:
+
+- AI recommendation generation from device telemetry/context
+- AI recommendation history and state tracking
+- preview simulation before applying a recommendation
+- AI recommendation apply through MQTT `params/set`
+- ACK-aware apply path using device `params/ack`
+- actual post-apply effect evaluation from telemetry
+- baseline / preview / actual telemetry comparison for defense demos
+- unified control-action feedback samples for later model training
+
+Operations features:
+
+- Data Hub / MQTT ingest health
+- runtime metrics and log-derived trends
+- learning-loop health
+- model lifecycle and active/candidate artifact visibility
+- AI observability endpoint for runtime source, fallback, ranking, and quality
+  signals
+
+Seed accounts:
+
+- `admin` / `admin123`
+- `operator1` / `operator123`
+- `viewer1` / `viewer123`
 
 ## TDengine + MQTT Integration
 
-HMI backend uses `DATA_SOURCE_MODE=tdengine` for telemetry/alarm/history reads from TDengine.
+HMI backend uses `DATA_SOURCE_MODE=tdengine` for telemetry, alarm, and history
+reads from TDengine.
 
-To enable end-to-end integration:
-
-1. Configure backend `.env`:
+Example backend `.env` values:
 
 ```env
 DATA_SOURCE_MODE=tdengine
@@ -205,26 +142,86 @@ MQTT_PARAMS_SET_TOPIC_TEMPLATE=edge/temperature/{device_id}/params/set
 MQTT_PUBLISH_QOS=1
 ```
 
-2. Keep `data-hub` running with MQTT ingest + TDengine write.
+Integration notes:
 
-3. Start backend and frontend as usual.
+- Device detail, history, and alarm pages read from TDengine when enabled.
+- Parameter updates and AI recommendation apply actions publish to MQTT
+  `params/set`.
+- The backend waits for compatible `params/ack` records for ACK-aware apply
+  confirmation.
+- PostgreSQL stores relational control-plane data such as auth, RBAC, devices,
+  parameters, recommendations, control actions, rules, and model lifecycle data.
+- TDengine stores telemetry/time-series facts such as telemetry, summaries,
+  `params_set`, `params_ack`, alarms, and device status.
 
-Notes:
+## Developer Ops Console (Admin)
 
-- Device detail/history/alarm pages will read from TDengine when enabled.
-- Parameter updates from HMI are published to MQTT `params/set` topic.
-- PostgreSQL is used for HMI relational control-plane data (auth/rbac/devices/parameters/rules).
+Frontend route:
 
-## Database Modes (Relational Control Plane)
+- `/ops`
 
-HMI backend relational/business data (users, rbac, devices, parameters, alarm rules) is managed by SQLAlchemy + Alembic on PostgreSQL.
+Backend endpoints:
 
-Telemetry/time-series responsibilities are unchanged:
+- `GET /ops/overview`
+- `GET /ops/data-hub`
+- `GET /ops/runtime`
+- `GET /ops/learning-loop`
+- `GET /ops/models`
+- `GET /ops/ai/observability`
+- `GET /ops/ai/model-lifecycle/status`
+- `GET /ops/ai/model-lifecycle/runs`
+- `POST /ops/ai/model-lifecycle/run`
 
-- TDengine remains the source for telemetry/history/alarm time-series views when enabled.
-- Relational DB is for control-plane/business tables.
+Data Hub key metrics are sourced from real `datahub.stats` log groups, including
+`mqtt[...]`, `accounting[...]`, `outcome_delta[...]`, `tdengine[...]`,
+`buffer[...]`, and `delta[...]`.
 
-### Recommended Production `.env`
+Optional lightweight external metrics integration:
+
+```env
+OPS_ENABLE_EXTERNAL_METRICS=true
+OPS_RUNTIME_METRICS_URL=http://127.0.0.1:8081/actuator/prometheus
+OPS_DATA_HUB_METRICS_URL=http://127.0.0.1:8081/actuator/prometheus
+OPS_METRICS_TIMEOUT_SECONDS=2
+```
+
+If the external endpoint is unavailable, Ops Console keeps using local process
+and log-derived metrics as a safe fallback.
+
+## Backend Logging
+
+HMI backend writes logs to both console and rolling files.
+
+Default log directory:
+
+- `runtime/logs/hmi-backend` relative to repository root
+
+Default files:
+
+- `app.log`: application logs
+- `error.log`: `ERROR` and above
+- `access.log`: HTTP access logs (`uvicorn.access`)
+
+Example `.env` overrides:
+
+```env
+HMI_LOG_LEVEL=INFO
+HMI_CONSOLE_LOG_LEVEL=INFO
+HMI_ACCESS_LOG_LEVEL=INFO
+HMI_LOG_DIR=../../runtime/logs/hmi-backend
+HMI_LOG_MAX_BYTES=10485760
+HMI_LOG_BACKUP_COUNT=14
+HMI_LOG_FILE_NAME=app.log
+HMI_ERROR_LOG_FILE_NAME=error.log
+HMI_ACCESS_LOG_FILE_NAME=access.log
+```
+
+## Database Modes
+
+HMI backend relational/business data is managed by SQLAlchemy + Alembic on
+PostgreSQL.
+
+Recommended production-style `.env` values:
 
 ```env
 DATABASE_URL=postgresql+psycopg://edgehub:edgehub@127.0.0.1:5432/edgehub
@@ -237,14 +234,14 @@ SEED_DEMO_DATA_ON_STARTUP=false
 
 ## Migrations And Seed
 
-### Install deps
+Install dependencies:
 
 ```bash
 cd hmi/backend
 pip install -r requirements.txt
 ```
 
-### Run migrations (preferred)
+Run migrations:
 
 ```bash
 cd hmi/backend
@@ -253,87 +250,94 @@ alembic upgrade head
 python scripts/db_migrate.py
 ```
 
-### Seed default alarm rules only (idempotent)
+Seed default alarm rules:
 
 ```bash
 cd hmi/backend
 python scripts/db_seed.py --rules
 ```
 
-### Seed demo data (optional, local only)
+Seed local demo data:
 
 ```bash
 cd hmi/backend
 python scripts/db_seed.py --rules --demo
 ```
 
-### Seed AI preview demo devices (optional, local UI verification)
+Seed AI preview demo devices:
 
 ```bash
 cd hmi/backend
 python scripts/db_seed.py --preview-ai-demo
 ```
 
-Creates/refreshes relational demo devices:
-- `TC-PREVIEW-SAT-SLOW` (`saturation_limited` + `slow_response`)
-- `TC-PREVIEW-OSC-OVS` (`oscillation` + `overshoot_high`)
-- `TC-PREVIEW-SSE` (`steady_state_error`)
-- `TC-PREVIEW-NORMAL` (near-normal)
+Created/refreshed AI demo devices:
 
-### Unified Control-Action Feedback Worker
+- `TC-PREVIEW-SAT-SLOW`: `saturation_limited` + `slow_response`
+- `TC-PREVIEW-OSC-OVS`: `oscillation` + `overshoot_high`
+- `TC-PREVIEW-SSE`: `steady_state_error`
+- `TC-PREVIEW-NORMAL`: near-normal baseline
+
+## Unified Control-Action Feedback Worker
 
 ```bash
 cd hmi/backend
 python scripts/run_control_action_feedback_worker.py --batch-size 50
 ```
 
-This evaluates pending control actions (AI apply + manual apply) and writes structured feedback samples.
+This evaluates pending control actions, including AI apply and manual apply, and
+writes structured feedback samples.
 
-Recommended production/dev scheduling:
-- run this script externally every `10` minutes (cron/systemd/K8s CronJob)
-- keep it as one-shot batch execution, not a tight internal polling loop
+Recommended scheduling:
 
-Notes:
-
-- Startup does not perform runtime schema patching.
-- Use Alembic for schema evolution in all environments.
-- In production, keep startup migration/seed flags disabled and run migration in deployment pipeline.
+- run externally every `10` minutes by cron, systemd timer, or K8s CronJob
+- keep it as one-shot batch execution instead of a tight internal polling loop
 
 ## API Snapshot
 
-- Auth
-  - `POST /auth/login`
-  - `GET /auth/me`
-- Users (admin)
-  - `GET /users`
-  - `POST /users`
-  - `PUT /users/{id}`
-  - `DELETE /users/{id}`
-- Devices
-  - `GET /devices` (admin sees all, others only own devices)
-  - `GET /devices/manage?page=&page_size=&q=`
-  - `GET /devices/{id}`
-  - `POST /devices` (new device auto-binds to creator)
-  - `PUT /devices/{id}` (admin/operator + access)
-  - `DELETE /devices/{id}` (admin/operator + access)
-  - `GET /devices/{id}/metrics`
-  - `GET /devices/{id}/parameters`
-  - `PUT /devices/{id}/parameters`
-  - `GET /devices/{id}/alarms`
-  - `POST /devices/{id}/alarms/{alarm_id}/ack`
-  - `GET /devices/{id}/ai-recommendation`
-  - `POST /devices/{id}/ai-recommendation/apply`
-- Alarm Center
-  - `GET /alarms?page=&page_size=&q=` (latest first, severity assist sort)
-  - `GET /alarms/rules`
-  - `PUT /alarms/rules/{rule_id}`
-- Storage Rules (admin)
-  - `GET /storage-rules`
-  - `POST /storage-rules`
-  - `PUT /storage-rules/{id}`
-  - `DELETE /storage-rules/{id}`
-- History (summary window + detail)
-  - `GET /history/summaries?page=&page_size=&q=&device_id=`
-  - `GET /history/summaries/{id}`
+Auth and users:
 
-Documentation sync date: 2026-04-07.
+- `POST /auth/login`
+- `GET /auth/me`
+- `GET /users`
+- `POST /users`
+- `PUT /users/{id}`
+- `DELETE /users/{id}`
+
+Devices and control:
+
+- `GET /devices`
+- `GET /devices/manage?page=&page_size=&q=`
+- `GET /devices/{id}`
+- `POST /devices`
+- `PUT /devices/{id}`
+- `DELETE /devices/{id}`
+- `GET /devices/{id}/metrics`
+- `GET /devices/{id}/parameters`
+- `PUT /devices/{id}/parameters`
+- `GET /devices/{id}/alarms`
+- `POST /devices/{id}/alarms/{alarm_id}/ack`
+
+AI recommendation workflow:
+
+- `GET /devices/{id}/ai-recommendation`
+- `POST /devices/{id}/ai-recommendation/generate`
+- `POST /devices/{id}/ai-recommendation/preview`
+- `POST /devices/{id}/ai-recommendation/apply`
+- `POST /devices/{id}/ai-recommendation/{recommendation_id}/evaluate-actual`
+- `GET /devices/{id}/ai-recommendation/{recommendation_id}/telemetry-comparison`
+- `GET /devices/ai/recommendations/history`
+
+Alarms, rules, and history:
+
+- `GET /alarms?page=&page_size=&q=`
+- `GET /alarms/rules`
+- `PUT /alarms/rules/{rule_id}`
+- `GET /storage-rules`
+- `POST /storage-rules`
+- `PUT /storage-rules/{id}`
+- `DELETE /storage-rules/{id}`
+- `GET /history/summaries?page=&page_size=&q=&device_id=`
+- `GET /history/summaries/{id}`
+
+Documentation sync date: 2026-05-09.

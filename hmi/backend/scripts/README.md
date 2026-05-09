@@ -36,4 +36,4 @@ Recommended scheduling:
 - trigger `run_control_action_feedback_worker.py` externally every `10` minutes
 - avoid per-minute execution; delayed batches reduce premature insufficient-data evaluations
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.
