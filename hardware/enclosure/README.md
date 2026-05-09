@@ -33,4 +33,4 @@ It does not yet fully consume the external reference files automatically.
 
 That is intentional for V1: we keep the modeling workflow robust and inspectable before adding more automation.
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

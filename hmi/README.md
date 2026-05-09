@@ -330,7 +330,8 @@ AI recommendation workflow:
 
 Alarms, rules, and history:
 
-- `GET /alarms?page=&page_size=&q=`
+- `GET /alarms/active?status=&page=&page_size=&q=`
+- `GET /alarms/history?device_id=&severity=&range_key=&page=&page_size=&q=`
 - `GET /alarms/rules`
 - `PUT /alarms/rules/{rule_id}`
 - `GET /storage-rules`

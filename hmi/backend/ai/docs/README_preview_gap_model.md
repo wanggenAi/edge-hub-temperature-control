@@ -56,4 +56,4 @@ Saved under `--artifacts-dir`:
 - Single train/validation split (no CV in this first version).
 - Offline experiment only; no online inference wiring in this step.
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

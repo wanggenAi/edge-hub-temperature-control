@@ -9,7 +9,7 @@ The immediate goal is to provide a broker that can be used by:
 
 - the ESP32 / Wokwi edge node
 - the Python MQTT test client
-- later parameter-downlink and ACK tests
+- runtime parameter-downlink and ACK tests
 
 The current deployment target is intentionally limited to a stable first step:
 

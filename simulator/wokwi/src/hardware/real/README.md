@@ -12,4 +12,4 @@ Notes:
 - Application logic is shared across both modes:
   `MQTT / params / ack / runtime config`.
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

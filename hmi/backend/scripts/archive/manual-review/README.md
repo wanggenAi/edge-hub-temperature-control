@@ -20,4 +20,4 @@ Policy:
 - if a script becomes active again, move it back to `hmi/backend/scripts/`
   and document it in `hmi/README.md`
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

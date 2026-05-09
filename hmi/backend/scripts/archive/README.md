@@ -9,4 +9,4 @@ Rule:
 - archive first
 - delete only after explicit confirmation that no workflow depends on them
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

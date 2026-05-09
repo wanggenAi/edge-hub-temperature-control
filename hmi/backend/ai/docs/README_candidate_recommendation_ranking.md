@@ -67,4 +67,4 @@ Top-1 candidate is the recommendation with highest total score.
 - Candidate generation uses heuristic perturbations (not optimization search).
 - Weight coefficients are fixed and hand-tuned for interpretability.
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

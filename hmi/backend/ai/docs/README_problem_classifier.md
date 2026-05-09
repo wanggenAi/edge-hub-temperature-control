@@ -66,4 +66,4 @@ Default artifact directory:
 - If classes are imbalanced/sparse, metrics are feasibility-level only.
 - This is offline training only (no HMI/API integration in this step).
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.

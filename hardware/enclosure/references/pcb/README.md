@@ -14,4 +14,4 @@ Use them with the following intent:
 
 For V1, these files are stored here first and then consumed gradually by the CadQuery workflow.
 
-Documentation sync date: 2026-04-07.
+Documentation sync date: 2026-05-09.
