@@ -84,14 +84,35 @@ HEATER_PAD_ORIGIN = (
     WALL + CHAMBER_W - THERMAL_CONSTRAINTS["heater_pad_width"] - THERMAL_CONSTRAINTS["heater_zone_back_gap"],
     CHAMBER_FLOOR_Z + DIVIDER + 4.0,
 )
+THERMAL_BARRIER_ORIGIN = (
+    WALL + 18.0,
+    HEATER_PAD_ORIGIN[1]
+    - THERMAL_CONSTRAINTS["thermal_barrier_gap_to_heater"]
+    - THERMAL_CONSTRAINTS["thermal_barrier_thickness"],
+    CHAMBER_FLOOR_Z + DIVIDER,
+)
 
 SENSOR_PASSAGE_XY = (
     WALL + 20.0,
     WALL + THERMAL_CONSTRAINTS["sensor_probe_front_gap"],
 )
+SENSOR_PROBE_XY = SENSOR_PASSAGE_XY
 HEATER_PASSAGE_XY = (
     HEATER_PAD_ORIGIN[0] + THERMAL_CONSTRAINTS["heater_pad_length"] - 8.0,
     HEATER_PAD_ORIGIN[1] + THERMAL_CONSTRAINTS["heater_pad_width"] / 2.0,
+)
+SENSOR_CLIP_XY = (
+    SENSOR_PROBE_XY[0],
+    SENSOR_PROBE_XY[1],
+)
+SENSOR_CLIP_MAST_XY = (
+    SENSOR_PROBE_XY[0] + 15.0,
+    SENSOR_PROBE_XY[1],
+)
+HEATER_STRAIN_RELIEF_ORIGIN = (
+    HEATER_PASSAGE_XY[0] - SERVICE_CONSTRAINTS["heater_strain_relief_length"] / 2.0,
+    HEATER_PASSAGE_XY[1] + 4.0,
+    CHAMBER_FLOOR_Z + DIVIDER,
 )
 
 DEBUG_OPENING_CENTER = (
@@ -111,6 +132,12 @@ ELECTRONICS_COVER_ORIGIN = (
     V1_GEOMETRY["electronics_cover_margin_x"],
     V1_GEOMETRY["electronics_cover_margin_y"],
     -ELEC_COVER - V1_GEOMETRY["electronics_cover_gap"],
+)
+
+LID_GRIP_ORIGIN = (
+    OUTER_L / 2.0 - V1_GEOMETRY["lid_grip_width"] / 2.0,
+    -V1_GEOMETRY["lid_grip_depth"] + V1_GEOMETRY["lid_grip_overlap"],
+    OUTER_H,
 )
 
 
@@ -264,6 +291,18 @@ def build_enclosure_body() -> cq.Workplane:
 
 def build_lid(z_gap: float) -> cq.Workplane:
     lid_shell = rounded_box(OUTER_L, OUTER_W, LID)
+    grip = (
+        cq.Workplane("XY")
+        .box(
+            V1_GEOMETRY["lid_grip_width"],
+            V1_GEOMETRY["lid_grip_depth"],
+            LID,
+            centered=(False, False, False),
+        )
+        .edges("|Z")
+        .fillet(V1_GEOMETRY["lid_grip_radius"])
+        .translate((LID_GRIP_ORIGIN[0], LID_GRIP_ORIGIN[1], 0.0))
+    )
     insert_rim = (
         cq.Workplane("XY")
         .box(
@@ -306,7 +345,7 @@ def build_lid(z_gap: float) -> cq.Workplane:
             )
         )
     )
-    return lid_shell.union(insert_rim.cut(insert_void)).translate((0.0, 0.0, OUTER_H + z_gap))
+    return lid_shell.union(grip).union(insert_rim.cut(insert_void)).translate((0.0, 0.0, OUTER_H + z_gap))
 
 
 def build_electronics_cover() -> cq.Workplane:
@@ -323,6 +362,9 @@ def build_electronics_cover() -> cq.Workplane:
 
 
 def build_pcb_support_shelf() -> cq.Workplane:
+    rail_t = V1_GEOMETRY["pcb_rail_thickness"]
+    rail_h = V1_GEOMETRY["pcb_rail_height"]
+    rail_clearance = V1_GEOMETRY["pcb_rail_clearance"]
     shelf = (
         cq.Workplane("XY")
         .box(
@@ -336,6 +378,38 @@ def build_pcb_support_shelf() -> cq.Workplane:
                 PCB_MODEL_OFFSET[0] - 3.0,
                 PCB_MODEL_OFFSET[1] - 3.0,
                 BASE + 0.8,
+            )
+        )
+    )
+    rail_front = (
+        cq.Workplane("XY")
+        .box(
+            PCB_REFERENCE["board_length"] + 6.0,
+            rail_t,
+            rail_h,
+            centered=(False, False, False),
+        )
+        .translate(
+            (
+                PCB_MODEL_OFFSET[0] - 3.0,
+                PCB_MODEL_OFFSET[1] - rail_clearance - rail_t,
+                BASE + 0.8 + V1_GEOMETRY["pcb_shelf_thickness"],
+            )
+        )
+    )
+    rail_back = (
+        cq.Workplane("XY")
+        .box(
+            PCB_REFERENCE["board_length"] + 6.0,
+            rail_t,
+            rail_h,
+            centered=(False, False, False),
+        )
+        .translate(
+            (
+                PCB_MODEL_OFFSET[0] - 3.0,
+                PCB_MODEL_OFFSET[1] + PCB_REFERENCE["board_width"] + rail_clearance,
+                BASE + 0.8 + V1_GEOMETRY["pcb_shelf_thickness"],
             )
         )
     )
@@ -371,7 +445,7 @@ def build_pcb_support_shelf() -> cq.Workplane:
             )
         )
     )
-    return shelf.union(stop_left).union(stop_right)
+    return shelf.union(rail_front).union(rail_back).union(stop_left).union(stop_right)
 
 
 def build_power_service_pad() -> cq.Workplane:
@@ -445,6 +519,21 @@ def build_heater_placeholder() -> cq.Workplane:
     )
 
 
+def build_thermal_barrier() -> cq.Workplane:
+    return (
+        cq.Workplane("XY")
+        .box(
+            THERMAL_CONSTRAINTS["thermal_barrier_length"],
+            THERMAL_CONSTRAINTS["thermal_barrier_thickness"],
+            THERMAL_CONSTRAINTS["thermal_barrier_height"],
+            centered=(False, False, False),
+        )
+        .edges("|Z")
+        .fillet(0.8)
+        .translate(THERMAL_BARRIER_ORIGIN)
+    )
+
+
 def build_sensor_probe_reference() -> cq.Workplane:
     return (
         cq.Workplane("XY")
@@ -458,6 +547,154 @@ def build_sensor_probe_reference() -> cq.Workplane:
             )
         )
     )
+
+
+def build_sensor_probe_clip() -> cq.Workplane:
+    clip_z = (
+        CHAMBER_FLOOR_Z
+        + DIVIDER
+        + THERMAL_CONSTRAINTS["sensor_probe_height"]
+    )
+    mast_height = THERMAL_CONSTRAINTS["sensor_probe_height"]
+    mast_size = SERVICE_CONSTRAINTS["sensor_probe_clip_mast_size"]
+    clip_outer = SERVICE_CONSTRAINTS["sensor_probe_clip_outer_diameter"]
+    clip_inner = SERVICE_CONSTRAINTS["sensor_probe_clip_inner_diameter"]
+    clip_thickness = SERVICE_CONSTRAINTS["sensor_probe_clip_thickness"]
+
+    foot = (
+        cq.Workplane("XY")
+        .box(12.0, 8.0, 2.0, centered=(True, True, False))
+        .translate(
+            (
+                SENSOR_CLIP_MAST_XY[0],
+                SENSOR_CLIP_MAST_XY[1],
+                CHAMBER_FLOOR_Z + DIVIDER,
+            )
+        )
+    )
+    mast = (
+        cq.Workplane("XY")
+        .box(
+            mast_size,
+            mast_size,
+            mast_height,
+            centered=(True, True, False),
+        )
+        .translate(
+            (
+                SENSOR_CLIP_MAST_XY[0],
+                SENSOR_CLIP_MAST_XY[1],
+                CHAMBER_FLOOR_Z + DIVIDER + 2.0,
+            )
+        )
+    )
+    arm_length = SENSOR_CLIP_MAST_XY[0] - SENSOR_CLIP_XY[0]
+    arm = (
+        cq.Workplane("XY")
+        .box(arm_length, 3.0, 3.0, centered=(False, True, True))
+        .translate(
+            (
+                SENSOR_CLIP_XY[0],
+                SENSOR_CLIP_XY[1],
+                clip_z + clip_thickness / 2.0,
+            )
+        )
+    )
+    clip = (
+        cq.Workplane("XY")
+        .center(*SENSOR_CLIP_XY)
+        .circle(clip_outer / 2.0)
+        .circle(clip_inner / 2.0)
+        .extrude(clip_thickness)
+        .translate((0.0, 0.0, clip_z))
+    )
+    # The side split makes the ring read as a C-clip instead of a second probe.
+    clip_gap = (
+        cq.Workplane("XY")
+        .box(clip_outer + 2.0, 4.8, clip_thickness + 0.6, centered=(False, True, False))
+        .translate(
+            (
+                SENSOR_CLIP_XY[0] - clip_outer / 2.0 - 1.0,
+                SENSOR_CLIP_XY[1],
+                clip_z - 0.3,
+            )
+        )
+    )
+    return foot.union(mast).union(arm).union(clip.cut(clip_gap))
+
+
+def build_heater_strain_relief() -> cq.Workplane:
+    length = SERVICE_CONSTRAINTS["heater_strain_relief_length"]
+    width = SERVICE_CONSTRAINTS["heater_strain_relief_width"]
+    height = SERVICE_CONSTRAINTS["heater_strain_relief_height"]
+    x0, y0, z0 = HEATER_STRAIN_RELIEF_ORIGIN
+
+    base = (
+        cq.Workplane("XY")
+        .box(
+            length,
+            width,
+            height,
+            centered=(False, False, False),
+        )
+        .translate(HEATER_STRAIN_RELIEF_ORIGIN)
+    )
+    wire_channel = (
+        cq.Workplane("XY")
+        .box(
+            length + 0.8,
+            SERVICE_CONSTRAINTS["heater_strain_relief_slot_width"],
+            height + 0.8,
+            centered=(False, False, False),
+        )
+        .translate(
+            (
+                x0 - 0.4,
+                y0 + width / 2.0 - SERVICE_CONSTRAINTS["heater_strain_relief_slot_width"] / 2.0,
+                z0 + height * 0.42,
+            )
+        )
+    )
+    tie_slot_width = 2.8
+    tie_slot_length = width + 0.8
+    tie_slot_left = (
+        cq.Workplane("XY")
+        .box(tie_slot_width, tie_slot_length, height + 0.8, centered=(False, False, False))
+        .translate(
+            (
+                x0 + 5.0,
+                y0 - 0.4,
+                z0 - 0.2,
+            )
+        )
+    )
+    tie_slot_right = tie_slot_left.translate((length - 10.0 - tie_slot_width, 0.0, 0.0))
+    entry_funnel = (
+        cq.Workplane("XY")
+        .box(5.5, width * 0.72, height + 0.8, centered=(False, True, False))
+        .translate(
+            (
+                x0 - 0.3,
+                HEATER_PASSAGE_XY[1],
+                z0 + height * 0.42,
+            )
+        )
+    )
+
+    clamp = base.cut(wire_channel).cut(tie_slot_left).cut(tie_slot_right).cut(entry_funnel)
+
+    bridge_left = (
+        cq.Workplane("XY")
+        .box(3.2, width, 1.4, centered=(False, False, False))
+        .translate((x0 + 4.6, y0, z0 + height))
+    )
+    bridge_right = bridge_left.translate((length - 9.2, 0.0, 0.0))
+    lead_in_arrow = (
+        cq.Workplane("XY")
+        .box(8.0, 1.8, 1.2, centered=(False, True, False))
+        .translate((HEATER_PASSAGE_XY[0] - 2.0, HEATER_PASSAGE_XY[1], z0 + height))
+    )
+    return clamp.union(bridge_left).union(bridge_right).union(lead_in_arrow)
 
 
 def build_divider_passage_ring(center_xy: tuple[float, float], outer_diameter: float, inner_diameter: float) -> cq.Workplane:
@@ -516,7 +753,10 @@ ts1_service_pad = build_ts1_service_pad()
 sample_area_reference = build_sample_area_reference()
 heater_pad = build_heater_pad()
 heater_placeholder = build_heater_placeholder()
+thermal_barrier = build_thermal_barrier()
 sensor_probe_reference = build_sensor_probe_reference()
+sensor_probe_clip = build_sensor_probe_clip()
+heater_strain_relief = build_heater_strain_relief()
 sensor_passage_ring = build_divider_passage_ring(
     SENSOR_PASSAGE_XY,
     SERVICE_CONSTRAINTS["sensor_passage_ring_diameter"],
@@ -550,114 +790,233 @@ ts1_opening_frame = build_opening_frame(
 )
 step_reference = load_step_reference()
 
+printable_body = (
+    enclosure_body
+    .union(pcb_support_shelf)
+    .union(sensor_passage_ring)
+    .union(heater_passage_ring)
+    .union(sensor_probe_clip)
+    .union(heater_strain_relief)
+    .union(thermal_barrier)
+    .union(debug_opening_frame)
+    .union(power_opening_frame)
+    .union(ts1_opening_frame)
+)
+lid_print = build_lid(V1_GEOMETRY["lid_insert_depth"] - OUTER_H)
+electronics_cover_print = electronics_cover.translate(
+    (0.0, OUTER_W + V1_GEOMETRY["electronics_cover_gap"], ELEC_COVER + V1_GEOMETRY["electronics_cover_gap"])
+)
+
 layout_debug = {
     "outer_size": (OUTER_L, OUTER_W, OUTER_H),
     "chamber_inner_size": (CHAMBER_L, CHAMBER_W, CHAMBER_H),
     "electronics_inner_size": (OUTER_L - WALL * 2.0, OUTER_W - WALL * 2.0, ELEC_H),
     "pcb_offset": PCB_MODEL_OFFSET,
     "sensor_passage_xy": SENSOR_PASSAGE_XY,
+    "sensor_probe_xy": SENSOR_PROBE_XY,
     "heater_passage_xy": HEATER_PASSAGE_XY,
+    "sensor_clip_xy": SENSOR_CLIP_XY,
+    "sensor_clip_mast_xy": SENSOR_CLIP_MAST_XY,
+    "heater_strain_relief_origin": HEATER_STRAIN_RELIEF_ORIGIN,
+    "thermal_barrier_origin": THERMAL_BARRIER_ORIGIN,
     "ts1_opening_center": TS1_OPENING_CENTER,
     "ts1_service_pad_origin": TS1_SERVICE_PAD_ORIGIN,
 }
 
 
 if "show_object" in globals():
-    show_object(
-        enclosure_body,
-        name="enclosure_body",
-        options={"color": "lightgray", "alpha": VIEW_OPTIONS["enclosure_alpha"]},
-    )
-    if DISPLAY_OPTIONS["show_lid"]:
+    view_mode = DISPLAY_OPTIONS.get("view_mode", "simple")
+
+    if view_mode == "print":
         show_object(
-            lid_closed,
-            name="lid_closed",
-            options={"color": "silver", "alpha": 0.18},
+            printable_body,
+            name="PRINT_body_ready_to_export",
+            options={"color": "steelblue", "alpha": 0.74},
+        )
+        show_object(
+            lid_print,
+            name="PRINT_lid_ready_to_export",
+            options={"color": "silver", "alpha": 0.82},
+        )
+        show_object(
+            electronics_cover_print,
+            name="PRINT_electronics_cover_ready_to_export",
+            options={"color": "gray", "alpha": 0.82},
+        )
+    elif view_mode == "demo":
+        show_object(
+            printable_body,
+            name="01_enclosure_body_with_integrated_features",
+            options={"color": "steelblue", "alpha": 0.32},
         )
         show_object(
             lid_open,
-            name="lid_open",
-            options={"color": "silver", "alpha": VIEW_OPTIONS["lid_alpha"]},
+            name="02_lid_open_for_internal_view",
+            options={"color": "silver", "alpha": 0.28},
         )
-        show_object(
-            electronics_cover,
-            name="electronics_cover",
-            options={"color": "gray", "alpha": 0.22},
-        )
-    if DISPLAY_OPTIONS["show_board_proxy"]:
+        if step_reference is not None:
+            show_object(
+                step_reference,
+                name="03_real_pcb_step_reference",
+                options={"color": "orange", "alpha": 0.68},
+            )
         show_object(
             board_proxy,
-            name="board_proxy",
-            options={"color": "seagreen", "alpha": VIEW_OPTIONS["board_alpha"]},
+            name="04_pcb_outline_reference",
+            options={"color": "seagreen", "alpha": 0.45},
         )
-        show_object(
-            pcb_support_shelf,
-            name="pcb_support_shelf",
-            options={"color": "slategray", "alpha": 0.85},
-        )
-    if DISPLAY_OPTIONS["show_step_reference"] and step_reference is not None:
-        show_object(
-            step_reference,
-            name="step_reference",
-            options={"color": "orange", "alpha": VIEW_OPTIONS["step_alpha"]},
-        )
-    if DISPLAY_OPTIONS["show_thermal_helpers"]:
         show_object(
             sample_area_reference,
-            name="sample_area_reference",
-            options={"color": "lightyellow", "alpha": 0.35},
-        )
-        show_object(
-            heater_pad,
-            name="heater_pad",
-            options={"color": "goldenrod", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            name="05_heated_sample_area",
+            options={"color": "lightyellow", "alpha": 0.42},
         )
         show_object(
             heater_placeholder,
-            name="heater_placeholder",
-            options={"color": "firebrick", "alpha": 0.88},
+            name="06_heater_location_reference",
+            options={"color": "firebrick", "alpha": 0.72},
+        )
+        show_object(
+            thermal_barrier,
+            name="07_thermal_safety_barrier",
+            options={"color": "gold", "alpha": 0.82},
         )
         show_object(
             sensor_probe_reference,
-            name="sensor_probe_reference",
-            options={"color": "tomato", "alpha": 0.88},
+            name="08_temperature_sensor_reference",
+            options={"color": "tomato", "alpha": 0.82},
+        )
+    elif view_mode == "simple":
+        show_object(
+            printable_body,
+            name="01_printable_body_main_shell",
+            options={"color": "steelblue", "alpha": 0.50},
         )
         show_object(
-            sensor_passage_ring,
-            name="sensor_passage_ring",
-            options={"color": "salmon", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            lid_open,
+            name="02_lid_open_preview",
+            options={"color": "silver", "alpha": VIEW_OPTIONS["lid_alpha"]},
         )
         show_object(
-            heater_passage_ring,
-            name="heater_passage_ring",
-            options={"color": "peru", "alpha": VIEW_OPTIONS["helper_alpha"]},
-        )
-    if DISPLAY_OPTIONS["show_service_helpers"]:
-        show_object(
-            debug_opening_frame,
-            name="debug_opening_frame",
-            options={"color": "steelblue", "alpha": 0.9},
+            board_proxy,
+            name="03_pcb_reference_size_only",
+            options={"color": "seagreen", "alpha": 0.72},
         )
         show_object(
-            power_opening_frame,
-            name="power_opening_frame",
-            options={"color": "tan", "alpha": 0.9},
+            electronics_cover,
+            name="04_bottom_electronics_cover_preview",
+            options={"color": "gray", "alpha": 0.28},
         )
+    else:
         show_object(
-            ts1_opening_frame,
-            name="ts1_opening_frame",
-            options={"color": "orchid", "alpha": 0.92},
+            enclosure_body,
+            name="enclosure_body",
+            options={"color": "lightgray", "alpha": VIEW_OPTIONS["enclosure_alpha"]},
         )
-        show_object(
-            power_service_pad,
-            name="power_service_pad",
-            options={"color": "sienna", "alpha": VIEW_OPTIONS["helper_alpha"]},
-        )
-        show_object(
-            ts1_service_pad,
-            name="ts1_service_pad",
-            options={"color": "purple", "alpha": VIEW_OPTIONS["helper_alpha"]},
-        )
+        if DISPLAY_OPTIONS["show_lid"]:
+            show_object(
+                lid_closed,
+                name="lid_closed",
+                options={"color": "silver", "alpha": 0.18},
+            )
+            show_object(
+                lid_open,
+                name="lid_open",
+                options={"color": "silver", "alpha": VIEW_OPTIONS["lid_alpha"]},
+            )
+            show_object(
+                electronics_cover,
+                name="electronics_cover",
+                options={"color": "gray", "alpha": 0.22},
+            )
+        if DISPLAY_OPTIONS["show_board_proxy"]:
+            show_object(
+                board_proxy,
+                name="board_proxy",
+                options={"color": "seagreen", "alpha": VIEW_OPTIONS["board_alpha"]},
+            )
+            show_object(
+                pcb_support_shelf,
+                name="pcb_support_shelf",
+                options={"color": "slategray", "alpha": 0.85},
+            )
+        if DISPLAY_OPTIONS["show_step_reference"] and step_reference is not None:
+            show_object(
+                step_reference,
+                name="step_reference",
+                options={"color": "orange", "alpha": VIEW_OPTIONS["step_alpha"]},
+            )
+        if DISPLAY_OPTIONS["show_thermal_helpers"]:
+            show_object(
+                sample_area_reference,
+                name="sample_area_reference",
+                options={"color": "lightyellow", "alpha": 0.35},
+            )
+            show_object(
+                heater_pad,
+                name="heater_pad",
+                options={"color": "goldenrod", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+            show_object(
+                heater_placeholder,
+                name="heater_placeholder",
+                options={"color": "firebrick", "alpha": 0.88},
+            )
+            show_object(
+                thermal_barrier,
+                name="thermal_barrier",
+                options={"color": "gold", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+            show_object(
+                sensor_probe_reference,
+                name="sensor_probe_reference",
+                options={"color": "tomato", "alpha": 0.88},
+            )
+            show_object(
+                sensor_probe_clip,
+                name="sensor_probe_clip",
+                options={"color": "orangered", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+            show_object(
+                heater_strain_relief,
+                name="heater_strain_relief",
+                options={"color": "darkorange", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+            show_object(
+                sensor_passage_ring,
+                name="sensor_passage_ring",
+                options={"color": "salmon", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+            show_object(
+                heater_passage_ring,
+                name="heater_passage_ring",
+                options={"color": "peru", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+        if DISPLAY_OPTIONS["show_service_helpers"]:
+            show_object(
+                debug_opening_frame,
+                name="debug_opening_frame",
+                options={"color": "steelblue", "alpha": 0.9},
+            )
+            show_object(
+                power_opening_frame,
+                name="power_opening_frame",
+                options={"color": "tan", "alpha": 0.9},
+            )
+            show_object(
+                ts1_opening_frame,
+                name="ts1_opening_frame",
+                options={"color": "orchid", "alpha": 0.92},
+            )
+            show_object(
+                power_service_pad,
+                name="power_service_pad",
+                options={"color": "sienna", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
+            show_object(
+                ts1_service_pad,
+                name="ts1_service_pad",
+                options={"color": "purple", "alpha": VIEW_OPTIONS["helper_alpha"]},
+            )
 
 
 __all__ = [
@@ -669,16 +1028,22 @@ __all__ = [
     "heater_pad",
     "heater_passage_ring",
     "heater_placeholder",
+    "heater_strain_relief",
     "layout_debug",
     "lid_closed",
     "lid_open",
+    "lid_print",
     "pcb_support_shelf",
+    "printable_body",
     "power_opening_frame",
     "power_service_pad",
+    "electronics_cover_print",
     "sample_area_reference",
+    "sensor_probe_clip",
     "sensor_passage_ring",
     "sensor_probe_reference",
     "step_reference",
+    "thermal_barrier",
     "ts1_opening_frame",
     "ts1_service_pad",
 ]

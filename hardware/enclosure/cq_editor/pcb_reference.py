@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PCB_REFERENCE_DIR = PROJECT_ROOT / "references" / "pcb"
 
@@ -75,8 +74,13 @@ THERMAL_CONSTRAINTS = {
     "heater_zone_back_gap": 6.0,
     # V1 uses the chamber floor directly as the sample area.
     "sample_area_length": 62.0,
-    "sample_area_width": 42.0,
+    "sample_area_width": 32.0,
     "sample_area_front_gap": 10.0,
+    # Raised divider that keeps samples and fingers away from the heater zone.
+    "thermal_barrier_length": 66.0,
+    "thermal_barrier_thickness": 4.0,
+    "thermal_barrier_height": 10.0,
+    "thermal_barrier_gap_to_heater": 3.0,
     # Sensor should live near the sample region, away from the heater face.
     "sensor_probe_height": 22.0,
     "sensor_probe_front_gap": 18.0,
@@ -103,6 +107,16 @@ SERVICE_CONSTRAINTS = {
     "heater_passage_diameter": 7.0,
     "sensor_passage_ring_diameter": 10.0,
     "heater_passage_ring_diameter": 13.0,
+    # Physical V1 cable-management helpers.
+    "sensor_probe_clip_inner_diameter": 4.2,
+    "sensor_probe_clip_outer_diameter": 9.0,
+    "sensor_probe_clip_thickness": 2.0,
+    "sensor_probe_clip_mast_size": 3.0,
+    "heater_strain_relief_length": 24.0,
+    "heater_strain_relief_width": 12.0,
+    "heater_strain_relief_height": 2.4,
+    "heater_strain_relief_slot_width": 3.2,
+    "heater_strain_relief_slot_length": 8.0,
 }
 
 
@@ -127,6 +141,9 @@ V1_GEOMETRY = {
     "pcb_floor_clearance": 3.0,
     "pcb_shelf_thickness": 2.4,
     "pcb_stop_height": 6.0,
+    "pcb_rail_thickness": 1.8,
+    "pcb_rail_clearance": 0.6,
+    "pcb_rail_height": 4.0,
     # Board placement is wiring-first: debug side to the left, power side right.
     "pcb_offset_x": 10.0,
     "pcb_offset_y": 6.0,
@@ -134,6 +151,11 @@ V1_GEOMETRY = {
     "power_pad_length": 22.0,
     "power_pad_width": 18.0,
     "power_pad_thickness": 2.0,
+    # Lid usability.
+    "lid_grip_width": 34.0,
+    "lid_grip_depth": 8.0,
+    "lid_grip_overlap": 1.4,
+    "lid_grip_radius": 1.5,
 }
 
 
@@ -147,9 +169,15 @@ VIEW_OPTIONS = {
 
 
 DISPLAY_OPTIONS = {
+    # CQ-editor view modes:
+    # - "demo": default presentation view with PCB and core system layout
+    # - "simple": human-readable geometry overview without dense references
+    # - "debug": show every helper/reference object separately
+    # - "print": show only the standalone printable export objects
+    "view_mode": "demo",
     "show_lid": True,
     "show_board_proxy": True,
-    "show_step_reference": True,
-    "show_thermal_helpers": True,
-    "show_service_helpers": True,
+    "show_step_reference": False,
+    "show_thermal_helpers": False,
+    "show_service_helpers": False,
 }
