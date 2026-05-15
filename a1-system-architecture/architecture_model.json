@@ -1,0 +1,82 @@
+{
+  "diagram": {
+    "name": "A1 System Architecture",
+    "target_element_count": 28,
+    "language": "English"
+  },
+  "layers": [
+    {
+      "id": "physical",
+      "title": "Physical Plant",
+      "nodes": ["chamber", "heater", "sensor", "driver"]
+    },
+    {
+      "id": "edge",
+      "title": "Edge Controller",
+      "nodes": ["firmware", "sampling", "control", "safety", "param_agent", "edge_log"]
+    },
+    {
+      "id": "messaging",
+      "title": "Messaging Layer",
+      "nodes": ["mqtt", "telemetry_topic", "params_topic", "alarm_topic"]
+    },
+    {
+      "id": "backend",
+      "title": "Backend Platform",
+      "nodes": ["data_hub", "parser", "rules", "tsdb", "backend_db", "api"]
+    },
+    {
+      "id": "hmi_ai",
+      "title": "HMI And AI",
+      "nodes": ["hmi", "live_view", "operator", "history", "feature_store", "learning", "recommendation", "approval"]
+    }
+  ],
+  "nodes": [
+    { "id": "chamber", "label": "Thermal Chamber", "type": "device", "row": 0 },
+    { "id": "sensor", "label": "Temperature Sensor", "type": "device", "row": 1 },
+    { "id": "heater", "label": "Heater", "type": "device", "row": 2 },
+    { "id": "driver", "label": "Power Driver", "type": "device", "row": 3 },
+
+    { "id": "firmware", "label": "ESP32 Firmware", "type": "edge", "row": 0 },
+    { "id": "sampling", "label": "Sampling Filter", "type": "edge", "row": 1 },
+    { "id": "control", "label": "PI Control", "type": "edge", "row": 2 },
+    { "id": "safety", "label": "Safety Guard", "type": "edge", "row": 3 },
+    { "id": "param_agent", "label": "Param Agent", "type": "edge", "row": 4 },
+    { "id": "edge_log", "label": "Edge Log", "type": "edge", "row": 1 },
+
+    { "id": "mqtt", "label": "MQTT Broker", "type": "protocol", "row": 0 },
+    { "id": "telemetry_topic", "label": "Telemetry Topic", "type": "bus", "row": 1 },
+    { "id": "params_topic", "label": "Params Topic", "type": "bus", "row": 4 },
+    { "id": "alarm_topic", "label": "Alarm Topic", "type": "bus", "row": 3 },
+
+    { "id": "data_hub", "label": "Java Data Hub", "type": "service", "row": 1 },
+    { "id": "parser", "label": "Message Parser", "type": "service", "row": 1 },
+    { "id": "rules", "label": "Alarm Rules", "type": "service", "row": 2 },
+    { "id": "tsdb", "label": "Time-Series DB", "type": "database", "row": 3 },
+    { "id": "backend_db", "label": "Backend DB", "type": "database", "row": 4 },
+    { "id": "api", "label": "FastAPI Backend", "type": "service", "row": 0 },
+
+    { "id": "hmi", "label": "React HMI", "type": "ui", "row": 0 },
+    { "id": "live_view", "label": "Live Dashboard", "type": "ui", "row": 1 },
+    { "id": "operator", "label": "Operator", "type": "external", "row": 6 },
+    { "id": "history", "label": "History Window", "type": "database", "row": 3 },
+    { "id": "feature_store", "label": "Feature Store", "type": "database", "row": 4 },
+    { "id": "learning", "label": "Offline Learning", "type": "ai", "row": 5 },
+    { "id": "recommendation", "label": "Policy Ranking", "type": "ai", "row": 6 },
+    { "id": "approval", "label": "Param Approval", "type": "ui", "row": 7 }
+  ],
+  "edges": [
+    { "id": "e01", "from": "sensor", "to": "sampling", "label": "" },
+    { "id": "e02", "from": "control", "to": "driver", "label": "" },
+    { "id": "e03", "from": "edge_log", "to": "telemetry_topic", "label": "" },
+    { "id": "e04", "from": "safety", "to": "alarm_topic", "label": "" },
+    { "id": "e05", "from": "params_topic", "to": "param_agent", "label": "" },
+    { "id": "e06", "from": "telemetry_topic", "to": "data_hub", "label": "" },
+    { "id": "e07", "from": "alarm_topic", "to": "rules", "label": "" },
+    { "id": "e08", "from": "api", "to": "hmi", "label": "" },
+    { "id": "e09", "from": "api", "to": "history", "label": "" },
+    { "id": "e10", "from": "feature_store", "to": "learning", "label": "" },
+    { "id": "e11", "from": "recommendation", "to": "approval", "label": "" },
+    { "id": "e12", "from": "operator", "to": "approval", "label": "" }
+  ]
+}

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="920" viewBox="0 0 1600 920" role="img" aria-label="AI-assisted decision panel">
+<defs>
+<linearGradient id="panelBg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#0b2032"/>
+<stop offset="100%" stop-color="#102b3f"/>
+</linearGradient>
+<linearGradient id="softBlue" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#5ef2ff"/>
+<stop offset="100%" stop-color="#7da7ff"/>
+</linearGradient>
+<linearGradient id="softGreen" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#6df0c2"/>
+<stop offset="100%" stop-color="#c6f36b"/>
+</linearGradient>
+<linearGradient id="softWarm" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#ffd166"/>
+<stop offset="100%" stop-color="#ff8f70"/>
+</linearGradient>
+<filter id="panelShadow" x="-10%" y="-10%" width="120%" height="120%">
+<feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#03101a" flood-opacity="0.32"/>
+</filter>
+</defs>
+<rect width="1600" height="920" fill="none"/>
+<g filter="url(#panelShadow)">
+<rect x="58" y="56" width="1484" height="808" rx="30" fill="url(#panelBg)" stroke="#2b526d" stroke-width="2"/>
+<text x="118" y="126" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="800" fill="#f6fbff">AI-Assisted PID Decision</text>
+<text x="118" y="166" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="400" fill="#bdd2df">Classify behavior, recommend PID changes,</text>
+<text x="118" y="196" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="400" fill="#bdd2df">preview impact, then validate ACK.</text>
+<rect x="118" y="230" width="440" height="500" rx="26" fill="#071723" stroke="#5ef2ff" stroke-width="3"/>
+<rect x="236" y="302" width="204" height="176" rx="28" fill="#102b3d" stroke="#5ef2ff" stroke-width="3"/>
+<rect x="282" y="346" width="112" height="88" rx="18" fill="#071723" stroke="#6df0c2" stroke-width="3"/>
+<path d="M236 348 H190 M236 390 H190 M236 432 H190 M440 348 H486 M440 390 H486 M440 432 H486" stroke="#5ef2ff" stroke-width="3"/>
+<path d="M292 390 h92 M338 356 v68" stroke="#6df0c2" stroke-width="5" stroke-linecap="round"/>
+<text x="338" y="540" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" fill="#f6fbff">Decision Assistant</text>
+<text x="338" y="578" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600" fill="#bdd2df">human-confirmed PID optimization</text>
+<rect x="174" y="630" width="142" height="44" rx="22" fill="#5ef2ff" fill-opacity="0.13" stroke="#5ef2ff" stroke-width="2"/>
+<text x="245.0" y="659" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#f5fbff">Telemetry</text>
+<rect x="336" y="630" width="132" height="44" rx="22" fill="#6df0c2" fill-opacity="0.13" stroke="#6df0c2" stroke-width="2"/>
+<text x="402.0" y="659" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#f5fbff">History</text>
+<rect x="606" y="230" width="876" height="262" rx="26" fill="#071723" stroke="#2b526d" stroke-width="2"/>
+<text x="650" y="282" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="800" fill="#f6fbff">Before / After Temperature Response</text>
+<line x1="662" y1="426" x2="1414" y2="426" stroke="#4b6578" stroke-width="2" stroke-dasharray="9 9"/>
+<path d="M662 422 C720 318, 786 304, 850 376 S964 470, 1048 340 S1214 306, 1414 364" stroke="#ff9c7a" stroke-width="6" fill="none"/>
+<path d="M662 422 C730 392, 798 384, 870 404 S1010 438, 1110 412 S1286 392, 1414 406" stroke="#6df0c2" stroke-width="6" fill="none"/>
+<text x="1348" y="354" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#ffb29c">before</text>
+<text x="1348" y="404" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#9ef4cf">after</text>
+<rect x="606" y="530" width="876" height="220" rx="26" fill="#071723" stroke="#2b526d" stroke-width="2"/>
+<text x="650" y="568" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" fill="#f6fbff">Decision Capabilities</text>
+<rect x="640" y="592" width="168" height="62" rx="16" fill="#102b3d" stroke="#5ef2ff" stroke-width="2"/>
+<text x="724" y="618" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#f6fbff">Feature Extraction</text>
+<text x="724" y="640" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#bdd2df">windowed stats</text>
+<rect x="850" y="592" width="168" height="62" rx="16" fill="#102b3d" stroke="#c8a4ff" stroke-width="2"/>
+<text x="934" y="618" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#f6fbff">Problem Class</text>
+<text x="934" y="640" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#bdd2df">oscillation / error</text>
+<rect x="1060" y="592" width="168" height="62" rx="16" fill="#102b3d" stroke="#ffd166" stroke-width="2"/>
+<text x="1144" y="618" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#f6fbff">PID Recommendation</text>
+<text x="1144" y="640" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#bdd2df">Kp Ki Kd delta</text>
+<rect x="1270" y="592" width="168" height="62" rx="16" fill="#102b3d" stroke="#ff9c7a" stroke-width="2"/>
+<text x="1354" y="618" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#f6fbff">Preview Simulation</text>
+<text x="1354" y="640" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#bdd2df">expected effect</text>
+<rect x="850" y="678" width="168" height="62" rx="16" fill="#102b3d" stroke="#7da7ff" stroke-width="2"/>
+<text x="934" y="704" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#f6fbff">Operator Apply</text>
+<text x="934" y="726" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#bdd2df">human confirmation</text>
+<rect x="1060" y="678" width="168" height="62" rx="16" fill="#102b3d" stroke="#6df0c2" stroke-width="2"/>
+<text x="1144" y="704" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#f6fbff">ACK Validation</text>
+<text x="1144" y="726" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#bdd2df">post-apply check</text>
+<rect x="118" y="772" width="1364" height="36" rx="18" fill="#071723" stroke="#2b526d" stroke-width="1"/>
+<text x="800" y="797" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#d8e8f2">Telemetry History | Features | Recommendation | Preview | Operator Apply | ACK Validation</text>
+</g>
+</svg>

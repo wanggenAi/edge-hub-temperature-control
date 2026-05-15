@@ -1,0 +1,2241 @@
+{
+  "diagram": {
+    "title": "EdgeHub Temperature Control Architecture and Control Flow",
+    "standard": "GOST 19.701-90 / ISO 5807-85",
+    "template": "aa.drawio",
+    "language": "English",
+    "target_element_count": 93,
+    "standard_input_note": "diagram.pdf was not present in the workspace during generation; symbol rules follow the supplied task requirements for GOST 19.701-90 / ISO 5807-85."
+  },
+  "page": {
+    "width": 3300,
+    "height": 2339,
+    "template_title_block": {
+      "x": 2555.18,
+      "y": 2107.42,
+      "width": 733.786,
+      "height": 221
+    },
+    "forbidden_area": {
+      "x": 2525,
+      "y": 2075,
+      "width": 775,
+      "height": 264
+    }
+  },
+  "layout": {
+    "strategy": "row-major raster layout",
+    "reading_order": "top-to-bottom and left-to-right",
+    "no_visible_modules": true,
+    "uniform_segment_length": true,
+    "rows": [
+      [
+        "n01",
+        "n02",
+        "n03",
+        "n04",
+        "n05",
+        "n06",
+        "n07",
+        "n08",
+        "n09",
+        "n10",
+        "n11",
+        "n12",
+        "n13"
+      ],
+      [
+        "n14",
+        "n18",
+        "n19",
+        "n20",
+        "n21",
+        "n22",
+        "n23",
+        "n24",
+        "n72",
+        "n73",
+        "n15",
+        "n16",
+        "n17",
+        "n76",
+        "n77"
+      ],
+      [
+        "n25",
+        "n26",
+        "n27",
+        "n28",
+        "n29",
+        "n30",
+        "n31",
+        "n32",
+        "n33",
+        "n34",
+        "n35",
+        "n36",
+        "n37"
+      ],
+      [
+        "n38",
+        "n39",
+        "n40",
+        "n41",
+        "n42",
+        "n43",
+        "n44",
+        "n45",
+        "n46",
+        "n47",
+        "n48",
+        "n49",
+        "n50"
+      ],
+      [
+        "n51",
+        "n52",
+        "n53",
+        "n54",
+        "n55",
+        "n56",
+        "n57",
+        "n58",
+        "n59",
+        "n60",
+        "n61",
+        "n62",
+        "n63"
+      ],
+      [
+        "n64",
+        "n65",
+        "n66",
+        "n67",
+        "n68",
+        "n74",
+        "n75",
+        "n69",
+        "n70",
+        "n71",
+        "n78",
+        "n79",
+        "n80"
+      ]
+    ]
+  },
+  "nodes": [
+    {
+      "id": "n01",
+      "text": "Cycle Start",
+      "type": "terminator",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 1,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n02",
+      "text": "Temp Input",
+      "type": "data",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/hardware/interfaces/temperature_sensor.h"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 2,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n03",
+      "text": "Sensor Bus Read",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp",
+        "simulator/wokwi/src/hardware/wokwi/ds18b20_sensor.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 3,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n04",
+      "text": "Raw Sample",
+      "type": "data",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 4,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n05",
+      "text": "Sample Filter",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/feedback_selector.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 5,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n06",
+      "text": "Range Check?",
+      "type": "decision",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 6,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n07",
+      "text": "Signal Normalize",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 7,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n08",
+      "text": "Edge Tick",
+      "type": "predefined_process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 8,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n09",
+      "text": "Runtime Config",
+      "type": "stored_data",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/runtime_config_store.cpp",
+        "simulator/wokwi/src/domain/model/runtime_config.h"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 9,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n10",
+      "text": "Param Pending?",
+      "type": "decision",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/comms/mqtt/param_update_handler.cpp",
+        "simulator/wokwi/src/app/runtime_config_store.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 10,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n11",
+      "text": "Param Validate",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/comms/mqtt/param_validator.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 11,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n12",
+      "text": "Param Apply",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/comms/mqtt/param_update_handler.cpp",
+        "simulator/wokwi/src/app/runtime_config_store.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 12,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n13",
+      "text": "Param ACK",
+      "type": "document",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/comms/mqtt/ack_builder.cpp",
+        "simulator/wokwi/src/comms/mqtt/mqtt_gateway.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 13,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n99",
+      "text": "Safety Merge",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 14,
+      "ratio_rule": "L=2W",
+      "english_only": true,
+      "note": "Local merge point for parameter-pending bypass and applied-parameter ACK before the single Safety Check input"
+    },
+    {
+      "id": "n14",
+      "text": "Safety Check?",
+      "type": "decision",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 15,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n15",
+      "text": "Fault Latch",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 16,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n16",
+      "text": "Safety Cutoff",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 17,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n17",
+      "text": "Alarm Event",
+      "type": "data",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp",
+        "data-hub/src/main/java/com/edgehub/datahub/alarm/AlarmRuleEngineService.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 17,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n18",
+      "text": "PID Control",
+      "type": "predefined_process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/controller/pi_controller.cpp",
+        "hmi/backend/app/services/ai/preview_simulator.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 18,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n19",
+      "text": "Integral Update",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/controller/pi_controller.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 19,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n20",
+      "text": "Duty Limit",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/controller/pi_controller.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 20,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n21",
+      "text": "PWM Output",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/controller/pi_controller.cpp",
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 21,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n22",
+      "text": "Heater Driver",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/hardware/wokwi/pwm_heater.cpp",
+        "simulator/wokwi/src/hardware/real/mosfet_heater.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 22,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n23",
+      "text": "Thermal Chamber",
+      "type": "process",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/hardware/wokwi/thermal_plant_model.cpp",
+        "hardware/system-overview.md"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 23,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n24",
+      "text": "Temp Feedback",
+      "type": "data",
+      "phase": "edge_runtime",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 24,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n25",
+      "text": "Control Status",
+      "type": "data",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp",
+        "simulator/wokwi/src/domain/model/runtime_state.h"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 25,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n26",
+      "text": "Telemetry Packet",
+      "type": "data",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "simulator/wokwi/src/comms/mqtt/telemetry_builder.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 26,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n27",
+      "text": "Edge Log",
+      "type": "document",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 27,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n30",
+      "text": "MQTT Broker",
+      "type": "predefined_process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "docker-compose.redis.yml",
+        "docs/deployment/mqtt-broker-ubuntu.md"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 30,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n31",
+      "text": "Telemetry Topic",
+      "type": "data",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "docs/mqtt_interface.md",
+        "simulator/wokwi/src/comms/mqtt/topic_registry.h"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 31,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n32",
+      "text": "Message Parser",
+      "type": "process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "data-hub/src/main/java/com/edgehub/datahub/parser/HubMessageParser.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 32,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n33",
+      "text": "Schema Check?",
+      "type": "decision",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "data-hub/src/main/java/com/edgehub/datahub/parser/HubMessageParser.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 33,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n34",
+      "text": "Data Normalize",
+      "type": "process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "data-hub/src/main/java/com/edgehub/datahub/model/TelemetryPayload.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 34,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n35",
+      "text": "Java Data Hub",
+      "type": "predefined_process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "data-hub/src/main/java/com/edgehub/datahub/DataHubApplication.java",
+        "data-hub/src/main/java/com/edgehub/datahub/pipeline/MqttConsumePipeline.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 35,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n36",
+      "text": "Alarm Rules",
+      "type": "predefined_process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "data-hub/src/main/java/com/edgehub/datahub/alarm/AlarmRuleEngineService.java",
+        "data-hub/src/main/java/com/edgehub/datahub/rules/RuleConfigService.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 36,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n37",
+      "text": "Time-Series Writer",
+      "type": "process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "data-hub/src/main/java/com/edgehub/datahub/storage/TdengineEnvelopeWriter.java",
+        "data-hub/src/main/java/com/edgehub/datahub/storage/TdengineRestWriter.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 37,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n38",
+      "text": "Time-Series DB",
+      "type": "stored_data",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "docker-compose.tdengine.yml",
+        "scripts/reset-dev-databases.sh"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 38,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n39",
+      "text": "Alarm Store",
+      "type": "stored_data",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "scripts/reset-dev-databases.sh",
+        "hmi/backend/app/api/routes/alarms.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 39,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n40",
+      "text": "Backend DB",
+      "type": "stored_data",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "docker-compose.postgresql.yml",
+        "hmi/backend/app/models/entities.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 40,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n41",
+      "text": "FastAPI Service",
+      "type": "predefined_process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/backend/app/main.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 41,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n42",
+      "text": "History API",
+      "type": "process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/backend/app/api/routes/history.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 42,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n43",
+      "text": "Alarm API",
+      "type": "process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/backend/app/api/routes/alarms.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 43,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n44",
+      "text": "Device API",
+      "type": "process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 44,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n45",
+      "text": "React HMI",
+      "type": "predefined_process",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/frontend/src/main.tsx",
+        "hmi/frontend/src/routes/router.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 45,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n46",
+      "text": "Live Chart",
+      "type": "document",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/frontend/src/pages/overview-page.tsx",
+        "hmi/frontend/src/pages/device-detail-page.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 46,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n47",
+      "text": "Alarm Panel",
+      "type": "document",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/frontend/src/pages/alarms-page.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 47,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n48",
+      "text": "Operator View",
+      "type": "manual_input",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/frontend/src/components/layout-shell.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 48,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n50",
+      "text": "Operator Action",
+      "type": "manual_input",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py",
+        "hmi/frontend/src/pages/device-detail-page.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 50,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n51",
+      "text": "Audit Log",
+      "type": "document",
+      "phase": "telemetry_backend",
+      "source_files": [
+        "hmi/backend/app/models/entities.py",
+        "hmi/backend/app/services/control_action_learning.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 51,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n52",
+      "text": "History Window",
+      "type": "stored_data",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/api/routes/history.py",
+        "ml/scripts/build_training_windows.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 52,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n53",
+      "text": "Window Builder",
+      "type": "process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "ml/scripts/build_training_windows.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 53,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n54",
+      "text": "Feature Extraction",
+      "type": "predefined_process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/services/ai/feature_extractor.py",
+        "ml/scripts/extract_features.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 54,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n55",
+      "text": "Feature Store",
+      "type": "stored_data",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/artifacts/preview_gap/preview_gap_features.json"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 55,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n56",
+      "text": "Dataset Builder",
+      "type": "process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/ai/scripts/export_recommendation_feedback_dataset.py",
+        "ml/scripts/label_samples.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 56,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n57",
+      "text": "Offline Learning",
+      "type": "predefined_process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/ai/scripts/train_preview_gap_model.py",
+        "hmi/backend/ai/scripts/train_recommendation_success_model.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 57,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n58",
+      "text": "Model Evaluation",
+      "type": "process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/services/ai/model_lifecycle_service.py",
+        "hmi/backend/ai/docs/README_candidate_recommendation_ranking.md"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 58,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n59",
+      "text": "Policy Ranking",
+      "type": "predefined_process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/services/ai/recommendation_ranker.py",
+        "hmi/backend/app/services/ai/recommendation_orchestrator.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 59,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n60",
+      "text": "Candidate Params",
+      "type": "data",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/services/ai/recommendation_ranker.py",
+        "hmi/backend/app/services/ai/schemas.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 60,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n61",
+      "text": "Safety Filter",
+      "type": "process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 61,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n62",
+      "text": "Preview Simulation",
+      "type": "predefined_process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/services/ai/preview_simulator.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 62,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n63",
+      "text": "Approval Request",
+      "type": "document",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py",
+        "hmi/frontend/src/pages/ai-page.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 63,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n64",
+      "text": "Operator Input",
+      "type": "manual_input",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/frontend/src/pages/ai-page.tsx",
+        "hmi/frontend/src/pages/device-detail-page.tsx"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 64,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n65",
+      "text": "Approved?",
+      "type": "decision",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 65,
+      "ratio_rule": "L=1.5W",
+      "english_only": true
+    },
+    {
+      "id": "n66",
+      "text": "Param Publish",
+      "type": "process",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/services/mqtt_publisher.py",
+        "hmi/backend/app/api/routes/devices.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 66,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n67",
+      "text": "MQTT Params Topic",
+      "type": "data",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/core/config.py",
+        "docs/mqtt_interface.md"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 67,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n68",
+      "text": "Downlink ACK",
+      "type": "document",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py",
+        "data-hub/src/main/java/com/edgehub/datahub/model/ParameterAckPayload.java"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 68,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n69",
+      "text": "Keep Current Params",
+      "type": "document",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/api/routes/devices.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 69,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n70",
+      "text": "Rejected Log",
+      "type": "document",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/app/models/entities.py"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 70,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n71",
+      "text": "Model Artifacts",
+      "type": "document",
+      "phase": "learning_optimization",
+      "source_files": [
+        "hmi/backend/artifacts/active",
+        "hmi/backend/artifacts/preview_gap"
+      ],
+      "importance": "confirmed",
+      "preferred_order": 71,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n72",
+      "text": "F1",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 72,
+      "ratio_rule": "L=W",
+      "english_only": true
+    },
+    {
+      "id": "n73",
+      "text": "F1",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "simulator/wokwi/src/app/edge_app.cpp"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 73,
+      "ratio_rule": "L=W",
+      "english_only": true
+    },
+    {
+      "id": "n74",
+      "text": "P1",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "hmi/backend/app/services/mqtt_publisher.py",
+        "simulator/wokwi/src/comms/mqtt/param_update_handler.cpp"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 74,
+      "ratio_rule": "L=W",
+      "english_only": true
+    },
+    {
+      "id": "n75",
+      "text": "P1",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "hmi/backend/app/services/mqtt_publisher.py",
+        "simulator/wokwi/src/comms/mqtt/param_update_handler.cpp"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 75,
+      "ratio_rule": "L=W",
+      "english_only": true
+    },
+    {
+      "id": "n80",
+      "text": "End / Continue",
+      "type": "terminator",
+      "phase": "connector",
+      "source_files": [
+        "README.md"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 80,
+      "ratio_rule": "L=2W",
+      "english_only": true
+    },
+    {
+      "id": "n81",
+      "text": "R1",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 81,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation from sampling row to config row"
+    },
+    {
+      "id": "n82",
+      "text": "R1",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 82,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation target for config row"
+    },
+    {
+      "id": "n83",
+      "text": "R2",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 83,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation from control row to actuator row"
+    },
+    {
+      "id": "n84",
+      "text": "R2",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 84,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation target for actuator row"
+    },
+    {
+      "id": "n85",
+      "text": "R3",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 85,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation from schema decision to backend row"
+    },
+    {
+      "id": "n86",
+      "text": "R3",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 86,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation target for backend row"
+    },
+    {
+      "id": "n87",
+      "text": "R4",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 87,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation from backend API row to HMI row"
+    },
+    {
+      "id": "n88",
+      "text": "R4",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 88,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation target for HMI row"
+    },
+    {
+      "id": "n89",
+      "text": "R5",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 89,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation from HMI/history row to learning row"
+    },
+    {
+      "id": "n90",
+      "text": "R5",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 90,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation target for learning row"
+    },
+    {
+      "id": "n91",
+      "text": "Input Merge",
+      "type": "process",
+      "phase": "control_loop",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 91,
+      "ratio_rule": "L=2W",
+      "english_only": true,
+      "note": "Dedicated merge point for initial start and feedback return before Temp Input"
+    },
+    {
+      "id": "n92",
+      "text": "Config Merge",
+      "type": "process",
+      "phase": "control_loop",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 92,
+      "ratio_rule": "L=2W",
+      "english_only": true,
+      "note": "Dedicated merge point for local tick and parameter downlink before Run Config"
+    },
+    {
+      "id": "n93",
+      "text": "Fault Merge",
+      "type": "process",
+      "phase": "alarm_safety",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 93,
+      "ratio_rule": "L=2W",
+      "english_only": true,
+      "note": "Dedicated merge point for validation and safety faults before Fault Latch"
+    },
+    {
+      "id": "n94",
+      "text": "R6",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 94,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation from approval request to operator input"
+    },
+    {
+      "id": "n95",
+      "text": "R6",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 95,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "row continuation target for operator input"
+    },
+    {
+      "id": "n96",
+      "text": "R7",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 96,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "short bypass connector from Param Pending? No branch to Safety Merge"
+    },
+    {
+      "id": "n97",
+      "text": "R7",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 97,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "short bypass connector target near Safety Merge"
+    },
+    {
+      "id": "n98",
+      "text": "R8",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 98,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "short safety-fault connector to shared Fault Merge"
+    },
+    {
+      "id": "n100",
+      "text": "R8",
+      "type": "connector",
+      "phase": "connector",
+      "source_files": [
+        "flow_rules.js"
+      ],
+      "importance": "abstraction",
+      "preferred_order": 100,
+      "ratio_rule": "L=W",
+      "english_only": true,
+      "note": "short safety-fault connector target near Fault Merge"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e01",
+      "from": "n01",
+      "to": "n91",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e02",
+      "from": "n02",
+      "to": "n03",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e03",
+      "from": "n03",
+      "to": "n04",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e04",
+      "from": "n04",
+      "to": "n05",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e05",
+      "from": "n05",
+      "to": "n06",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e06",
+      "from": "n06",
+      "to": "n07",
+      "label": "Valid",
+      "channel": "control"
+    },
+    {
+      "id": "e06_invalid",
+      "from": "n06",
+      "to": "n93",
+      "label": "Invalid",
+      "channel": "alarm"
+    },
+    {
+      "id": "e07",
+      "from": "n07",
+      "to": "n08",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e09",
+      "from": "n08",
+      "to": "n81",
+      "label": "",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e11",
+      "from": "n10",
+      "to": "n11",
+      "label": "Yes",
+      "channel": "control"
+    },
+    {
+      "id": "e11_no",
+      "from": "n10",
+      "to": "n96",
+      "label": "No",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e12",
+      "from": "n11",
+      "to": "n12",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e13",
+      "from": "n12",
+      "to": "n13",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e11_no_from_r7",
+      "from": "n97",
+      "to": "n99",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e14_ack_safety",
+      "from": "n13",
+      "to": "n99",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e14_merge_safety",
+      "from": "n99",
+      "to": "n14",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e15",
+      "from": "n14",
+      "to": "n18",
+      "label": "Safe",
+      "channel": "control"
+    },
+    {
+      "id": "e15_fault",
+      "from": "n14",
+      "to": "n98",
+      "label": "Fault",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e15_fault_from_r8",
+      "from": "n100",
+      "to": "n93",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e16",
+      "from": "n18",
+      "to": "n19",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e17",
+      "from": "n19",
+      "to": "n20",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e17_output",
+      "from": "n20",
+      "to": "n83",
+      "label": "",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e18",
+      "from": "n15",
+      "to": "n16",
+      "label": "",
+      "channel": "alarm"
+    },
+    {
+      "id": "e19",
+      "from": "n16",
+      "to": "n17",
+      "label": "",
+      "channel": "alarm"
+    },
+    {
+      "id": "e20",
+      "from": "n17",
+      "to": "n47",
+      "label": "",
+      "channel": "alarm"
+    },
+    {
+      "id": "e22",
+      "from": "n21",
+      "to": "n22",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e23",
+      "from": "n22",
+      "to": "n23",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e24",
+      "from": "n23",
+      "to": "n24",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e25",
+      "from": "n24",
+      "to": "n72",
+      "label": "",
+      "channel": "feedback"
+    },
+    {
+      "id": "e28",
+      "from": "n25",
+      "to": "n26",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e29",
+      "from": "n26",
+      "to": "n27",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e30",
+      "from": "n27",
+      "to": "n30",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e33",
+      "from": "n30",
+      "to": "n31",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e33_parser",
+      "from": "n31",
+      "to": "n32",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e34",
+      "from": "n32",
+      "to": "n33",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e35",
+      "from": "n33",
+      "to": "n85",
+      "label": "Valid",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e35_invalid",
+      "from": "n33",
+      "to": "n39",
+      "label": "Invalid",
+      "channel": "backend"
+    },
+    {
+      "id": "e36",
+      "from": "n34",
+      "to": "n35",
+      "label": "",
+      "channel": "backend"
+    },
+    {
+      "id": "e37",
+      "from": "n35",
+      "to": "n36",
+      "label": "",
+      "channel": "backend"
+    },
+    {
+      "id": "e38",
+      "from": "n36",
+      "to": "n37",
+      "label": "",
+      "channel": "backend"
+    },
+    {
+      "id": "e39",
+      "from": "n37",
+      "to": "n38",
+      "label": "",
+      "channel": "storage"
+    },
+    {
+      "id": "e40",
+      "from": "n38",
+      "to": "n40",
+      "label": "",
+      "channel": "storage"
+    },
+    {
+      "id": "e41_api",
+      "from": "n40",
+      "to": "n41",
+      "label": "",
+      "channel": "api"
+    },
+    {
+      "id": "e42",
+      "from": "n41",
+      "to": "n42",
+      "label": "",
+      "channel": "api"
+    },
+    {
+      "id": "e43",
+      "from": "n42",
+      "to": "n87",
+      "label": "",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e44",
+      "from": "n43",
+      "to": "n44",
+      "label": "",
+      "channel": "api"
+    },
+    {
+      "id": "e45",
+      "from": "n44",
+      "to": "n45",
+      "label": "",
+      "channel": "hmi"
+    },
+    {
+      "id": "e46",
+      "from": "n45",
+      "to": "n46",
+      "label": "",
+      "channel": "hmi"
+    },
+    {
+      "id": "e47",
+      "from": "n46",
+      "to": "n48",
+      "label": "",
+      "channel": "hmi"
+    },
+    {
+      "id": "e50",
+      "from": "n50",
+      "to": "n51",
+      "label": "",
+      "channel": "operator"
+    },
+    {
+      "id": "e51",
+      "from": "n51",
+      "to": "n52",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e52",
+      "from": "n52",
+      "to": "n53",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e53",
+      "from": "n53",
+      "to": "n89",
+      "label": "",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e54",
+      "from": "n54",
+      "to": "n55",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e55",
+      "from": "n55",
+      "to": "n56",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e56",
+      "from": "n56",
+      "to": "n57",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e57",
+      "from": "n57",
+      "to": "n58",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e58",
+      "from": "n59",
+      "to": "n60",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e59",
+      "from": "n60",
+      "to": "n61",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e60",
+      "from": "n61",
+      "to": "n62",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e61",
+      "from": "n62",
+      "to": "n63",
+      "label": "",
+      "channel": "approval"
+    },
+    {
+      "id": "e62",
+      "from": "n63",
+      "to": "n94",
+      "label": "",
+      "channel": "row_continuation"
+    },
+    {
+      "id": "e63",
+      "from": "n64",
+      "to": "n65",
+      "label": "",
+      "channel": "approval"
+    },
+    {
+      "id": "e64",
+      "from": "n65",
+      "to": "n66",
+      "label": "Approved",
+      "channel": "approval"
+    },
+    {
+      "id": "e65",
+      "from": "n66",
+      "to": "n67",
+      "label": "",
+      "channel": "downlink"
+    },
+    {
+      "id": "e66",
+      "from": "n67",
+      "to": "n68",
+      "label": "",
+      "channel": "downlink"
+    },
+    {
+      "id": "e67",
+      "from": "n68",
+      "to": "n74",
+      "label": "",
+      "channel": "downlink"
+    },
+    {
+      "id": "e69",
+      "from": "n75",
+      "to": "n92",
+      "label": "",
+      "channel": "parameter"
+    },
+    {
+      "id": "e70",
+      "from": "n69",
+      "to": "n70",
+      "label": "",
+      "channel": "rejection"
+    },
+    {
+      "id": "e71",
+      "from": "n70",
+      "to": "n71",
+      "label": "",
+      "channel": "rejection"
+    },
+    {
+      "id": "e71_end",
+      "from": "n71",
+      "to": "n80",
+      "label": "",
+      "channel": "rejection"
+    },
+    {
+      "id": "e72",
+      "from": "n65",
+      "to": "n69",
+      "label": "Rejected",
+      "channel": "approval"
+    },
+    {
+      "id": "e49_action",
+      "from": "n48",
+      "to": "n50",
+      "label": "",
+      "channel": "operator"
+    },
+    {
+      "id": "e58_rank_visible",
+      "from": "n58",
+      "to": "n59",
+      "label": "",
+      "channel": "learning"
+    },
+    {
+      "id": "e27_feedback_return",
+      "from": "n73",
+      "to": "n91",
+      "label": "",
+      "channel": "feedback"
+    },
+    {
+      "id": "e10_config_pending",
+      "from": "n09",
+      "to": "n10",
+      "label": "",
+      "channel": "control"
+    },
+    {
+      "id": "e24_status",
+      "from": "n24",
+      "to": "n25",
+      "label": "",
+      "channel": "telemetry"
+    },
+    {
+      "id": "e91_input_merge",
+      "from": "n91",
+      "to": "n02",
+      "label": "",
+      "channel": "control",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e92_config_merge",
+      "from": "n92",
+      "to": "n09",
+      "label": "",
+      "channel": "control",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e93_fault_merge",
+      "from": "n93",
+      "to": "n15",
+      "label": "",
+      "channel": "alarm",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e09_from_r1",
+      "from": "n82",
+      "to": "n92",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e17_from_r2",
+      "from": "n84",
+      "to": "n21",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e35_from_r3",
+      "from": "n86",
+      "to": "n34",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e43_from_r4",
+      "from": "n88",
+      "to": "n43",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e53_from_r5",
+      "from": "n90",
+      "to": "n54",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    },
+    {
+      "id": "e62_from_r6",
+      "from": "n95",
+      "to": "n64",
+      "label": "",
+      "channel": "row_continuation",
+      "style": "orthogonal",
+      "must_be_local": true
+    }
+  ],
+  "connectors": [
+    {
+      "label": "F1",
+      "meaning": "temperature feedback return",
+      "nodes": [
+        "n72",
+        "n73"
+      ]
+    },
+    {
+      "label": "P1",
+      "meaning": "parameter downlink",
+      "nodes": [
+        "n74",
+        "n75"
+      ]
+    },
+    {
+      "label": "R1",
+      "meaning": "row continuation",
+      "nodes": [
+        "n81",
+        "n82"
+      ]
+    },
+    {
+      "label": "R2",
+      "meaning": "row continuation",
+      "nodes": [
+        "n83",
+        "n84"
+      ]
+    },
+    {
+      "label": "R3",
+      "meaning": "row continuation",
+      "nodes": [
+        "n85",
+        "n86"
+      ]
+    },
+    {
+      "label": "R4",
+      "meaning": "row continuation",
+      "nodes": [
+        "n87",
+        "n88"
+      ]
+    },
+    {
+      "label": "R5",
+      "meaning": "row continuation",
+      "nodes": [
+        "n89",
+        "n90"
+      ]
+    },
+    {
+      "label": "R6",
+      "meaning": "row continuation",
+      "nodes": [
+        "n94",
+        "n95"
+      ]
+    },
+    {
+      "label": "R7",
+      "meaning": "short parameter bypass row continuation",
+      "nodes": [
+        "n96",
+        "n97"
+      ]
+    },
+    {
+      "label": "R8",
+      "meaning": "short safety fault row continuation",
+      "nodes": [
+        "n98",
+        "n100"
+      ]
+    }
+  ],
+  "source_mapping": [
+    {
+      "area": "Edge closed loop",
+      "files": [
+        "simulator/wokwi/src/app/edge_app.cpp",
+        "simulator/wokwi/src/controller/pi_controller.cpp",
+        "simulator/wokwi/src/comms/mqtt/param_update_handler.cpp"
+      ],
+      "nodes": [
+        "n01",
+        "n02",
+        "n03",
+        "n04",
+        "n05",
+        "n06",
+        "n07",
+        "n08",
+        "n09",
+        "n10",
+        "n11",
+        "n12",
+        "n13",
+        "n14",
+        "n15",
+        "n16",
+        "n17",
+        "n18",
+        "n19",
+        "n20",
+        "n21",
+        "n22",
+        "n23",
+        "n24"
+      ]
+    },
+    {
+      "area": "Telemetry and storage",
+      "files": [
+        "data-hub/src/main/java/com/edgehub/datahub/pipeline/MqttConsumePipeline.java",
+        "data-hub/src/main/java/com/edgehub/datahub/parser/HubMessageParser.java",
+        "data-hub/src/main/java/com/edgehub/datahub/storage/TdengineEnvelopeWriter.java"
+      ],
+      "nodes": [
+        "n25",
+        "n26",
+        "n27",
+        "n28",
+        "n29",
+        "n30",
+        "n31",
+        "n32",
+        "n33",
+        "n34",
+        "n35",
+        "n36",
+        "n37",
+        "n38",
+        "n39",
+        "n40"
+      ]
+    },
+    {
+      "area": "HMI and APIs",
+      "files": [
+        "hmi/backend/app/main.py",
+        "hmi/backend/app/api/routes/devices.py",
+        "hmi/backend/app/api/routes/history.py",
+        "hmi/backend/app/api/routes/alarms.py",
+        "hmi/frontend/src/routes/router.tsx"
+      ],
+      "nodes": [
+        "n41",
+        "n42",
+        "n43",
+        "n44",
+        "n45",
+        "n46",
+        "n47",
+        "n48",
+        "n50",
+        "n51"
+      ]
+    },
+    {
+      "area": "Learning and optimization",
+      "files": [
+        "hmi/backend/app/services/ai/recommendation_orchestrator.py",
+        "hmi/backend/app/services/ai/recommendation_ranker.py",
+        "hmi/backend/app/services/ai/preview_simulator.py",
+        "ml/scripts/build_training_windows.py",
+        "ml/scripts/extract_features.py"
+      ],
+      "nodes": [
+        "n52",
+        "n53",
+        "n54",
+        "n55",
+        "n56",
+        "n57",
+        "n58",
+        "n59",
+        "n60",
+        "n61",
+        "n62",
+        "n63",
+        "n64",
+        "n65",
+        "n66",
+        "n67",
+        "n68",
+        "n69",
+        "n70",
+        "n71"
+      ]
+    },
+    {
+      "area": "Connector pairs",
+      "files": [
+        "docs/mqtt_interface.md",
+        "README.md"
+      ],
+      "nodes": [
+        "n72",
+        "n73",
+        "n74",
+        "n75",
+        "n76",
+        "n77",
+        "n78",
+        "n79",
+        "n80",
+        "n96",
+        "n97",
+        "n98",
+        "n100"
+      ]
+    }
+  ]
+}

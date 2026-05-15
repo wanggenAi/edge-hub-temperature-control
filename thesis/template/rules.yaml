@@ -1,0 +1,54 @@
+page:
+  size: A4
+  width_mm: 210
+  height_mm: 297
+  margins_mm:
+    left: 30
+    right: 15
+    top: 20
+    bottom: 27
+  footer_distance_mm: 17
+  header_distance_mm: 12.5
+body:
+  font: Times New Roman
+  size_pt: 13
+  line_spacing_min: 1.25
+  line_spacing_max: 1.3
+  first_line_indent_mm: 12.5
+  alignment: justified
+headings:
+  heading_1:
+    size_pt: 14
+    bold: true
+    uppercase: true
+    page_break_before: true
+    final_period: false
+    underline: false
+  heading_2:
+    size_pt: 13
+    bold: true
+    final_period: false
+    underline: false
+  heading_3:
+    size_pt: 13
+    bold_number: true
+    underline: false
+contents:
+  title: Contents
+  title_size_pt: 14
+  title_bold: true
+  title_alignment: center
+  dot_leader: true
+page_numbers:
+  type: Arabic
+  position: lower-right
+  body_field: PAGE
+  count_hidden_pages: true
+captions:
+  figure_pattern: "Figure <section>.<number> – <Title>"
+  table_pattern: "Table <section>.<number> – <Title>"
+  final_period: false
+formula:
+  number_pattern: "(<section>.<number>)"
+  centered: true
+  number_aligned_right: true

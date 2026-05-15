@@ -1,0 +1,21 @@
+{
+  "name": "a1-engineering-flowchart",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "render:flowchart": "node render_drawio.js",
+    "validate:flowchart": "node validate_drawio.js",
+    "build:flowchart": "node render_drawio.js && node validate_drawio.js && /Applications/draw.io.app/Contents/MacOS/draw.io --export --format png --output optimized_architecture_flowchart.png optimized_architecture_flowchart.drawio",
+    "check:flowchart": "node validate_drawio.js",
+    "test": "npm run check:flowchart"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "elkjs": "^0.11.1",
+    "fast-xml-parser": "^5.7.3",
+    "xmlbuilder2": "^4.0.3"
+  }
+}

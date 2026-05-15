@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="320" viewBox="0 0 1600 320" role="img" aria-label="Key contributions">
+<defs>
+<linearGradient id="panelBg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#0b2032"/>
+<stop offset="100%" stop-color="#102b3f"/>
+</linearGradient>
+<linearGradient id="softBlue" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#5ef2ff"/>
+<stop offset="100%" stop-color="#7da7ff"/>
+</linearGradient>
+<linearGradient id="softGreen" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#6df0c2"/>
+<stop offset="100%" stop-color="#c6f36b"/>
+</linearGradient>
+<linearGradient id="softWarm" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#ffd166"/>
+<stop offset="100%" stop-color="#ff8f70"/>
+</linearGradient>
+<filter id="panelShadow" x="-10%" y="-10%" width="120%" height="120%">
+<feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#03101a" flood-opacity="0.32"/>
+</filter>
+</defs>
+<rect width="1600" height="320" fill="none"/>
+<g filter="url(#panelShadow)">
+<rect x="34" y="36" width="1532" height="248" rx="28" fill="url(#panelBg)" stroke="#2b526d" stroke-width="2"/>
+<text x="80" y="94" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800" fill="#f6fbff">Key Contributions</text>
+<rect x="80" y="124" width="276" height="112" rx="18" fill="#071723" stroke="#5ef2ff" stroke-width="2"/>
+<circle cx="122" cy="180" r="24" fill="#5ef2ff" fill-opacity="0.16" stroke="#5ef2ff" stroke-width="2"/>
+<text x="122" y="188" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">01</text>
+<text x="162" y="168" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#f6fbff">Edge closed-loop</text>
+<text x="162" y="202" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" fill="#bdd2df">temperature control</text>
+<rect x="372" y="124" width="276" height="112" rx="18" fill="#071723" stroke="#6df0c2" stroke-width="2"/>
+<circle cx="414" cy="180" r="24" fill="#6df0c2" fill-opacity="0.16" stroke="#6df0c2" stroke-width="2"/>
+<text x="414" y="188" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">02</text>
+<text x="454" y="168" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#f6fbff">MQTT runtime</text>
+<text x="454" y="202" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" fill="#bdd2df">telemetry + commands</text>
+<rect x="664" y="124" width="276" height="112" rx="18" fill="#071723" stroke="#7da7ff" stroke-width="2"/>
+<circle cx="706" cy="180" r="24" fill="#7da7ff" fill-opacity="0.16" stroke="#7da7ff" stroke-width="2"/>
+<text x="706" y="188" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">03</text>
+<text x="746" y="168" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#f6fbff">Data-Hub</text>
+<text x="746" y="202" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" fill="#bdd2df">time-series persistence</text>
+<rect x="956" y="124" width="276" height="112" rx="18" fill="#071723" stroke="#ffd166" stroke-width="2"/>
+<circle cx="998" cy="180" r="24" fill="#ffd166" fill-opacity="0.16" stroke="#ffd166" stroke-width="2"/>
+<text x="998" y="188" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">04</text>
+<text x="1038" y="168" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#f6fbff">HMI workflow</text>
+<text x="1038" y="202" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" fill="#bdd2df">operate + apply params</text>
+<rect x="1248" y="124" width="276" height="112" rx="18" fill="#071723" stroke="#c8a4ff" stroke-width="2"/>
+<circle cx="1290" cy="180" r="24" fill="#c8a4ff" fill-opacity="0.16" stroke="#c8a4ff" stroke-width="2"/>
+<text x="1290" y="188" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">05</text>
+<text x="1330" y="168" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#f6fbff">AI PID assist</text>
+<text x="1330" y="202" text-anchor="start" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" fill="#bdd2df">recommend + validate</text>
+</g>
+</svg>

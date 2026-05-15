@@ -31,6 +31,7 @@ data-hub/config/application.properties
 .idea/
 *.iml
 .DS_Store
+.*.bkp
 
 # Local logs and temporary outputs
 *.log
@@ -55,3 +56,29 @@ hmi/frontend/vite.config.d.ts
 
 # CadQuery / enclosure generated outputs
 hardware/enclosure/exports/
+
+# Thesis / presentation generated previews and scratch files
+thesis/generated/preview/
+thesis/generated/word_preview/
+thesis/generated/word_visual_qa/
+thesis/generated/rules_preview/
+thesis/generated/rules_text/
+thesis/generated/reference_title_doc/
+thesis/generated/drafts/preview*/
+thesis/generated/drafts/measure/
+thesis/generated/drafts/toc_probe/
+thesis/generated/drafts/*.before_*.docx
+thesis/generated/drafts/~$*.docx
+thesis/generated/drafts/thesis_draft_raw.docx
+thesis/generated/drafts/thesis_draft_final_checked_raw.docx
+thesis/generated/drafts/thesis_draft_final_format_fixed_page21_test_unique.docx
+
+# A1 diagram/poster iterative previews
+a1-engineering-flowchart/*_preview_*.png
+a1-engineering-flowchart/*report*.md
+a1-engineering-flowchart/*metrics*.json
+a1-engineering-flowchart/*summary*.json
+a1-system-architecture/*_preview_*.png
+a1-system-architecture/*report*.md
+a1-system-architecture/*metrics*.json
+a1-system-architecture/*summary*.json

@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Inspect the source Word templates used by the thesis build system."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+from zipfile import ZipFile
+
+try:
+    from lxml import etree
+except ImportError as exc:  # pragma: no cover - dependency guidance path
+    raise SystemExit(
+        "Missing dependency: lxml. Install with `python -m pip install lxml python-docx Pillow pypdf`."
+    ) from exc
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from docx_utils import NS, has_page_field, parse_xml, qn, text_of, twips_to_mm
+
+
+ROOT = SCRIPT_DIR.parent
+TEMPLATE_DIR = ROOT / "template"
+BUILD_DIR = ROOT / "generated"
+REPORT_PATH = BUILD_DIR / "template_inspection_report.md"
+
+
+def _section_summary(root: etree._Element) -> list[dict[str, object]]:
+    sections = []
+    sects = root.xpath("//w:sectPr", namespaces=NS)
+    for idx, sect in enumerate(sects, start=1):
+        pg_sz = sect.find("w:pgSz", namespaces=NS)
+        pg_mar = sect.find("w:pgMar", namespaces=NS)
+        sections.append(
+            {
+                "index": idx,
+                "width_mm": twips_to_mm(pg_sz.get(qn("w:w"))) if pg_sz is not None else None,
+                "height_mm": twips_to_mm(pg_sz.get(qn("w:h"))) if pg_sz is not None else None,
+                "left_mm": twips_to_mm(pg_mar.get(qn("w:left"))) if pg_mar is not None else None,
+                "right_mm": twips_to_mm(pg_mar.get(qn("w:right"))) if pg_mar is not None else None,
+                "top_mm": twips_to_mm(pg_mar.get(qn("w:top"))) if pg_mar is not None else None,
+                "bottom_mm": twips_to_mm(pg_mar.get(qn("w:bottom"))) if pg_mar is not None else None,
+                "footer_mm": twips_to_mm(pg_mar.get(qn("w:footer"))) if pg_mar is not None else None,
+                "header_mm": twips_to_mm(pg_mar.get(qn("w:header"))) if pg_mar is not None else None,
+                "header_refs": [
+                    (ref.get(qn("w:type")), ref.get(qn("r:id")))
+                    for ref in sect.findall("w:headerReference", namespaces=NS)
+                ],
+                "footer_refs": [
+                    (ref.get(qn("w:type")), ref.get(qn("r:id")))
+                    for ref in sect.findall("w:footerReference", namespaces=NS)
+                ],
+                "page_restart": (
+                    sect.find("w:pgNumType", namespaces=NS).get(qn("w:start"))
+                    if sect.find("w:pgNumType", namespaces=NS) is not None
+                    else None
+                ),
+            }
+        )
+    return sections
+
+
+def _relationship_map(package: ZipFile) -> dict[str, str]:
+    try:
+        rels_root = parse_xml(package.read("word/_rels/document.xml.rels"))
+    except KeyError:
+        return {}
+    rels = {}
+    for rel in rels_root:
+        rid = rel.get("Id")
+        target = rel.get("Target")
+        if rid and target:
+            rels[rid] = target
+    return rels
+
+
+def _part_summary(package: ZipFile, name: str) -> dict[str, object]:
+    root = parse_xml(package.read(name))
+    text = text_of(root)
+    key_hits = sorted({key for key in ["Page", "Pages", "Sign", "Date", "Author", "Supervisor"] if key in text})
+    ordinary_numbers = sorted(
+        {
+            match.group(0)
+            for match in re.finditer(r"(?<![A-Za-z])\b\d{1,3}\b(?![A-Za-z])", text)
+            if match.group(0) not in {"0", "00"}
+        },
+        key=lambda value: (len(value), value),
+    )
+    return {
+        "text_preview": re.sub(r"\s+", " ", text).strip()[:500],
+        "page_field": has_page_field(root),
+        "ordinary_numbers": ordinary_numbers[:15],
+        "paragraphs": len(root.xpath(".//w:p", namespaces=NS)),
+        "tables": len(root.xpath(".//w:tbl", namespaces=NS)),
+        "drawings": len(root.xpath(".//w:drawing|.//w:pict|.//v:shape|.//wps:wsp", namespaces=NS)),
+        "key_text": key_hits,
+        "xml_bytes": len(package.read(name)),
+    }
+
+
+def inspect_template(path: Path) -> dict[str, object]:
+    with ZipFile(path) as package:
+        document_root = parse_xml(package.read("word/document.xml"))
+        rels = _relationship_map(package)
+        xml_parts = [
+            name
+            for name in package.namelist()
+            if name == "word/document.xml"
+            or name.startswith("word/header")
+            or name.startswith("word/footer")
+        ]
+        return {
+            "path": path,
+            "sections": _section_summary(document_root),
+            "relationships": rels,
+            "parts": {name: _part_summary(package, name) for name in xml_parts},
+            "package_parts": package.namelist(),
+        }
+
+
+def _fmt_mm(value: object) -> str:
+    return "n/a" if value is None else f"{float(value):.2f} mm"
+
+
+def render_report(inspections: list[dict[str, object]]) -> str:
+    lines = [
+        "# Template Inspection Report",
+        "",
+        "Generated by `thesis/scripts/inspect_templates.py`.",
+        "",
+    ]
+    for item in inspections:
+        path = Path(item["path"])
+        lines += [f"## {path.name}", ""]
+        lines.append(f"- Package parts: {len(item['package_parts'])}")
+        lines.append(f"- Sections: {len(item['sections'])}")
+        lines.append("")
+        for section in item["sections"]:
+            lines.append(f"### Section {section['index']}")
+            lines.append(
+                "- Page size: "
+                f"{_fmt_mm(section['width_mm'])} x {_fmt_mm(section['height_mm'])}"
+            )
+            lines.append(
+                "- Margins: "
+                f"left {_fmt_mm(section['left_mm'])}, right {_fmt_mm(section['right_mm'])}, "
+                f"top {_fmt_mm(section['top_mm'])}, bottom {_fmt_mm(section['bottom_mm'])}"
+            )
+            lines.append(
+                f"- Header/footer distances: header {_fmt_mm(section['header_mm'])}, "
+                f"footer {_fmt_mm(section['footer_mm'])}"
+            )
+            lines.append(f"- Header refs: {section['header_refs'] or 'none'}")
+            lines.append(f"- Footer refs: {section['footer_refs'] or 'none'}")
+            lines.append(f"- Page number restart: {section['page_restart'] or 'none'}")
+            lines.append("")
+        lines.append("### XML Parts")
+        lines.append("")
+        lines.append("| Part | XML bytes | Paragraphs | Drawings/shapes | Tables | PAGE field | Key text | Plain numbers |")
+        lines.append("| --- | ---: | ---: | ---: | ---: | --- | --- | --- |")
+        for part_name, summary in item["parts"].items():
+            lines.append(
+                f"| `{part_name}` | {summary['xml_bytes']} | {summary['paragraphs']} | "
+                f"{summary['drawings']} | {summary['tables']} | "
+                f"{'yes' if summary['page_field'] else 'no'} | "
+                f"{', '.join(summary['key_text']) or 'none'} | "
+                f"{', '.join(summary['ordinary_numbers']) or 'none'} |"
+            )
+        lines.append("")
+        lines.append("### Text Previews")
+        lines.append("")
+        for part_name, summary in item["parts"].items():
+            preview = summary["text_preview"] or "(no text)"
+            lines.append(f"- `{part_name}`: {preview}")
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--template-dir", type=Path, default=TEMPLATE_DIR)
+    parser.add_argument("--output", type=Path, default=REPORT_PATH)
+    args = parser.parse_args(argv)
+
+    template_0 = args.template_dir / "template_0.docx"
+    template_1 = args.template_dir / "template_1.docx"
+    missing = [str(path) for path in [template_0, template_1] if not path.exists()]
+    if missing:
+        raise SystemExit(f"Missing template file(s): {', '.join(missing)}")
+
+    inspections = [inspect_template(template_0), inspect_template(template_1)]
+    report = render_report(inspections)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(report, encoding="utf-8")
+    print(f"Wrote {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
