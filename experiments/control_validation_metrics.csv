@@ -1,0 +1,4 @@
+version,method,kp,ki,kd,anti_windup,final_temp_c,steady_state_abs_error_c,max_overshoot_c,settling_time_05_s,settling_time_02_s,mean_abs_error_c,in_band_ratio_05_percent,saturation_ratio_percent
+V2,P control,120.0,0.0,0.0,true,33.751,1.249,0.000,not reached,not reached,1.298,0.0,1.0
+V3,"PI control, initial tuning",120.0,20.0,0.0,false,35.000,0.000,1.399,22,27,0.078,97.8,1.6
+V3.1,PI control with anti-windup,120.0,12.0,0.0,true,35.000,0.000,0.000,19,28,0.077,97.9,1.0
