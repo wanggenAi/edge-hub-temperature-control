@@ -2,10 +2,12 @@
 
 #include <Arduino.h>
 
+#include "config/app_config.h"
+
 namespace edge::domain {
 
 struct RuntimeControlConfig {
-  float target_temp_c = 35.0f;
+  float target_temp_c = edge::config::DefaultAppConfig().control.target_temp_c;
   float kp = 120.0f;
   float ki = 12.0f;
   float kd = 0.0f;

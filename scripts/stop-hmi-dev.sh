@@ -17,7 +17,7 @@ Usage:
   ./scripts/stop-hmi-dev.sh [options]
 
 Options:
-  --with-docker-down  Stop PostgreSQL docker compose service as well.
+  --with-docker-down  Stop HMI middleware docker compose services as well: PostgreSQL, TDengine.
   --status            Show current status only, do not stop.
 EOF
 }
@@ -100,7 +100,8 @@ stop_by_port "backend" "8000"
 stop_by_port "frontend" "5173"
 
 if [[ "$WITH_DOCKER_DOWN" -eq 1 ]]; then
-  echo "[stop] stopping PostgreSQL docker service..."
+  echo "[stop] stopping HMI middleware docker services..."
+  (cd "$ROOT_DIR" && docker compose -f docker-compose.tdengine.yml down)
   (cd "$ROOT_DIR" && docker compose -f docker-compose.postgresql.yml down)
 fi
 

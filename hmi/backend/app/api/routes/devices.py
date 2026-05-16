@@ -148,20 +148,30 @@ def _apply_runtime_pid_if_valid(param: DeviceParameter, *, source: dict, log_pre
 def _load_live_snapshot(device_code: str) -> dict:
     if not tdengine.enabled():
         return {}
+    status_sql = (
+        f"SELECT ts, online, status_reason "
+        f"FROM {_tdb()}.device_status WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
+    )
+    status_result = tdengine.query(status_sql)
+    online_from_status: Optional[bool] = None
+    if status_result.rows:
+        status_row = tdengine.row_to_dict(status_result.columns, status_result.rows[0])
+        if status_row.get("online") is not None:
+            online_from_status = bool(status_row.get("online"))
+
     sql = (
         f"SELECT ts, sensor_temp_c, target_temp_c, pwm_duty, fault_latched "
         f"FROM {_tdb()}.telemetry WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
     )
     result = tdengine.query(sql)
     if not result.rows:
-        return {}
+        return {"is_online": online_from_status} if online_from_status is not None else {}
     row = tdengine.row_to_dict(result.columns, result.rows[0])
     return {
         "current_temp": float(row.get("sensor_temp_c") or 0.0),
-        "target_temp": float(row.get("target_temp_c") or 0.0),
         "pwm_output": float(row.get("pwm_duty") or 0.0),
         "is_alarm": bool(row.get("fault_latched") or False),
-        "is_online": True,
+        "is_online": online_from_status if online_from_status is not None else True,
     }
 
 
@@ -201,6 +211,7 @@ def _wait_latest_params_ack_relaxed(
     *,
     device_code: str,
     after_ms: int,
+    expected_target_temp_c: float,
     expected_kp: float,
     expected_ki: float,
     expected_kd: float,
@@ -216,7 +227,7 @@ def _wait_latest_params_ack_relaxed(
 
     # Fallback: accept latest ack if values match target params and row is recent.
     sql = (
-        f"SELECT ts, ack_type, success, reason, kp, ki, kd, control_mode "
+        f"SELECT ts, ack_type, success, reason, target_temp_c, kp, ki, kd, control_mode "
         f"FROM {_tdb()}.params_ack WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
     )
     result = tdengine.query(sql)
@@ -235,22 +246,27 @@ def _wait_latest_params_ack_relaxed(
         )
         return None
 
+    target_temp_c = float(row.get("target_temp_c") or 0.0)
     kp = float(row.get("kp") or 0.0)
     ki = float(row.get("ki") or 0.0)
     kd = float(row.get("kd") or 0.0)
     tol = max(0.001, float(settings.recommendation_float_tolerance))
     same_params = (
+        abs(target_temp_c - float(expected_target_temp_c)) <= tol
+        and
         abs(kp - float(expected_kp)) <= tol
         and abs(ki - float(expected_ki)) <= tol
         and abs(kd - float(expected_kd)) <= tol
     )
     if not same_params:
         logger.warning(
-            "[ACK-RELAX] device=%s latest ack param mismatch expected=(%.4f,%.4f,%.4f) got=(%.4f,%.4f,%.4f)",
+            "[ACK-RELAX] device=%s latest ack param mismatch expected=(target=%.4f,kp=%.4f,ki=%.4f,kd=%.4f) got=(target=%.4f,kp=%.4f,ki=%.4f,kd=%.4f)",
             device_code,
+            float(expected_target_temp_c),
             float(expected_kp),
             float(expected_ki),
             float(expected_kd),
+            target_temp_c,
             kp,
             ki,
             kd,
@@ -524,11 +540,16 @@ def _apply_live_snapshot(device: Device) -> Device:
     snap = _load_live_snapshot(device.code)
     if not snap:
         return device
-    device.current_temp = snap["current_temp"]
-    device.target_temp = snap["target_temp"]
-    device.pwm_output = snap["pwm_output"]
-    device.is_alarm = snap["is_alarm"]
-    device.is_online = snap["is_online"]
+    if "current_temp" in snap:
+        device.current_temp = snap["current_temp"]
+    if "target_temp" in snap:
+        device.target_temp = snap["target_temp"]
+    if "pwm_output" in snap:
+        device.pwm_output = snap["pwm_output"]
+    if "is_alarm" in snap:
+        device.is_alarm = snap["is_alarm"]
+    if "is_online" in snap:
+        device.is_online = snap["is_online"]
     return device
 
 
@@ -1182,6 +1203,7 @@ def _dispatch_and_confirm_parameter_update(
     ack = _wait_latest_params_ack_relaxed(
         device_code=device.code,
         after_ms=dispatch_ms,
+        expected_target_temp_c=float(device.target_temp),
         expected_kp=float(param.kp),
         expected_ki=float(param.ki),
         expected_kd=float(param.kd),

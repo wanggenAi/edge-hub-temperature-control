@@ -63,12 +63,33 @@ def _latest_snapshots_by_code() -> dict[str, dict]:
     return latest
 
 
+def _latest_status_by_code() -> dict[str, dict]:
+    if not tdengine.enabled():
+        return {}
+    db_name = settings.tdengine_database
+    sql = (
+        f"SELECT ts, device_id, online, status_reason "
+        f"FROM {db_name}.device_status ORDER BY ts DESC LIMIT 5000"
+    )
+    result = tdengine.query(sql)
+    latest: dict[str, dict] = {}
+    for raw in result.rows:
+        row = tdengine.row_to_dict(result.columns, raw)
+        code = str(row.get("device_id") or "")
+        if not code or code in latest:
+            continue
+        latest[code] = row
+    return latest
+
+
 def _serialize_devices(devices: list[Device]) -> list[dict]:
     try:
         latest = _latest_snapshots_by_code()
+        latest_status = _latest_status_by_code()
     except Exception:  # noqa: BLE001
         # Keep websocket stream alive with DB snapshot if TDengine is temporarily unavailable.
         latest = {}
+        latest_status = {}
         log.exception("device stream snapshot from TDengine failed")
     payload: list[dict] = []
     for device in devices:
@@ -79,12 +100,13 @@ def _serialize_devices(devices: list[Device]) -> list[dict]:
         pwm_output = float(device.pwm_output)
         is_alarm = bool(device.is_alarm)
         is_online = bool(device.is_online)
+        status = latest_status.get(device.code)
+        if status and status.get("online") is not None:
+            is_online = bool(status.get("online"))
         if snap:
             current_temp = float(snap.get("sensor_temp_c") or 0.0)
-            target_temp = float(snap.get("target_temp_c") or 0.0)
             pwm_output = float(snap.get("pwm_duty") or 0.0)
             is_alarm = bool(snap.get("fault_latched") or False)
-            is_online = True
             snapshot_ts = tdengine.to_datetime(snap.get("ts")).isoformat()
         payload.append(
             {

@@ -20,6 +20,11 @@ Goal:
     frontend.
   - Supports `--status`, `--restart`, `--with-docker`, `--without-ai`.
 
+- `preflight-defense-demo.py`
+  - Read-only preflight for the defense demo stack.
+  - Checks Docker middleware, HMI, AI runtime, DataHub actuator, Wokwi serial
+    bridge, PostgreSQL demo devices, and TDengine live tables.
+
 - `stop-hmi-dev.sh`
   - Stops processes started by `start-hmi-dev.sh`.
   - Supports `--status`, `--with-docker-down`.

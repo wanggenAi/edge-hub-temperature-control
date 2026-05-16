@@ -10,6 +10,8 @@ class RuntimeConfigStore {
   explicit RuntimeConfigStore(const edge::domain::RuntimeControlConfig& initial);
 
   const edge::domain::RuntimeControlConfig& current() const;
+  bool load_persisted();
+  bool save_current() const;
   void apply_now(const edge::domain::ParameterSetMessage& msg);
   void stage(const edge::domain::ParameterSetMessage& msg, unsigned long now_ms);
   bool has_pending() const;

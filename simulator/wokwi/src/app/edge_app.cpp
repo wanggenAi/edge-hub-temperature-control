@@ -83,6 +83,7 @@ EdgeTemperatureApp::EdgeTemperatureApp(const edge::config::AppConfig& config,
 void EdgeTemperatureApp::setup() {
   Serial.begin(115200);
   delay(150);
+  runtime_store_.load_persisted();
 
   pinMode(edge::config::pins::kStatusLed, OUTPUT);
   digitalWrite(edge::config::pins::kStatusLed, LOW);
@@ -197,6 +198,7 @@ void EdgeTemperatureApp::on_runtime_applied(bool reset_integral) {
   if (reset_integral) {
     controller_.reset_integral();
   }
+  runtime_store_.save_current();
   print_runtime_config_snapshot();
 }
 
@@ -307,10 +309,10 @@ edge::domain::TelemetrySnapshot EdgeTemperatureApp::build_snapshot(
   snapshot.uptime_ms = now_ms;
   snapshot.target_temp_c = runtime_store_.current().target_temp_c;
   snapshot.measured_temp_c = feedback.temperature_c;
-  snapshot.sensor_temp_c = state_.sensor_temp_c;
+  snapshot.sensor_temp_c = feedback.temperature_c;
   snapshot.simulated_temp_c = state_.simulated_temp_c;
-  snapshot.sensor_valid = state_.sensor_valid;
-  snapshot.sensor_status = state_.sensor_valid ? "ok" : "invalid";
+  snapshot.sensor_valid = feedback.valid;
+  snapshot.sensor_status = feedback.valid ? "ok" : "invalid";
   snapshot.using_simulated_feedback =
       feedback.source == edge::domain::FeedbackSourceType::kSimulated;
   snapshot.control_period_ms = runtime_store_.current().control_period_ms;

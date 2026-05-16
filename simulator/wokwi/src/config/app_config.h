@@ -11,7 +11,7 @@
 namespace edge::config {
 
 struct ControlConfig {
-  float target_temp_c = 35.0f;
+  float target_temp_c = ProjectSecrets::kDefaultTargetTempC;
   float kp = 120.0f;
   float ki = 12.0f;
   float kd = 0.0f;

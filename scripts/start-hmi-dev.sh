@@ -6,6 +6,8 @@ BACKEND_DIR="$ROOT_DIR/hmi/backend"
 FRONTEND_DIR="$ROOT_DIR/hmi/frontend"
 PID_DIR="$ROOT_DIR/runtime/pids"
 LOG_DIR="$ROOT_DIR/runtime/logs/dev"
+DAEMONIZE="$ROOT_DIR/scripts/daemonize.py"
+TDENGINE_CFG_FILE="$ROOT_DIR/runtime/tdengine/taos.cfg"
 
 AI_PID_FILE="$PID_DIR/ai-runtime.pid"
 BACKEND_PID_FILE="$PID_DIR/hmi-backend.pid"
@@ -26,7 +28,7 @@ Usage:
   ./scripts/start-hmi-dev.sh [options]
 
 Options:
-  --with-docker   Start PostgreSQL via docker compose first.
+  --with-docker   Start HMI middleware via docker compose first: PostgreSQL, TDengine.
   --skip-install  Skip pip/npm install steps.
   --without-ai    Do not start standalone AI runtime service.
   --restart       Stop old processes then start fresh.
@@ -63,6 +65,54 @@ wait_http() {
     sleep "$delay"
   done
   return 1
+}
+
+container_status() {
+  local container="$1"
+  docker inspect -f '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$container" 2>/dev/null || echo "missing"
+}
+
+wait_container_healthy() {
+  local container="$1"
+  local retries="${2:-45}"
+  local delay="${3:-1}"
+  local i
+  local status
+  for ((i=1; i<=retries; i++)); do
+    status="$(container_status "$container")"
+    case "$status" in
+      running/healthy|running)
+        return 0
+        ;;
+    esac
+    sleep "$delay"
+  done
+  echo "[warn] $container not healthy yet: $(container_status "$container")"
+  return 1
+}
+
+ensure_tdengine_config() {
+  mkdir -p "$ROOT_DIR/runtime/tdengine/data" "$ROOT_DIR/runtime/tdengine/log"
+  if [[ -d "$TDENGINE_CFG_FILE" ]]; then
+    if rmdir "$TDENGINE_CFG_FILE" >/dev/null 2>&1; then
+      :
+    else
+      echo "[error] $TDENGINE_CFG_FILE is a non-empty directory; TDengine expects a config file there."
+      exit 1
+    fi
+  fi
+  if [[ ! -f "$TDENGINE_CFG_FILE" ]]; then
+    cat >"$TDENGINE_CFG_FILE" <<'EOF'
+fqdn localhost
+firstEp localhost:6030
+serverPort 6030
+timezone UTC
+locale en_US.UTF-8
+charset UTF-8
+logDir /var/log/taos
+dataDir /var/lib/taos
+EOF
+  fi
 }
 
 print_status() {
@@ -102,6 +152,8 @@ print_status() {
   else
     echo "  web-health: down"
   fi
+  echo "  postgres:   $(container_status edgehub-postgres)"
+  echo "  tdengine:   $(container_status edgehub-tdengine)"
 }
 
 for arg in "$@"; do
@@ -128,8 +180,12 @@ if [[ "$RESTART" -eq 1 ]]; then
 fi
 
 if [[ "$WITH_DOCKER" -eq 1 ]]; then
-  echo "[start] starting PostgreSQL docker service..."
+  echo "[start] starting HMI middleware docker services..."
+  ensure_tdengine_config
   (cd "$ROOT_DIR" && docker compose -f docker-compose.postgresql.yml up -d)
+  (cd "$ROOT_DIR" && docker compose -f docker-compose.tdengine.yml up -d)
+  wait_container_healthy "edgehub-postgres" 45 1 || true
+  wait_container_healthy "edgehub-tdengine" 60 1 || true
 fi
 
 if [[ "$WITH_AI" -eq 1 ]]; then
@@ -142,12 +198,11 @@ if [[ "$WITH_AI" -eq 1 ]]; then
     if [[ "$SKIP_INSTALL" -eq 0 ]]; then
       "$BACKEND_DIR/.venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt" >/dev/null
     fi
-    (
-      cd "$BACKEND_DIR/ai/scripts"
-      nohup "$BACKEND_DIR/.venv/bin/python" run_ai_service.py --host 127.0.0.1 --port 8010 \
-        >"$AI_LOG_FILE" 2>&1 &
-      echo $! >"$AI_PID_FILE"
-    )
+    python3 "$DAEMONIZE" \
+      --cwd "$BACKEND_DIR/ai/scripts" \
+      --pid-file "$AI_PID_FILE" \
+      --log-file "$AI_LOG_FILE" \
+      "$BACKEND_DIR/.venv/bin/python" run_ai_service.py --host 127.0.0.1 --port 8010
   else
     echo "[start] ai runtime already running (pid=$(cat "$AI_PID_FILE"))"
   fi
@@ -164,20 +219,19 @@ if [[ ! -f "$BACKEND_PID_FILE" ]]; then
   fi
   "$BACKEND_DIR/.venv/bin/python" "$BACKEND_DIR/scripts/db_migrate.py"
   "$BACKEND_DIR/.venv/bin/python" "$BACKEND_DIR/scripts/db_seed.py" --rules
-  (
-    cd "$BACKEND_DIR"
-    nohup env \
-      AI_RUNTIME_ENABLED="$([[ "$WITH_AI" -eq 1 ]] && echo true || echo false)" \
-      AI_RUNTIME_URL="http://127.0.0.1:8010" \
-      AI_RUNTIME_FAIL_OPEN="true" \
-      OPS_ENABLE_EXTERNAL_METRICS="true" \
-      OPS_RUNTIME_METRICS_URL="${OPS_RUNTIME_METRICS_URL:-http://127.0.0.1:8081/actuator/prometheus}" \
-      OPS_DATA_HUB_METRICS_URL="${OPS_DATA_HUB_METRICS_URL:-http://127.0.0.1:8081/actuator/prometheus}" \
-      OPS_METRICS_TIMEOUT_SECONDS="${OPS_METRICS_TIMEOUT_SECONDS:-2}" \
-      "$BACKEND_DIR/.venv/bin/uvicorn" app.main:app --host 127.0.0.1 --port 8000 \
-      >"$BACKEND_LOG_FILE" 2>&1 &
-    echo $! >"$BACKEND_PID_FILE"
-  )
+  python3 "$DAEMONIZE" \
+    --cwd "$BACKEND_DIR" \
+    --pid-file "$BACKEND_PID_FILE" \
+    --log-file "$BACKEND_LOG_FILE" \
+    env \
+    AI_RUNTIME_ENABLED="$([[ "$WITH_AI" -eq 1 ]] && echo true || echo false)" \
+    AI_RUNTIME_URL="http://127.0.0.1:8010" \
+    AI_RUNTIME_FAIL_OPEN="true" \
+    OPS_ENABLE_EXTERNAL_METRICS="true" \
+    OPS_RUNTIME_METRICS_URL="${OPS_RUNTIME_METRICS_URL:-http://127.0.0.1:8081/actuator/prometheus}" \
+    OPS_DATA_HUB_METRICS_URL="${OPS_DATA_HUB_METRICS_URL:-http://127.0.0.1:8081/actuator/prometheus}" \
+    OPS_METRICS_TIMEOUT_SECONDS="${OPS_METRICS_TIMEOUT_SECONDS:-2}" \
+    "$BACKEND_DIR/.venv/bin/uvicorn" app.main:app --host 127.0.0.1 --port 8000
 else
   echo "[start] backend already running (pid=$(cat "$BACKEND_PID_FILE"))"
 fi
@@ -188,12 +242,11 @@ if [[ ! -f "$FRONTEND_PID_FILE" ]]; then
   if [[ "$SKIP_INSTALL" -eq 0 ]]; then
     (cd "$FRONTEND_DIR" && npm install >/dev/null)
   fi
-  (
-    cd "$FRONTEND_DIR"
-    nohup npm run dev -- --host 127.0.0.1 --port 5173 \
-      >"$FRONTEND_LOG_FILE" 2>&1 &
-    echo $! >"$FRONTEND_PID_FILE"
-  )
+  python3 "$DAEMONIZE" \
+    --cwd "$FRONTEND_DIR" \
+    --pid-file "$FRONTEND_PID_FILE" \
+    --log-file "$FRONTEND_LOG_FILE" \
+    npm run dev -- --host 127.0.0.1 --port 5173
 else
   echo "[start] frontend already running (pid=$(cat "$FRONTEND_PID_FILE"))"
 fi
