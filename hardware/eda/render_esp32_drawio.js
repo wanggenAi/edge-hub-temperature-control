@@ -24,6 +24,7 @@ function parseArgs(argv) {
     dryRun: true,
     noCircuit: true,
     dd1Block: false,
+    resetLedBlock: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -33,6 +34,11 @@ function parseArgs(argv) {
     else if (arg === "--no-circuit") args.noCircuit = true;
     else if (arg === "--dd1-block") {
       args.dd1Block = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--reset-led-block") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -178,6 +184,14 @@ function findComponent(model, ref) {
   return (model.components || []).find((component) => component.ref === ref || component.source_ref === ref);
 }
 
+function requireComponent(model, ref) {
+  const component = findComponent(model, ref);
+  if (!component) {
+    throw new Error(`${ref} component missing from schematic_model.yaml`);
+  }
+  return component;
+}
+
 function selectedDd1Pins(component) {
   const selectedNumbers = new Set(["1", "2", "3", "24", "25", "30", "33", "34", "35", "38"]);
   return (component.pins || []).filter((pin) => selectedNumbers.has(String(pin.number)));
@@ -222,10 +236,7 @@ function generatedAttrs(component, pin = null) {
 }
 
 function buildDd1BlockCells(model, style) {
-  const component = findComponent(model, "DD1");
-  if (!component) {
-    throw new Error("DD1 component missing from schematic_model.yaml");
-  }
+  const component = requireComponent(model, "DD1");
   const pins = selectedDd1Pins(component);
   if (pins.length !== 10) {
     throw new Error(`DD1 checkpoint requires 10 selected pins, found ${pins.length}`);
@@ -238,7 +249,7 @@ function buildDd1BlockCells(model, style) {
   const valueFont = fontSize(style, "component_value_font_size", 30);
   const pinFont = fontSize(style, "pin_label_font_size", 30);
   const netFont = fontSize(style, "net_label_font_size", 15);
-  const body = { x: 960, y: 640, width: 420, height: 760 };
+  const body = { x: 940, y: 640, width: 420, height: 760 };
   const pinLength = 60;
   const wireLength = 140;
   const textHeight = 24;
@@ -379,6 +390,184 @@ function buildDd1BlockCells(model, style) {
   return cells;
 }
 
+function findPin(component, number) {
+  const pin = (component.pins || []).find((candidate) => String(candidate.number) === String(number));
+  if (!pin) {
+    throw new Error(`${component.ref} pin ${number} missing from schematic_model.yaml`);
+  }
+  return pin;
+}
+
+function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const bodyStroke = strokeWidth(style, "component_body_stroke_width", 1.9685);
+  const refFont = fontSize(style, "component_ref_font_size", 30);
+  const valueFont = fontSize(style, "component_value_font_size", 30);
+  const pinFont = fontSize(style, "pin_label_font_size", 30);
+  const netFont = fontSize(style, "net_label_font_size", 15);
+  const parent = options.parent || "generated.schematic.root";
+  const textHeight = options.textHeight || 24;
+  const pinLength = options.pinLength || 60;
+  const wireLength = options.wireLength || 90;
+  const cells = [
+    vertexCell({
+      id: `component.${component.ref}.body`,
+      parent,
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      role: "component_body",
+      attrs: generatedAttrs(component),
+      style: `rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=none;strokeWidth=${bodyStroke};`,
+    }),
+    textCell({
+      id: `component.${component.ref}.ref`,
+      parent,
+      value: component.ref,
+      x: box.x + box.width / 2 - 45,
+      y: box.y - 46,
+      width: 90,
+      height: 30,
+      role: "component_ref",
+      attrs: generatedAttrs(component),
+      fontSizeValue: refFont,
+    }),
+    textCell({
+      id: `component.${component.ref}.value`,
+      parent,
+      value: englishValue(component),
+      x: box.x + 10,
+      y: box.y + box.height + 14,
+      width: box.width - 20,
+      height: 30,
+      role: "component_value",
+      attrs: generatedAttrs(component),
+      fontSizeValue: valueFont,
+    }),
+  ];
+
+  for (const spec of pinSpecs) {
+    const pin = findPin(component, spec.number);
+    const side = spec.side || pin.side || "left";
+    const y = spec.y;
+    const isLeft = side === "left";
+    const bodyX = isLeft ? box.x : box.x + box.width;
+    const pinOuterX = isLeft ? bodyX - pinLength : bodyX + pinLength;
+    const wireOuterX = isLeft ? pinOuterX - wireLength : pinOuterX + wireLength;
+    const pinCenterX = (bodyX + pinOuterX) / 2;
+    const label = spec.label || pin.name;
+    const labelWidth = Math.max(72, String(label).length * 18);
+    const netWidth = Math.max(72, String(pin.net).length * 18);
+    const labelX = pinCenterX - labelWidth / 2;
+    const netLabelX = wireOuterX - netWidth / 2;
+    const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+    const attrs = generatedAttrs(component, { ...pin, name: label });
+    cells.push(
+      edgeCell({
+        id: `pin.${component.ref}.${xmlSafeId(label)}.${pin.number}`,
+        parent,
+        x1: isLeft ? pinOuterX : bodyX,
+        y1: y,
+        x2: isLeft ? bodyX : pinOuterX,
+        y2: y,
+        role: "pin",
+        attrs,
+        style: lineStyle,
+      }),
+      textCell({
+        id: `label.pin.${component.ref}.${xmlSafeId(label)}.${pin.number}`,
+        parent,
+        value: label,
+        x: labelX,
+        y: y - textHeight - 2,
+        width: labelWidth,
+        height: textHeight,
+        role: "pin_label",
+        attrs,
+        fontSizeValue: pinFont,
+      }),
+      edgeCell({
+        id: `wire.${component.ref}.${xmlSafeId(pin.net)}.${pin.number}`,
+        parent,
+        x1: isLeft ? wireOuterX : pinOuterX,
+        y1: y,
+        x2: isLeft ? pinOuterX : wireOuterX,
+        y2: y,
+        role: "wire",
+        attrs: {
+          "data-generated": "true",
+          "data-owner": "render_esp32_drawio.js",
+          "data-net": pin.net,
+          "data-source-net": pin.source_net || pin.net,
+          "data-zone": component.zone,
+          "data-ref": component.ref,
+          "data-source-ref": component.source_ref,
+          "data-pin": label,
+          "data-pin-number": pin.number,
+        },
+        style: lineStyle,
+      }),
+      textCell({
+        id: `netlabel.${component.ref}.${xmlSafeId(pin.net)}.${pin.number}`,
+        parent,
+        value: pin.net,
+        x: netLabelX,
+        y: y - textHeight - 6,
+        width: netWidth,
+        height: textHeight,
+        role: "net_label",
+        attrs: {
+          "data-generated": "true",
+          "data-owner": "render_esp32_drawio.js",
+          "data-net": pin.net,
+          "data-source-net": pin.source_net || pin.net,
+          "data-zone": component.zone,
+          "data-anchor-x": wireOuterX,
+          "data-anchor-y": y,
+        },
+        fontSizeValue: netFont,
+      })
+    );
+  }
+  return cells;
+}
+
+function englishValue(component) {
+  const overrides = {
+    R1: "10 kOhm",
+    R3: "330 Ohm",
+    SB1: "RESET button",
+    HL1: "Red LED",
+  };
+  return overrides[component.ref] || component.value || component.type || component.ref;
+}
+
+function buildResetLedBlockCells(model, style) {
+  const r1 = requireComponent(model, "R1");
+  const sb1 = requireComponent(model, "SB1");
+  const r3 = requireComponent(model, "R3");
+  const hl1 = requireComponent(model, "HL1");
+  const localStubOptions = { wireLength: 45 };
+  return [
+    ...buildComponentBoxCells(r1, { x: 360, y: 720, width: 210, height: 90 }, style, [
+      { number: "1", side: "left", y: 760, label: "+3V3" },
+      { number: "2", side: "right", y: 760, label: "EN" },
+    ], localStubOptions),
+    ...buildComponentBoxCells(sb1, { x: 360, y: 835, width: 210, height: 90 }, style, [
+      { number: "2", side: "right", y: 880, label: "EN" },
+    ], localStubOptions),
+    ...buildComponentBoxCells(r3, { x: 360, y: 1330, width: 210, height: 90 }, style, [
+      { number: "1", side: "left", y: 1370, label: "LED_A" },
+      { number: "2", side: "right", y: 1370, label: "+3V3" },
+    ], localStubOptions),
+    ...buildComponentBoxCells(hl1, { x: 360, y: 1460, width: 210, height: 90 }, style, [
+      { number: "1", side: "left", y: 1500, label: "LED" },
+      { number: "2", side: "right", y: 1500, label: "LED_A" },
+    ], localStubOptions),
+  ];
+}
+
 function xmlSafeId(value) {
   return String(value).replace(/[^A-Za-z0-9_.+-]+/g, "_");
 }
@@ -393,11 +582,24 @@ function buildDd1BlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
+function buildResetLedBlockDrawio(sourceText, lock, model, style) {
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const rootEnd = noCircuit.indexOf("</root>");
+  if (rootEnd < 0) {
+    throw new Error("Invalid generated draw.io XML: missing </root> element.");
+  }
+  const cells = [
+    ...buildDd1BlockCells(model, style),
+    ...buildResetLedBlockCells(model, style),
+  ].map((cell) => `        ${cell}`).join("\n");
+  return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
   const summary = {
-    mode: args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit"),
+    mode: args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")),
     sourceDrawio: args.sourceDrawio,
     outputDrawio: args.outputDrawio,
     componentCount: Array.isArray(model.components) ? model.components.length : 0,
@@ -415,18 +617,21 @@ function main() {
       netLabelFontSize: style.extracted?.net_label_font_size?.value,
     },
     dd1BlockRendered: args.dd1Block,
+    resetLedBlockRendered: args.resetLedBlock,
     finalCircuitRendered: false,
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.dd1Block
+    const generated = args.resetLedBlock
+      ? buildResetLedBlockDrawio(sourceText, lock, model, style)
+      : args.dd1Block
       ? buildDd1BlockDrawio(sourceText, lock, model, style)
       : buildNoCircuitDrawio(sourceText, lock);
     fs.writeFileSync(args.outputDrawio, generated, "utf8");
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.dd1Block ? "DD1 checkpoint only" : false,
+      middleCircuitRendered: args.resetLedBlock ? "DD1 + RESET/EN + LED status checkpoint only" : (args.dd1Block ? "DD1 checkpoint only" : false),
     };
   }
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

@@ -24,6 +24,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = ROOT / "hardware/eda/reserved_regions.lock.json"
 DEFAULT_CONFIG = ROOT / "hardware/eda/style_rules_from_drawio.yaml"
+DEFAULT_MODEL = ROOT / "hardware/eda/schematic_model.yaml"
 RESERVED_CONTAINER_ROLE = "reserved_container"
 
 
@@ -287,9 +288,10 @@ def round_box(box: tuple[float, float, float, float]) -> dict[str, float]:
 
 
 class VisualSchematicLint:
-    def __init__(self, model: DrawioModel, lock: dict[str, Any], config: dict[str, Any], mode: str = "strict") -> None:
+    def __init__(self, model: DrawioModel, lock: dict[str, Any], config: dict[str, Any], schematic_model: dict[str, Any] | None = None, mode: str = "strict") -> None:
         self.model = model
         self.lock = lock
+        self.schematic_model = schematic_model or {}
         self.mode = mode
         rules = config.get("quantified_visual_rules", config)
         self.connection_tol = float(rules.get("connection_tolerance_mm", 0.2))
@@ -297,6 +299,7 @@ class VisualSchematicLint:
         self.pin_label_offset_min = float(rules.get("pin_label_vertical_offset_min_mm", 1.0))
         self.pin_label_offset_max = float(rules.get("pin_label_vertical_offset_max_mm", 3.5))
         self.text_wire_clearance = float(rules.get("min_text_to_wire_clearance_mm", 0.5))
+        self.component_zone_tol = float(rules.get("component_zone_tolerance_mm", 0.5))
         self.findings: list[Finding] = []
         self.region_boxes: dict[str, tuple[float, float, float, float]] = {}
         self.locked_cell_ids = self.collect_locked_cell_ids()
@@ -311,6 +314,7 @@ class VisualSchematicLint:
         self.validate_connectivity()
         self.validate_pin_labels()
         self.validate_text_clearance()
+        self.validate_component_zones()
         self.validate_reserved_region_overlap()
         return self.findings
 
@@ -520,6 +524,43 @@ class VisualSchematicLint:
                 if segment_intersects_box(edge, box):
                     self.error(code, edge.id, f"Schematic line overlaps reserved {region_name} region", "no overlap", str(edge.bbox), *edge.center)
 
+    def validate_component_zones(self) -> None:
+        if self.mode != "generated":
+            return
+        zones = self.schematic_model.get("layout_zones", {})
+        if not isinstance(zones, dict) or not zones:
+            return
+        ref_to_zone: dict[str, tuple[str, dict[str, Any]]] = {}
+        for zone_name, zone in zones.items():
+            for ref in zone.get("refs", []):
+                ref_to_zone[ref] = (zone_name, zone)
+        for vertex in self.model.vertices:
+            if vertex.role != "component_body":
+                continue
+            ref = vertex.attrs.get("data-ref", "")
+            if not ref:
+                continue
+            zone_info = ref_to_zone.get(ref)
+            if not zone_info:
+                self.error("COMPONENT_ZONE_UNKNOWN", vertex.id, "Component ref is not assigned to a known layout zone", "ref in layout_zones", ref, *vertex.center)
+                continue
+            zone_name, zone = zone_info
+            expected = (
+                float(zone.get("x_min", -math.inf)) - self.component_zone_tol,
+                float(zone.get("y_min", -math.inf)) - self.component_zone_tol,
+                float(zone.get("x_max", math.inf)) + self.component_zone_tol,
+                float(zone.get("y_max", math.inf)) + self.component_zone_tol,
+            )
+            if not bbox_inside(vertex.bbox, expected):
+                self.error(
+                    "COMPONENT_ZONE_VIOLATION",
+                    vertex.id,
+                    f"Component body is outside its assigned {zone_name} layout zone",
+                    str(round_box(expected)),
+                    str(round_box(vertex.bbox)),
+                    *vertex.center,
+                )
+
     def wires(self) -> list[Edge]:
         return [edge for edge in self.model.edges if edge.role == "wire"]
 
@@ -533,6 +574,10 @@ def pin_binding_key(item: Vertex | Edge) -> tuple[str, str, str]:
         item.attrs.get("data-pin", ""),
         item.attrs.get("data-pin-number", ""),
     )
+
+
+def bbox_inside(inner: tuple[float, float, float, float], outer: tuple[float, float, float, float]) -> bool:
+    return inner[0] >= outer[0] and inner[1] >= outer[1] and inner[2] <= outer[2] and inner[3] <= outer[3]
 
 
 def write_reports(findings: list[Finding], reports_dir: Path, source: Path) -> None:
@@ -565,6 +610,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("source", type=Path)
     parser.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument("--schematic-model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--reports-dir", type=Path, default=ROOT / "build/reports")
     parser.add_argument("--mode", choices=("strict", "generated", "template"), default="strict", help="template mode checks locked regions only; strict/generated mode requires metadata for generated schematic objects.")
     return parser.parse_args()
@@ -579,9 +625,10 @@ def main() -> int:
         print(f"lock file missing: {args.lock_file}", file=sys.stderr)
         return 2
     config = read_jsonish(args.config) if args.config.exists() else {}
+    schematic_model = read_jsonish(args.schematic_model) if args.schematic_model.exists() else {}
     lock = read_jsonish(args.lock_file)
     model = DrawioModel(args.source)
-    findings = VisualSchematicLint(model, lock, config, mode=args.mode).run()
+    findings = VisualSchematicLint(model, lock, config, schematic_model=schematic_model, mode=args.mode).run()
     write_reports(findings, args.reports_dir, args.source)
     return 1 if any(f.severity == "error" for f in findings) else 0
 
