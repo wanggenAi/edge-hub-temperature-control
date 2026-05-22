@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-652b8f9
+83ee2f8
 
 ## Current Branch
 main
@@ -10,51 +10,54 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The current engineering focus is schematic normalization, confirmed reference-designator mapping, reproducible draw.io generation, and thesis-quality technical drawings.
 
 ## What Was Done In This Round
-- Generated the first DD1-only middle-circuit checkpoint in `hardware/eda/functiondiagramYUANLITU.generated.drawio`.
-- Rendered only the central `DD1` ESP32-WROOM-32 controller block.
-- Added a dedicated generated parent group:
-  - `generated.schematic.root`
-  - `data-role="schematic_root"`
-  - `data-generated="true"`
-- Rendered only these generated schematic objects:
-  - `component.DD1.body`
-  - `component.DD1.ref`
-  - `component.DD1.value`
-  - 10 DD1 pin edges
-  - 10 pin labels
-  - 10 short wire stubs
-  - 10 net labels
-- Did not render any other components:
-  - no R/C parts
-  - no connectors
-  - no VT1 / HL1 / SB1 / SB2 / A1
+- Continued from the accepted DD1-only checkpoint.
+- Generated the next incremental middle-circuit checkpoint in `hardware/eda/functiondiagramYUANLITU.generated.drawio`.
+- Rendered only:
+  - `DD1` ESP32-WROOM-32 controller
+  - `R1` RESET / EN pull-up resistor
+  - `SB1` RESET button
+  - `R3` LED resistor
+  - `HL1` status LED
+- Did not render other modules yet:
+  - no capacitors
+  - no sensor connector
+  - no UART connector
+  - no MOSFET / heater block
+  - no DC/DC power block
+  - no BOOT block
+- Used shared net labels and short local stubs first, instead of long wires across the sheet.
+- Kept generated schematic objects inside `generated.schematic.root` with role metadata.
+- Added reusable component-box rendering for left-side incremental blocks.
+- Added generated-mode component-zone lint against `schematic_model.yaml`.
+- Added tests for:
+  - RESET/EN + LED generated checkpoint passing lint
+  - component body outside its assigned layout zone failing lint
 - Did not export SVG/PDF/PNG in this round.
 - Preserved locked regions from `hardware/eda/functiondiagramYUANLITU.drawio`:
   - outer frame
   - right-top List of Elements
   - right-bottom Title Block
-- Kept locked region mxCells unchanged and continued to tag only required ancestor containers as `data-role="reserved_container"`.
-- Tightened generated lint metadata checks so generated cells require role-specific metadata.
-- Fixed pin-label binding to include `data-pin-number`, because DD1 has multiple `GND` pins.
+- Did not modify `hardware/eda/functiondiagramYUANLITU.drawio`.
 
 ## Files Changed
 - `hardware/eda/functiondiagramYUANLITU.generated.drawio`
 - `hardware/eda/render_esp32_drawio.js`
 - `tools/visual_schematic_lint.py`
 - `tests/test_visual_schematic_lint.py`
+- `docs/ai_handoff/latest_handoff.md`
 
 ## Validation Performed
 - `python3 -m pytest tests/test_visual_schematic_lint.py -q`
-  - Result: `13 passed`
+  - Result: `15 passed`
 - `python3 -m py_compile tools/visual_schematic_lint.py`
   - Result: passed
-- `node hardware/eda/render_esp32_drawio.js --dry-run --dd1-block`
-  - Result: passed; `dd1BlockRendered=true`; `finalCircuitRendered=false`
-- `node hardware/eda/render_esp32_drawio.js --write-output --dd1-block`
-  - Result: generated `hardware/eda/functiondiagramYUANLITU.generated.drawio`; `dd1BlockRendered=true`; `finalCircuitRendered=false`
+- `node hardware/eda/render_esp32_drawio.js --dry-run --reset-led-block`
+  - Result: passed; `dd1BlockRendered=true`; `resetLedBlockRendered=true`; `finalCircuitRendered=false`
+- `node hardware/eda/render_esp32_drawio.js --write-output --reset-led-block`
+  - Result: generated `hardware/eda/functiondiagramYUANLITU.generated.drawio`; `dd1BlockRendered=true`; `resetLedBlockRendered=true`; `finalCircuitRendered=false`
 - `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.drawio --mode template --reports-dir build/reports/template-check`
   - Result: passed
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-dd1-block`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-reset-led-block`
   - Result: passed
 - `git diff --quiet -- hardware/eda/functiondiagramYUANLITU.drawio`
   - Result: passed; source template was not modified
@@ -66,22 +69,24 @@ This project is `edge-hub-temperature-control`, used for graduation thesis and d
 
 ## Current Repository State Notes
 - `hardware/eda/functiondiagramYUANLITU.drawio` remains unmodified.
-- `hardware/eda/functiondiagramYUANLITU.generated.drawio` contains only the DD1 controller checkpoint in the middle schematic area.
+- `hardware/eda/functiondiagramYUANLITU.generated.drawio` contains only DD1 plus the left-side RESET/EN and LED status checkpoint.
 - No SVG/PDF/PNG export was generated in this round.
 - No KiCad ERC is expected for this draw.io-only workflow.
 - The working tree still contains unrelated uncommitted changes from other project areas.
 
 ## Open Questions For ChatGPT
-1. Is the DD1-only checkpoint acceptable as the first generated middle-circuit increment?
-2. Should the next phase add the left-side `RESET / EN` and `LED status` blocks, as previously suggested?
-3. For the next phase, should wires from R/SB/HL blocks connect directly to the DD1 stub endpoints, or should shared net labels be used first to avoid long wires?
-4. Should the lint now add stricter component-zone checks before adding more components?
+1. Is the RESET/EN + LED status checkpoint acceptable as the second generated middle-circuit increment?
+2. Should the next phase fix switch multi-pin modeling before rendering more blocks?
+3. `schematic_model.yaml` currently exposes `SB1` with only the parsed EN-side pin used by this checkpoint, while the original netlist also indicates a GND-side switch pin. Should the model parser be improved now so `SB1`/`SB2` include all physical switch pins before continuing?
+4. For local nets such as `LED_A`, should the renderer keep using short stubs plus shared net labels, or should it draw a short direct wire between `R3` and `HL1` in the next refinement?
+5. If accepted, should the next incremental block be `sensor + UART service connector`, or should the checkpoint first add decoupling capacitors near DD1?
 
 ## Risks / Uncertainties
 - The generated file still intentionally deletes the old manual middle-circuit objects; this is expected.
 - Locked region cells are preserved unchanged, but ancestor containers are tagged with metadata so strict lint can classify them.
-- The lint is still visual/geometric; it does not perform electrical ERC.
-- The next phase must not render the entire circuit at once. It should add one or two small functional blocks, lint, then continue.
+- The lint is visual/geometric; it does not perform electrical ERC.
+- `SB1` is intentionally rendered conservatively from the parsed model. The missing physical GND-side switch pin is not guessed in this checkpoint and needs model/parser confirmation.
+- The next phase should continue incrementally and should not render the entire circuit at once.
 
 ## Suggested Next Step
-Ask ChatGPT to review the DD1-only checkpoint. If accepted, the next Codex phase should add only the left-side RESET / EN and LED status blocks with role metadata, pin endpoints, pin labels above pin lines, and generated strict lint coverage. Do not render the full schematic yet.
+Ask ChatGPT to review commit `83ee2f8`. If accepted, the next Codex phase should either fix `SB1`/`SB2` multi-pin button modeling from the netlist or add only the next small functional block, depending on reviewer guidance.
