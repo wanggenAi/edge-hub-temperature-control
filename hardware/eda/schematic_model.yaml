@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "phase2_candidate_model_needs_ref_mapping_confirmation",
+  "status": "phase2_model_ref_mapping_confirmed",
   "source_files": {
     "epro2": "hardware/eda/ProPrj_edge_temperature_node_2026-05-22.epro2",
     "netlist": "hardware/eda/jlc_netlist_altium.tel",
@@ -286,11 +286,11 @@
       "footprint": "C0603"
     },
     {
-      "ref": "CN1",
+      "ref": "XS1",
       "source_ref": "CN1",
-      "type": "XH-3PA",
+      "type": "DS18B20 sensor connector",
       "value": "XH-3PA",
-      "zone": "unassigned",
+      "zone": "ds18b20_sensor_connector",
       "bbox": {
         "x": 380.0,
         "y": 365.0,
@@ -351,7 +351,8 @@
         }
       ],
       "source_package": "",
-      "footprint": "CONN-TH_3P-P2.50_ZHOURI_XH-3PA"
+      "footprint": "CONN-TH_3P-P2.50_ZHOURI_XH-3PA",
+      "description": "3-pin connector for DS18B20 sensor; confirmed as XS1."
     },
     {
       "ref": "HL1",
@@ -384,9 +385,9 @@
           }
         },
         {
-          "name": "LED_SERIES",
+          "name": "LED_A",
           "number": "2",
-          "net": "LED_SERIES",
+          "net": "LED_A",
           "source_net": "$1N18",
           "side": "right",
           "endpoint": {
@@ -418,9 +419,9 @@
       },
       "pins": [
         {
-          "name": "HEATER+",
+          "name": "HEAT+",
           "number": "1",
-          "net": "HEATER_PLUS",
+          "net": "HEAT+",
           "source_net": "$1N65",
           "side": "left",
           "endpoint": {
@@ -435,9 +436,9 @@
           }
         },
         {
-          "name": "HEATER-",
+          "name": "HEAT-",
           "number": "2",
-          "net": "HEATER_SW",
+          "net": "HEAT-",
           "source_net": "$1N29",
           "side": "left",
           "endpoint": {
@@ -453,7 +454,8 @@
         }
       ],
       "source_package": "",
-      "footprint": "CONN-TH_2P-P3.81_KF2EDGV-3.81-2P"
+      "footprint": "CONN-TH_2P-P3.81_KF2EDGV-3.81-2P",
+      "description": "Heater connector; confirmed as XS2."
     },
     {
       "ref": "XS3",
@@ -504,12 +506,13 @@
         }
       ],
       "source_package": "",
-      "footprint": "CONN-TH_2P-P3.81_KF2EDGV-3.81-2P"
+      "footprint": "CONN-TH_2P-P3.81_KF2EDGV-3.81-2P",
+      "description": "Power input connector; confirmed as XS3."
     },
     {
       "ref": "XS5",
       "source_ref": "J_TS1",
-      "type": "KF301-2P接线端子",
+      "type": "Thermal switch / heater safety terminal",
       "value": "KF301-2P接线端子",
       "zone": "mosfet_heater_driver",
       "bbox": {
@@ -537,9 +540,9 @@
           }
         },
         {
-          "name": "HEATER+",
+          "name": "HEAT+",
           "number": "2",
-          "net": "HEATER_PLUS",
+          "net": "HEAT+",
           "source_net": "$1N65",
           "side": "left",
           "endpoint": {
@@ -555,7 +558,8 @@
         }
       ],
       "source_package": "U3_buck U7 CONN-TH_XY301V-A-50-2P",
-      "footprint": "CONN-TH_XY301V-A-5.0-2P"
+      "footprint": "CONN-TH_XY301V-A-5.0-2P",
+      "description": "Independent 2-pin thermal switch / heater safety terminal; keep as XS5 unless explicitly excluded later."
     },
     {
       "ref": "VT1",
@@ -571,9 +575,9 @@
       },
       "pins": [
         {
-          "name": "G",
+          "name": "GATE_R",
           "number": "1",
-          "net": "GATE",
+          "net": "GATE_R",
           "source_net": "$1N24",
           "side": "left",
           "endpoint": {
@@ -607,7 +611,7 @@
         {
           "name": "D",
           "number": "3",
-          "net": "HEATER_SW",
+          "net": "HEAT-",
           "source_net": "$1N29",
           "side": "top",
           "endpoint": {
@@ -741,9 +745,9 @@
       },
       "pins": [
         {
-          "name": "LED_SERIES",
+          "name": "LED_A",
           "number": "1",
-          "net": "LED_SERIES",
+          "net": "LED_A",
           "source_net": "$1N18",
           "side": "left",
           "endpoint": {
@@ -792,9 +796,9 @@
       },
       "pins": [
         {
-          "name": "GATE_DRV",
+          "name": "GATE",
           "number": "1",
-          "net": "GATE_DRV",
+          "net": "GATE",
           "source_net": "$1N23",
           "side": "left",
           "endpoint": {
@@ -809,9 +813,9 @@
           }
         },
         {
-          "name": "GATE",
+          "name": "GATE_R",
           "number": "2",
-          "net": "GATE",
+          "net": "GATE_R",
           "source_net": "$1N24",
           "side": "right",
           "endpoint": {
@@ -843,9 +847,9 @@
       },
       "pins": [
         {
-          "name": "GATE",
+          "name": "GATE_R",
           "number": "1",
-          "net": "GATE",
+          "net": "GATE_R",
           "source_net": "$1N24",
           "side": "left",
           "endpoint": {
@@ -962,7 +966,7 @@
           }
         },
         {
-          "name": "3V3",
+          "name": "+3V3",
           "number": "2",
           "net": "+3V3",
           "source_net": "3V3",
@@ -1032,7 +1036,7 @@
         {
           "name": "IO18",
           "number": "30",
-          "net": "GATE_DRV",
+          "net": "GATE",
           "source_net": "$1N23",
           "side": "right",
           "endpoint": {
@@ -1100,7 +1104,7 @@
         {
           "name": "GND",
           "number": "38",
-          "net": "UART_GND",
+          "net": "GND",
           "source_net": "$1N39",
           "side": "right",
           "endpoint": {
@@ -1304,7 +1308,7 @@
         {
           "name": "GND",
           "number": "2",
-          "net": "UART_GND",
+          "net": "GND",
           "source_net": "$1N39",
           "side": "left",
           "endpoint": {
@@ -1354,7 +1358,8 @@
         }
       ],
       "source_package": "",
-      "footprint": "CONN-TH_4P-P5.00_HEADER45.08-4P"
+      "footprint": "CONN-TH_4P-P5.00_HEADER45.08-4P",
+      "description": "UART / service connector; confirmed as XS4."
     }
   ],
   "nets": [
@@ -1374,11 +1379,14 @@
           "source_ref": "U1",
           "pin_number": "33"
         }
-      ]
+      ],
+      "confirmed_net": "DQ",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N18",
-      "canonical_candidate": "LED_SERIES",
+      "canonical_candidate": "LED_A",
       "members": [
         {
           "source_ref": "D1",
@@ -1388,7 +1396,10 @@
           "source_ref": "R3",
           "pin_number": "1"
         }
-      ]
+      ],
+      "confirmed_net": "LED_A",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N21",
@@ -1402,11 +1413,14 @@
           "source_ref": "U1",
           "pin_number": "24"
         }
-      ]
+      ],
+      "confirmed_net": "LED",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N23",
-      "canonical_candidate": "GATE_DRV",
+      "canonical_candidate": "GATE",
       "members": [
         {
           "source_ref": "R4",
@@ -1416,11 +1430,14 @@
           "source_ref": "U1",
           "pin_number": "30"
         }
-      ]
+      ],
+      "confirmed_net": "GATE",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N24",
-      "canonical_candidate": "GATE",
+      "canonical_candidate": "GATE_R",
       "members": [
         {
           "source_ref": "Q1",
@@ -1434,11 +1451,14 @@
           "source_ref": "R5",
           "pin_number": "1"
         }
-      ]
+      ],
+      "confirmed_net": "GATE_R",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N29",
-      "canonical_candidate": "HEATER_SW",
+      "canonical_candidate": "HEAT-",
       "members": [
         {
           "source_ref": "J2_heater",
@@ -1448,11 +1468,14 @@
           "source_ref": "Q1",
           "pin_number": "3"
         }
-      ]
+      ],
+      "confirmed_net": "HEAT-",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N39",
-      "canonical_candidate": "UART_GND",
+      "canonical_candidate": "GND",
       "members": [
         {
           "source_ref": "U1",
@@ -1462,7 +1485,10 @@
           "source_ref": "U7",
           "pin_number": "2"
         }
-      ]
+      ],
+      "confirmed_net": "GND",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N42",
@@ -1476,7 +1502,10 @@
           "source_ref": "U7",
           "pin_number": "3"
         }
-      ]
+      ],
+      "confirmed_net": "RXD0",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N43",
@@ -1490,7 +1519,10 @@
           "source_ref": "U7",
           "pin_number": "4"
         }
-      ]
+      ],
+      "confirmed_net": "TXD0",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N55",
@@ -1508,11 +1540,14 @@
           "source_ref": "U4_boot",
           "pin_number": "1"
         }
-      ]
+      ],
+      "confirmed_net": "BOOT",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N65",
-      "canonical_candidate": "HEATER_PLUS",
+      "canonical_candidate": "HEAT+",
       "members": [
         {
           "source_ref": "J2_heater",
@@ -1522,7 +1557,10 @@
           "source_ref": "J_TS1",
           "pin_number": "2"
         }
-      ]
+      ],
+      "confirmed_net": "HEAT+",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "$1N8",
@@ -1540,7 +1578,10 @@
           "source_ref": "U3_reset",
           "pin_number": "2"
         }
-      ]
+      ],
+      "confirmed_net": "EN",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "J1_12V",
@@ -1566,7 +1607,10 @@
           "source_ref": "U3_buck",
           "pin_number": "1"
         }
-      ]
+      ],
+      "confirmed_net": "+12V",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "3V3",
@@ -1612,7 +1656,10 @@
           "source_ref": "U7",
           "pin_number": "1"
         }
-      ]
+      ],
+      "confirmed_net": "+3V3",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     },
     {
       "source_net": "GND",
@@ -1662,7 +1709,10 @@
           "source_ref": "U3_buck",
           "pin_number": "2"
         }
-      ]
+      ],
+      "confirmed_net": "GND",
+      "status": "confirmed",
+      "needs_human_confirmation": false
     }
   ],
   "bom": [
@@ -2009,5 +2059,23 @@
   "model_limitations": [
     "Pin endpoints and bboxes are provisional for Phase 2 modeling only; final renderer must wait for ref_mapping.yaml confirmation.",
     "Wires are intentionally not generated in Phase 2."
-  ]
+  ],
+  "ref_mapping_status": "confirmed_by_user",
+  "connector_numbering_policy": {
+    "strategy": "thesis semantic order with layout consistency",
+    "confirmed": true,
+    "refs": {
+      "XS1": "DS18B20 sensor connector",
+      "XS2": "Heater connector",
+      "XS3": "Power input connector",
+      "XS4": "UART / service connector",
+      "XS5": "Thermal switch / heater safety terminal"
+    },
+    "instruction": "Do not infer connector numbering from coordinates during rendering."
+  },
+  "excluded_components": {
+    "enabled": false,
+    "items": [],
+    "note": "No confirmed component is intentionally omitted at this stage; XS5/J_TS1 is retained."
+  }
 }
