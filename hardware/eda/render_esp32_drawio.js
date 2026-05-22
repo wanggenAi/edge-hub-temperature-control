@@ -2,9 +2,9 @@
 /*
  * Dry-run renderer skeleton for the ESP32 draw.io schematic workflow.
  *
- * This phase deliberately does not draw the final middle circuit. It only
- * proves that the renderer can read the confirmed model, style extraction, and
- * reserved-region lock before later rendering work begins.
+ * This phase deliberately does not draw the final middle circuit. In write
+ * mode it creates a no-circuit generated draw.io file that preserves only the
+ * locked template regions plus their parent containers.
  */
 
 const fs = require("fs");
@@ -81,6 +81,78 @@ function validateInputs(args) {
   return { model, style, lock };
 }
 
+function collectLockedIds(lock) {
+  const ids = new Set(["0", "1"]);
+  for (const region of Object.values(lock.regions || {})) {
+    for (const cellId of region.cell_ids || []) {
+      ids.add(cellId);
+    }
+  }
+  return ids;
+}
+
+function parseCells(sourceText) {
+  const cellRe = /<mxCell\b[^>]*\/>|<mxCell\b[\s\S]*?<\/mxCell>/g;
+  const cells = new Map();
+  let match;
+  while ((match = cellRe.exec(sourceText)) !== null) {
+    const xml = match[0];
+    const idMatch = xml.match(/\bid="([^"]+)"/);
+    if (!idMatch) continue;
+    const parentMatch = xml.match(/\bparent="([^"]+)"/);
+    cells.set(idMatch[1], {
+      id: idMatch[1],
+      parent: parentMatch ? parentMatch[1] : "",
+      xml,
+      index: match.index,
+    });
+  }
+  return cells;
+}
+
+function collectKeepIds(cells, lock) {
+  const keep = collectLockedIds(lock);
+  for (const cellId of Array.from(keep)) {
+    let cell = cells.get(cellId);
+    while (cell && cell.parent && !keep.has(cell.parent)) {
+      keep.add(cell.parent);
+      cell = cells.get(cell.parent);
+    }
+  }
+  return keep;
+}
+
+function addReservedContainerRole(xml, cellId) {
+  if (/\bdata-role="/.test(xml) || /\brole="/.test(xml)) {
+    return xml;
+  }
+  return xml.replace(
+    "<mxCell ",
+    `<mxCell data-role="${RESERVED_CONTAINER_ROLE}" data-generated="true" data-owner="renderer.no_circuit" `
+  );
+}
+
+const RESERVED_CONTAINER_ROLE = "reserved_container";
+
+function buildNoCircuitDrawio(sourceText, lock) {
+  const rootStart = sourceText.indexOf("<root>");
+  const rootEnd = sourceText.indexOf("</root>");
+  if (rootStart < 0 || rootEnd < 0) {
+    throw new Error("Invalid draw.io XML: missing <root> element.");
+  }
+  const cells = parseCells(sourceText);
+  const keepIds = collectKeepIds(cells, lock);
+  const lockedIds = collectLockedIds(lock);
+  const keptCells = Array.from(cells.values())
+    .filter((cell) => keepIds.has(cell.id))
+    .sort((a, b) => a.index - b.index)
+    .map((cell) => (cell.id === "0" || cell.id === "1" || lockedIds.has(cell.id) ? cell.xml : addReservedContainerRole(cell.xml, cell.id)));
+
+  const beforeRoot = sourceText.slice(0, rootStart + "<root>".length);
+  const afterRoot = sourceText.slice(rootEnd);
+  return `${beforeRoot}\n${keptCells.map((cell) => `        ${cell}`).join("\n")}\n      ${afterRoot}`;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
@@ -105,7 +177,14 @@ function main() {
     finalCircuitRendered: false,
   };
   if (args.writeOutput) {
-    fs.copyFileSync(args.sourceDrawio, args.outputDrawio);
+    const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
+    const generated = buildNoCircuitDrawio(sourceText, lock);
+    fs.writeFileSync(args.outputDrawio, generated, "utf8");
+    summary.generatedCellPolicy = {
+      lockedRegionCellsPreservedUnchanged: true,
+      lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
+      middleCircuitRendered: false,
+    };
   }
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 }

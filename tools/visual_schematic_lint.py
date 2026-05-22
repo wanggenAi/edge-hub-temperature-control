@@ -24,6 +24,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = ROOT / "hardware/eda/reserved_regions.lock.json"
 DEFAULT_CONFIG = ROOT / "hardware/eda/style_rules_from_drawio.yaml"
+RESERVED_CONTAINER_ROLE = "reserved_container"
 
 
 @dataclass
@@ -286,9 +287,10 @@ def round_box(box: tuple[float, float, float, float]) -> dict[str, float]:
 
 
 class VisualSchematicLint:
-    def __init__(self, model: DrawioModel, lock: dict[str, Any], config: dict[str, Any]) -> None:
+    def __init__(self, model: DrawioModel, lock: dict[str, Any], config: dict[str, Any], mode: str = "strict") -> None:
         self.model = model
         self.lock = lock
+        self.mode = mode
         rules = config.get("quantified_visual_rules", config)
         self.connection_tol = float(rules.get("connection_tolerance_mm", 0.2))
         self.pin_label_center_tol = float(rules.get("pin_label_center_tolerance_mm", 0.5))
@@ -297,9 +299,13 @@ class VisualSchematicLint:
         self.text_wire_clearance = float(rules.get("min_text_to_wire_clearance_mm", 0.5))
         self.findings: list[Finding] = []
         self.region_boxes: dict[str, tuple[float, float, float, float]] = {}
+        self.locked_cell_ids = self.collect_locked_cell_ids()
+        self.locked_ancestor_ids = self.collect_locked_ancestor_ids()
 
     def run(self) -> list[Finding]:
         self.validate_locked_regions()
+        if self.mode == "template":
+            return self.findings
         self.validate_role_metadata()
         self.validate_geometry()
         self.validate_connectivity()
@@ -307,6 +313,24 @@ class VisualSchematicLint:
         self.validate_text_clearance()
         self.validate_reserved_region_overlap()
         return self.findings
+
+    def collect_locked_cell_ids(self) -> set[str]:
+        locked: set[str] = set()
+        for region in self.lock.get("regions", {}).values():
+            locked.update(region.get("cell_ids", []))
+        return locked
+
+    def collect_locked_ancestor_ids(self) -> set[str]:
+        ancestors: set[str] = set()
+        for cell_id in self.locked_cell_ids:
+            cell = self.model.cells.get(cell_id)
+            while cell is not None:
+                parent = cell.get("parent", "")
+                if not parent or parent in {"0", "1"} or parent in self.locked_cell_ids:
+                    break
+                ancestors.add(parent)
+                cell = self.model.cells.get(parent)
+        return ancestors
 
     def error(self, code: str, object_id: str, message: str, expected: str = "", actual: str = "", x: float | None = None, y: float | None = None) -> None:
         self.findings.append(Finding(code=code, severity="error", object_id=object_id, message=message, expected=expected, actual=actual, x=x, y=y))
@@ -371,6 +395,7 @@ class VisualSchematicLint:
 
     def validate_role_metadata(self) -> None:
         allowed = {
+            RESERVED_CONTAINER_ROLE,
             "outer_frame",
             "element_list",
             "title_block",
@@ -385,6 +410,12 @@ class VisualSchematicLint:
             "junction",
         }
         for item in [*self.model.vertices, *self.model.edges]:
+            if item.id in self.locked_cell_ids:
+                continue
+            if item.id in self.locked_ancestor_ids:
+                if item.role != RESERVED_CONTAINER_ROLE:
+                    self.error("UNCLASSIFIED_OBJECT", item.id, "Locked-region ancestor container must be marked as reserved_container", RESERVED_CONTAINER_ROLE, item.role)
+                continue
             if not item.role:
                 self.error("UNCLASSIFIED_OBJECT", item.id, "mxCell is missing data-role metadata")
             elif item.role not in allowed:
@@ -506,6 +537,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--reports-dir", type=Path, default=ROOT / "build/reports")
+    parser.add_argument("--mode", choices=("strict", "generated", "template"), default="strict", help="template mode checks locked regions only; strict/generated mode requires metadata for generated schematic objects.")
     return parser.parse_args()
 
 
@@ -520,7 +552,8 @@ def main() -> int:
     config = read_jsonish(args.config) if args.config.exists() else {}
     lock = read_jsonish(args.lock_file)
     model = DrawioModel(args.source)
-    findings = VisualSchematicLint(model, lock, config).run()
+    lint_mode = "strict" if args.mode == "generated" else args.mode
+    findings = VisualSchematicLint(model, lock, config, mode=lint_mode).run()
     write_reports(findings, args.reports_dir, args.source)
     return 1 if any(f.severity == "error" for f in findings) else 0
 
