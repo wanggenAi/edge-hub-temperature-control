@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_EXPORT_DIR = ROOT / "hardware/eda/exports/preview"
 DEFAULT_REPORTS_DIR = ROOT / "build/reports/export-preview"
 DEFAULT_LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
+REQUIRED_DOCUMENT_CODE = "BSTU.241297.006"
 
 
 @dataclass
@@ -106,8 +107,8 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path) -> dict[s
     missing = [value for value in required if value not in visible_text]
     if missing:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing required drawing text", ", ".join(required), ", ".join(missing))
-    if not re.search(r"BSTU\.241297\.00\d", visible_text):
-        error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the BSTU document code text", "BSTU.241297.00x", "not found")
+    if REQUIRED_DOCUMENT_CODE not in visible_text:
+        error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the required BSTU document code text", REQUIRED_DOCUMENT_CODE, "not found")
     validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
 
     forbidden_refs = [
