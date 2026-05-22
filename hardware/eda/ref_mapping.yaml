@@ -1,0 +1,249 @@
+{
+  "source_files": {
+    "netlist": "hardware/eda/jlc_netlist_altium.tel",
+    "bom": "hardware/eda/jlc_schematic_bom.csv",
+    "svg": "hardware/eda/jlc_schematic_original.svg"
+  },
+  "status": "needs_human_confirmation",
+  "mappings": [
+    {
+      "source_ref": "C1",
+      "candidate_ref": "C1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Capacitor designator already matches"
+    },
+    {
+      "source_ref": "C2",
+      "candidate_ref": "C2",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Capacitor designator already matches"
+    },
+    {
+      "source_ref": "C3",
+      "candidate_ref": "C3",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Capacitor designator already matches"
+    },
+    {
+      "source_ref": "C4",
+      "candidate_ref": "C4",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Capacitor designator already matches"
+    },
+    {
+      "source_ref": "CN1",
+      "candidate_ref": "CN1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Capacitor designator already matches"
+    },
+    {
+      "source_ref": "D1",
+      "candidate_ref": "HL1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "LED indicator maps to HL"
+    },
+    {
+      "source_ref": "J_Power",
+      "candidate_ref": "XS3",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Power input connector maps to XS"
+    },
+    {
+      "source_ref": "J_TS1",
+      "candidate_ref": "XS5",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Additional 2-pin terminal maps to XS; function needs confirmation"
+    },
+    {
+      "source_ref": "J2_heater",
+      "candidate_ref": "XS2",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Heater connector maps to XS"
+    },
+    {
+      "source_ref": "Q1",
+      "candidate_ref": "VT1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "MOSFET/transistor maps to VT"
+    },
+    {
+      "source_ref": "R1",
+      "candidate_ref": "R1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Resistor designator already matches"
+    },
+    {
+      "source_ref": "R2",
+      "candidate_ref": "R2",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Resistor designator already matches"
+    },
+    {
+      "source_ref": "R3",
+      "candidate_ref": "R3",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Resistor designator already matches"
+    },
+    {
+      "source_ref": "R4",
+      "candidate_ref": "R4",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Resistor designator already matches"
+    },
+    {
+      "source_ref": "R5",
+      "candidate_ref": "R5",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Resistor designator already matches"
+    },
+    {
+      "source_ref": "R6",
+      "candidate_ref": "R6",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Resistor designator already matches"
+    },
+    {
+      "source_ref": "U1",
+      "candidate_ref": "DD1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "ESP32 module maps to digital device designator DD"
+    },
+    {
+      "source_ref": "U7",
+      "candidate_ref": "XS4",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "UART/service connector maps to XS"
+    },
+    {
+      "source_ref": "U4_boot",
+      "candidate_ref": "SB2",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Tactile boot button maps to SB"
+    },
+    {
+      "source_ref": "U3_buck",
+      "candidate_ref": "A1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "DC/DC buck module maps to assembly/module A"
+    },
+    {
+      "source_ref": "U3_reset",
+      "candidate_ref": "SB1",
+      "status": "candidate",
+      "needs_human_confirmation": true,
+      "reason": "Tactile reset button maps to SB"
+    }
+  ],
+  "net_name_candidates": [
+    {
+      "source_net": "$1N14",
+      "candidate_net": "DQ",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N18",
+      "candidate_net": "LED_SERIES",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N21",
+      "candidate_net": "LED",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N23",
+      "candidate_net": "GATE_DRV",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N24",
+      "candidate_net": "GATE",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N29",
+      "candidate_net": "HEATER_SW",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N39",
+      "candidate_net": "UART_GND",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N42",
+      "candidate_net": "RXD0",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N43",
+      "candidate_net": "TXD0",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N55",
+      "candidate_net": "BOOT",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N65",
+      "candidate_net": "HEATER_PLUS",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "$1N8",
+      "candidate_net": "EN",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "J1_12V",
+      "candidate_net": "+12V",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "3V3",
+      "candidate_net": "+3V3",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    },
+    {
+      "source_net": "GND",
+      "candidate_net": "GND",
+      "status": "candidate",
+      "needs_human_confirmation": true
+    }
+  ]
+}

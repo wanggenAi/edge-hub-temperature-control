@@ -1,0 +1,105 @@
+{
+  "source_file": "hardware/eda/functiondiagramYUANLITU.drawio",
+  "hash_algorithm": "sha256",
+  "coordinate_unit": "drawio_page_units",
+  "regions": {
+    "outer_frame": {
+      "name": "outer_frame",
+      "root_cell_id": "9fFKoBFG1QpCyvPkytq9-1",
+      "bbox": {
+        "x": 79.74,
+        "y": 7.74,
+        "width": 3211.2,
+        "height": 2322.83,
+        "right": 3290.94,
+        "bottom": 2330.57
+      },
+      "cell_ids": [
+        "9fFKoBFG1QpCyvPkytq9-1"
+      ],
+      "cell_count": 1,
+      "style_hash": "36e26a176feebbfdb34472b86c18fc16ff6700ff62a39e015c3b84c1efaabe41",
+      "geometry_hash": "79200cb02e88ccfb6083d22b982ed0c0e728cfdbff80a63455c37e4734550306",
+      "value_hash": "e187c8f529629bac3a3c7b0c28e078bccd8e4ba032f5064e54171bb4f6364d22",
+      "combined_hash": "14d6ae1a05c4edb07c792caf1e580723a5f2b3263ef7addb13d31d7834142566"
+    },
+    "element_list": {
+      "name": "element_list",
+      "root_cell_id": "Evo6jcjRQjkPnHUFUJlg-1",
+      "bbox": {
+        "x": 2558.18,
+        "y": 10.43,
+        "width": 730.0,
+        "height": 1260.0,
+        "right": 3288.18,
+        "bottom": 1270.43
+      },
+      "cell_ids": [
+        "Evo6jcjRQjkPnHUFUJlg-1"
+      ],
+      "cell_count": 1,
+      "style_hash": "d66a856e242d69e8ccf50153d27b96fca71e524b1961baad4183891f2e5916c0",
+      "geometry_hash": "0b049d87f2de29f260ef7646ce8a40fc741154ef68ef2cf4a2671f26b9b1e25f",
+      "value_hash": "683e43d6cc5189bfc9663f9623ced8ef748fbd491881a47fa79ae6bc1d0eb436",
+      "combined_hash": "8c961d09155a61bdd216361687e16c183a77da3327ebb82327650b46ebceb107"
+    },
+    "title_block": {
+      "name": "title_block",
+      "root_cell_id": "pFFQBGnBG81xobuCz_b_-1",
+      "bbox": {
+        "x": 2555.18,
+        "y": 2107.42,
+        "width": 733.786,
+        "height": 221.0,
+        "right": 3288.966,
+        "bottom": 2328.42
+      },
+      "cell_ids": [
+        "pFFQBGnBG81xobuCz_b_-1",
+        "pFFQBGnBG81xobuCz_b_-10",
+        "pFFQBGnBG81xobuCz_b_-11",
+        "pFFQBGnBG81xobuCz_b_-12",
+        "pFFQBGnBG81xobuCz_b_-13",
+        "pFFQBGnBG81xobuCz_b_-14",
+        "pFFQBGnBG81xobuCz_b_-15",
+        "pFFQBGnBG81xobuCz_b_-16",
+        "pFFQBGnBG81xobuCz_b_-17",
+        "pFFQBGnBG81xobuCz_b_-18",
+        "pFFQBGnBG81xobuCz_b_-19",
+        "pFFQBGnBG81xobuCz_b_-2",
+        "pFFQBGnBG81xobuCz_b_-20",
+        "pFFQBGnBG81xobuCz_b_-21",
+        "pFFQBGnBG81xobuCz_b_-22",
+        "pFFQBGnBG81xobuCz_b_-23",
+        "pFFQBGnBG81xobuCz_b_-24",
+        "pFFQBGnBG81xobuCz_b_-25",
+        "pFFQBGnBG81xobuCz_b_-26",
+        "pFFQBGnBG81xobuCz_b_-27",
+        "pFFQBGnBG81xobuCz_b_-28",
+        "pFFQBGnBG81xobuCz_b_-29",
+        "pFFQBGnBG81xobuCz_b_-3",
+        "pFFQBGnBG81xobuCz_b_-30",
+        "pFFQBGnBG81xobuCz_b_-31",
+        "pFFQBGnBG81xobuCz_b_-32",
+        "pFFQBGnBG81xobuCz_b_-33",
+        "pFFQBGnBG81xobuCz_b_-34",
+        "pFFQBGnBG81xobuCz_b_-35",
+        "pFFQBGnBG81xobuCz_b_-36",
+        "pFFQBGnBG81xobuCz_b_-37",
+        "pFFQBGnBG81xobuCz_b_-38",
+        "pFFQBGnBG81xobuCz_b_-39",
+        "pFFQBGnBG81xobuCz_b_-4",
+        "pFFQBGnBG81xobuCz_b_-5",
+        "pFFQBGnBG81xobuCz_b_-6",
+        "pFFQBGnBG81xobuCz_b_-7",
+        "pFFQBGnBG81xobuCz_b_-8",
+        "pFFQBGnBG81xobuCz_b_-9"
+      ],
+      "cell_count": 39,
+      "style_hash": "22b2b1a57fec3f6f9ccb89868831423e1b4014cfd221109428b226fe5ede5693",
+      "geometry_hash": "8c091364a357751e0c4035f46d134b63ee217062ba6dfc771511a4e1e6e1705b",
+      "value_hash": "56d643c1d0c13ced92263dcb01e3fd2ea4a70c297aeefc3e0130db80b805016b",
+      "combined_hash": "67f037b13b70b8c2df1438e999ab261151f578d0ba5a6fd3e58a1ca745724993"
+    }
+  }
+}

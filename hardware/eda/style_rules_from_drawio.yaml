@@ -1,0 +1,118 @@
+{
+  "source_file": "hardware/eda/functiondiagramYUANLITU.drawio",
+  "coordinate_unit": "drawio_page_units",
+  "page": {
+    "width": 3300.0,
+    "height": 2339.0,
+    "grid": "0",
+    "gridSize": 3.937
+  },
+  "extraction_method": "Parsed mxCell style, geometry, and text values from functiondiagramYUANLITU.drawio; median values are used as renderer defaults.",
+  "quantified_visual_rules": {
+    "connection_tolerance_mm": 0.2,
+    "pin_label_center_tolerance_mm": 0.5,
+    "pin_label_vertical_offset_min_mm": 1.0,
+    "pin_label_vertical_offset_max_mm": 3.5,
+    "min_text_to_wire_clearance_mm": 0.5,
+    "min_text_to_symbol_clearance_mm": 0.5,
+    "min_component_spacing_mm": 3.0,
+    "allowed_wire_angles_deg": [
+      0,
+      90
+    ],
+    "allowed_text_angles_deg": [
+      0
+    ]
+  },
+  "extracted": {
+    "wire_stroke_width": {
+      "value": 1.9685,
+      "samples": 168,
+      "min": 1.9685,
+      "max": 3.937
+    },
+    "component_body_stroke_width": {
+      "value": 1.9685,
+      "samples": 150,
+      "min": 1.9685,
+      "max": 3.937
+    },
+    "pin_length": {
+      "value": 52.40677811486876,
+      "samples": 23
+    },
+    "pin_spacing": {
+      "value": 7.625,
+      "samples": 133
+    },
+    "component_ref_font_size": {
+      "value": 30.0,
+      "samples": 51
+    },
+    "component_value_font_size": {
+      "value": 30.0,
+      "samples": 70
+    },
+    "pin_label_font_size": {
+      "value": 30.0,
+      "samples": 68
+    },
+    "net_label_font_size": {
+      "value": 15.0,
+      "samples": 5
+    },
+    "junction_dot_diameter": {
+      "value": 20.0,
+      "samples": 25,
+      "min": 19.685,
+      "max": 20.0
+    },
+    "text_clearance": {
+      "value": 0.5,
+      "source": "quantified visual rule min_text_to_wire_clearance_mm"
+    },
+    "reserved_region_bbox": {
+      "outer_frame": {
+        "x": 79.74,
+        "y": 7.74,
+        "width": 3211.2,
+        "height": 2322.83,
+        "right": 3290.94,
+        "bottom": 2330.57
+      },
+      "element_list": {
+        "x": 2558.18,
+        "y": 10.43,
+        "width": 730.0,
+        "height": 1260.0,
+        "right": 3288.18,
+        "bottom": 1270.43
+      },
+      "title_block": {
+        "x": 2555.18,
+        "y": 2107.42,
+        "width": 733.786,
+        "height": 221.0,
+        "right": 3288.966,
+        "bottom": 2328.42
+      }
+    }
+  },
+  "style_histograms": {
+    "stroke_width_counts": {
+      "1.9685": 484,
+      "3.937": 24,
+      "2.3621999999999996": 1
+    },
+    "font_size_counts": {
+      "30.0": 123,
+      "15.0": 43,
+      "20.0": 19,
+      "16.0": 4,
+      "8.0": 2,
+      "28.0": 1,
+      "24.0": 1,
+      "14.0": 1
+    }
+  }
+}
