@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lint preview exports produced from the generated draw.io schematic."""
+"""Lint SVG/PDF/PNG exports produced from the generated draw.io schematic."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_EXPORT_DIR = ROOT / "hardware/eda/exports/preview"
 DEFAULT_REPORTS_DIR = ROOT / "build/reports/export-preview"
 DEFAULT_LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
+DEFAULT_BASENAME = "functiondiagramYUANLITU.preview"
 REQUIRED_DOCUMENT_CODE = "BSTU.241297.006"
 
 
@@ -37,19 +38,19 @@ def error(findings: list[Finding], code: str, object_id: str, message: str, expe
     findings.append(Finding(code=code, severity="error", object_id=object_id, message=message, expected=expected, actual=actual))
 
 
-def validate_exists(path: Path, kind: str, findings: list[Finding]) -> bool:
+def validate_exists(path: Path, kind: str, findings: list[Finding], label: str) -> bool:
     if not path.exists():
-        error(findings, f"{kind.upper()}_MISSING", str(path), f"Missing preview {kind.upper()} export")
+        error(findings, f"{kind.upper()}_MISSING", str(path), f"Missing {label} {kind.upper()} export")
         return False
     if path.stat().st_size <= 0:
-        error(findings, f"{kind.upper()}_EMPTY", str(path), f"Preview {kind.upper()} export is empty", "> 0 bytes", "0 bytes")
+        error(findings, f"{kind.upper()}_EMPTY", str(path), f"{label.title()} {kind.upper()} export is empty", "> 0 bytes", "0 bytes")
         return False
     return True
 
 
-def validate_svg(path: Path, findings: list[Finding], lock_file: Path) -> dict[str, Any]:
+def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: str) -> dict[str, Any]:
     payload: dict[str, Any] = {"path": str(path), "exists": path.exists()}
-    if not validate_exists(path, "svg", findings):
+    if not validate_exists(path, "svg", findings, label):
         return payload
     text = path.read_text(encoding="utf-8", errors="ignore")
     payload["size_bytes"] = path.stat().st_size
@@ -214,9 +215,9 @@ def token_in_text(token: str, text: str) -> bool:
     return re.search(rf"(?<![A-Za-z0-9_.+-]){escaped}(?![A-Za-z0-9_.+-])", text) is not None
 
 
-def validate_png(path: Path, findings: list[Finding], min_width: int) -> dict[str, Any]:
+def validate_png(path: Path, findings: list[Finding], min_width: int, label: str) -> dict[str, Any]:
     payload: dict[str, Any] = {"path": str(path), "exists": path.exists()}
-    if not validate_exists(path, "png", findings):
+    if not validate_exists(path, "png", findings, label):
         return payload
     payload["size_bytes"] = path.stat().st_size
     with Image.open(path) as image:
@@ -225,9 +226,9 @@ def validate_png(path: Path, findings: list[Finding], min_width: int) -> dict[st
         payload["width_px"] = width
         payload["height_px"] = height
         if width < min_width:
-            error(findings, "PNG_TOO_SMALL", str(path), "Preview PNG width is below minimum", f">= {min_width}px", f"{width}px")
+            error(findings, "PNG_TOO_SMALL", str(path), f"{label.title()} PNG width is below minimum", f">= {min_width}px", f"{width}px")
         if height < 2000:
-            error(findings, "PNG_HEIGHT_TOO_SMALL", str(path), "Preview PNG height is below minimum for page preview", ">= 2000px", f"{height}px")
+            error(findings, "PNG_HEIGHT_TOO_SMALL", str(path), f"{label.title()} PNG height is below minimum for page export", ">= 2000px", f"{height}px")
 
         sample_pixels = image.get_flattened_data() if hasattr(image, "get_flattened_data") else image.getdata()
         total = 0
@@ -257,9 +258,9 @@ def validate_png(path: Path, findings: list[Finding], min_width: int) -> dict[st
     return payload
 
 
-def validate_pdf(path: Path, findings: list[Finding]) -> dict[str, Any]:
+def validate_pdf(path: Path, findings: list[Finding], label: str) -> dict[str, Any]:
     payload: dict[str, Any] = {"path": str(path), "exists": path.exists()}
-    if not validate_exists(path, "pdf", findings):
+    if not validate_exists(path, "pdf", findings, label):
         return payload
     payload["size_bytes"] = path.stat().st_size
     try:
@@ -297,25 +298,29 @@ def write_reports(findings: list[Finding], payload: dict[str, Any], reports_dir:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Lint preview SVG/PDF/PNG exports for the draw.io schematic.")
+    parser = argparse.ArgumentParser(description="Lint SVG/PDF/PNG exports for the draw.io schematic.")
     parser.add_argument("--export-dir", type=Path, default=DEFAULT_EXPORT_DIR)
+    parser.add_argument("--basename", default=DEFAULT_BASENAME)
     parser.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS_DIR)
     parser.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK_FILE)
     parser.add_argument("--min-png-width", type=int, default=3000)
+    parser.add_argument("--label", default="preview")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    svg = args.export_dir / "functiondiagramYUANLITU.preview.svg"
-    pdf = args.export_dir / "functiondiagramYUANLITU.preview.pdf"
-    png = args.export_dir / "functiondiagramYUANLITU.preview.png"
+    svg = args.export_dir / f"{args.basename}.svg"
+    pdf = args.export_dir / f"{args.basename}.pdf"
+    png = args.export_dir / f"{args.basename}.png"
     findings: list[Finding] = []
     payload = {
         "export_dir": str(args.export_dir),
-        "svg": validate_svg(svg, findings, args.lock_file),
-        "png": validate_png(png, findings, args.min_png_width),
-        "pdf": validate_pdf(pdf, findings),
+        "basename": args.basename,
+        "label": args.label,
+        "svg": validate_svg(svg, findings, args.lock_file, args.label),
+        "png": validate_png(png, findings, args.min_png_width, args.label),
+        "pdf": validate_pdf(pdf, findings, args.label),
     }
     write_reports(findings, payload, args.reports_dir)
     return 1 if any(f.severity == "error" for f in findings) else 0
