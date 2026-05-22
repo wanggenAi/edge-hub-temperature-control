@@ -268,6 +268,44 @@ def test_sensor_block_generated_copy_passes_generated_lint(tmp_path):
     assert payload["error_count"] == 0
 
 
+def test_uart_block_generated_copy_passes_generated_lint(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        [
+            "node",
+            str(RENDERER),
+            "--write-output",
+            "--uart-block",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    summary = json.loads(proc.stdout)
+    assert summary["dd1BlockRendered"] is True
+    assert summary["resetLedBlockRendered"] is True
+    assert summary["decouplingBlockRendered"] is True
+    assert summary["sensorBlockRendered"] is True
+    assert summary["uartBlockRendered"] is True
+    assert summary["finalCircuitRendered"] is False
+
+    generated_text = output.read_text(encoding="utf-8")
+    for required_ref in ("DD1", "R1", "SB1", "R3", "HL1", "C1", "C2", "R2", "XS1", "XS4"):
+        assert f'data-ref="{required_ref}"' in generated_text
+    for forbidden_ref in ("R4", "R5", "R6", "C3", "C4", "XS2", "XS3", "XS5", "VT1", "SB2", "A1"):
+        assert f'data-ref="{forbidden_ref}"' not in generated_text
+    for required_net in ("+3V3", "GND", "RXD0", "TXD0"):
+        assert f'data-net="{required_net}"' in generated_text
+    assert 'id="component.XS4.body"' in generated_text
+
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert payload["error_count"] == 0
+
+
 def test_component_zone_violation_fails(tmp_path):
     fixture = tmp_path / "bad_component_zone.drawio"
     fixture.write_text(
