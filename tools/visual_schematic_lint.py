@@ -299,7 +299,11 @@ class VisualSchematicLint:
         self.pin_label_offset_min = float(rules.get("pin_label_vertical_offset_min_mm", 1.0))
         self.pin_label_offset_max = float(rules.get("pin_label_vertical_offset_max_mm", 3.5))
         self.text_wire_clearance = float(rules.get("min_text_to_wire_clearance_mm", 0.5))
+        self.text_symbol_clearance = float(rules.get("min_text_to_symbol_clearance_mm", 0.5))
         self.component_zone_tol = float(rules.get("component_zone_tolerance_mm", 0.5))
+        self.component_spacing = float(rules.get("min_component_spacing_mm", 3.0))
+        self.forbidden_visible_refs = set(config.get("forbidden_visible_refs", []))
+        self.forbidden_net_names = set(config.get("forbidden_net_names", []))
         self.findings: list[Finding] = []
         self.region_boxes: dict[str, tuple[float, float, float, float]] = {}
         self.locked_cell_ids = self.collect_locked_cell_ids()
@@ -313,7 +317,9 @@ class VisualSchematicLint:
         self.validate_geometry()
         self.validate_connectivity()
         self.validate_pin_labels()
+        self.validate_text_policy()
         self.validate_text_clearance()
+        self.validate_component_spacing()
         self.validate_component_zones()
         self.validate_reserved_region_overlap()
         return self.findings
@@ -506,6 +512,39 @@ class VisualSchematicLint:
                 if segment_intersects_box(wire, text.bbox, self.text_wire_clearance):
                     self.error("TEXT_OVERLAPS_WIRE", text.id, "Text bbox touches or overlaps a wire clearance zone", f"> {self.text_wire_clearance} clearance", wire.id, *text.center)
                     break
+            for body in [v for v in self.model.vertices if v.role == "component_body" and v.attrs.get("data-ref") != text.attrs.get("data-ref")]:
+                if intersects(text.bbox, body.bbox, self.text_symbol_clearance):
+                    self.error("TEXT_OVERLAPS_SYMBOL", text.id, "Text bbox touches or overlaps another component symbol clearance zone", f"> {self.text_symbol_clearance} clearance", body.id, *text.center)
+                    break
+
+    def validate_text_policy(self) -> None:
+        for vertex in self.model.vertices:
+            if vertex.role not in {"component_ref", "component_value", "pin_label", "net_label"}:
+                continue
+            text = vertex.text
+            if text in self.forbidden_visible_refs:
+                self.error("STALE_VISIBLE_REF", vertex.id, "Visible text uses a source ref instead of a confirmed thesis ref", "confirmed thesis ref", text, *vertex.center)
+            if text in self.forbidden_net_names:
+                self.error("STALE_NET_NAME", vertex.id, "Visible text uses a stale net name instead of a canonical net name", "canonical net name", text, *vertex.center)
+        for edge in self.model.edges:
+            net = edge.net
+            if net in self.forbidden_net_names:
+                self.error("STALE_NET_NAME", edge.id, "Generated edge uses a stale net name instead of a canonical net name", "canonical net name", net, *edge.center)
+
+    def validate_component_spacing(self) -> None:
+        bodies = [v for v in self.model.vertices if v.role == "component_body"]
+        for index, first in enumerate(bodies):
+            for second in bodies[index + 1:]:
+                spacing = bbox_gap(first.bbox, second.bbox)
+                if spacing < self.component_spacing:
+                    self.error(
+                        "COMPONENT_SPACING_TOO_SMALL",
+                        f"{first.id},{second.id}",
+                        "Generated component bodies are closer than configured minimum spacing",
+                        f">= {self.component_spacing}",
+                        f"{spacing:.3f}",
+                        *first.center,
+                    )
 
     def validate_reserved_region_overlap(self) -> None:
         if not self.region_boxes:
@@ -578,6 +617,14 @@ def pin_binding_key(item: Vertex | Edge) -> tuple[str, str, str]:
 
 def bbox_inside(inner: tuple[float, float, float, float], outer: tuple[float, float, float, float]) -> bool:
     return inner[0] >= outer[0] and inner[1] >= outer[1] and inner[2] <= outer[2] and inner[3] <= outer[3]
+
+
+def bbox_gap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> float:
+    if intersects(a, b):
+        return 0.0
+    dx = max(b[0] - a[2], a[0] - b[2], 0.0)
+    dy = max(b[1] - a[3], a[1] - b[3], 0.0)
+    return math.hypot(dx, dy)
 
 
 def write_reports(findings: list[Finding], reports_dir: Path, source: Path) -> None:

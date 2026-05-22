@@ -8,6 +8,28 @@
     "gridSize": 3.937
   },
   "extraction_method": "Parsed mxCell style, geometry, and text values from functiondiagramYUANLITU.drawio; median values are used as renderer defaults.",
+  "forbidden_visible_refs": [
+    "CN1",
+    "U1",
+    "Q1",
+    "U3_reset",
+    "U4_boot",
+    "U3_buck",
+    "U7",
+    "J2_heater",
+    "J_TS1",
+    "J_Power"
+  ],
+  "forbidden_net_names": [
+    "3V3",
+    "+12 B",
+    "+12B",
+    "UART_GND",
+    "GATE_DRV",
+    "HEATER_PLUS",
+    "HEATER_SW",
+    "LED_SERIES"
+  ],
   "quantified_visual_rules": {
     "connection_tolerance_mm": 0.2,
     "pin_label_center_tolerance_mm": 0.5,

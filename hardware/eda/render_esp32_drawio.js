@@ -31,6 +31,7 @@ function parseArgs(argv) {
     bootBlock: false,
     heaterBlock: false,
     powerBlock: false,
+    layoutRefinement: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -96,6 +97,18 @@ function parseArgs(argv) {
       args.bootBlock = true;
       args.heaterBlock = true;
       args.powerBlock = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--layout-refinement") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
+      args.decouplingBlock = true;
+      args.sensorBlock = true;
+      args.uartBlock = true;
+      args.bootBlock = true;
+      args.heaterBlock = true;
+      args.powerBlock = true;
+      args.layoutRefinement = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -664,7 +677,7 @@ function buildPowerBlockCells(model, style) {
       { number: "1", side: "left", y: 1630, label: "+12V" },
       { number: "2", side: "left", y: 1685, label: "GND" },
     ], { pinLength: 50, wireLength: 45 }),
-    ...buildComponentBoxCells(a1, { x: 1870, y: 1530, width: 240, height: 180 }, style, [
+    ...buildComponentBoxCells(a1, { x: 1980, y: 1530, width: 240, height: 180 }, style, [
       { number: "1", side: "left", y: 1575, label: "+12V IN" },
       { number: "2", side: "left", y: 1620, label: "GND" },
       { number: "3", side: "left", y: 1665, label: "GND" },
@@ -688,7 +701,6 @@ function buildHeaterBlockCells(model, style) {
   const xs2 = requireComponent(model, "XS2");
   const xs5 = requireComponent(model, "XS5");
   const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
-  const netFont = fontSize(style, "net_label_font_size", 15);
   const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
   return [
     ...buildComponentBoxCells(r4, { x: 1660, y: 910, width: 150, height: 70 }, style, [
@@ -701,11 +713,11 @@ function buildHeaterBlockCells(model, style) {
     ], { pinLength: 50, wireLength: 45 }),
     ...buildComponentBoxCells(vt1, { x: 1940, y: 890, width: 150, height: 160 }, style, [
       { number: "1", side: "left", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false },
-      { number: "2", side: "right", y: 1025, label: "GND" },
+      { number: "2", side: "right", y: 1025, label: "GND", renderWire: false, renderNetLabel: false },
       { number: "3", side: "right", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },
     ], { pinLength: 40, wireLength: 45 }),
     ...buildComponentBoxCells(xs2, { x: 2175, y: 895, width: 75, height: 105 }, style, [
-      { number: "1", side: "left", y: 930, label: "HEAT+" },
+      { number: "1", side: "left", y: 930, label: "HEAT+", renderWire: false, renderNetLabel: false },
       { number: "2", side: "left", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },
     ], { pinLength: 40, wireLength: 45 }),
     ...buildComponentBoxCells(xs5, { x: 2150, y: 1085, width: 100, height: 100 }, style, [
@@ -772,26 +784,6 @@ function buildHeaterBlockCells(model, style) {
       y2: 985,
       style: lineStyle,
     }),
-    textCell({
-      id: "netlabel.local.HEAT-.VT1_XS2",
-      parent: "generated.schematic.root",
-      value: "HEAT-",
-      x: 2034,
-      y: 955,
-      width: 90,
-      height: 24,
-      role: "net_label",
-      attrs: {
-        "data-generated": "true",
-        "data-owner": "render_esp32_drawio.js",
-        "data-net": "HEAT-",
-        "data-source-net": "$1N29",
-        "data-zone": "mosfet_heater_driver",
-        "data-anchor-x": 2132.5,
-        "data-anchor-y": 985,
-      },
-      fontSizeValue: netFont,
-    }),
   ];
 }
 
@@ -800,9 +792,9 @@ function buildBootBlockCells(model, style) {
   const sb2 = requireComponent(model, "SB2");
   const localStubOptions = { wireLength: 45 };
   return [
-    ...buildComponentBoxCells(r6, { x: 1090, y: 1700, width: 210, height: 90 }, style, [
-      { number: "1", side: "right", y: 1740, label: "BOOT" },
-      { number: "2", side: "left", y: 1740, label: "+3V3" },
+    ...buildComponentBoxCells(r6, { x: 1090, y: 1670, width: 210, height: 90 }, style, [
+      { number: "1", side: "right", y: 1710, label: "BOOT" },
+      { number: "2", side: "left", y: 1710, label: "+3V3" },
     ], localStubOptions),
     ...buildComponentBoxCells(sb2, { x: 1090, y: 1810, width: 210, height: 90 }, style, [
       { number: "1", side: "right", y: 1855, label: "BOOT" },
@@ -864,9 +856,9 @@ function buildDecouplingBlockCells(model, style) {
   const c2 = requireComponent(model, "C2");
   const localStubOptions = { wireLength: 45 };
   return [
-    ...buildComponentBoxCells(c1, { x: 300, y: 300, width: 210, height: 90 }, style, [
-      { number: "1", side: "left", y: 340, label: "+3V3" },
-      { number: "2", side: "right", y: 340, label: "GND" },
+    ...buildComponentBoxCells(c1, { x: 300, y: 270, width: 210, height: 90 }, style, [
+      { number: "1", side: "left", y: 310, label: "+3V3" },
+      { number: "2", side: "right", y: 310, label: "GND" },
     ], localStubOptions),
     ...buildComponentBoxCells(c2, { x: 300, y: 420, width: 210, height: 90 }, style, [
       { number: "1", side: "left", y: 460, label: "+3V3" },
@@ -885,9 +877,9 @@ function buildResetLedBlockCells(model, style) {
   const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
   const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
   return [
-    ...buildComponentBoxCells(r1, { x: 360, y: 720, width: 210, height: 90 }, style, [
-      { number: "1", side: "left", y: 760, label: "+3V3" },
-      { number: "2", side: "right", y: 760, label: "EN" },
+    ...buildComponentBoxCells(r1, { x: 360, y: 690, width: 210, height: 90 }, style, [
+      { number: "1", side: "left", y: 730, label: "+3V3" },
+      { number: "2", side: "right", y: 730, label: "EN" },
     ], localStubOptions),
     ...buildComponentBoxCells(sb1, { x: 360, y: 835, width: 210, height: 90 }, style, [
       { number: "2", side: "right", y: 880, label: "EN" },
@@ -895,7 +887,7 @@ function buildResetLedBlockCells(model, style) {
     ], localStubOptions),
     ...buildComponentBoxCells(r3, { x: 250, y: 1330, width: 210, height: 90 }, style, [
       { number: "1", side: "right", y: 1370, label: "LED_A", labelWidth: 72, renderWire: false, renderNetLabel: false },
-      { number: "2", side: "right", y: 1370, label: "+3V3" },
+      { number: "2", side: "left", y: 1370, label: "+3V3" },
     ], ledLocalOptions),
     ...buildComponentBoxCells(hl1, { x: 550, y: 1330, width: 210, height: 190 }, style, [
       { number: "1", side: "left", y: 1500, label: "LED" },
@@ -1045,11 +1037,19 @@ function buildPowerBlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
+function buildLayoutRefinementDrawio(sourceText, lock, model, style) {
+  return buildPowerBlockDrawio(sourceText, lock, model, style);
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
+  const renderedStage = args.layoutRefinement
+    ? "middle_schematic_layout_refinement"
+    : (args.powerBlock ? "power-block-checkpoint" : (args.heaterBlock ? "heater-block-checkpoint" : (args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))))))));
   const summary = {
-    mode: args.powerBlock ? "power-block-checkpoint" : (args.heaterBlock ? "heater-block-checkpoint" : (args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))))))),
+    mode: renderedStage,
+    renderedStage,
     sourceDrawio: args.sourceDrawio,
     outputDrawio: args.outputDrawio,
     componentCount: Array.isArray(model.components) ? model.components.length : 0,
@@ -1074,11 +1074,17 @@ function main() {
     bootBlockRendered: args.bootBlock,
     heaterBlockRendered: args.heaterBlock,
     powerBlockRendered: args.powerBlock,
+    layoutRefinementRendered: args.layoutRefinement,
+    changedLayoutOnly: args.layoutRefinement,
+    generatedComponentsCount: args.layoutRefinement ? 21 : undefined,
     finalCircuitRendered: false,
+    exportedArtifacts: false,
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.powerBlock
+    const generated = args.layoutRefinement
+      ? buildLayoutRefinementDrawio(sourceText, lock, model, style)
+      : args.powerBlock
       ? buildPowerBlockDrawio(sourceText, lock, model, style)
       : args.heaterBlock
       ? buildHeaterBlockDrawio(sourceText, lock, model, style)
@@ -1099,7 +1105,9 @@ function main() {
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.powerBlock
+      middleCircuitRendered: args.layoutRefinement
+        ? "middle schematic layout refinement with all 21 confirmed components; no export artifacts"
+        : args.powerBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT + R4/R5/VT1/XS2/XS5 heater + A1/XS3/C3/C4 power checkpoint only"
         : args.heaterBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT + R4/R5/VT1/XS2/XS5 heater checkpoint only"

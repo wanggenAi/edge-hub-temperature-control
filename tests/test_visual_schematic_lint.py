@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -14,6 +15,21 @@ REAL_LOCK = ROOT / "hardware/eda/reserved_regions.lock.json"
 REAL_SOURCE = ROOT / "hardware/eda/functiondiagramYUANLITU.drawio"
 REAL_GENERATED = ROOT / "hardware/eda/functiondiagramYUANLITU.generated.drawio"
 RENDERER = ROOT / "hardware/eda/render_esp32_drawio.js"
+CONFIRMED_REFS = {
+    "DD1", "R1", "SB1", "R3", "HL1", "C1", "C2", "R2", "XS1", "XS4",
+    "R6", "SB2", "R4", "R5", "VT1", "XS2", "XS5", "A1", "XS3", "C3", "C4",
+}
+FORBIDDEN_VISIBLE_REFS = {
+    "CN1", "U1", "Q1", "U3_reset", "U4_boot", "U3_buck", "U7",
+    "J2_heater", "J_TS1", "J_Power",
+}
+REQUIRED_CANONICAL_NETS = {
+    "+3V3", "+12V", "GND", "EN", "LED", "LED_A", "DQ", "RXD0", "TXD0",
+    "BOOT", "GATE", "GATE_R", "HEAT+", "HEAT-",
+}
+FORBIDDEN_NET_NAMES = {
+    "3V3", "+12 B", "+12B", "UART_GND", "GATE_DRV", "HEATER_PLUS", "HEATER_SW", "LED_SERIES",
+}
 
 
 def run_lint(path: Path, tmp_path: Path, *, lock: Path = LOCK, mode: str = "strict"):
@@ -43,6 +59,14 @@ def run_lint(path: Path, tmp_path: Path, *, lock: Path = LOCK, mode: str = "stri
 
 def codes(payload: dict) -> set[str]:
     return {finding["code"] for finding in payload.get("findings", []) if finding["severity"] == "error"}
+
+
+def visible_values(drawio_text: str) -> set[str]:
+    return set(re.findall(r'<mxCell\b[^>]*\bvalue="([^"]*)"', drawio_text))
+
+
+def component_body_refs(drawio_text: str) -> set[str]:
+    return set(re.findall(r'data-role="component_body"[^>]*data-ref="([^"]+)"', drawio_text))
 
 
 def assert_fails(path_name: str, tmp_path: Path, *expected_codes: str):
@@ -431,6 +455,166 @@ def test_power_block_generated_copy_passes_generated_lint(tmp_path):
     assert 'id="component.C4.body"' in generated_text
     assert 'data-pin-number="3"' in generated_text
 
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert payload["error_count"] == 0
+
+
+def test_layout_refinement_contains_exact_confirmed_components(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        [
+            "node",
+            str(RENDERER),
+            "--write-output",
+            "--layout-refinement",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    summary = json.loads(proc.stdout)
+    assert summary["renderedStage"] == "middle_schematic_layout_refinement"
+    assert summary["layoutRefinementRendered"] is True
+    assert summary["finalCircuitRendered"] is False
+    assert summary["changedLayoutOnly"] is True
+    assert summary["generatedComponentsCount"] == 21
+    assert summary["exportedArtifacts"] is False
+
+    generated_text = output.read_text(encoding="utf-8")
+    assert component_body_refs(generated_text) == CONFIRMED_REFS
+    assert len(component_body_refs(generated_text)) == 21
+
+
+def test_layout_refinement_contains_no_source_ref_as_displayed_ref(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    values = visible_values(output.read_text(encoding="utf-8"))
+    assert values.isdisjoint(FORBIDDEN_VISIBLE_REFS)
+
+
+def test_layout_refinement_contains_required_canonical_nets(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    generated_text = output.read_text(encoding="utf-8")
+    for net in REQUIRED_CANONICAL_NETS:
+        assert f'data-net="{net}"' in generated_text
+
+
+def test_layout_refinement_rejects_stale_net_names(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    generated_text = output.read_text(encoding="utf-8")
+    values = visible_values(generated_text)
+    assert values.isdisjoint(FORBIDDEN_NET_NAMES)
+    for net in FORBIDDEN_NET_NAMES:
+        assert f'data-net="{net}"' not in generated_text
+
+
+def test_layout_refinement_generated_objects_outside_reserved_regions(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert not (codes(payload) & {"SCHEMATIC_OVERLAPS_ELEMENT_LIST", "SCHEMATIC_OVERLAPS_TITLE_BLOCK"})
+
+
+def test_layout_refinement_no_text_overlaps_wire(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert "TEXT_OVERLAPS_WIRE" not in codes(payload)
+
+
+def test_layout_refinement_no_diagonal_wires(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert "DIAGONAL_WIRE" not in codes(payload)
+
+
+def test_layout_refinement_source_template_unchanged(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    before = REAL_SOURCE.read_text(encoding="utf-8")
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    after = REAL_SOURCE.read_text(encoding="utf-8")
+    assert before == after
+
+
+def test_layout_refinement_does_not_export_svg_pdf_png(tmp_path):
+    before = set(ROOT.joinpath("hardware/eda").glob("functiondiagramYUANLITU*.svg"))
+    before |= set(ROOT.joinpath("hardware/eda").glob("functiondiagramYUANLITU*.pdf"))
+    before |= set(ROOT.joinpath("hardware/eda").glob("functiondiagramYUANLITU*.png"))
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    after = set(ROOT.joinpath("hardware/eda").glob("functiondiagramYUANLITU*.svg"))
+    after |= set(ROOT.joinpath("hardware/eda").glob("functiondiagramYUANLITU*.pdf"))
+    after |= set(ROOT.joinpath("hardware/eda").glob("functiondiagramYUANLITU*.png"))
+    assert after == before
+
+
+def test_layout_refinement_generated_lint_passes(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
     lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
     assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
     assert payload["error_count"] == 0
