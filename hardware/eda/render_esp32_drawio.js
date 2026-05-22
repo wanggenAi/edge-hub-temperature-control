@@ -26,6 +26,7 @@ function parseArgs(argv) {
     dd1Block: false,
     resetLedBlock: false,
     decouplingBlock: false,
+    sensorBlock: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -46,6 +47,13 @@ function parseArgs(argv) {
       args.dd1Block = true;
       args.resetLedBlock = true;
       args.decouplingBlock = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--sensor-block") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
+      args.decouplingBlock = true;
+      args.sensorBlock = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -583,11 +591,48 @@ function englishValue(component) {
     C1: "0.1 uF",
     C2: "10 uF",
     R1: "10 kOhm",
+    R2: "4.7 kOhm",
     R3: "330 Ohm",
     SB1: "RESET button",
     HL1: "Red LED",
+    XS1: "XH-3PA",
   };
   return overrides[component.ref] || component.value || component.type || component.ref;
+}
+
+function buildSensorBlockCells(model, style) {
+  const r2 = requireComponent(model, "R2");
+  const xs1 = requireComponent(model, "XS1");
+  const localStubOptions = { wireLength: 45 };
+  const localDqOptions = { wireLength: 45, pinLength: 60 };
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+  return [
+    ...buildComponentBoxCells(r2, { x: 1640, y: 305, width: 210, height: 90 }, style, [
+      { number: "1", side: "right", y: 350, label: "DQ", renderWire: false, renderNetLabel: false },
+      { number: "2", side: "left", y: 350, label: "+3V3" },
+    ], localDqOptions),
+    ...buildComponentBoxCells(xs1, { x: 1990, y: 270, width: 210, height: 170 }, style, [
+      { number: "1", side: "right", y: 310, label: "GND" },
+      { number: "2", side: "left", y: 350, label: "DQ", renderWire: false, renderNetLabel: false },
+      { number: "3", side: "right", y: 390, label: "+3V3" },
+    ], localStubOptions),
+    buildLocalWire({
+      id: "wire.local.DQ.R2_XS1",
+      net: "DQ",
+      sourceNet: "$1N14",
+      zone: "ds18b20_sensor_connector",
+      ref: "R2_XS1",
+      sourceRef: "R2_CN1",
+      pin: "DQ",
+      pinNumber: "1_2",
+      x1: 1910,
+      y1: 350,
+      x2: 1930,
+      y2: 350,
+      style: lineStyle,
+    }),
+  ];
 }
 
 function buildDecouplingBlockCells(model, style) {
@@ -691,11 +736,26 @@ function buildDecouplingBlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
+function buildSensorBlockDrawio(sourceText, lock, model, style) {
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const rootEnd = noCircuit.indexOf("</root>");
+  if (rootEnd < 0) {
+    throw new Error("Invalid generated draw.io XML: missing </root> element.");
+  }
+  const cells = [
+    ...buildDd1BlockCells(model, style),
+    ...buildResetLedBlockCells(model, style),
+    ...buildDecouplingBlockCells(model, style),
+    ...buildSensorBlockCells(model, style),
+  ].map((cell) => `        ${cell}`).join("\n");
+  return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
   const summary = {
-    mode: args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit"))),
+    mode: args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))),
     sourceDrawio: args.sourceDrawio,
     outputDrawio: args.outputDrawio,
     componentCount: Array.isArray(model.components) ? model.components.length : 0,
@@ -715,11 +775,14 @@ function main() {
     dd1BlockRendered: args.dd1Block,
     resetLedBlockRendered: args.resetLedBlock,
     decouplingBlockRendered: args.decouplingBlock,
+    sensorBlockRendered: args.sensorBlock,
     finalCircuitRendered: false,
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.decouplingBlock
+    const generated = args.sensorBlock
+      ? buildSensorBlockDrawio(sourceText, lock, model, style)
+      : args.decouplingBlock
       ? buildDecouplingBlockDrawio(sourceText, lock, model, style)
       : args.resetLedBlock
       ? buildResetLedBlockDrawio(sourceText, lock, model, style)
@@ -730,7 +793,9 @@ function main() {
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.decouplingBlock
+      middleCircuitRendered: args.sensorBlock
+        ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor checkpoint only"
+        : args.decouplingBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling checkpoint only"
         : (args.resetLedBlock ? "DD1 + RESET/EN + LED status checkpoint only" : (args.dd1Block ? "DD1 checkpoint only" : false)),
     };
