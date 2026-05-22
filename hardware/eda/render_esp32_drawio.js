@@ -30,6 +30,7 @@ function parseArgs(argv) {
     uartBlock: false,
     bootBlock: false,
     heaterBlock: false,
+    powerBlock: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -84,6 +85,17 @@ function parseArgs(argv) {
       args.uartBlock = true;
       args.bootBlock = true;
       args.heaterBlock = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--power-block") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
+      args.decouplingBlock = true;
+      args.sensorBlock = true;
+      args.uartBlock = true;
+      args.bootBlock = true;
+      args.heaterBlock = true;
+      args.powerBlock = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -620,6 +632,9 @@ function englishValue(component) {
   const overrides = {
     C1: "0.1 uF",
     C2: "10 uF",
+    C3: "100 uF",
+    C4: "0.1 uF",
+    A1: "DC/DC 12V to 3.3V",
     R1: "10 kOhm",
     R2: "4.7 kOhm",
     R3: "330 Ohm",
@@ -632,10 +647,38 @@ function englishValue(component) {
     VT1: "NMOS3400",
     XS2: "Heater",
     XS1: "XH-3PA",
+    XS3: "Power input",
     XS4: "UART service",
     XS5: "Thermal switch",
   };
   return overrides[component.ref] || component.value || component.type || component.ref;
+}
+
+function buildPowerBlockCells(model, style) {
+  const a1 = requireComponent(model, "A1");
+  const xs3 = requireComponent(model, "XS3");
+  const c3 = requireComponent(model, "C3");
+  const c4 = requireComponent(model, "C4");
+  return [
+    ...buildComponentBoxCells(xs3, { x: 1600, y: 1595, width: 165, height: 105 }, style, [
+      { number: "1", side: "left", y: 1630, label: "+12V" },
+      { number: "2", side: "left", y: 1685, label: "GND" },
+    ], { pinLength: 50, wireLength: 45 }),
+    ...buildComponentBoxCells(a1, { x: 1870, y: 1530, width: 240, height: 180 }, style, [
+      { number: "1", side: "left", y: 1575, label: "+12V IN" },
+      { number: "2", side: "left", y: 1620, label: "GND" },
+      { number: "3", side: "left", y: 1665, label: "GND" },
+      { number: "4", side: "right", y: 1710, label: "+3V3 OUT" },
+    ], { pinLength: 50, wireLength: 45 }),
+    ...buildComponentBoxCells(c3, { x: 1600, y: 1770, width: 165, height: 70 }, style, [
+      { number: "1", side: "left", y: 1810, label: "GND" },
+      { number: "2", side: "right", y: 1810, label: "+12V" },
+    ], { pinLength: 50, wireLength: 45 }),
+    ...buildComponentBoxCells(c4, { x: 1935, y: 1770, width: 165, height: 70 }, style, [
+      { number: "1", side: "left", y: 1810, label: "GND" },
+      { number: "2", side: "right", y: 1810, label: "+12V" },
+    ], { pinLength: 50, wireLength: 45 }),
+  ];
 }
 
 function buildHeaterBlockCells(model, style) {
@@ -983,11 +1026,30 @@ function buildHeaterBlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
+function buildPowerBlockDrawio(sourceText, lock, model, style) {
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const rootEnd = noCircuit.indexOf("</root>");
+  if (rootEnd < 0) {
+    throw new Error("Invalid generated draw.io XML: missing </root> element.");
+  }
+  const cells = [
+    ...buildDd1BlockCells(model, style),
+    ...buildResetLedBlockCells(model, style),
+    ...buildDecouplingBlockCells(model, style),
+    ...buildSensorBlockCells(model, style),
+    ...buildUartBlockCells(model, style),
+    ...buildBootBlockCells(model, style),
+    ...buildHeaterBlockCells(model, style),
+    ...buildPowerBlockCells(model, style),
+  ].map((cell) => `        ${cell}`).join("\n");
+  return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
   const summary = {
-    mode: args.heaterBlock ? "heater-block-checkpoint" : (args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit"))))))),
+    mode: args.powerBlock ? "power-block-checkpoint" : (args.heaterBlock ? "heater-block-checkpoint" : (args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))))))),
     sourceDrawio: args.sourceDrawio,
     outputDrawio: args.outputDrawio,
     componentCount: Array.isArray(model.components) ? model.components.length : 0,
@@ -1011,11 +1073,14 @@ function main() {
     uartBlockRendered: args.uartBlock,
     bootBlockRendered: args.bootBlock,
     heaterBlockRendered: args.heaterBlock,
+    powerBlockRendered: args.powerBlock,
     finalCircuitRendered: false,
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.heaterBlock
+    const generated = args.powerBlock
+      ? buildPowerBlockDrawio(sourceText, lock, model, style)
+      : args.heaterBlock
       ? buildHeaterBlockDrawio(sourceText, lock, model, style)
       : args.bootBlock
       ? buildBootBlockDrawio(sourceText, lock, model, style)
@@ -1034,7 +1099,9 @@ function main() {
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.heaterBlock
+      middleCircuitRendered: args.powerBlock
+        ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT + R4/R5/VT1/XS2/XS5 heater + A1/XS3/C3/C4 power checkpoint only"
+        : args.heaterBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT + R4/R5/VT1/XS2/XS5 heater checkpoint only"
         : args.bootBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT checkpoint only"
