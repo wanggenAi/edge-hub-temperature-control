@@ -28,6 +28,7 @@ function parseArgs(argv) {
     decouplingBlock: false,
     sensorBlock: false,
     uartBlock: false,
+    bootBlock: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -63,6 +64,15 @@ function parseArgs(argv) {
       args.decouplingBlock = true;
       args.sensorBlock = true;
       args.uartBlock = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--boot-block") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
+      args.decouplingBlock = true;
+      args.sensorBlock = true;
+      args.uartBlock = true;
+      args.bootBlock = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -602,12 +612,30 @@ function englishValue(component) {
     R1: "10 kOhm",
     R2: "4.7 kOhm",
     R3: "330 Ohm",
+    R6: "10 kOhm",
     SB1: "RESET button",
+    SB2: "BOOT button",
     HL1: "Red LED",
     XS1: "XH-3PA",
     XS4: "UART service",
   };
   return overrides[component.ref] || component.value || component.type || component.ref;
+}
+
+function buildBootBlockCells(model, style) {
+  const r6 = requireComponent(model, "R6");
+  const sb2 = requireComponent(model, "SB2");
+  const localStubOptions = { wireLength: 45 };
+  return [
+    ...buildComponentBoxCells(r6, { x: 1090, y: 1700, width: 210, height: 90 }, style, [
+      { number: "1", side: "right", y: 1740, label: "BOOT" },
+      { number: "2", side: "left", y: 1740, label: "+3V3" },
+    ], localStubOptions),
+    ...buildComponentBoxCells(sb2, { x: 1090, y: 1810, width: 210, height: 90 }, style, [
+      { number: "1", side: "right", y: 1855, label: "BOOT" },
+      { number: "3", side: "left", y: 1855, label: "GND" },
+    ], localStubOptions),
+  ];
 }
 
 function buildUartBlockCells(model, style) {
@@ -790,11 +818,28 @@ function buildUartBlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
+function buildBootBlockDrawio(sourceText, lock, model, style) {
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const rootEnd = noCircuit.indexOf("</root>");
+  if (rootEnd < 0) {
+    throw new Error("Invalid generated draw.io XML: missing </root> element.");
+  }
+  const cells = [
+    ...buildDd1BlockCells(model, style),
+    ...buildResetLedBlockCells(model, style),
+    ...buildDecouplingBlockCells(model, style),
+    ...buildSensorBlockCells(model, style),
+    ...buildUartBlockCells(model, style),
+    ...buildBootBlockCells(model, style),
+  ].map((cell) => `        ${cell}`).join("\n");
+  return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
   const summary = {
-    mode: args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit"))))),
+    mode: args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))))),
     sourceDrawio: args.sourceDrawio,
     outputDrawio: args.outputDrawio,
     componentCount: Array.isArray(model.components) ? model.components.length : 0,
@@ -816,11 +861,14 @@ function main() {
     decouplingBlockRendered: args.decouplingBlock,
     sensorBlockRendered: args.sensorBlock,
     uartBlockRendered: args.uartBlock,
+    bootBlockRendered: args.bootBlock,
     finalCircuitRendered: false,
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.uartBlock
+    const generated = args.bootBlock
+      ? buildBootBlockDrawio(sourceText, lock, model, style)
+      : args.uartBlock
       ? buildUartBlockDrawio(sourceText, lock, model, style)
       : args.sensorBlock
       ? buildSensorBlockDrawio(sourceText, lock, model, style)
@@ -835,7 +883,9 @@ function main() {
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.uartBlock
+      middleCircuitRendered: args.bootBlock
+        ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT checkpoint only"
+        : args.uartBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service checkpoint only"
         : args.sensorBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor checkpoint only"
