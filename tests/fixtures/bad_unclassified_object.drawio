@@ -1,0 +1,14 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="bad-unclassified" name="bad-unclassified">
+    <mxGraphModel page="1" pageWidth="3300" pageHeight="2339">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="frame.outer" value="" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="outer_frame"><mxGeometry x="79.74" y="7.74" width="3211.2" height="2322.83" as="geometry"/></mxCell>
+        <mxCell id="element_list.lock" value="List of Elements" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="element_list"><mxGeometry x="2558.18" y="10.43" width="730" height="1260" as="geometry"/></mxCell>
+        <mxCell id="title_block.lock" value="Title Block" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="title_block"><mxGeometry x="2555.18" y="2107.42" width="733.786" height="221" as="geometry"/></mxCell>
+        <mxCell id="freehand.object" value="?" style="rounded=0;strokeColor=#000000;" parent="1" vertex="1"><mxGeometry x="500" y="500" width="20" height="20" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,28 @@
+{
+  "source_file": "tests/fixtures/good_visual_schematic.drawio",
+  "hash_algorithm": "sha256",
+  "coordinate_unit": "drawio_page_units",
+  "regions": {
+    "outer_frame": {
+      "name": "outer_frame",
+      "root_cell_id": "frame.outer",
+      "bbox": {"x": 79.74, "y": 7.74, "width": 3211.2, "height": 2322.83, "right": 3290.94, "bottom": 2330.57},
+      "cell_ids": ["frame.outer"],
+      "cell_count": 1
+    },
+    "element_list": {
+      "name": "element_list",
+      "root_cell_id": "element_list.lock",
+      "bbox": {"x": 2558.18, "y": 10.43, "width": 730.0, "height": 1260.0, "right": 3288.18, "bottom": 1270.43},
+      "cell_ids": ["element_list.lock"],
+      "cell_count": 1
+    },
+    "title_block": {
+      "name": "title_block",
+      "root_cell_id": "title_block.lock",
+      "bbox": {"x": 2555.18, "y": 2107.42, "width": 733.786, "height": 221.0, "right": 3288.966, "bottom": 2328.42},
+      "cell_ids": ["title_block.lock"],
+      "cell_count": 1
+    }
+  }
+}

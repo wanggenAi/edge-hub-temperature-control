@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-d907ec8
+d87c76e
 
 ## Current Branch
 main
@@ -10,74 +10,68 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The current engineering focus is schematic normalization, confirmed reference-designator mapping, reproducible draw.io generation, and thesis-quality technical drawings.
 
 ## What Was Done In This Round
-- Committed the user-confirmed reference-designator mapping as an independent review checkpoint.
-- Updated `schematic_model.yaml` so component refs and canonical net names match the confirmed mapping.
-- Corrected `CN1 -> XS1`; CN1 is the DS18B20 sensor connector, not a capacitor.
-- Preserved `J_TS1 -> XS5` as an independent thermal switch / heater safety terminal.
-- Unified `$1N39 -> GND`, `J1_12V -> +12V`, and `3V3 -> +3V3`.
-- Split the MOSFET gate nets as `$1N23 -> GATE` and `$1N24 -> GATE_R`.
+- Added a draw.io-specific visual lint skeleton for the `hardware/eda/` schematic workflow.
+- Added a renderer skeleton that only supports dry-run / no-circuit mode in this phase.
+- Added minimal good and bad draw.io fixtures for visual geometry checks.
+- Proved bad fixtures fail before final schematic rendering begins.
 - Did not modify `hardware/eda/functiondiagramYUANLITU.drawio`.
-- Did not generate `functiondiagramYUANLITU.generated.drawio`.
+- Did not generate `hardware/eda/functiondiagramYUANLITU.generated.drawio`.
 - Did not export SVG, PDF, or PNG.
+- Did not draw the final middle circuit.
 
 ## Files Changed
-- `hardware/eda/ref_mapping.yaml`
-- `hardware/eda/schematic_model.yaml`
+- `tools/visual_schematic_lint.py`
+- `hardware/eda/render_esp32_drawio.js`
+- `tests/test_visual_schematic_lint.py`
+- `tests/fixtures/visual_reserved_regions.lock.json`
+- `tests/fixtures/good_visual_schematic.drawio`
+- `tests/fixtures/bad_locked_region_changed.drawio`
+- `tests/fixtures/bad_unclassified_object.drawio`
+- `tests/fixtures/bad_wire_endpoint_gap.drawio`
+- `tests/fixtures/bad_floating_wire.drawio`
+- `tests/fixtures/bad_diagonal_wire.drawio`
+- `tests/fixtures/bad_pin_label_misaligned.drawio`
+- `tests/fixtures/bad_text_overlaps_wire.drawio`
+- `tests/fixtures/bad_schematic_overlaps_reserved_region.drawio`
 - `docs/ai_handoff/latest_handoff.md`
 
-## Mapping Summary
-- `U1 -> DD1`
-- `Q1 -> VT1`
-- `D1 -> HL1`
-- `U3_reset -> SB1`
-- `U4_boot -> SB2`
-- `U3_buck -> A1`
-- `CN1 -> XS1`
-- `J2_heater -> XS2`
-- `J_Power -> XS3`
-- `U7 -> XS4`
-- `J_TS1 -> XS5`
-- `C1..C4`, `R1..R6` remain unchanged.
-
-## Confirmed Net Names
-- `J1_12V -> +12V`
-- `3V3 -> +3V3`
-- `GND -> GND`
-- `$1N14 -> DQ`
-- `$1N8 -> EN`
-- `$1N55 -> BOOT`
-- `$1N42 -> RXD0`
-- `$1N43 -> TXD0`
-- `$1N39 -> GND`
-- `$1N21 -> LED`
-- `$1N18 -> LED_A`
-- `$1N23 -> GATE`
-- `$1N24 -> GATE_R`
-- `$1N29 -> HEAT-`
-- `$1N65 -> HEAT+`
+## Visual Lint Coverage Added
+- `FRAME_CHANGED`: locked outer frame geometry changes.
+- `TABLE_CHANGED`: locked List of Elements / Title Block geometry or cells change.
+- `UNCLASSIFIED_OBJECT`: mxCell lacks usable `data-role` metadata.
+- `WIRE_ENDPOINT_NOT_CONNECTED`: wire endpoint is close to a pin but not connected within tolerance.
+- `FLOATING_WIRE_END`: wire endpoint connects to nothing.
+- `DIAGONAL_WIRE`: wire is not horizontal or vertical.
+- `PIN_LABEL_MISALIGNED`: pin label is not centered above the pin line within tolerance.
+- `TEXT_OVERLAPS_WIRE`: text bbox touches or overlaps wire clearance.
+- `SCHEMATIC_OVERLAPS_ELEMENT_LIST`: schematic object enters the locked element list area.
+- `SCHEMATIC_OVERLAPS_TITLE_BLOCK`: schematic object enters the locked title block area.
 
 ## Validation Performed
-- `python3 -m json.tool hardware/eda/ref_mapping.yaml`
-- `python3 -m json.tool hardware/eda/schematic_model.yaml`
-- Searched for stale names: `UART_GND`, `GATE_DRV`, `HEATER_PLUS`, `HEATER_SW`, `LED_SERIES`.
-- Checked staged scope before commit so unrelated dirty files were not included.
+- `python3 -m pytest tests/test_visual_schematic_lint.py -q`
+  - Result: `9 passed`
+- `node hardware/eda/render_esp32_drawio.js --dry-run --no-circuit`
+  - Result: passed; finalCircuitRendered is `false`.
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.drawio --reports-dir build/reports/visual-current || true`
+  - Result: reports many `UNCLASSIFIED_OBJECT` findings on the current source template, which is expected because the original draw.io template does not yet contain generated role metadata.
 
 ## Current Repository State Notes
+- `functiondiagramYUANLITU.drawio` remains the locked source template and style reference.
+- `functiondiagramYUANLITU.generated.drawio` has not been created.
+- The renderer must later add role/id metadata to generated schematic objects.
+- The current source template itself is not expected to pass `visual_schematic_lint.py` until the generated output path exists.
 - The working tree still contains unrelated uncommitted changes from other project areas.
-- The confirmed mapping checkpoint commit is `d907ec8`.
-- `functiondiagramYUANLITU.drawio` remains the locked visual/style source.
-- No generated draw.io has been created yet.
 
 ## Open Questions For ChatGPT
-1. What should the next Codex prompt require for the renderer skeleton before drawing the final circuit?
-2. Which minimum bad fixtures should be created first for `visual_schematic_lint.py`?
-3. Should the next phase create `visual_schematic_lint.py` before `render_esp32_drawio.js`, or create both skeletons together?
+1. Should the next phase first add role metadata preservation for copied locked regions, or proceed directly to generating a no-circuit `.generated.drawio` copy with locked region hash verification?
+2. Should `visual_schematic_lint.py` accept the original template as an input mode, or should it lint only generated draw.io files?
+3. What exact minimum metadata should renderer add to copied locked regions and future schematic cells before drawing the middle circuit?
 
 ## Risks / Uncertainties
-- `schematic_model.yaml` still contains provisional bboxes and pin endpoints from Phase 2 modeling; they are not final rendered coordinates.
-- The next phase must preserve `reserved_regions.lock.json` hashes for the outer frame, List of Elements, and Title Block.
-- Rendering must write only `hardware/eda/functiondiagramYUANLITU.generated.drawio` and must not overwrite the source draw.io file.
+- The current visual lint skeleton uses the simplified fixture lock file for pytest and the real `reserved_regions.lock.json` for real template checks.
+- Existing `reserved_regions.lock.json` hash values were generated by earlier tooling; this new lint currently enforces cell ids, cell counts, and absolute bbox for that lock unless a future hash schema is added.
+- Real source template cells do not have `data-role` metadata, so generated output must normalize/copy metadata before strict lint can pass.
 - No KiCad ERC is expected for this draw.io-only workflow.
 
 ## Suggested Next Step
-Ask ChatGPT to review commit `d907ec8` plus this handoff, then generate the next Codex prompt for the renderer and visual lint preparation phase. Do not generate the final schematic until the lint skeleton and bad fixture strategy are in place.
+Ask ChatGPT to review the new visual lint / renderer skeleton checkpoint. The next Codex phase should generate a no-circuit `functiondiagramYUANLITU.generated.drawio` copy with locked region metadata, verify the locked regions did not move, and only then begin rendering the middle circuit.
