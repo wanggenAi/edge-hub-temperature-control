@@ -408,6 +408,7 @@ class VisualSchematicLint:
             "wire",
             "net_label",
             "junction",
+            "schematic_root",
         }
         for item in [*self.model.vertices, *self.model.edges]:
             if item.id in self.locked_cell_ids:
@@ -420,6 +421,26 @@ class VisualSchematicLint:
                 self.error("UNCLASSIFIED_OBJECT", item.id, "mxCell is missing data-role metadata")
             elif item.role not in allowed:
                 self.error("UNCLASSIFIED_OBJECT", item.id, f"mxCell has unsupported data-role {item.role}", "known role", item.role)
+            elif self.mode == "generated":
+                self.validate_generated_metadata(item)
+
+    def validate_generated_metadata(self, item: Vertex | Edge) -> None:
+        required_by_role = {
+            "schematic_root": ["data-generated", "data-owner", "data-zone"],
+            "component_body": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
+            "component_ref": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
+            "component_value": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
+            "pin": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
+            "pin_label": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
+            "wire": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
+            "net_label": ["data-generated", "data-owner", "data-net", "data-source-net", "data-zone", "data-anchor-x", "data-anchor-y"],
+            "junction": ["data-generated", "data-owner", "data-net", "data-source-net", "data-zone"],
+        }
+        missing = [key for key in required_by_role.get(item.role, []) if not item.attrs.get(key)]
+        if item.attrs.get("data-generated") not in {"true", "false", None}:
+            missing.append("valid data-generated")
+        if missing:
+            self.error("MISSING_ROLE_METADATA", item.id, "Generated object is missing required role metadata", ",".join(required_by_role.get(item.role, [])), ",".join(missing), *item.center)
 
     def validate_geometry(self) -> None:
         for edge in self.wires():
@@ -457,9 +478,9 @@ class VisualSchematicLint:
         return [p for pin in self.pin_edges() for p in pin.endpoints]
 
     def validate_pin_labels(self) -> None:
-        pins = {(pin.attrs.get("data-ref", ""), pin.attrs.get("data-pin", "")): pin for pin in self.pin_edges()}
+        pins = {pin_binding_key(pin): pin for pin in self.pin_edges()}
         for label in [v for v in self.model.vertices if v.role == "pin_label"]:
-            key = (label.attrs.get("data-ref", ""), label.attrs.get("data-pin", ""))
+            key = pin_binding_key(label)
             pin = pins.get(key)
             if pin is None:
                 self.error("PIN_LABEL_NOT_BOUND_TO_PIN", label.id, "Pin label is not bound to a rendered pin", "matching data-ref/data-pin pin", str(key), *label.center)
@@ -504,6 +525,14 @@ class VisualSchematicLint:
 
     def pin_edges(self) -> list[Edge]:
         return [edge for edge in self.model.edges if edge.role == "pin"]
+
+
+def pin_binding_key(item: Vertex | Edge) -> tuple[str, str, str]:
+    return (
+        item.attrs.get("data-ref", ""),
+        item.attrs.get("data-pin", ""),
+        item.attrs.get("data-pin-number", ""),
+    )
 
 
 def write_reports(findings: list[Finding], reports_dir: Path, source: Path) -> None:
@@ -552,8 +581,7 @@ def main() -> int:
     config = read_jsonish(args.config) if args.config.exists() else {}
     lock = read_jsonish(args.lock_file)
     model = DrawioModel(args.source)
-    lint_mode = "strict" if args.mode == "generated" else args.mode
-    findings = VisualSchematicLint(model, lock, config, mode=lint_mode).run()
+    findings = VisualSchematicLint(model, lock, config, mode=args.mode).run()
     write_reports(findings, args.reports_dir, args.source)
     return 1 if any(f.severity == "error" for f in findings) else 0
 

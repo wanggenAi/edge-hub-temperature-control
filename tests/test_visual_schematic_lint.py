@@ -96,6 +96,68 @@ def test_no_circuit_generated_copy_passes_strict_lint(tmp_path):
     assert payload["error_count"] == 0
 
 
+def test_dd1_block_generated_copy_passes_generated_lint(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        [
+            "node",
+            str(RENDERER),
+            "--write-output",
+            "--dd1-block",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    summary = json.loads(proc.stdout)
+    assert summary["dd1BlockRendered"] is True
+    assert summary["finalCircuitRendered"] is False
+    assert output.exists()
+
+    generated_text = output.read_text(encoding="utf-8")
+    assert 'id="generated.schematic.root"' in generated_text
+    assert 'data-role="schematic_root"' in generated_text
+    assert 'id="component.DD1.body"' in generated_text
+    assert generated_text.count('data-role="pin"') == 10
+    assert generated_text.count('data-role="pin_label"') == 10
+    assert generated_text.count('data-role="wire"') == 10
+    assert generated_text.count('data-role="net_label"') == 10
+    for forbidden_ref in ("R1", "C1", "XS1", "VT1", "HL1", "SB1", "A1"):
+        assert f'data-ref="{forbidden_ref}"' not in generated_text
+
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert payload["error_count"] == 0
+
+
+def test_pin_label_binding_uses_pin_number_for_duplicate_pin_names(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        [
+            "node",
+            str(RENDERER),
+            "--write-output",
+            "--dd1-block",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert "PIN_LABEL_MISALIGNED" not in codes(payload)
+    generated_text = output.read_text(encoding="utf-8")
+    assert 'data-pin="GND" data-pin-number="1"' in generated_text
+    assert 'data-pin="GND" data-pin-number="38"' in generated_text
+
+
 def test_bad_locked_region_changed_fails(tmp_path):
     assert_fails("bad_locked_region_changed.drawio", tmp_path, "FRAME_CHANGED")
 
