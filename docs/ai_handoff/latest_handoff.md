@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-b3cbd76
+a559fdd
 
 ## Current Branch
 main
@@ -10,22 +10,22 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The current engineering focus is schematic normalization, confirmed reference-designator mapping, reproducible draw.io generation, and thesis-quality technical drawings.
 
 ## Reviewer Input Used
-- Firefox ChatGPT accepted checkpoint `587a945`.
-- Reviewer said the `R6` + `SB2` BOOT checkpoint is acceptable.
-- Reviewer noted that BOOT can remain short stubs plus canonical net labels for now.
-- Reviewer explicitly requested the next increment should include:
-  - MOSFET / heater driver block: `R4` + `R5` + `VT1` + `XS2` + `XS5`
-- Reviewer explicitly said the heater checkpoint should not draw:
-  - `A1`
-  - `XS3`
-  - `C3`
-  - `C4`
-  - complete `+12V` power module
-- Reviewer said `XS5` should be included because it is a thermal switch / heater safety terminal related to `HEAT+` and `+12V`.
+- Firefox ChatGPT accepted checkpoint `b3cbd76 / 6c54bdc`.
+- Reviewer said the heater driver checkpoint is acceptable.
+- Reviewer accepted:
+  - `R4` + `R5` + `VT1` + `XS2` + `XS5`
+  - local orthogonal `GATE_R` connection
+  - local orthogonal `HEAT-` connection
+  - canonical short stubs plus net labels for `GATE`, `HEAT+`, `+12V`, and `GND`
+- Reviewer explicitly requested the next increment should only add:
+  - power module block: `A1` + `XS3` + `C3` + `C4`
+- Reviewer explicitly said:
+  - do not export final SVG/PDF/PNG
+  - do not do full-layout refinement yet
 
 ## What Was Done In This Round
-- Added a renderer checkpoint mode: `--heater-block`.
-- The generated draw.io checkpoint now contains only:
+- Added a renderer checkpoint mode: `--power-block`.
+- The generated draw.io checkpoint now contains:
   - `DD1`
   - `R1`
   - `SB1`
@@ -43,33 +43,40 @@ This project is `edge-hub-temperature-control`, used for graduation thesis and d
   - `VT1`
   - `XS2`
   - `XS5`
-- Added the heater driver block as an independent functional block:
-  - `R4` value displayed as `100 Ohm`
-  - `R5` value displayed as `10 kOhm`
-  - `VT1` value displayed as `NMOS3400`
-  - `XS2` value displayed as `Heater`
-  - `XS5` value displayed as `Thermal switch`
+  - `A1`
+  - `XS3`
+  - `C3`
+  - `C4`
+- Added the power module block as an independent functional block:
+  - `A1` value displayed as `DC/DC 12V to 3.3V`
+  - `XS3` value displayed as `Power input`
+  - `C3` value displayed as `100 uF`
+  - `C4` value displayed as `0.1 uF`
 - Used canonical net labels:
-  - `GATE`
-  - `GATE_R`
-  - `HEAT+`
-  - `HEAT-`
   - `+12V`
+  - `+3V3`
   - `GND`
-- Added local orthogonal wires for the true local connections:
-  - `GATE_R` local bus between `R4`, `VT1`, and `R5`
-  - `HEAT-` local connection between `VT1` and `XS2`
-- Kept non-local power and signal continuity as short stubs plus canonical net labels.
-- Kept this checkpoint intentionally small:
-  - did not add power module (`A1` / `XS3` / `C3` / `C4`)
-  - did not export SVG/PDF/PNG
-- Added a regression test proving the heater checkpoint includes the intended refs and excludes the power-module refs.
+- Kept power connectivity as short stubs plus canonical net labels in this checkpoint.
+- Did not export SVG/PDF/PNG.
+- Did not do final full-layout refinement.
+- Added a regression test proving the power checkpoint includes the intended refs and still passes generated draw.io lint.
 - Re-generated `hardware/eda/functiondiagramYUANLITU.generated.drawio`.
 - Did not modify `hardware/eda/functiondiagramYUANLITU.drawio`.
+
+## Netlist-Based Model Correction
+- Before rendering `A1`, checked `hardware/eda/jlc_netlist_altium.tel`.
+- The netlist shows:
+  - `U3_buck.1` on `J1_12V`
+  - `U3_buck.2` on `GND`
+  - `U3_buck.3` on `GND`
+  - `U3_buck.4` on `3V3`
+- `hardware/eda/schematic_model.yaml` previously listed `A1` pins 1, 2, and 4 only.
+- Added missing `A1` pin 3 as `GND`, with a description noting it was recovered from `jlc_netlist_altium.tel`.
 
 ## Files Changed
 - `hardware/eda/functiondiagramYUANLITU.generated.drawio`
 - `hardware/eda/render_esp32_drawio.js`
+- `hardware/eda/schematic_model.yaml`
 - `tests/test_visual_schematic_lint.py`
 - `docs/ai_handoff/latest_handoff.md`
 
@@ -77,43 +84,51 @@ This project is `edge-hub-temperature-control`, used for graduation thesis and d
 - `node --check hardware/eda/render_esp32_drawio.js`
   - Result: passed
 - `python3 -m pytest tests/test_visual_schematic_lint.py -q`
-  - Result: `20 passed`
-- `node hardware/eda/render_esp32_drawio.js --write-output --heater-block --output /tmp/heater_block.generated.drawio`
+  - Result: `21 passed`
+- `node hardware/eda/render_esp32_drawio.js --write-output --power-block --output /tmp/power_block.generated.drawio`
   - Result: passed
-  - Summary: `dd1BlockRendered=true`, `resetLedBlockRendered=true`, `decouplingBlockRendered=true`, `sensorBlockRendered=true`, `uartBlockRendered=true`, `bootBlockRendered=true`, `heaterBlockRendered=true`, `finalCircuitRendered=false`
-- `python3 tools/visual_schematic_lint.py /tmp/heater_block.generated.drawio --mode generated --reports-dir build/reports/tmp-heater-block`
+  - Summary: `dd1BlockRendered=true`, `resetLedBlockRendered=true`, `decouplingBlockRendered=true`, `sensorBlockRendered=true`, `uartBlockRendered=true`, `bootBlockRendered=true`, `heaterBlockRendered=true`, `powerBlockRendered=true`, `finalCircuitRendered=false`
+- `python3 tools/visual_schematic_lint.py /tmp/power_block.generated.drawio --mode generated --reports-dir build/reports/tmp-power-block`
   - Result: passed
-- `node hardware/eda/render_esp32_drawio.js --write-output --heater-block`
+- `node hardware/eda/render_esp32_drawio.js --write-output --power-block`
   - Result: generated `hardware/eda/functiondiagramYUANLITU.generated.drawio`
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-heater-block`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-power-block`
   - Result: passed
 - `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.drawio --mode template --reports-dir build/reports/template-check`
   - Result: passed
-- `git diff --check -- hardware/eda/render_esp32_drawio.js tests/test_visual_schematic_lint.py docs/ai_handoff/latest_handoff.md hardware/eda/functiondiagramYUANLITU.generated.drawio`
+- `git diff --check -- hardware/eda/render_esp32_drawio.js tests/test_visual_schematic_lint.py hardware/eda/schematic_model.yaml hardware/eda/functiondiagramYUANLITU.generated.drawio docs/ai_handoff/latest_handoff.md`
   - Result: passed
 - `git diff --quiet -- hardware/eda/functiondiagramYUANLITU.drawio`
   - Result: passed; source template was not modified
 
 ## Current Repository State Notes
 - `hardware/eda/functiondiagramYUANLITU.drawio` remains unmodified.
-- `hardware/eda/functiondiagramYUANLITU.generated.drawio` contains the incremental checkpoint: DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor block + XS4 UART/service connector + R6/SB2 BOOT block + R4/R5/VT1/XS2/XS5 heater block.
+- `hardware/eda/functiondiagramYUANLITU.generated.drawio` now contains all planned incremental functional blocks:
+  - DD1 controller
+  - RESET/EN
+  - LED status
+  - C1/C2 decoupling
+  - XS1/R2 sensor
+  - XS4 UART/service connector
+  - R6/SB2 BOOT
+  - R4/R5/VT1/XS2/XS5 heater driver
+  - A1/XS3/C3/C4 power module
 - Locked frame, right-side List of Elements, and Title Block are still protected by template lint.
 - No final export files were generated.
 - No KiCad ERC is expected for this draw.io-only workflow.
 - The working tree still contains unrelated uncommitted changes from other project areas.
 
 ## Open Questions For ChatGPT
-1. Is the `R4` + `R5` + `VT1` + `XS2` + `XS5` heater driver checkpoint acceptable?
-2. Are the local `GATE_R` and `HEAT-` orthogonal short connections acceptable, with `GATE`, `HEAT+`, `+12V`, and `GND` kept as canonical short stubs/net labels?
-3. Should the next Codex increment add only the power module block (`A1` + `XS3` + `C3` + `C4`)?
-4. When adding the power module, should `+12V`, `+3V3`, and `GND` remain canonical stubs, or should any local power connection be drawn directly inside the block?
+1. Is the `A1` + `XS3` + `C3` + `C4` power module checkpoint acceptable?
+2. Is recovering `A1` pin 3 as `GND` from the JLC `.tel` netlist acceptable?
+3. Should the next Codex increment perform final middle-schematic layout refinement now that all functional blocks are present?
+4. If yes, should the next phase still avoid final SVG/PDF/PNG export until after reviewer approves the refined layout?
 
 ## Risks / Uncertainties
-- This is still an incremental visual checkpoint, not the full schematic.
-- The heater block uses local short wires only where they clarify same-block topology; global connectivity is still represented with canonical net labels.
-- The power module is still intentionally not rendered.
-- The lint is visual/geometric; it does not perform electrical ERC.
-- No SVG/PDF/PNG export has been generated yet because this phase is still focused on draw.io construction.
+- This is still an incremental visual checkpoint, not the final polished schematic.
+- Global power continuity is represented with canonical net labels rather than long direct wires.
+- The lint is visual/geometric; it does not perform KiCad ERC.
+- No SVG/PDF/PNG export has been generated yet because reviewer asked to avoid final export in this phase.
 
 ## Suggested Next Step
-Ask ChatGPT to review commit `b3cbd76`. If accepted, the next Codex phase should add only the power module block: `A1` + `XS3` + `C3` + `C4`.
+Ask ChatGPT to review commit `a559fdd`. If accepted, the next Codex phase should likely perform final middle-schematic layout refinement while still preserving the locked frame, List of Elements, and Title Block.
