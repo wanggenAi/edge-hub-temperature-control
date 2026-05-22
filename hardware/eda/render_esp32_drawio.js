@@ -29,6 +29,7 @@ function parseArgs(argv) {
     sensorBlock: false,
     uartBlock: false,
     bootBlock: false,
+    heaterBlock: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -73,6 +74,16 @@ function parseArgs(argv) {
       args.sensorBlock = true;
       args.uartBlock = true;
       args.bootBlock = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--heater-block") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
+      args.decouplingBlock = true;
+      args.sensorBlock = true;
+      args.uartBlock = true;
+      args.bootBlock = true;
+      args.heaterBlock = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -612,14 +623,133 @@ function englishValue(component) {
     R1: "10 kOhm",
     R2: "4.7 kOhm",
     R3: "330 Ohm",
+    R4: "100 Ohm",
+    R5: "10 kOhm",
     R6: "10 kOhm",
     SB1: "RESET button",
     SB2: "BOOT button",
     HL1: "Red LED",
+    VT1: "NMOS3400",
+    XS2: "Heater",
     XS1: "XH-3PA",
     XS4: "UART service",
+    XS5: "Thermal switch",
   };
   return overrides[component.ref] || component.value || component.type || component.ref;
+}
+
+function buildHeaterBlockCells(model, style) {
+  const r4 = requireComponent(model, "R4");
+  const r5 = requireComponent(model, "R5");
+  const vt1 = requireComponent(model, "VT1");
+  const xs2 = requireComponent(model, "XS2");
+  const xs5 = requireComponent(model, "XS5");
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const netFont = fontSize(style, "net_label_font_size", 15);
+  const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+  return [
+    ...buildComponentBoxCells(r4, { x: 1660, y: 910, width: 150, height: 70 }, style, [
+      { number: "1", side: "left", y: 940, label: "GATE" },
+      { number: "2", side: "right", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false },
+    ], { pinLength: 50, wireLength: 45 }),
+    ...buildComponentBoxCells(r5, { x: 1660, y: 1145, width: 150, height: 70 }, style, [
+      { number: "1", side: "right", y: 1185, label: "GATE_R", renderWire: false, renderNetLabel: false },
+      { number: "2", side: "left", y: 1185, label: "GND" },
+    ], { pinLength: 50, wireLength: 45 }),
+    ...buildComponentBoxCells(vt1, { x: 1940, y: 890, width: 150, height: 160 }, style, [
+      { number: "1", side: "left", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false },
+      { number: "2", side: "right", y: 1025, label: "GND" },
+      { number: "3", side: "right", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },
+    ], { pinLength: 40, wireLength: 45 }),
+    ...buildComponentBoxCells(xs2, { x: 2175, y: 895, width: 75, height: 105 }, style, [
+      { number: "1", side: "left", y: 930, label: "HEAT+" },
+      { number: "2", side: "left", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },
+    ], { pinLength: 40, wireLength: 45 }),
+    ...buildComponentBoxCells(xs5, { x: 2150, y: 1085, width: 100, height: 100 }, style, [
+      { number: "1", side: "left", y: 1120, label: "+12V" },
+      { number: "2", side: "left", y: 1165, label: "HEAT+" },
+    ], { pinLength: 40, wireLength: 45 }),
+    buildLocalWire({
+      id: "wire.local.GATE_R.R4_VT1_R5",
+      net: "GATE_R",
+      sourceNet: "$1N24",
+      zone: "mosfet_heater_driver",
+      ref: "R4_VT1_R5",
+      sourceRef: "R4_Q1_R5",
+      pin: "GATE_R",
+      pinNumber: "2_1_1",
+      x1: 1900,
+      y1: 940,
+      x2: 1900,
+      y2: 1185,
+      style: lineStyle,
+    }),
+    buildLocalWire({
+      id: "wire.local.GATE_R.R4_bus",
+      net: "GATE_R",
+      sourceNet: "$1N24",
+      zone: "mosfet_heater_driver",
+      ref: "R4_VT1_R5",
+      sourceRef: "R4_Q1_R5",
+      pin: "GATE_R",
+      pinNumber: "2_1_1",
+      x1: 1860,
+      y1: 940,
+      x2: 1900,
+      y2: 940,
+      style: lineStyle,
+    }),
+    buildLocalWire({
+      id: "wire.local.GATE_R.R5_bus",
+      net: "GATE_R",
+      sourceNet: "$1N24",
+      zone: "mosfet_heater_driver",
+      ref: "R4_VT1_R5",
+      sourceRef: "R4_Q1_R5",
+      pin: "GATE_R",
+      pinNumber: "2_1_1",
+      x1: 1860,
+      y1: 1185,
+      x2: 1900,
+      y2: 1185,
+      style: lineStyle,
+    }),
+    buildLocalWire({
+      id: "wire.local.HEAT-.VT1_XS2",
+      net: "HEAT-",
+      sourceNet: "$1N29",
+      zone: "mosfet_heater_driver",
+      ref: "VT1_XS2",
+      sourceRef: "Q1_J2_heater",
+      pin: "HEAT-",
+      pinNumber: "3_2",
+      x1: 2130,
+      y1: 985,
+      x2: 2135,
+      y2: 985,
+      style: lineStyle,
+    }),
+    textCell({
+      id: "netlabel.local.HEAT-.VT1_XS2",
+      parent: "generated.schematic.root",
+      value: "HEAT-",
+      x: 2034,
+      y: 955,
+      width: 90,
+      height: 24,
+      role: "net_label",
+      attrs: {
+        "data-generated": "true",
+        "data-owner": "render_esp32_drawio.js",
+        "data-net": "HEAT-",
+        "data-source-net": "$1N29",
+        "data-zone": "mosfet_heater_driver",
+        "data-anchor-x": 2132.5,
+        "data-anchor-y": 985,
+      },
+      fontSizeValue: netFont,
+    }),
+  ];
 }
 
 function buildBootBlockCells(model, style) {
@@ -835,11 +965,29 @@ function buildBootBlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
+function buildHeaterBlockDrawio(sourceText, lock, model, style) {
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const rootEnd = noCircuit.indexOf("</root>");
+  if (rootEnd < 0) {
+    throw new Error("Invalid generated draw.io XML: missing </root> element.");
+  }
+  const cells = [
+    ...buildDd1BlockCells(model, style),
+    ...buildResetLedBlockCells(model, style),
+    ...buildDecouplingBlockCells(model, style),
+    ...buildSensorBlockCells(model, style),
+    ...buildUartBlockCells(model, style),
+    ...buildBootBlockCells(model, style),
+    ...buildHeaterBlockCells(model, style),
+  ].map((cell) => `        ${cell}`).join("\n");
+  return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
   const summary = {
-    mode: args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))))),
+    mode: args.heaterBlock ? "heater-block-checkpoint" : (args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit"))))))),
     sourceDrawio: args.sourceDrawio,
     outputDrawio: args.outputDrawio,
     componentCount: Array.isArray(model.components) ? model.components.length : 0,
@@ -862,11 +1010,14 @@ function main() {
     sensorBlockRendered: args.sensorBlock,
     uartBlockRendered: args.uartBlock,
     bootBlockRendered: args.bootBlock,
+    heaterBlockRendered: args.heaterBlock,
     finalCircuitRendered: false,
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.bootBlock
+    const generated = args.heaterBlock
+      ? buildHeaterBlockDrawio(sourceText, lock, model, style)
+      : args.bootBlock
       ? buildBootBlockDrawio(sourceText, lock, model, style)
       : args.uartBlock
       ? buildUartBlockDrawio(sourceText, lock, model, style)
@@ -883,7 +1034,9 @@ function main() {
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.bootBlock
+      middleCircuitRendered: args.heaterBlock
+        ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT + R4/R5/VT1/XS2/XS5 heater checkpoint only"
+        : args.bootBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT checkpoint only"
         : args.uartBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service checkpoint only"
