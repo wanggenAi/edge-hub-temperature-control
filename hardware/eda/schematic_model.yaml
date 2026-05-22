@@ -1236,6 +1236,23 @@
             "width": 40,
             "height": 24
           }
+        },
+        {
+          "name": "GND",
+          "number": "4",
+          "net": "GND",
+          "source_net": "GND",
+          "side": "left",
+          "endpoint": {
+            "x": 445.0,
+            "y": 795.0
+          },
+          "label_bbox": {
+            "x": 453.0,
+            "y": 783.0,
+            "width": 40,
+            "height": 24
+          }
         }
       ],
       "source_package": "",
@@ -1267,6 +1284,23 @@
           "label_bbox": {
             "x": 1255.0,
             "y": 1738.0,
+            "width": 40,
+            "height": 24
+          }
+        },
+        {
+          "name": "GND",
+          "number": "3",
+          "net": "GND",
+          "source_net": "GND",
+          "side": "left",
+          "endpoint": {
+            "x": 1215.0,
+            "y": 1780.0
+          },
+          "label_bbox": {
+            "x": 1223.0,
+            "y": 1768.0,
             "width": 40,
             "height": 24
           }

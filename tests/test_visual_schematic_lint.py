@@ -186,6 +186,10 @@ def test_reset_led_block_generated_copy_passes_generated_lint(tmp_path):
         assert f'data-ref="{forbidden_ref}"' not in generated_text
     for required_net in ("EN", "LED", "LED_A", "+3V3"):
         assert f'data-net="{required_net}"' in generated_text
+    assert 'id="pin.SB1.GND.4"' in generated_text
+    assert 'id="wire.local.LED_A.R3_HL1"' in generated_text
+    assert "netlabel.R3.LED_A" not in generated_text
+    assert "netlabel.HL1.LED_A" not in generated_text
 
     lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
     assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr

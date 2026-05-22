@@ -218,6 +218,20 @@ function edgeCell({ id, parent, x1, y1, x2, y2, role, attrs = {}, style }) {
   return `<mxCell id="${xmlAttr(id)}" value="" style="${xmlAttr(style)}" parent="${xmlAttr(parent)}" edge="1" data-role="${xmlAttr(role)}"${extra}><mxGeometry relative="1" as="geometry"><mxPoint x="${x1}" y="${y1}" as="sourcePoint"/><mxPoint x="${x2}" y="${y2}" as="targetPoint"/></mxGeometry></mxCell>`;
 }
 
+function wireAttrs(component, pin, label = pin.name) {
+  return {
+    "data-generated": "true",
+    "data-owner": "render_esp32_drawio.js",
+    "data-net": pin.net,
+    "data-source-net": pin.source_net || pin.net,
+    "data-zone": component.zone,
+    "data-ref": component.ref,
+    "data-source-ref": component.source_ref,
+    "data-pin": label,
+    "data-pin-number": pin.number,
+  };
+}
+
 function generatedAttrs(component, pin = null) {
   const attrs = {
     "data-generated": "true",
@@ -457,13 +471,13 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
     const wireOuterX = isLeft ? pinOuterX - wireLength : pinOuterX + wireLength;
     const pinCenterX = (bodyX + pinOuterX) / 2;
     const label = spec.label || pin.name;
-    const labelWidth = Math.max(72, String(label).length * 18);
+    const labelWidth = spec.labelWidth || Math.max(72, String(label).length * 18);
     const netWidth = Math.max(72, String(pin.net).length * 18);
     const labelX = pinCenterX - labelWidth / 2;
     const netLabelX = wireOuterX - netWidth / 2;
     const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
     const attrs = generatedAttrs(component, { ...pin, name: label });
-    cells.push(
+    const pinAndLabelCells = [
       edgeCell({
         id: `pin.${component.ref}.${xmlSafeId(label)}.${pin.number}`,
         parent,
@@ -487,6 +501,10 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
         attrs,
         fontSizeValue: pinFont,
       }),
+    ];
+    const wireAndLabelCells = [];
+    if (spec.renderWire !== false) {
+      wireAndLabelCells.push(
       edgeCell({
         id: `wire.${component.ref}.${xmlSafeId(pin.net)}.${pin.number}`,
         parent,
@@ -495,19 +513,13 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
         x2: isLeft ? pinOuterX : wireOuterX,
         y2: y,
         role: "wire",
-        attrs: {
-          "data-generated": "true",
-          "data-owner": "render_esp32_drawio.js",
-          "data-net": pin.net,
-          "data-source-net": pin.source_net || pin.net,
-          "data-zone": component.zone,
-          "data-ref": component.ref,
-          "data-source-ref": component.source_ref,
-          "data-pin": label,
-          "data-pin-number": pin.number,
-        },
+        attrs: wireAttrs(component, pin, label),
         style: lineStyle,
-      }),
+      })
+      );
+    }
+    if (spec.renderNetLabel !== false) {
+      wireAndLabelCells.push(
       textCell({
         id: `netlabel.${component.ref}.${xmlSafeId(pin.net)}.${pin.number}`,
         parent,
@@ -528,9 +540,35 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
         },
         fontSizeValue: netFont,
       })
-    );
+      );
+    }
+    cells.push(...pinAndLabelCells, ...wireAndLabelCells);
   }
   return cells;
+}
+
+function buildLocalWire({ id, parent = "generated.schematic.root", net, sourceNet, zone, x1, y1, x2, y2, style, ref = "LOCAL", sourceRef = "LOCAL", pin = "LOCAL", pinNumber = "0" }) {
+  return edgeCell({
+    id,
+    parent,
+    x1,
+    y1,
+    x2,
+    y2,
+    role: "wire",
+    attrs: {
+      "data-generated": "true",
+      "data-owner": "render_esp32_drawio.js",
+      "data-net": net,
+      "data-source-net": sourceNet || net,
+      "data-zone": zone,
+      "data-ref": ref,
+      "data-source-ref": sourceRef,
+      "data-pin": pin,
+      "data-pin-number": pinNumber,
+    },
+    style,
+  });
 }
 
 function englishValue(component) {
@@ -549,6 +587,9 @@ function buildResetLedBlockCells(model, style) {
   const r3 = requireComponent(model, "R3");
   const hl1 = requireComponent(model, "HL1");
   const localStubOptions = { wireLength: 45 };
+  const ledLocalOptions = { wireLength: 45, pinLength: 10 };
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
   return [
     ...buildComponentBoxCells(r1, { x: 360, y: 720, width: 210, height: 90 }, style, [
       { number: "1", side: "left", y: 760, label: "+3V3" },
@@ -556,15 +597,31 @@ function buildResetLedBlockCells(model, style) {
     ], localStubOptions),
     ...buildComponentBoxCells(sb1, { x: 360, y: 835, width: 210, height: 90 }, style, [
       { number: "2", side: "right", y: 880, label: "EN" },
+      { number: "4", side: "left", y: 880, label: "GND" },
     ], localStubOptions),
-    ...buildComponentBoxCells(r3, { x: 360, y: 1330, width: 210, height: 90 }, style, [
-      { number: "1", side: "left", y: 1370, label: "LED_A" },
+    ...buildComponentBoxCells(r3, { x: 250, y: 1330, width: 210, height: 90 }, style, [
+      { number: "1", side: "right", y: 1370, label: "LED_A", labelWidth: 72, renderWire: false, renderNetLabel: false },
       { number: "2", side: "right", y: 1370, label: "+3V3" },
-    ], localStubOptions),
-    ...buildComponentBoxCells(hl1, { x: 360, y: 1460, width: 210, height: 90 }, style, [
+    ], ledLocalOptions),
+    ...buildComponentBoxCells(hl1, { x: 550, y: 1330, width: 210, height: 190 }, style, [
       { number: "1", side: "left", y: 1500, label: "LED" },
-      { number: "2", side: "right", y: 1500, label: "LED_A" },
-    ], localStubOptions),
+      { number: "2", side: "left", y: 1370, label: "LED_A", labelWidth: 72, renderWire: false, renderNetLabel: false },
+    ], ledLocalOptions),
+    buildLocalWire({
+      id: "wire.local.LED_A.R3_HL1",
+      net: "LED_A",
+      sourceNet: "$1N18",
+      zone: "led_status",
+      ref: "R3_HL1",
+      sourceRef: "R3_D1",
+      pin: "LED_A",
+      pinNumber: "1_2",
+      x1: 470,
+      y1: 1370,
+      x2: 540,
+      y2: 1370,
+      style: lineStyle,
+    }),
   ];
 }
 
