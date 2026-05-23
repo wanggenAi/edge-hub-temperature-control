@@ -120,6 +120,64 @@
       }
     }
   },
+  "reference_component_table": {
+    "source": "functiondiagramYUANLITU.drawio component table groups parsed from mxCell shape=table / shape=tableRow / shape=partialRectangle objects",
+    "common_width": {
+      "value": 210.0,
+      "unit": "drawio_page_units",
+      "basis": "Renderer style lock derived from the user's instruction that all rectangular pin components share one width; reference table labels show repeated row-width families and current thesis layout uses 210 as the normalized full component width."
+    },
+    "row_height_median": {
+      "value": 61.0,
+      "unit": "drawio_page_units",
+      "samples": 93
+    },
+    "reference_row_width_families": [
+      {
+        "value": 75.843,
+        "samples": 64
+      },
+      {
+        "value": 111.133,
+        "samples": 12
+      },
+      {
+        "value": 122.794,
+        "samples": 7
+      },
+      {
+        "value": 110.704,
+        "samples": 5
+      },
+      {
+        "value": 83.14,
+        "samples": 5
+      }
+    ],
+    "component_body_style": "shape=table;startSize=0;container=1;collapsible=0;childLayout=tableLayout;fillColor=none;strokeColor=#000000",
+    "pin_label_style": "inside_table_row_centered"
+  },
+  "renderer_component_style_lock": {
+    "common_body_width": {
+      "value": 210.0,
+      "tolerance": 0.5,
+      "unit": "drawio_page_units"
+    },
+    "split_column_ratio": {
+      "value": 0.5,
+      "tolerance": 0.01
+    },
+    "component_table_line_width": {
+      "value": 1.9685,
+      "tolerance": 0.03
+    },
+    "require_table_body_style": {
+      "value": true
+    },
+    "pin_label_policy": {
+      "value": "inside_table_row"
+    }
+  },
   "style_histograms": {
     "stroke_width_counts": {
       "1.9685": 484,

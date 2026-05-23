@@ -302,6 +302,13 @@ class VisualSchematicLint:
         self.text_symbol_clearance = float(rules.get("min_text_to_symbol_clearance_mm", 0.5))
         self.component_zone_tol = float(rules.get("component_zone_tolerance_mm", 0.5))
         self.component_spacing = float(rules.get("min_component_spacing_mm", 3.0))
+        reference_style = config.get("reference_component_table", {})
+        style_lock = config.get("renderer_component_style_lock", {})
+        self.component_common_width = float(style_lock.get("common_body_width", {}).get("value", reference_style.get("common_width", {}).get("value", 210.0)))
+        self.component_width_tolerance = float(style_lock.get("common_body_width", {}).get("tolerance", 0.5))
+        self.component_table_style_required = bool(style_lock.get("require_table_body_style", {}).get("value", False))
+        self.component_table_line_width = float(style_lock.get("component_table_line_width", {}).get("value", self.component_common_width))
+        self.component_table_line_width_tolerance = float(style_lock.get("component_table_line_width", {}).get("tolerance", 0.03))
         self.forbidden_visible_refs = set(config.get("forbidden_visible_refs", []))
         self.forbidden_net_names = set(config.get("forbidden_net_names", []))
         self.findings: list[Finding] = []
@@ -321,6 +328,7 @@ class VisualSchematicLint:
         self.validate_pin_labels()
         self.validate_text_policy()
         self.validate_text_clearance()
+        self.validate_text_text_clearance()
         self.validate_component_spacing()
         self.validate_component_zones()
         self.validate_reserved_region_overlap()
@@ -417,6 +425,7 @@ class VisualSchematicLint:
             "component_body",
             "component_ref",
             "component_value",
+            "component_table_line",
             "pin",
             "pin_label",
             "wire",
@@ -444,6 +453,7 @@ class VisualSchematicLint:
             "component_body": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
             "component_ref": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
             "component_value": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
+            "component_table_line": ["data-generated", "data-owner", "data-ref", "data-line-type", "data-style-source"],
             "pin": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
             "pin_label": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
             "wire": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
@@ -532,6 +542,14 @@ class VisualSchematicLint:
                 continue
             if not math.isclose(pin.y1, pin.y2, abs_tol=1e-6):
                 continue
+            if label.attrs.get("data-label-policy") == "inside_table_row":
+                row_error = abs(label.center[1] - pin.y1)
+                if row_error > 0.5:
+                    self.error("PIN_LABEL_MISALIGNED", label.id, "Pin label is not vertically centered in the referenced table row", "<= 0.5", f"{row_error:.3f}", *label.center)
+                body = next((candidate for candidate in self.model.vertices if candidate.role == "component_body" and candidate.attrs.get("data-ref") == label.attrs.get("data-ref")), None)
+                if body is None or not bbox_inside(label.bbox, body.bbox):
+                    self.error("PIN_LABEL_MISALIGNED", label.id, "Pin label is not inside its reference table component body", "label bbox inside component body", str(round_box(label.bbox)), *label.center)
+                continue
             center_error = abs(label.center[0] - pin.center[0])
             vertical_offset = pin.y1 - label.bbox[3]
             if center_error > self.pin_label_center_tol:
@@ -552,6 +570,26 @@ class VisualSchematicLint:
                     self.error("TEXT_OVERLAPS_SYMBOL", text.id, "Text bbox touches or overlaps another component symbol clearance zone", f"> {self.text_symbol_clearance} clearance", body.id, *text.center)
                     break
 
+    def validate_text_text_clearance(self) -> None:
+        if self.mode != "generated":
+            return
+        text_roles = {"component_ref", "component_value", "pin_label", "net_label"}
+        text_vertices = [v for v in self.model.vertices if v.role in text_roles]
+        for index, first in enumerate(text_vertices):
+            for second in text_vertices[index + 1:]:
+                if first.attrs.get("data-ref") == second.attrs.get("data-ref") and {first.role, second.role} <= {"pin_label", "component_value"}:
+                    continue
+                if intersects(first.bbox, second.bbox, self.text_symbol_clearance):
+                    self.error(
+                        "TEXT_OVERLAPS_TEXT",
+                        f"{first.id},{second.id}",
+                        "Generated text labels overlap or touch each other",
+                        f"> {self.text_symbol_clearance} clearance",
+                        str(round_box(second.bbox)),
+                        *first.center,
+                    )
+                    break
+
     def validate_text_policy(self) -> None:
         for vertex in self.model.vertices:
             if vertex.role not in {"component_ref", "component_value", "pin_label", "net_label"}:
@@ -568,6 +606,7 @@ class VisualSchematicLint:
 
     def validate_component_spacing(self) -> None:
         bodies = [v for v in self.model.vertices if v.role == "component_body"]
+        self.validate_reference_component_style(bodies)
         for index, first in enumerate(bodies):
             for second in bodies[index + 1:]:
                 spacing = bbox_gap(first.bbox, second.bbox)
@@ -580,6 +619,51 @@ class VisualSchematicLint:
                         f"{spacing:.3f}",
                         *first.center,
                     )
+
+    def validate_reference_component_style(self, bodies: list[Vertex]) -> None:
+        if self.mode != "generated":
+            return
+        for body in bodies:
+            if abs(body.width - self.component_common_width) > self.component_width_tolerance:
+                self.error(
+                    "COMPONENT_BODY_WIDTH_NOT_LOCKED",
+                    body.id,
+                    "Generated component body width does not match the reference draw.io component width lock",
+                    f"{self.component_common_width} +/- {self.component_width_tolerance}",
+                    f"{body.width:.3f}",
+                    *body.center,
+                )
+            if body.attrs.get("data-style-lock") != "reference_table_component":
+                self.error(
+                    "COMPONENT_STYLE_LOCK_MISSING",
+                    body.id,
+                    "Generated component body is missing the reference table style lock metadata",
+                    "data-style-lock=reference_table_component",
+                    body.attrs.get("data-style-lock", ""),
+                    *body.center,
+                )
+            if self.component_table_style_required and "shape=table" not in body.style:
+                self.error(
+                    "COMPONENT_BODY_STYLE_NOT_REFERENCE_TABLE",
+                    body.id,
+                    "Generated component body is not rendered with the reference draw.io table style",
+                    "shape=table",
+                    body.style,
+                    *body.center,
+                )
+        for line in [edge for edge in self.model.edges if edge.role == "component_table_line"]:
+            if not orthogonal(line):
+                self.error("COMPONENT_TABLE_LINE_NOT_ORTHOGONAL", line.id, "Component table divider is not horizontal or vertical", "orthogonal", f"({line.x1},{line.y1})->({line.x2},{line.y2})", *line.center)
+            stroke = fnum(style_value(line.style, "strokeWidth"), 0.0)
+            if abs(stroke - self.component_table_line_width) > self.component_table_line_width_tolerance:
+                self.error(
+                    "COMPONENT_TABLE_LINE_WIDTH_INVALID",
+                    line.id,
+                    "Component table line width does not match the reference style lock",
+                    f"{self.component_table_line_width} +/- {self.component_table_line_width_tolerance}",
+                    f"{stroke:.4f}",
+                    *line.center,
+                )
 
     def validate_reserved_region_overlap(self) -> None:
         if not self.region_boxes:

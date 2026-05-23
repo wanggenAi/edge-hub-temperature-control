@@ -24,6 +24,13 @@ This round did not use KiCad and did not perform KiCad ERC.
 - Export lint: `tools/export_artifact_lint.py`
 
 ## What Changed
+- Added a reference-constrained redraw/style-lock pass after Firefox ChatGPT review.
+- Changed generated component bodies to use the functiondiagram-style table component pattern instead of freehand rectangles.
+- Locked generated component body width to a single normalized width (`210` draw.io page units); component height is allowed to vary by pin count.
+- Added component table divider lines with explicit `component_table_line` role metadata and reference line-width checks.
+- Moved pin labels into the table rows and added lint support for the `inside_table_row` label policy.
+- Added generated text-to-text overlap detection and fixed spacing issues found by the new check.
+- Refined heater/power/boot/reset/decoupling layout zones after the common-width lock expanded several formerly narrow symbols.
 - Corrected the locked Title Block document code from `BSTU.241297.005 Э3` to `BSTU.241297.006 Э3`.
 - Added final thesis-facing export artifacts.
 - Fixed the right-top List of Elements export gap found during resume review: the generated drawing previously preserved the table region but did not render the actual table contents.
@@ -32,7 +39,22 @@ This round did not use KiCad and did not perform KiCad ERC.
 - Tightened export lint so final SVG exports must contain the ESP32 BOM table text.
 - Regenerated `hardware/eda/functiondiagramYUANLITU.generated.drawio` and all final exports.
 
-No middle schematic topology, ref mapping, component set, or net naming was changed in this repair stage.
+No electrical topology, ref mapping, component set, or net naming was changed in this style-lock stage.
+
+## Reference-Constrained Style Lock
+- Reference source: `hardware/eda/functiondiagramYUANLITU.drawio`
+- Generated component body style: `shape=table`
+- Common generated component width: `210` draw.io page units
+- Component height policy: varies by pin count and local label needs
+- Pin label policy: `inside_table_row`
+- Component table line role: `component_table_line`
+- Style lock metadata required on every generated component body: `data-style-lock="reference_table_component"`
+- Lint now fails:
+  - freehand rectangle bodies
+  - component bodies with non-locked width
+  - component table divider lines with wrong line width
+  - component table divider lines that are not orthogonal
+  - generated text labels that overlap each other
 
 ## Reserved Regions
 - `outer_frame`
@@ -64,13 +86,13 @@ No middle schematic topology, ref mapping, component set, or net naming was chan
 
 ## Export Measurements
 - Final SVG
-  - Size: `2522854` bytes
+  - Size: `2668775` bytes
   - viewBox: `-0.5 -0.5 3293 2333`
 - Final PDF
-  - Size: `80227` bytes
+  - Size: `80768` bytes
   - Page count: `1`
 - Final PNG
-  - Size: `1571168` bytes
+  - Size: `1611535` bytes
   - Dimensions: `6586 x 4666 px`
   - Colored pixel ratio: `0.0`
   - Selection-like pixels: `0`
@@ -95,17 +117,19 @@ No middle schematic topology, ref mapping, component set, or net naming was chan
   - Result: passed
 - `node hardware/eda/render_esp32_drawio.js --write-output --layout-refinement`
   - Result: passed
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-element-list-fix-2`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/style-lock-generated`
   - Result: passed, `0` errors
 - `bash -n hardware/eda/tools/export_final_artifacts.sh hardware/eda/tools/export_preview_artifacts.sh`
   - Result: passed
 - `bash hardware/eda/tools/export_final_artifacts.sh`
   - Result: passed
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/export-element-list-fix-2`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/style-lock-final-export`
   - Result: passed, `0` errors
 - `python3 -m pytest tests/test_visual_schematic_lint.py -q`
-  - Result: `32 passed`
+  - Result: `34 passed`
 - `python3 -m py_compile tools/export_artifact_lint.py tools/visual_schematic_lint.py`
+  - Result: passed
+- `node --check hardware/eda/render_esp32_drawio.js`
   - Result: passed
 
 ## ERC Status

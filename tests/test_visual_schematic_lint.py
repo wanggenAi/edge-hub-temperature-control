@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -67,6 +68,18 @@ def visible_values(drawio_text: str) -> set[str]:
 
 def component_body_refs(drawio_text: str) -> set[str]:
     return set(re.findall(r'data-role="component_body"[^>]*data-ref="([^"]+)"', drawio_text))
+
+
+def component_body_widths(drawio_text: str) -> list[str]:
+    root = ET.fromstring(drawio_text)
+    widths = []
+    for cell in root.findall(".//mxCell"):
+        if cell.get("data-role") != "component_body":
+            continue
+        geom = cell.find("mxGeometry")
+        if geom is not None:
+            widths.append(geom.get("width", ""))
+    return widths
 
 
 def assert_fails(path_name: str, tmp_path: Path, *expected_codes: str):
@@ -496,6 +509,51 @@ def test_layout_refinement_contains_exact_confirmed_components(tmp_path):
     generated_text = output.read_text(encoding="utf-8")
     assert component_body_refs(generated_text) == CONFIRMED_REFS
     assert len(component_body_refs(generated_text)) == 21
+    assert "shape=table;startSize=0;container=1" in generated_text
+    assert 'data-style-lock="reference_table_component"' in generated_text
+    assert "210" in component_body_widths(generated_text)
+
+
+def test_layout_refinement_component_widths_locked_to_reference(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    generated_text = output.read_text(encoding="utf-8")
+    widths = component_body_widths(generated_text)
+    assert len(widths) == 21
+    assert set(widths) == {"210"}
+
+
+def test_component_freehand_rectangle_style_fails(tmp_path):
+    fixture = tmp_path / "bad_freehand_component.drawio"
+    fixture.write_text(
+        """<mxfile host="app.diagrams.net">
+  <diagram id="bad-style" name="bad-style">
+    <mxGraphModel page="1" pageWidth="3300" pageHeight="2339">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="frame.outer" value="" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="outer_frame"><mxGeometry x="79.74" y="7.74" width="3211.2" height="2322.83" as="geometry"/></mxCell>
+        <mxCell id="element_list.lock" value="List of Elements" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="element_list"><mxGeometry x="2558.18" y="10.43" width="730" height="1260" as="geometry"/></mxCell>
+        <mxCell id="title_block.lock" value="Title Block" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="title_block"><mxGeometry x="2555.18" y="2107.42" width="733.786" height="221" as="geometry"/></mxCell>
+        <mxCell id="component.R1.body" value="" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="component_body" data-generated="true" data-owner="test" data-ref="R1" data-source-ref="R1" data-zone="reset_en"><mxGeometry x="360" y="690" width="150" height="90" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+""",
+        encoding="utf-8",
+    )
+    proc, payload = run_lint(fixture, tmp_path, mode="generated")
+    actual = codes(payload)
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert "COMPONENT_BODY_WIDTH_NOT_LOCKED" in actual
+    assert "COMPONENT_STYLE_LOCK_MISSING" in actual
+    assert "COMPONENT_BODY_STYLE_NOT_REFERENCE_TABLE" in actual
 
 
 def test_layout_refinement_contains_no_source_ref_as_displayed_ref(tmp_path):
