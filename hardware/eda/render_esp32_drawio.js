@@ -631,6 +631,132 @@ function componentPinLabelBox(body, rowSpecs, side, label) {
   };
 }
 
+function moduleColumnSpec(body, options = {}) {
+  const pinColumnWidth = options.pinColumnWidth || 62;
+  return {
+    pinColumnWidth,
+    leftColumnRight: body.x + pinColumnWidth,
+    rightColumnLeft: body.x + body.width - pinColumnWidth,
+    centerX: body.x + pinColumnWidth,
+    centerWidth: body.width - pinColumnWidth * 2,
+  };
+}
+
+function moduleCenterLabel(component) {
+  const labels = {
+    DD1: "ESP32",
+    A1: "DC/DC",
+    XS1: "SENSOR",
+    XS2: "HEATER",
+    XS3: "POWER",
+    XS4: "UART",
+    XS5: "SAFETY",
+  };
+  return labels[component.ref] || component.ref;
+}
+
+function buildModuleCenterText(component, body, style, parent, options = {}) {
+  const columns = moduleColumnSpec(body, options);
+  const centerFont = options.centerFont || Math.min(fontSize(style, "component_value_font_size", 30), 14);
+  return textCell({
+    id: `component.${component.ref}.center_name`,
+    parent,
+    value: moduleCenterLabel(component),
+    x: roundCoord(columns.centerX + 4),
+    y: roundCoord(body.y + body.height / 2 - 18),
+    width: roundCoord(columns.centerWidth - 8),
+    height: 36,
+    role: "component_value",
+    attrs: {
+      ...generatedAttrs(component),
+      "data-label-policy": "center_module_name_area",
+      "data-module-layout": "left_pin_column_center_name_right_pin_column",
+    },
+    fontSizeValue: centerFont,
+  });
+}
+
+function modulePinLabelBox(body, side, label, options = {}) {
+  const columns = moduleColumnSpec(body, options);
+  const padding = 6;
+  if (side === "right") {
+    return {
+      x: columns.rightColumnLeft + padding,
+      width: columns.pinColumnWidth - padding * 2,
+    };
+  }
+  return {
+    x: body.x + padding,
+    width: columns.pinColumnWidth - padding * 2,
+  };
+}
+
+function threeColumnModuleAttrs(component, reference) {
+  return {
+    ...generatedAttrs(component),
+    "data-style-lock": "three_column_module_symbol",
+    "data-style-source": "functiondiagramYUANLITU.drawio",
+    "data-common-width": String(reference.commonWidth),
+    "data-module-layout": "left_pin_column_center_name_right_pin_column",
+  };
+}
+
+function buildModuleColumnLines({ cells, parent, ref, body, style, rowGroups, options = {} }) {
+  const columns = moduleColumnSpec(body, options);
+  cells.push(
+    componentTableLine({
+      id: `component.${ref}.table.v.left_pin_column`,
+      parent,
+      ref,
+      x1: columns.leftColumnRight,
+      y1: body.y,
+      x2: columns.leftColumnRight,
+      y2: body.y + body.height,
+      style,
+      lineType: "column-left",
+    }),
+    componentTableLine({
+      id: `component.${ref}.table.v.right_pin_column`,
+      parent,
+      ref,
+      x1: columns.rightColumnLeft,
+      y1: body.y,
+      x2: columns.rightColumnLeft,
+      y2: body.y + body.height,
+      style,
+      lineType: "column-right",
+    })
+  );
+
+  const boundaryYs = [body.y, ...rowGroups.slice(1).map((row, index) => (row.y + rowGroups[index].y) / 2), body.y + body.height];
+  for (let index = 1; index < boundaryYs.length - 1; index += 1) {
+    cells.push(
+      componentTableLine({
+        id: `component.${ref}.table.h.left.${index}`,
+        parent,
+        ref,
+        x1: body.x,
+        y1: boundaryYs[index],
+        x2: columns.leftColumnRight,
+        y2: boundaryYs[index],
+        style,
+        lineType: "row-left",
+      }),
+      componentTableLine({
+        id: `component.${ref}.table.h.right.${index}`,
+        parent,
+        ref,
+        x1: columns.rightColumnLeft,
+        y1: boundaryYs[index],
+        x2: body.x + body.width,
+        y2: boundaryYs[index],
+        style,
+        lineType: "row-right",
+      })
+    );
+  }
+}
+
 function buildDd1BlockCells(model, style) {
   const component = requireComponent(model, "DD1");
   const pins = selectedDd1Pins(component);
@@ -643,7 +769,7 @@ function buildDd1BlockCells(model, style) {
   const bodyStroke = strokeWidth(style, "component_body_stroke_width", 1.9685);
   const refFont = fontSize(style, "component_ref_font_size", 30);
   const valueFont = fontSize(style, "component_value_font_size", 30);
-  const pinFont = fontSize(style, "pin_label_font_size", 30);
+  const pinFont = Math.min(fontSize(style, "pin_label_font_size", 30), 15);
   const netFont = fontSize(style, "net_label_font_size", 15);
   const body = lockedBodyBox({ x: 940, y: 640, width: 420, height: 760 }, style);
   const pinLength = 60;
@@ -677,10 +803,7 @@ function buildDd1BlockCells(model, style) {
       height: body.height,
       role: "component_body",
       attrs: {
-        ...generatedAttrs(component),
-        "data-style-lock": "reference_table_component",
-        "data-style-source": "functiondiagramYUANLITU.drawio",
-        "data-common-width": String(reference.commonWidth),
+        ...threeColumnModuleAttrs(component, reference),
       },
       style: `shape=table;startSize=0;container=1;collapsible=0;childLayout=tableLayout;fillColor=none;strokeColor=#000000;strokeWidth=${bodyStroke};`,
     }),
@@ -710,33 +833,16 @@ function buildDd1BlockCells(model, style) {
     }),
   ];
 
-  const boundaryYs = [body.y, ...rowGroups.slice(1).map((row, index) => (row.y + rowGroups[index].y) / 2), body.y + body.height];
-  for (let index = 1; index < boundaryYs.length - 1; index += 1) {
-    cells.push(componentTableLine({
-      id: `component.DD1.table.h.${index}`,
-      parent: rootId,
-      ref: "DD1",
-      x1: body.x,
-      y1: boundaryYs[index],
-      x2: body.x + body.width,
-      y2: boundaryYs[index],
-      style: tableLineStyle(bodyStroke),
-      lineType: "row",
-    }));
-  }
-  if (rowGroups.some((row) => row.specs.some((spec) => spec.side === "left") && row.specs.some((spec) => spec.side === "right"))) {
-    cells.push(componentTableLine({
-      id: "component.DD1.table.v.split",
-      parent: rootId,
-      ref: "DD1",
-      x1: body.x + body.width * reference.splitColumnRatio,
-      y1: body.y,
-      x2: body.x + body.width * reference.splitColumnRatio,
-      y2: body.y + body.height,
-      style: tableLineStyle(bodyStroke),
-      lineType: "column",
-    }));
-  }
+  buildModuleColumnLines({
+    cells,
+    parent: rootId,
+    ref: "DD1",
+    body,
+    style: tableLineStyle(bodyStroke),
+    rowGroups,
+  });
+  const columns = moduleColumnSpec(body);
+  cells.push(buildModuleCenterText(component, body, style, rootId, { centerFont: 16 }));
 
   for (const pin of pins) {
     const isLeft = pin.side === "left";
@@ -747,7 +853,7 @@ function buildDd1BlockCells(model, style) {
     const pinCenterX = (bodyX + pinOuterX) / 2;
     const netWidth = Math.max(72, String(pin.net).length * 18);
     const row = rowGroups.find((candidate) => Math.abs(candidate.y - y) < 0.001);
-    const labelBox = componentPinLabelBox(body, row ? row.specs : [{ side: pin.side }], pin.side, pin.name);
+    const labelBox = modulePinLabelBox(body, pin.side, pin.name);
     const netLabelX = isLeft ? wireOuterX - netWidth / 2 : wireOuterX - netWidth / 2;
     const attrs = generatedAttrs(component, pin);
     cells.push(
@@ -837,7 +943,7 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
   const bodyStroke = strokeWidth(style, "component_body_stroke_width", 1.9685);
   const refFont = fontSize(style, "component_ref_font_size", 30);
   const valueFont = fontSize(style, "component_value_font_size", 30);
-  const pinFont = fontSize(style, "pin_label_font_size", 30);
+  const pinFont = options.pinFont || Math.min(fontSize(style, "pin_label_font_size", 30), 15);
   const netFont = fontSize(style, "net_label_font_size", 15);
   const parent = options.parent || "generated.schematic.root";
   const textHeight = options.textHeight || 24;
@@ -846,6 +952,10 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
   const body = lockedBodyBox(box, style, { preserveWidth: options.preserveWidth, centerLockedWidth: options.centerLockedWidth === true });
   const reference = referenceComponentStyle(style);
   const rowGroups = rowsByY(pinSpecs);
+  const valueText = englishValue(component);
+  const valueBoxWidth = options.valueTextWidth || body.width - 20;
+  const valueBoxHeight = options.valueTextHeight || 30;
+  const valueBoxGap = options.valueTextGap || 28;
   const cells = [
     vertexCell({
       id: `component.${component.ref}.body`,
@@ -856,10 +966,7 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
       height: body.height,
       role: "component_body",
       attrs: {
-        ...generatedAttrs(component),
-        "data-style-lock": "reference_table_component",
-        "data-style-source": "functiondiagramYUANLITU.drawio",
-        "data-common-width": String(reference.commonWidth),
+        ...threeColumnModuleAttrs(component, reference),
       },
       style: `shape=table;startSize=0;container=1;collapsible=0;childLayout=tableLayout;fillColor=none;strokeColor=#000000;strokeWidth=${bodyStroke};`,
     }),
@@ -878,44 +985,26 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
     textCell({
       id: `component.${component.ref}.value`,
       parent,
-      value: englishValue(component),
-      x: body.x + 10,
-      y: body.y + body.height + 14,
-      width: body.width - 20,
-      height: 30,
+      value: valueText,
+      x: body.x + body.width / 2 - valueBoxWidth / 2 + (options.valueTextXOffset || 0),
+      y: body.y + body.height + valueBoxGap,
+      width: valueBoxWidth,
+      height: valueBoxHeight,
       role: "component_value",
       attrs: generatedAttrs(component),
       fontSizeValue: valueFont,
     }),
+    buildModuleCenterText(component, body, style, parent),
   ];
 
-  const boundaryYs = [body.y, ...rowGroups.slice(1).map((row, index) => (row.y + rowGroups[index].y) / 2), body.y + body.height];
-  for (let index = 1; index < boundaryYs.length - 1; index += 1) {
-    cells.push(componentTableLine({
-      id: `component.${component.ref}.table.h.${index}`,
-      parent,
-      ref: component.ref,
-      x1: body.x,
-      y1: boundaryYs[index],
-      x2: body.x + body.width,
-      y2: boundaryYs[index],
-      style: tableLineStyle(bodyStroke),
-      lineType: "row",
-    }));
-  }
-  if (rowGroups.some((row) => row.specs.some((spec) => (spec.side || "left") === "left") && row.specs.some((spec) => (spec.side || "left") === "right"))) {
-    cells.push(componentTableLine({
-      id: `component.${component.ref}.table.v.split`,
-      parent,
-      ref: component.ref,
-      x1: body.x + body.width * reference.splitColumnRatio,
-      y1: body.y,
-      x2: body.x + body.width * reference.splitColumnRatio,
-      y2: body.y + body.height,
-      style: tableLineStyle(bodyStroke),
-      lineType: "column",
-    }));
-  }
+  buildModuleColumnLines({
+    cells,
+    parent,
+    ref: component.ref,
+    body,
+    style: tableLineStyle(bodyStroke),
+    rowGroups,
+  });
 
   for (const spec of pinSpecs) {
     const pin = findPin(component, spec.number);
@@ -927,8 +1016,7 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
     const wireOuterX = isLeft ? pinOuterX - wireLength : pinOuterX + wireLength;
     const pinCenterX = (bodyX + pinOuterX) / 2;
     const label = spec.label || pin.name;
-    const row = rowGroups.find((candidate) => Math.abs(candidate.y - y) < 0.001);
-    const labelBox = componentPinLabelBox(body, row ? row.specs : [spec], side, label);
+    const labelBox = modulePinLabelBox(body, side, label);
     const labelWidth = labelBox.width;
     const netWidth = Math.max(72, String(pin.net).length * 18);
     const labelX = labelBox.x;
@@ -1366,11 +1454,11 @@ function buildPowerBlockCells(model, style, options = {}) {
         { number: "2", side: "left", y: 1700, label: "GND" },
       ], { pinLength: 60, wireLength: 58 }),
       ...buildComponentBoxCells(a1, { x: 2020, y: 1560, width: 210, height: 215 }, style, [
-        { number: "1", side: "left", y: 1608, label: "+12V IN", labelWidth: 88 },
+        { number: "1", side: "left", y: 1608, label: "+12V" },
         { number: "2", side: "left", y: 1654, label: "GND" },
         { number: "3", side: "left", y: 1700, label: "GND" },
-        { number: "4", side: "right", y: 1746, label: "+3V3 OUT", labelWidth: 96 },
-      ], { pinLength: 60, wireLength: 70 }),
+        { number: "4", side: "right", y: 1746, label: "+3V3" },
+      ], { pinLength: 60, wireLength: 70, valueTextHeight: 52, valueTextGap: 20 }),
       ...buildTwoTerminalSymbolCells(c3, { x: 1600, y: 1840, width: 210, height: 90 }, style, [
         { number: "1", side: "left", y: 1885, label: "GND" },
         { number: "2", side: "right", y: 1885, label: "+12V" },
@@ -1387,10 +1475,10 @@ function buildPowerBlockCells(model, style, options = {}) {
       { number: "2", side: "left", y: 1685, label: "GND" },
     ], { pinLength: 50, wireLength: 45 }),
     ...buildComponentBoxCells(a1, { x: 1980, y: 1530, width: 210, height: 205 }, style, [
-      { number: "1", side: "left", y: 1575, label: "+12V IN" },
+      { number: "1", side: "left", y: 1575, label: "+12V" },
       { number: "2", side: "left", y: 1620, label: "GND" },
       { number: "3", side: "left", y: 1665, label: "GND" },
-      { number: "4", side: "right", y: 1710, label: "+3V3 OUT" },
+      { number: "4", side: "right", y: 1710, label: "+3V3" },
     ], { pinLength: 50, wireLength: 45 }),
     ...buildTwoTerminalSymbolCells(c3, { x: 1600, y: 1815, width: 210, height: 80 }, style, [
       { number: "1", side: "left", y: 1855, label: "GND" },
@@ -1429,11 +1517,11 @@ function buildHeaterBlockCells(model, style, options = {}) {
       ...buildComponentBoxCells(xs2, { x: 2250, y: 885, width: 210, height: 135 }, style, [
         { number: "1", side: "left", y: 930, label: "HEAT+" },
         { number: "2", side: "left", y: 1000, label: "HEAT-", renderWire: false, renderNetLabel: false },
-      ], { pinLength: 25, wireLength: 35 }),
+      ], { pinLength: 25, wireLength: 35, valueTextGap: 44, valueTextXOffset: 78, valueTextWidth: 134 }),
       ...buildComponentBoxCells(xs5, { x: 2250, y: 1180, width: 210, height: 95 }, style, [
         { number: "1", side: "left", y: 1220, label: "+12V" },
         { number: "2", side: "left", y: 1260, label: "HEAT+" },
-      ], { pinLength: 25, wireLength: 60 }),
+      ], { pinLength: 25, wireLength: 60, valueTextHeight: 52, valueTextGap: 42 }),
       buildLocalWire({
         id: "wire.local.GATE_R.R4_VT1_R5",
         net: "GATE_R",
@@ -1509,7 +1597,7 @@ function buildHeaterBlockCells(model, style, options = {}) {
       { number: "1", side: "left", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false, renderPinLabel: false },
       { number: "2", side: "right", y: 1025, label: "GND" },
       { number: "3", side: "right", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },
-    ], { pinLength: 40, wireLength: 45 }),
+    ], { pinLength: 40, wireLength: 45, valueTextGap: 44, valueTextXOffset: 78, valueTextWidth: 134 }),
     ...buildComponentBoxCells(xs2, { x: 2240, y: 895, width: 210, height: 105 }, style, [
       { number: "1", side: "left", y: 930, label: "HEAT+", renderWire: false, renderNetLabel: false },
       { number: "2", side: "left", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },

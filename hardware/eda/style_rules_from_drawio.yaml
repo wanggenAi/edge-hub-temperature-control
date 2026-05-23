@@ -202,6 +202,20 @@
       "PIN_NUMBER_MISSING"
     ]
   },
+  "three_column_module_symbols": {
+    "policy": "DD1/A1/XS* module and connector symbols use a left pin column, center name area, and right pin column. Pin labels must stay inside their side columns.",
+    "pin_column_width_units": {
+      "value": 62.0,
+      "tolerance": 0.5
+    },
+    "required_style_lock": "three_column_module_symbol",
+    "required_lint_errors": [
+      "MODULE_LEFT_PIN_COLUMN_MISSING",
+      "MODULE_RIGHT_PIN_COLUMN_MISSING",
+      "PIN_LABEL_OUTSIDE_LEFT_COLUMN",
+      "PIN_LABEL_OUTSIDE_RIGHT_COLUMN"
+    ]
+  },
   "style_histograms": {
     "stroke_width_counts": {
       "1.9685": 484,

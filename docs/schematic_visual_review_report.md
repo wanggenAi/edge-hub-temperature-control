@@ -24,14 +24,19 @@ The generated schematic contains the confirmed 21 components:
 `DD1, R1, SB1, R3, HL1, C1, C2, R2, XS1, XS4, R6, SB2, R4, R5, VT1, XS2, XS5, A1, XS3, C3, C4`
 
 ## Style Lock
-- Rectangular pin-row modules/connectors remain table-style only for:
+- Three-column rectangular module symbols are used only for:
   `DD1, A1, XS1, XS2, XS3, XS4, XS5`
+  - left pin column / middle name area / right pin column
+  - module body style lock: `three_column_module_symbol`
 - Discrete components are standard schematic symbol primitives, not table rectangles:
   `R1, R2, R3, R4, R5, R6, C1, C2, C3, C4, SB1, SB2, HL1, VT1`
 - Generated symbol primitive count: `58`
 - Required discrete-symbol lint failures now include:
   `FORBIDDEN_TABLE_STYLE_FOR_DISCRETE_SYMBOL`, `REQUIRED_SYMBOL_SHAPE_MISSING`,
   `FORBIDDEN_RANDOM_SYMBOL_GEOMETRY`, `PIN_LINE_NOT_CONNECTED`, `PIN_NUMBER_MISSING`
+- Required three-column module lint failures now include:
+  `MODULE_LEFT_PIN_COLUMN_MISSING`, `MODULE_RIGHT_PIN_COLUMN_MISSING`,
+  `PIN_LABEL_OUTSIDE_LEFT_COLUMN`, `PIN_LABEL_OUTSIDE_RIGHT_COLUMN`
 - Rectangular module pin label policy: `inside_table_row`
 - Discrete symbol pin label policy: `above_pin_line`
 
@@ -55,10 +60,13 @@ The generated schematic contains the confirmed 21 components:
 - Title Block region: unchanged in layout
 
 ## Validation
-- `python3 -m pytest tests/test_visual_schematic_lint.py -q`: `39 passed`
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --lock-file hardware/eda/reserved_regions.lock.json --reports-dir build/reports/generated-symbol-schematic`: `0` errors
+- `python3 -m pytest tests/test_visual_schematic_lint.py -q`: `40 passed`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --lock-file hardware/eda/reserved_regions.lock.json --reports-dir build/reports/three-column-symbol-redraw`: `0` errors
 - `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.drawio --mode template --reports-dir build/reports/final-human-review-template`: `0` errors
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-symbol-schematic --reports-dir build/reports/final-symbol-export`: `0` errors
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-three-column-redraw --reports-dir build/reports/final-three-column-export`: `0` errors
+
+## Current Checkpoint Scope
+This is a three-column module symbol and discrete-symbol correction checkpoint. It should not be treated as final drawing approval until the external reviewer inspects the updated PDF/PNG and gives the next concrete patch request.
 
 ## ERC Status
 `ERC_UNAVAILABLE`: this is the draw.io visual engineering workflow. No KiCad schematic source is used here, so KiCad ERC is not claimed as passed.

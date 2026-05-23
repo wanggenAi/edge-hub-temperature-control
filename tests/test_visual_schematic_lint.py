@@ -537,7 +537,7 @@ def test_layout_refinement_contains_exact_confirmed_components(tmp_path):
     assert component_body_refs(generated_text) == CONFIRMED_REFS
     assert len(component_body_refs(generated_text)) == 21
     assert "shape=table;startSize=0;container=1" in generated_text
-    assert 'data-style-lock="reference_table_component"' in generated_text
+    assert 'data-style-lock="three_column_module_symbol"' in generated_text
     assert 'data-style-lock="standard_symbol_component"' in generated_text
     assert DISCRETE_SYMBOL_REFS.issubset(symbol_primitive_refs(generated_text))
 
@@ -557,7 +557,7 @@ def test_layout_refinement_component_widths_locked_to_reference(tmp_path):
     assert {ref for ref, body in info.items() if body["width"] == "210"} == CONFIRMED_REFS
     for ref in RECTANGULAR_TABLE_REFS:
         assert "shape=table" in info[ref]["style"]
-        assert info[ref]["style_lock"] == "reference_table_component"
+        assert info[ref]["style_lock"] == "three_column_module_symbol"
     for ref in DISCRETE_SYMBOL_REFS:
         assert "shape=table" not in info[ref]["style"]
         assert info[ref]["style_lock"] == "standard_symbol_component"
@@ -585,6 +585,7 @@ def test_heater_power_readability_polish_passes_generated_lint(tmp_path):
         assert ref in symbol_primitive_refs(generated_text)
     for ref in RECTANGULAR_TABLE_REFS:
         assert "shape=table" in info[ref]["style"]
+        assert info[ref]["style_lock"] == "three_column_module_symbol"
     assert 'id="component.R4.body"' in generated_text
     assert 'id="component.A1.body"' in generated_text
     assert 'id="wire.local.HEAT-.VT1_XS2"' in generated_text
@@ -703,6 +704,24 @@ def test_discrete_component_missing_symbol_primitives_fails(tmp_path):
     actual = codes(payload)
     assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
     assert "REQUIRED_SYMBOL_SHAPE_MISSING" in actual
+
+
+def test_three_column_module_missing_divider_fails(tmp_path):
+    output = tmp_path / "bad_missing_module_column.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    text = output.read_text(encoding="utf-8")
+    text = re.sub(r'\n\s*<mxCell id="component\.XS4\.table\.v\.left_pin_column"[\s\S]*?</mxCell>', "", text, count=1)
+    output.write_text(text, encoding="utf-8")
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    actual = codes(payload)
+    assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
+    assert "MODULE_LEFT_PIN_COLUMN_MISSING" in actual
 
 
 def test_layout_refinement_contains_no_source_ref_as_displayed_ref(tmp_path):

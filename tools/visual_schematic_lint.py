@@ -321,6 +321,7 @@ class VisualSchematicLint:
             {"R": "resistor", "C": "capacitor", "SB": "switch", "HL": "led", "VT": "nmos"},
         )
         self.rectangular_component_prefixes = tuple(discrete_policy.get("rectangular_component_prefixes", ["DD", "A", "XS"]))
+        self._three_column_module_symbols = config.get("three_column_module_symbols", {})
         self.forbidden_visible_refs = set(config.get("forbidden_visible_refs", []))
         self.forbidden_net_names = set(config.get("forbidden_net_names", []))
         self.findings: list[Finding] = []
@@ -770,12 +771,12 @@ class VisualSchematicLint:
                     f"{body.width:.3f}",
                     *body.center,
                 )
-            if body.attrs.get("data-style-lock") != "reference_table_component":
+            if body.attrs.get("data-style-lock") != "three_column_module_symbol":
                 self.error(
                     "COMPONENT_STYLE_LOCK_MISSING",
                     body.id,
-                    "Generated component body is missing the reference table style lock metadata",
-                    "data-style-lock=reference_table_component",
+                    "Generated module/connector body is missing the three-column module style lock metadata",
+                    "data-style-lock=three_column_module_symbol",
                     body.attrs.get("data-style-lock", ""),
                     *body.center,
                 )
@@ -788,6 +789,7 @@ class VisualSchematicLint:
                     body.style,
                     *body.center,
                 )
+            self.validate_three_column_module(body)
         for line in [edge for edge in self.model.edges if edge.role == "component_table_line"]:
             if not orthogonal(line):
                 self.error("COMPONENT_TABLE_LINE_NOT_ORTHOGONAL", line.id, "Component table divider is not horizontal or vertical", "orthogonal", f"({line.x1},{line.y1})->({line.x2},{line.y2})", *line.center)
@@ -801,6 +803,52 @@ class VisualSchematicLint:
                     f"{stroke:.4f}",
                     *line.center,
                 )
+
+    def validate_three_column_module(self, body: Vertex) -> None:
+        lines = [edge for edge in self.model.edges if edge.role == "component_table_line" and edge.attrs.get("data-ref") == body.attrs.get("data-ref")]
+        module_rules = self.config_three_column_module_symbols()
+        module_column_width = float(module_rules.get("pin_column_width_units", {}).get("value", 62.0))
+        left_expected = body.x + module_column_width
+        right_expected = body.x + body.width - module_column_width
+        verticals = [edge for edge in lines if math.isclose(edge.x1, edge.x2, abs_tol=1e-6)]
+        if not any(abs(edge.x1 - left_expected) <= self.component_width_tolerance for edge in verticals):
+            self.error(
+                "MODULE_LEFT_PIN_COLUMN_MISSING",
+                body.id,
+                "Three-column module is missing the left pin-column divider",
+                f"x={left_expected:.3f}",
+                ",".join(f"{edge.x1:.3f}" for edge in verticals),
+                *body.center,
+            )
+        if not any(abs(edge.x1 - right_expected) <= self.component_width_tolerance for edge in verticals):
+            self.error(
+                "MODULE_RIGHT_PIN_COLUMN_MISSING",
+                body.id,
+                "Three-column module is missing the right pin-column divider",
+                f"x={right_expected:.3f}",
+                ",".join(f"{edge.x1:.3f}" for edge in verticals),
+                *body.center,
+            )
+        labels = [v for v in self.model.vertices if v.role == "pin_label" and v.attrs.get("data-ref") == body.attrs.get("data-ref")]
+        for label in labels:
+            if label.center[0] < body.x + body.width / 2:
+                allowed = (body.x, body.y, left_expected, body.y + body.height)
+                code = "PIN_LABEL_OUTSIDE_LEFT_COLUMN"
+            else:
+                allowed = (right_expected, body.y, body.x + body.width, body.y + body.height)
+                code = "PIN_LABEL_OUTSIDE_RIGHT_COLUMN"
+            if not bbox_inside(label.bbox, allowed):
+                self.error(
+                    code,
+                    label.id,
+                    "Module pin label is not contained within its side pin column",
+                    str(round_box(allowed)),
+                    str(round_box(label.bbox)),
+                    *label.center,
+                )
+
+    def config_three_column_module_symbols(self) -> dict[str, Any]:
+        return getattr(self, "_three_column_module_symbols", None) or {}
 
     def required_symbol_type(self, ref: str) -> str:
         if ref.startswith("SB"):
