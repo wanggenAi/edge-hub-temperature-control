@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html
 import json
 import re
 import sys
@@ -74,6 +75,22 @@ LEGACY_BOM_FORBIDDEN_TEXT = [
     "ZQ1",
     "DD2",
     "DD3",
+]
+ESP32_TITLE_BLOCK_REQUIRED_TEXT = [
+    "BSTU.241297.006 Э3",
+    "ESP32 Temperature Control Unit",
+    "Electrical Schematic Diagram",
+    "Brest State Technical University",
+    "Wang Gen",
+    "A1",
+    "N/A",
+]
+LEGACY_TITLE_BLOCK_FORBIDDEN_TEXT = [
+    "Microcontroller-based I/O Device",
+    "Department of Computer and System",
+    "Разумейчик",
+    "AT89C52",
+    "LCD",
 ]
 
 
@@ -156,15 +173,22 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing required drawing text", ", ".join(required), ", ".join(missing))
     if REQUIRED_DOCUMENT_CODE not in visible_text:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the required BSTU document code text", REQUIRED_DOCUMENT_CODE, "not found")
-    is_final_kicad_embed = "kicad" in label.lower() or "element-list-esp32-bom" in label.lower()
+    label_lower = label.lower()
+    is_final_kicad_embed = (
+        "kicad" in label_lower
+        or "element-list-esp32-bom" in label_lower
+        or "title-block-esp32" in label_lower
+    )
     if not is_final_kicad_embed:
         validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
     else:
         if "Qty" not in visible_text and "Number" not in visible_text:
             error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
         validate_kicad_embed_geometry(text, lock_file, findings, str(path), payload)
-        if "element-list-esp32-bom" in label.lower():
+        if "element-list-esp32-bom" in label_lower or "title-block-esp32" in label_lower:
             validate_esp32_bom_visible_text(visible_text, findings, str(path))
+        if "title-block-esp32" in label_lower:
+            validate_esp32_title_block_visible_text(visible_text, findings, str(path))
 
     forbidden_refs = [
         "CN1",
@@ -220,6 +244,39 @@ def validate_esp32_bom_visible_text(visible_text: str, findings: list[Finding], 
             "Final SVG still contains legacy/template List of Elements text",
             "ESP32 BOM only",
             ", ".join(stale),
+        )
+
+
+def validate_esp32_title_block_visible_text(visible_text: str, findings: list[Finding], object_id: str) -> None:
+    missing = [value for value in ESP32_TITLE_BLOCK_REQUIRED_TEXT if value not in visible_text]
+    if missing:
+        error(
+            findings,
+            "SVG_ESP32_TITLE_BLOCK_REQUIRED_TEXT_MISSING",
+            object_id,
+            "Final SVG is missing required ESP32 Title Block text",
+            ", ".join(ESP32_TITLE_BLOCK_REQUIRED_TEXT),
+            ", ".join(missing),
+        )
+    stale = [value for value in LEGACY_TITLE_BLOCK_FORBIDDEN_TEXT if value in visible_text]
+    if stale:
+        error(
+            findings,
+            "SVG_LEGACY_TITLE_BLOCK_TEXT_VISIBLE",
+            object_id,
+            "Final SVG still contains legacy/template Title Block text",
+            "ESP32 schematic title block only",
+            ", ".join(stale),
+        )
+    cyrillic_outside_code = visible_text.replace("Э3", "")
+    if re.search(r"[\u0400-\u04FF]", cyrillic_outside_code):
+        error(
+            findings,
+            "SVG_TITLE_BLOCK_CYRILLIC_FORBIDDEN",
+            object_id,
+            "Final SVG contains Cyrillic text outside the allowed Э3 document-type code",
+            "English title block text except Э3",
+            "Cyrillic text found",
         )
 
 
@@ -386,6 +443,7 @@ def visible_svg_text(text: str) -> str:
     for snippet in snippets:
         clean = re.sub(r"<br\s*/?>", " ", snippet, flags=re.I)
         clean = re.sub(r"<[^>]+>", " ", clean)
+        clean = html.unescape(clean)
         clean = clean.replace("&nbsp;", " ")
         clean = clean.replace("&amp;", "&")
         clean = clean.replace("&lt;", "<")
@@ -415,17 +473,20 @@ def extract_embedded_svg_payloads(text: str) -> list[str]:
 
 
 def required_visible_text(label: str) -> list[str]:
+    label_lower = label.lower()
     base = [
         "Capacitors",
         "Resistors",
         "Position number",
         "Name",
         "Note",
-        "Department of Computer",
-        "Microcontroller-based I/O Device",
         "Э3",
     ]
-    if "kicad" not in label.lower():
+    if "title-block-esp32" in label_lower:
+        base.extend(ESP32_TITLE_BLOCK_REQUIRED_TEXT)
+    else:
+        base.extend(["Department of Computer", "Microcontroller-based I/O Device"])
+    if "kicad" not in label_lower and "title-block-esp32" not in label_lower:
         return ["DD1", "ESP32-WROOM-32", *base]
     school_refs = [
         "DD1",

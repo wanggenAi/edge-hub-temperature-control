@@ -178,6 +178,54 @@ Current element-list update report:
 
 `build/reports/final-element-list-esp32-bom-export/export_artifact_lint.json`
 
+## Generated Title Block Update
+
+The original school frame source still stays locked:
+
+`hardware/eda/functiondiagramYUANLITU.drawio`
+
+The generated/final copies now replace only the right-bottom Title Block text
+content with the ESP32 temperature-control schematic information. The title
+block border, internal grid lines, line weights, position, and document code
+number remain inherited from the school draw.io template.
+
+The update is applied by:
+
+```bash
+python3 hardware/eda/tools/update_generated_title_block.py \
+  --input hardware/eda/functiondiagramYUANLITU.generated.drawio \
+  --output hardware/eda/functiondiagramYUANLITU.generated.drawio
+```
+
+`hardware/eda/tools/export_final_artifacts.sh` runs both generated-text
+updaters before copying and exporting the final artifacts:
+
+- `update_generated_element_list.py`
+- `update_generated_title_block.py`
+
+The generated Title Block now contains:
+
+- `BSTU.241297.006 Э3`
+- `ESP32 Temperature Control Unit`
+- `Electrical Schematic Diagram`
+- `Brest State Technical University`
+- `Format: A1`
+- `Scale: N/A`
+- `Mass: N/A`
+- `Sheet 1`
+- `Sheets 1`
+- `Wang Gen`
+- `Date: 2026-05-20`
+
+The final export lint label `final-title-block-esp32` requires these title
+block strings, keeps requiring the ESP32 List of Elements text, and rejects
+legacy template title text such as `Microcontroller-based I/O Device`,
+`Department of Computer and System`, `Разумейчик`, `AT89C52`, and `LCD`.
+
+Current title-block update report:
+
+`build/reports/final-title-block-esp32-export/export_artifact_lint.json`
+
 ## ERC Status
 
 KiCad ERC was run with KiCad CLI 9.0.2 and passed with zero violations.

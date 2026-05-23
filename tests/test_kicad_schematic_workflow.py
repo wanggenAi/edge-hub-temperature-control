@@ -20,6 +20,7 @@ KICAD_SYM = KICAD_DIR / "esp32_temperature_control_unit.kicad_sym"
 KICAD_SVG = KICAD_DIR / "exports/esp32_temperature_control_unit_schematic.svg"
 EMBED_SCRIPT = ROOT / "hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py"
 UPDATE_ELEMENT_LIST_SCRIPT = ROOT / "hardware/eda/tools/update_generated_element_list.py"
+UPDATE_TITLE_BLOCK_SCRIPT = ROOT / "hardware/eda/tools/update_generated_title_block.py"
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 FINAL_SVG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg"
 
@@ -146,6 +147,22 @@ LEGACY_BOM_TEXT = [
     "ZQ1",
     "DD2",
     "DD3",
+]
+
+ESP32_TITLE_TEXT = [
+    "BSTU.241297.006 Э3",
+    "ESP32 Temperature Control Unit",
+    "Electrical Schematic Diagram",
+    "Brest State Technical University",
+    "Wang Gen",
+    "A1",
+    "N/A",
+]
+
+LEGACY_TITLE_TEXT = [
+    "Microcontroller-based I/O Device",
+    "Department of Computer and System",
+    "Разумейчик",
 ]
 
 
@@ -340,6 +357,43 @@ def test_update_generated_element_list_replaces_legacy_bom_without_touching_sour
         assert value not in updated_text
 
 
+def test_update_generated_title_block_replaces_template_text_without_touching_source_frame(tmp_path: Path) -> None:
+    generated = tmp_path / "generated.drawio"
+    updated = tmp_path / "updated.drawio"
+    subprocess.run(
+        [
+            sys.executable,
+            str(EMBED_SCRIPT),
+            "--frame",
+            str(FRAME),
+            "--kicad-svg",
+            str(KICAD_SVG),
+            "--output",
+            str(generated),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            str(UPDATE_TITLE_BLOCK_SCRIPT),
+            "--input",
+            str(generated),
+            "--output",
+            str(updated),
+        ],
+        check=True,
+    )
+    frame_text = visible_drawio_xml_text(FRAME)
+    assert "Microcontroller-based I/O Device" in frame_text
+    assert "Department of Computer and System" in frame_text
+    updated_text = visible_drawio_xml_text(updated)
+    for value in ESP32_TITLE_TEXT:
+        assert value in updated_text
+    for value in LEGACY_TITLE_TEXT:
+        assert value not in updated_text
+
+
 def test_embed_script_places_kicad_block_in_main_schematic_area(tmp_path: Path) -> None:
     output = tmp_path / "generated.drawio"
     subprocess.run(
@@ -390,6 +444,16 @@ def test_generated_drawio_has_esp32_bom_when_present() -> None:
     for value in ESP32_BOM_TEXT:
         assert value in payload
     for value in LEGACY_BOM_TEXT:
+        assert value not in payload
+
+
+def test_generated_drawio_has_esp32_title_block_when_present() -> None:
+    if not GENERATED.exists():
+        return
+    payload = visible_drawio_xml_text(GENERATED)
+    for value in ESP32_TITLE_TEXT:
+        assert value in payload
+    for value in LEGACY_TITLE_TEXT:
         assert value not in payload
 
 
