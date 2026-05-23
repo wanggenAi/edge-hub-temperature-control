@@ -284,3 +284,62 @@ the review crops visually before thesis insertion.
 - Warnings: `0`
 
 This means the current checkpoint verifies the KiCad source, exports, embedding, visible refs/nets, school frame preservation, and KiCad electrical-rule connectivity for the locally wired middle schematic.
+
+## JLC-Faithful KiCad Engineering Redraw Checkpoint
+
+This checkpoint keeps the JLC schematic as the circuit topology and module
+structure source of truth. It does not change the confirmed refs, canonical net
+names, BOM content, original BSTU draw.io frame, KiCad project file, or KiCad
+symbol library.
+
+The KiCad middle schematic was adjusted to reduce label-only local modules by
+adding real local wire continuity inside these JLC-derived blocks:
+
+- `R1` / `SB1` reset-EN block
+- `R6` / `SB2` boot block
+- `R3` / `HL1` LED status block
+- `R2` / `XS1` DS18B20 pull-up and connector block
+- `R4` / `R5` / `VT1` / `XS2` / `XS5` heater driver block
+- `XS3` / `A1` power input and converter block
+
+Cross-module connections still use the canonical labels where long wires would
+make the drawing less readable:
+
+- `+3V3`, `+12V`, `GND`
+- `EN`, `LED`, `LED_A`, `DQ`, `RXD0`, `TXD0`, `BOOT`
+- `GATE`, `GATE_R`, `HEAT+`, `HEAT-`
+
+Passing checks for this checkpoint:
+
+```bash
+python3 -m pytest tests/test_kicad_schematic_workflow.py -q
+/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc \
+  --format json \
+  --output build/reports/kicad_schematic_erc_jlc_faithful_redraw.json \
+  hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch
+python3 tools/export_artifact_lint.py \
+  --export-dir hardware/eda/exports/final \
+  --basename esp32_temperature_control_unit_electrical_schematic \
+  --label final-jlc-faithful-kicad-redraw \
+  --reports-dir build/reports/final-jlc-faithful-kicad-redraw-export
+```
+
+Current results:
+
+- Pytest: `16 passed`
+- KiCad ERC: `0` violations, `0` errors, `0` warnings
+- Export lint: `0` errors
+- Final PNG: `6431 x 4654 px`
+- Original school frame diff: clean
+- KiCad symbol library diff: clean
+- KiCad project diff: clean
+
+Final artifacts:
+
+- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`
+- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
+- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
+- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
+
+This checkpoint is a JLC-faithful KiCad engineering redraw checkpoint, not a
+final human-approved drawing.

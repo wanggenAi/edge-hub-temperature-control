@@ -103,18 +103,19 @@ def is_final_kicad_embed_label(label: str) -> bool:
             "element-list-esp32-bom",
             "title-block-esp32",
             "thesis-candidate",
+            "jlc-faithful-kicad-redraw",
         )
     )
 
 
 def requires_esp32_bom_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate"))
+    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw"))
 
 
 def requires_esp32_title_block_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate"))
+    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw"))
 
 
 @dataclass

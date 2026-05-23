@@ -266,6 +266,35 @@ def test_kicad_source_visible_refs_and_nets_are_canonical() -> None:
     assert not token_present("3V3", schematic)
 
 
+def test_jlc_faithful_redraw_uses_local_wiring_between_related_nodes() -> None:
+    schematic = text(KICAD_SCH)
+    required_wire_segments = [
+        "(pts (xy 43.18 58.42) (xy 43.18 73.66))",
+        "(pts (xy 96.52 142.24) (xy 96.52 157.48))",
+        "(pts (xy 154.94 17.78) (xy 154.94 27.94))",
+        "(pts (xy 154.94 93.98) (xy 154.94 101.6))",
+        "(pts (xy 134.62 119.38) (xy 134.62 101.6))",
+        "(pts (xy 203.2 100.33) (xy 203.2 123.19))",
+        "(pts (xy 144.78 156.21) (xy 144.78 152.4))",
+        "(pts (xy 144.78 158.75) (xy 144.78 154.94))",
+    ]
+    for segment in required_wire_segments:
+        assert segment in schematic
+
+
+def test_jlc_faithful_redraw_keeps_symbol_library_and_project_clean() -> None:
+    assert subprocess.run(
+        ["git", "diff", "--quiet", "--", str(KICAD_SYM.relative_to(ROOT))],
+        cwd=ROOT,
+        check=False,
+    ).returncode == 0
+    assert subprocess.run(
+        ["git", "diff", "--quiet", "--", str((KICAD_DIR / "esp32_temperature_control_unit.kicad_pro").relative_to(ROOT))],
+        cwd=ROOT,
+        check=False,
+    ).returncode == 0
+
+
 def test_kicad_erc_has_no_violations_when_cli_available(tmp_path: Path) -> None:
     kicad_cli = shutil.which("kicad-cli")
     macos_cli = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
@@ -486,6 +515,26 @@ def test_final_thesis_candidate_lint_label_requires_bom_and_title_block() -> Non
     spec.loader.exec_module(lint)
 
     label = "final-thesis-candidate"
+    required = lint.required_visible_text(label)
+    assert lint.is_final_kicad_embed_label(label)
+    assert lint.requires_esp32_bom_check(label)
+    assert lint.requires_esp32_title_block_check(label)
+    assert "DD1" in required
+    assert "+3V3" in required
+    assert "ESP32 Temperature Control Unit" in required
+    assert "Brest State Technical University" in required
+
+
+def test_jlc_faithful_redraw_lint_label_requires_bom_and_title_block() -> None:
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    spec = spec_from_file_location("export_artifact_lint", ROOT / "tools/export_artifact_lint.py")
+    assert spec and spec.loader
+    lint = module_from_spec(spec)
+    sys.modules[spec.name] = lint
+    spec.loader.exec_module(lint)
+
+    label = "final-jlc-faithful-kicad-redraw"
     required = lint.required_visible_text(label)
     assert lint.is_final_kicad_embed_label(label)
     assert lint.requires_esp32_bom_check(label)
