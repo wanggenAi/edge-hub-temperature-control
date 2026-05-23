@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-0ec1c05
+9a102eb
 
 ## Current Branch
 main
@@ -25,21 +25,25 @@ Firefox ChatGPT requested a controlled Title Block document-code correction befo
 After completing and pushing the controlled correction, Codex proceeded to final export naming only. Firefox UI automation for sending the handoff back to the ChatGPT reviewer was attempted but blocked by macOS/Firefox focus and screenshot capture behavior, so no reviewer reply after `ab414a4` was received inside Firefox.
 
 ## What Was Done In This Round
-- Kept `hardware/eda/functiondiagramYUANLITU.generated.drawio` as the generated schematic source.
-- Added `hardware/eda/tools/export_final_artifacts.sh`.
-- Exported final thesis-facing artifacts to `hardware/eda/exports/final/`.
-- Copied the generated draw.io source into the final export directory.
-- Generalized `tools/export_artifact_lint.py` to lint either preview or final basenames.
-- Updated `docs/schematic_final_report.md` for the current `hardware/eda` draw.io workflow.
-- Did not change middle circuit layout, refs, components, or networks.
+- Resumed after shutdown and re-ran the schematic/export checks.
+- Found that the right-top List of Elements was visually an empty table in the final PNG/SVG, even though prior lint passed.
+- Fixed `hardware/eda/render_esp32_drawio.js` so the right-top table is generated from the confirmed ESP32 BOM/model instead of being an empty preserved group.
+- Added generated-drawing lint checks requiring List of Elements text and table-line metadata.
+- Tightened final SVG export lint so ESP32 BOM table text must be visible.
+- Regenerated `hardware/eda/functiondiagramYUANLITU.generated.drawio`.
+- Regenerated final thesis-facing artifacts under `hardware/eda/exports/final/`.
+- Did not change middle schematic topology, refs, components, or networks.
 
 ## Files Changed
-- `hardware/eda/tools/export_final_artifacts.sh`
+- `hardware/eda/render_esp32_drawio.js`
+- `tools/visual_schematic_lint.py`
+- `tools/export_artifact_lint.py`
+- `tests/test_visual_schematic_lint.py`
+- `hardware/eda/functiondiagramYUANLITU.generated.drawio`
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- `tools/export_artifact_lint.py`
 - `docs/schematic_final_report.md`
 - `docs/ai_handoff/latest_handoff.md`
 
@@ -50,14 +54,27 @@ After completing and pushing the controlled correction, Codex proceeded to final
 - Final PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
 
 ## Export Measurements
-- SVG size: `1494779` bytes
+- SVG size: `2522854` bytes
 - SVG viewBox: `-0.5 -0.5 3293 2333`
-- PDF size: `63457` bytes
+- PDF size: `80227` bytes
 - PDF page count: `1`
-- PNG size: `988536` bytes
+- PNG size: `1571168` bytes
 - PNG dimensions: `6586 x 4666 px`
 - PNG colored ratio: `0.0`
 - PNG selection-like pixels: `0`
+
+## List of Elements Scan
+- Final SVG contains:
+  - `Capacitors`
+  - `Resistors`
+  - `ESP32-WROOM-32 module`
+  - `XH-3PA 3-pin sensor connector`
+  - `KF301-2P thermal switch terminal`
+  - `Header45.08-4P connector`
+  - `Qty.`
+- Final SVG does not contain stale reference-template BOM rows:
+  - `Microcontroller AT89C52`: `0`
+  - `LCD1602-A`: `0`
 
 ## Document Code Scan
 - `hardware/eda/functiondiagramYUANLITU.drawio`
@@ -71,18 +88,16 @@ After completing and pushing the controlled correction, Codex proceeded to final
   - `BSTU.241297.006`: `1`
 
 ## Validation Performed
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-final-export`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/generated-element-list-fix-2`
   - Result: passed, `0` errors
 - `bash -n hardware/eda/tools/export_final_artifacts.sh hardware/eda/tools/export_preview_artifacts.sh`
   - Result: passed
 - `bash hardware/eda/tools/export_final_artifacts.sh`
   - Result: passed
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/export-final`
-  - Result: passed, `0` errors
-- `python3 tools/export_artifact_lint.py --reports-dir build/reports/export-preview-regression`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/export-element-list-fix-2`
   - Result: passed, `0` errors
 - `python3 -m pytest tests/test_visual_schematic_lint.py -q`
-  - Result: `31 passed`
+  - Result: `32 passed`
 - `python3 -m py_compile tools/export_artifact_lint.py tools/visual_schematic_lint.py`
   - Result: passed
 
@@ -93,6 +108,8 @@ After completing and pushing the controlled correction, Codex proceeded to final
 - Controlled Title Block correction commit: `a023f76`.
 - Handoff after title-code correction commit: `ab414a4`.
 - Final export commit: `0ec1c05`.
+- Handoff update after final export: `4a8e28c`.
+- Right-top List of Elements repair commit: `9a102eb`.
 - The working tree still contains unrelated uncommitted changes from other project areas; they were intentionally not staged for this schematic round.
 - `build/reports/*` is generated locally but ignored by `.gitignore`; report paths are listed for local inspection.
 
