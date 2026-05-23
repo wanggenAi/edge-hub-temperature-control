@@ -100,6 +100,12 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
     required = [
         "DD1",
         "ESP32-WROOM-32",
+        "Capacitors",
+        "Resistors",
+        "ESP32-WROOM-32 module",
+        "XH-3PA 3-pin sensor connector",
+        "KF301-2P thermal switch terminal",
+        "Qty.",
         "Department of Computer",
         "Microcontroller-based I/O Device",
         "Name",

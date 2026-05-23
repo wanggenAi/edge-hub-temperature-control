@@ -314,6 +314,8 @@ class VisualSchematicLint:
         if self.mode == "template":
             return self.findings
         self.validate_role_metadata()
+        if self.mode == "generated":
+            self.validate_element_list_content()
         self.validate_geometry()
         self.validate_connectivity()
         self.validate_pin_labels()
@@ -408,6 +410,8 @@ class VisualSchematicLint:
             RESERVED_CONTAINER_ROLE,
             "outer_frame",
             "element_list",
+            "element_list_line",
+            "element_list_text",
             "title_block",
             "drawing_frame",
             "component_body",
@@ -445,12 +449,43 @@ class VisualSchematicLint:
             "wire": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
             "net_label": ["data-generated", "data-owner", "data-net", "data-source-net", "data-zone", "data-anchor-x", "data-anchor-y"],
             "junction": ["data-generated", "data-owner", "data-net", "data-source-net", "data-zone"],
+            "element_list_line": ["data-generated", "data-owner", "data-region", "data-line-type"],
+            "element_list_text": ["data-generated", "data-owner", "data-region", "data-row-type", "data-column"],
         }
         missing = [key for key in required_by_role.get(item.role, []) if not item.attrs.get(key)]
         if item.attrs.get("data-generated") not in {"true", "false", None}:
             missing.append("valid data-generated")
         if missing:
             self.error("MISSING_ROLE_METADATA", item.id, "Generated object is missing required role metadata", ",".join(required_by_role.get(item.role, [])), ",".join(missing), *item.center)
+
+    def validate_element_list_content(self) -> None:
+        texts = [v for v in self.model.vertices if v.role == "element_list_text"]
+        lines = [e for e in self.model.edges if e.role == "element_list_line"]
+        visible = " ".join(text.text for text in texts)
+        required_text = [
+            "Position number",
+            "Name",
+            "Qty.",
+            "Note",
+            "Capacitors",
+            "Resistors",
+            "Semiconductor Devices",
+            "Switching Components",
+            "Connectors",
+            "Power Modules",
+            "ESP32-WROOM-32 module",
+            "XH-3PA 3-pin sensor connector",
+            "KF301-2P thermal switch terminal",
+            "XS5",
+            "A1",
+        ]
+        if not texts:
+            self.error("ELEMENT_LIST_CONTENT_MISSING", "element_list", "Generated List of Elements has no text cells", "element_list_text cells", "0")
+        if len(lines) < 4:
+            self.error("ELEMENT_LIST_LINES_MISSING", "element_list", "Generated List of Elements has too few line cells", ">= 4 element_list_line cells", str(len(lines)))
+        for value in required_text:
+            if value not in visible:
+                self.error("ELEMENT_LIST_REQUIRED_TEXT_MISSING", "element_list", "Generated List of Elements is missing required visible text", value, "not found")
 
     def validate_geometry(self) -> None:
         for edge in self.wires():

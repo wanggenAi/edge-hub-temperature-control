@@ -215,7 +215,7 @@ function addReservedContainerRole(xml, cellId) {
 
 const RESERVED_CONTAINER_ROLE = "reserved_container";
 
-function buildNoCircuitDrawio(sourceText, lock) {
+function buildNoCircuitDrawio(sourceText, lock, model, style) {
   const rootStart = sourceText.indexOf("<root>");
   const rootEnd = sourceText.indexOf("</root>");
   if (rootStart < 0 || rootEnd < 0) {
@@ -228,10 +228,11 @@ function buildNoCircuitDrawio(sourceText, lock) {
     .filter((cell) => keepIds.has(cell.id))
     .sort((a, b) => a.index - b.index)
     .map((cell) => (cell.id === "0" || cell.id === "1" || lockedIds.has(cell.id) ? cell.xml : addReservedContainerRole(cell.xml, cell.id)));
+  const elementListCells = buildElementListCells(model, style, lock).map((cell) => `        ${cell}`);
 
   const beforeRoot = sourceText.slice(0, rootStart + "<root>".length);
   const afterRoot = sourceText.slice(rootEnd);
-  return `${beforeRoot}\n${keptCells.map((cell) => `        ${cell}`).join("\n")}\n      ${afterRoot}`;
+  return `${beforeRoot}\n${keptCells.map((cell) => `        ${cell}`).join("\n")}\n${elementListCells.join("\n")}\n      ${afterRoot}`;
 }
 
 function xmlAttr(value) {
@@ -317,6 +318,216 @@ function generatedAttrs(component, pin = null) {
     attrs["data-source-net"] = pin.source_net || pin.net;
   }
   return attrs;
+}
+
+function elementListRows(model) {
+  const existingRefs = new Set((model.components || []).map((component) => component.ref));
+  const groups = [
+    {
+      name: "Capacitors",
+      items: [
+        { refs: ["C1", "C4"], name: "Capacitor 0.1 uF 0603", qty: "2", note: "LCSC" },
+        { refs: ["C2"], name: "Capacitor 10 uF 0603", qty: "1", note: "LCSC" },
+        { refs: ["C3"], name: "Capacitor 100 uF 0603", qty: "1", note: "LCSC" },
+      ],
+    },
+    {
+      name: "Resistors",
+      items: [
+        { refs: ["R1", "R5", "R6"], name: "Resistor 10 kOhm 0603", qty: "3", note: "LCSC" },
+        { refs: ["R2"], name: "Resistor 4.7 kOhm 0603", qty: "1", note: "Sensor pull-up" },
+        { refs: ["R3"], name: "Resistor 330 Ohm 0603", qty: "1", note: "LED series" },
+        { refs: ["R4"], name: "Resistor 100 Ohm 0603", qty: "1", note: "Gate resistor" },
+      ],
+    },
+    {
+      name: "Semiconductor Devices",
+      items: [
+        { refs: ["DD1"], name: "ESP32-WROOM-32 module", qty: "1", note: "Espressif" },
+        { refs: ["HL1"], name: "Red LED 0603", qty: "1", note: "LCSC" },
+        { refs: ["VT1"], name: "NMOS3400 N-channel MOSFET", qty: "1", note: "SOT-23" },
+      ],
+    },
+    {
+      name: "Switching Components",
+      items: [
+        { refs: ["SB1", "SB2"], name: "Tact switch SMT 6x6x7.5", qty: "2", note: "RESET, BOOT" },
+      ],
+    },
+    {
+      name: "Connectors",
+      items: [
+        { refs: ["XS1"], name: "XH-3PA 3-pin sensor connector", qty: "1", note: "ZHOURI" },
+        { refs: ["XS2", "XS3"], name: "KF2EDGV-3.81-2P terminal", qty: "2", note: "Heater, power" },
+        { refs: ["XS4"], name: "Header45.08-4P connector", qty: "1", note: "UART" },
+        { refs: ["XS5"], name: "KF301-2P thermal switch terminal", qty: "1", note: "Safety" },
+      ],
+    },
+    {
+      name: "Power Modules",
+      items: [
+        { refs: ["A1"], name: "DC/DC converter 12 V to 3.3 V", qty: "1", note: "Buck module" },
+      ],
+    },
+  ];
+  const coveredRefs = new Set();
+  const rows = [];
+  groups.forEach((group, groupIndex) => {
+    rows.push({ type: "group", name: group.name });
+    for (const item of group.items) {
+      for (const ref of item.refs) {
+        if (!existingRefs.has(ref)) {
+          throw new Error(`Element list references missing component ${ref}`);
+        }
+        coveredRefs.add(ref);
+      }
+      rows.push({ type: "item", ...item });
+    }
+    if (groupIndex !== groups.length - 1) {
+      rows.push({ type: "blank" });
+    }
+  });
+  const uncovered = [...existingRefs].filter((ref) => !coveredRefs.has(ref)).sort();
+  if (uncovered.length) {
+    throw new Error(`Element list does not cover component refs: ${uncovered.join(", ")}`);
+  }
+  return rows;
+}
+
+function elementListAttrs(extra = {}) {
+  return {
+    "data-generated": "true",
+    "data-owner": "render_esp32_drawio.js",
+    "data-region": "element_list",
+    ...extra,
+  };
+}
+
+function buildElementListCells(model, style, lock) {
+  const region = lock.regions?.element_list?.bbox;
+  if (!region) {
+    throw new Error("element_list reserved region missing bbox");
+  }
+  const x = Number(region.x);
+  const y = Number(region.y);
+  const width = Number(region.width);
+  const height = Number(region.height);
+  const right = x + width;
+  const bottom = y + height;
+  const strokeMajor = 3.937;
+  const strokeMinor = 1.9685;
+  const headerFont = 24;
+  const bodyFont = 22;
+  const headerHeight = 64;
+  const rows = elementListRows(model);
+  const rowHeight = (height - headerHeight) / rows.length;
+  const columns = [
+    { id: "ref", title: "Position number", x: x, width: 149 },
+    { id: "name", title: "Name", x: x + 149, width: 340 },
+    { id: "qty", title: "Qty.", x: x + 489, width: 68 },
+    { id: "note", title: "Note", x: x + 557, width: right - (x + 557) },
+  ];
+  const lineStyleMajor = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${strokeMajor};`;
+  const lineStyleMinor = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${strokeMinor};`;
+  const cells = [];
+  for (const xLine of [x + 149, x + 489, x + 557]) {
+    cells.push(edgeCell({
+      id: `element_list.line.v.${Math.round(xLine)}`,
+      parent: "1",
+      x1: roundCoord(xLine),
+      y1: roundCoord(y),
+      x2: roundCoord(xLine),
+      y2: roundCoord(bottom),
+      role: "element_list_line",
+      attrs: elementListAttrs({ "data-line-type": "vertical-major" }),
+      style: lineStyleMajor,
+    }));
+  }
+  columns.forEach((column) => {
+    cells.push(textCell({
+      id: `element_list.text.header.${column.id}`,
+      parent: "1",
+      value: column.title,
+      x: roundCoord(column.x + 2),
+      y: roundCoord(y + 2),
+      width: roundCoord(column.width - 4),
+      height: roundCoord(headerHeight - 4),
+      role: "element_list_text",
+      fontSizeValue: headerFont,
+      attrs: elementListAttrs({ "data-row-type": "header", "data-column": column.id }),
+    }));
+  });
+  cells.push(edgeCell({
+    id: "element_list.line.h.header",
+    parent: "1",
+    x1: roundCoord(x),
+    y1: roundCoord(y + headerHeight),
+    x2: roundCoord(right),
+    y2: roundCoord(y + headerHeight),
+    role: "element_list_line",
+    attrs: elementListAttrs({ "data-line-type": "header-major" }),
+    style: lineStyleMajor,
+  }));
+
+  let rowY = y + headerHeight;
+  rows.forEach((row, rowIndex) => {
+    const rowId = String(rowIndex).padStart(2, "0");
+    if (row.type === "group") {
+      cells.push(textCell({
+        id: `element_list.text.group.${xmlSafeId(row.name)}`,
+        parent: "1",
+        value: row.name,
+        x: roundCoord(columns[1].x + 2),
+        y: roundCoord(rowY + 2),
+        width: roundCoord(columns[1].width - 4),
+        height: roundCoord(rowHeight - 4),
+        role: "element_list_text",
+        fontSizeValue: bodyFont,
+        attrs: elementListAttrs({ "data-row-type": "group", "data-group": row.name, "data-row-index": rowId, "data-column": "name" }),
+      }));
+    } else if (row.type === "item") {
+      const values = {
+        ref: row.refs.join(", "),
+        name: row.name,
+        qty: row.qty,
+        note: row.note,
+      };
+      columns.forEach((column) => {
+        cells.push(textCell({
+          id: `element_list.text.${xmlSafeId(values.ref)}.${column.id}`,
+          parent: "1",
+          value: values[column.id],
+          x: roundCoord(column.x + 2),
+          y: roundCoord(rowY + 2),
+          width: roundCoord(column.width - 4),
+          height: roundCoord(rowHeight - 4),
+          role: "element_list_text",
+          fontSizeValue: bodyFont,
+          attrs: elementListAttrs({ "data-row-type": "item", "data-refs": values.ref, "data-row-index": rowId, "data-column": column.id }),
+        }));
+      });
+    }
+    const lineY = rowY + rowHeight;
+    if (rowIndex !== rows.length - 1) {
+      cells.push(edgeCell({
+        id: `element_list.line.h.${rowId}`,
+        parent: "1",
+        x1: roundCoord(x),
+        y1: roundCoord(lineY),
+        x2: roundCoord(right),
+        y2: roundCoord(lineY),
+        role: "element_list_line",
+        attrs: elementListAttrs({ "data-line-type": "row-minor", "data-row-index": rowId }),
+        style: lineStyleMinor,
+      }));
+    }
+    rowY = lineY;
+  });
+  return cells;
+}
+
+function roundCoord(value) {
+  return Number(value).toFixed(3).replace(/\.?0+$/, "");
 }
 
 function buildDd1BlockCells(model, style) {
@@ -916,7 +1127,7 @@ function xmlSafeId(value) {
 }
 
 function buildDd1BlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -926,7 +1137,7 @@ function buildDd1BlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildResetLedBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -939,7 +1150,7 @@ function buildResetLedBlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildDecouplingBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -953,7 +1164,7 @@ function buildDecouplingBlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildSensorBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -968,7 +1179,7 @@ function buildSensorBlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildUartBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -984,7 +1195,7 @@ function buildUartBlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildBootBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -1001,7 +1212,7 @@ function buildBootBlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildHeaterBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -1019,7 +1230,7 @@ function buildHeaterBlockDrawio(sourceText, lock, model, style) {
 }
 
 function buildPowerBlockDrawio(sourceText, lock, model, style) {
-  const noCircuit = buildNoCircuitDrawio(sourceText, lock);
+  const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
     throw new Error("Invalid generated draw.io XML: missing </root> element.");
@@ -1100,7 +1311,7 @@ function main() {
       ? buildResetLedBlockDrawio(sourceText, lock, model, style)
       : args.dd1Block
       ? buildDd1BlockDrawio(sourceText, lock, model, style)
-      : buildNoCircuitDrawio(sourceText, lock);
+      : buildNoCircuitDrawio(sourceText, lock, model, style);
     fs.writeFileSync(args.outputDrawio, generated, "utf8");
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,

@@ -114,6 +114,15 @@ def test_no_circuit_generated_copy_passes_strict_lint(tmp_path):
     assert 'data-role="reserved_container"' in generated_text
     assert 'id="OTuqVLYWGNuakiADof2M-2"' in source_text
     assert 'id="OTuqVLYWGNuakiADof2M-2"' not in generated_text
+    for required in (
+        "Capacitors",
+        "Resistors",
+        "ESP32-WROOM-32 module",
+        "XH-3PA 3-pin sensor connector",
+        "KF301-2P thermal switch terminal",
+        "Qty.",
+    ):
+        assert required in generated_text
 
     lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
     assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
@@ -678,3 +687,22 @@ def test_bad_schematic_overlaps_reserved_region_fails(tmp_path):
         tmp_path,
         "SCHEMATIC_OVERLAPS_ELEMENT_LIST",
     )
+
+
+def test_generated_lint_rejects_missing_element_list_text(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    broken = output.read_text(encoding="utf-8")
+    broken = re.sub(r'\n\s*<mxCell id="element_list\.[^"]+"[\s\S]*?</mxCell>', "", broken)
+    output.write_text(broken, encoding="utf-8")
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
+    actual = codes(payload)
+    assert "ELEMENT_LIST_CONTENT_MISSING" in actual
+    assert "ELEMENT_LIST_LINES_MISSING" in actual
