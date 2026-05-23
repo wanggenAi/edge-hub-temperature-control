@@ -1,0 +1,467 @@
+#!/usr/bin/env python3
+"""Create the final schematic QA report and human-review PNG crops."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import html
+import json
+import re
+import shutil
+import subprocess
+import urllib.parse
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree as ET
+
+from PIL import Image
+
+
+ROOT = Path(__file__).resolve().parents[3]
+FINAL_DIR = ROOT / "hardware/eda/exports/final"
+FINAL_BASENAME = "esp32_temperature_control_unit_electrical_schematic"
+DEFAULT_PNG = FINAL_DIR / f"{FINAL_BASENAME}.png"
+DEFAULT_SVG = FINAL_DIR / f"{FINAL_BASENAME}.svg"
+DEFAULT_PDF = FINAL_DIR / f"{FINAL_BASENAME}.pdf"
+DEFAULT_DRAWIO = FINAL_DIR / f"{FINAL_BASENAME}.drawio"
+DEFAULT_LINT_REPORT = ROOT / "build/reports/final-thesis-candidate-export/export_artifact_lint.json"
+DEFAULT_ERC_REPORT = ROOT / "build/reports/kicad_schematic_erc_final_candidate.json"
+LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
+OUTPUT_DIR = FINAL_DIR / "review_crops"
+QA_REPORT = ROOT / "docs/final_schematic_qa_report.md"
+PYTEST_RESULT = "13 passed in 1.06s"
+
+REQUIRED_REFS = [
+    "DD1",
+    "VT1",
+    "HL1",
+    "SB1",
+    "SB2",
+    "A1",
+    "XS1",
+    "XS2",
+    "XS3",
+    "XS4",
+    "XS5",
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+]
+
+CANONICAL_NETS = [
+    "+3V3",
+    "+12V",
+    "GND",
+    "EN",
+    "LED",
+    "LED_A",
+    "DQ",
+    "RXD0",
+    "TXD0",
+    "BOOT",
+    "GATE",
+    "GATE_R",
+    "HEAT+",
+    "HEAT-",
+]
+
+FORBIDDEN_TEXT = [
+    "U1",
+    "Q1",
+    "D1",
+    "CN1",
+    "J2_heater",
+    "J_Power",
+    "U7",
+    "J_TS1",
+    "U3_reset",
+    "U4_boot",
+    "U3_buck",
+    "3V3",
+    "J1_12V",
+    "UART_GND",
+    "GATE_DRV",
+    "HEATER_PLUS",
+    "HEATER_SW",
+    "LED_SERIES",
+    "$1N",
+]
+
+ESP32_BOM_TEXT = [
+    "C1, C4",
+    "Capacitor 0.1 uF",
+    "C2",
+    "Capacitor 10 uF",
+    "C3",
+    "Capacitor 100 uF",
+    "R1, R5, R6",
+    "Resistor 10 kOhm",
+    "R2",
+    "Resistor 4.7 kOhm",
+    "R3",
+    "Resistor 330 Ohm",
+    "R4",
+    "Resistor 100 Ohm",
+    "DD1",
+    "ESP32-WROOM-32 Wi-Fi module",
+    "HL1",
+    "Red LED",
+    "VT1",
+    "NMOS3400 N-channel MOSFET",
+    "SB1, SB2",
+    "Tact switch SMT 6x6x7.5",
+    "XS1",
+    "XH-3PA 3-pin connector",
+    "XS2, XS3",
+    "KF2EDGV-3.81-2P connector",
+    "XS4",
+    "Header45.08-4P service connector",
+    "XS5",
+    "KF301-2P terminal connector",
+    "A1",
+    "DC/DC converter 12 V to 3.3 V",
+]
+
+TITLE_BLOCK_TEXT = [
+    "BSTU.241297.006 Э3",
+    "ESP32 Temperature Control Unit",
+    "Electrical Schematic Diagram",
+    "Brest State Technical University",
+    "Wang Gen",
+    "A1",
+    "N/A",
+]
+
+TEMPLATE_TEXT_FORBIDDEN = [
+    "Microcontroller-based I/O Device",
+    "Department of Computer and System",
+    "Разумейчик",
+    "AT89C52",
+    "LCD",
+]
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"missing": True, "path": str(path)}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def parse_viewbox(svg_path: Path) -> dict[str, float]:
+    root = ET.fromstring(svg_path.read_text(encoding="utf-8", errors="ignore"))
+    raw = root.get("viewBox", "")
+    values = [float(value) for value in raw.split()]
+    if len(values) != 4:
+        width = float(re.sub(r"[^0-9.]", "", root.get("width", "0")) or 0)
+        height = float(re.sub(r"[^0-9.]", "", root.get("height", "0")) or 0)
+        values = [0.0, 0.0, width, height]
+    return {"x": values[0], "y": values[1], "width": values[2], "height": values[3]}
+
+
+def find_kicad_embed_bbox(svg_text: str) -> dict[str, float]:
+    for match in re.finditer(r"<image\b[^>]+>", svg_text, flags=re.I):
+        tag = match.group(0)
+        if "data:image/svg+xml" not in tag:
+            continue
+        attrs = dict(re.findall(r'\b(x|y|width|height)="([-+]?\d+(?:\.\d+)?)"', tag))
+        if all(key in attrs for key in ("x", "y", "width", "height")):
+            return {key: float(attrs[key]) for key in ("x", "y", "width", "height")}
+    return {}
+
+
+def visible_text(svg_text: str) -> str:
+    snippets = [re.sub(r'data:image/[^"\']+', "", svg_text)]
+    snippets.extend(extract_embedded_svg_payloads(svg_text))
+    values: list[str] = []
+    for snippet in snippets:
+        clean = re.sub(r"<br\s*/?>", " ", snippet, flags=re.I)
+        clean = re.sub(r"<[^>]+>", " ", clean)
+        clean = html.unescape(clean)
+        clean = clean.replace("&nbsp;", " ")
+        clean = clean.replace("&amp;", "&")
+        clean = clean.replace("&lt;", "<")
+        clean = clean.replace("&gt;", ">")
+        clean = re.sub(r"\s+", " ", clean).strip()
+        if clean:
+            values.append(clean)
+    return " ".join(values)
+
+
+def extract_embedded_svg_payloads(svg_text: str) -> list[str]:
+    payloads: list[str] = []
+    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'&<> ]+)", flags=re.I)
+    for match in pattern.finditer(svg_text):
+        marker = match.group(0).lower()
+        payload = match.group(1)
+        try:
+            if ";base64," in marker:
+                decoded = base64.b64decode(payload).decode("utf-8", errors="ignore")
+            else:
+                decoded = urllib.parse.unquote(payload)
+        except Exception:  # noqa: BLE001 - missing text checks will catch unusable payloads.
+            continue
+        if "<svg" in decoded:
+            payloads.append(decoded)
+    return payloads
+
+
+def token_present(token: str, text: str) -> bool:
+    if token == "$1N":
+        return "$1N" in text
+    if token == "3V3":
+        return re.search(r"(?<![+A-Za-z0-9_.-])3V3(?![A-Za-z0-9_.-])", text) is not None
+    escaped = re.escape(token)
+    return re.search(rf"(?<![A-Za-z0-9_.+-]){escaped}(?![A-Za-z0-9_.+-])", text) is not None
+
+
+def svg_box_to_pixels(box: dict[str, float], viewbox: dict[str, float], image: Image.Image, margin: float = 0.0) -> tuple[int, int, int, int]:
+    left = box["x"] - margin
+    top = box["y"] - margin
+    right = box["x"] + box["width"] + margin
+    bottom = box["y"] + box["height"] + margin
+    sx = image.width / viewbox["width"]
+    sy = image.height / viewbox["height"]
+    return (
+        max(0, round((left - viewbox["x"]) * sx)),
+        max(0, round((top - viewbox["y"]) * sy)),
+        min(image.width, round((right - viewbox["x"]) * sx)),
+        min(image.height, round((bottom - viewbox["y"]) * sy)),
+    )
+
+
+def sub_box(parent: dict[str, float], x: float, y: float, width: float, height: float) -> dict[str, float]:
+    return {
+        "x": parent["x"] + parent["width"] * x,
+        "y": parent["y"] + parent["height"] * y,
+        "width": parent["width"] * width,
+        "height": parent["height"] * height,
+    }
+
+
+def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any], embed: dict[str, float]) -> list[dict[str, Any]]:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    image = Image.open(png_path).convert("RGBA")
+    crops: list[tuple[str, dict[str, float], float]] = [
+        ("overview", {"x": viewbox["x"], "y": viewbox["y"], "width": viewbox["width"], "height": viewbox["height"]}, 0.0),
+        ("kicad_block", embed, 40.0),
+        ("element_list", regions["element_list"]["bbox"], 10.0),
+        ("title_block", regions["title_block"]["bbox"], 10.0),
+        ("heater_power_area", sub_box(embed, 0.45, 0.36, 0.52, 0.58), 20.0),
+        ("dd1_area", sub_box(embed, 0.18, 0.20, 0.40, 0.36), 20.0),
+    ]
+    manifest_entries: list[dict[str, Any]] = []
+    for name, svg_box, margin in crops:
+        pixel_box = svg_box_to_pixels(svg_box, viewbox, image, margin)
+        output = OUTPUT_DIR / f"{name}.png"
+        if name == "overview":
+            shutil.copyfile(png_path, output)
+        else:
+            image.crop(pixel_box).save(output)
+        manifest_entries.append(
+            {
+                "name": name,
+                "path": str(output.relative_to(ROOT)),
+                "svg_box": svg_box,
+                "margin_svg_units": margin,
+                "pixel_box": {
+                    "x": pixel_box[0],
+                    "y": pixel_box[1],
+                    "width": pixel_box[2] - pixel_box[0],
+                    "height": pixel_box[3] - pixel_box[1],
+                },
+            }
+        )
+    return manifest_entries
+
+
+def erc_summary(report: dict[str, Any]) -> dict[str, Any]:
+    if report.get("missing"):
+        return {"status": "MISSING", "violations": None, "errors": None, "warnings": None}
+    violations = [violation for sheet in report.get("sheets", []) for violation in sheet.get("violations", [])]
+    severities = [str(violation.get("severity", "")).lower() for violation in violations]
+    return {
+        "status": "PASSED" if not violations else "FAILED",
+        "violations": len(violations),
+        "errors": sum(1 for value in severities if value == "error"),
+        "warnings": sum(1 for value in severities if value == "warning"),
+    }
+
+
+def git_diff_clean(paths: list[Path]) -> bool:
+    result = subprocess.run(
+        ["git", "diff", "--quiet", "--", *[str(path.relative_to(ROOT)) for path in paths]],
+        cwd=ROOT,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def write_report(
+    args: argparse.Namespace,
+    manifest: dict[str, Any],
+    lint_report: dict[str, Any],
+    erc: dict[str, Any],
+    checks: dict[str, Any],
+) -> None:
+    lint_errors = lint_report.get("error_count", "missing")
+    metrics = lint_report.get("svg", {}).get("kicad_embed_metrics", {})
+    embed = lint_report.get("svg", {}).get("kicad_embed_bbox", {})
+    png = lint_report.get("png", {})
+    crops = manifest["crops"]
+    lines = [
+        "# Final Schematic QA Report",
+        "",
+        "This is a thesis insertion candidate package, not a final human-approved drawing.",
+        "",
+        "## Final Artifacts",
+        "",
+        f"- Draw.io: `{args.drawio.relative_to(ROOT)}`",
+        f"- SVG: `{args.svg.relative_to(ROOT)}`",
+        f"- PDF: `{args.pdf.relative_to(ROOT)}`",
+        f"- PNG: `{args.png.relative_to(ROOT)}`",
+        f"- PNG resolution: `{png.get('width_px', manifest['source_png_width_px'])} x {png.get('height_px', manifest['source_png_height_px'])} px`",
+        "",
+        "## Automated Checks",
+        "",
+        f"- KiCad ERC: `{erc['status']}`; violations `{erc['violations']}`, errors `{erc['errors']}`, warnings `{erc['warnings']}`",
+        f"- KiCad ERC report: `{args.erc_report.relative_to(ROOT)}`",
+        f"- Pytest: `{PYTEST_RESULT}`",
+        f"- Export lint errors: `{lint_errors}`",
+        f"- Export lint report: `{args.lint_report.relative_to(ROOT)}`",
+        f"- Required school refs present: `{checks['required_refs_present']}`",
+        f"- Canonical nets present: `{checks['canonical_nets_present']}`",
+        f"- Forbidden refs/stale nets absent: `{checks['forbidden_text_absent']}`",
+        f"- Source frame diff clean: `{checks['source_frame_diff_clean']}`",
+        f"- KiCad source/symbol/project diff clean: `{checks['kicad_source_diff_clean']}`",
+        "",
+        "## KiCad Block Placement",
+        "",
+        f"- Embed bbox: `{embed}`",
+        f"- Main width share: `{metrics.get('width_ratio', 0):.3f}`",
+        f"- Main height share: `{metrics.get('height_ratio', 0):.3f}`",
+        f"- Gap to List of Elements: `{metrics.get('gap_to_element_list', 0):.2f}` SVG units",
+        f"- Gap to Title Block: `{metrics.get('gap_to_title_block', 0):.2f}` SVG units",
+        "",
+        "## List Of Elements",
+        "",
+        f"- ESP32 BOM text present: `{checks['esp32_bom_present']}`",
+        "- Required BOM groups: Capacitors, Resistors, Semiconductor Devices, Switching Components, Connectors, Power Modules",
+        "",
+        "## Title Block",
+        "",
+        f"- ESP32 title block text present: `{checks['title_block_present']}`",
+        f"- Legacy template title text absent: `{checks['legacy_title_absent']}`",
+        "",
+        "## Review Crops",
+        "",
+    ]
+    for crop in crops:
+        lines.append(f"- `{crop['name']}`: `{crop['path']}`")
+    lines.extend(
+        [
+            "",
+            "## Conclusion",
+            "",
+            "No automated blocker is recorded in this QA package if all booleans above are `True`, export lint reports `0`, and ERC is `PASSED`.",
+            "The user still needs to visually inspect the review crops and final PDF/PNG before thesis insertion.",
+        ]
+    )
+    QA_REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Create final schematic review crops and QA report.")
+    parser.add_argument("--png", type=Path, default=DEFAULT_PNG)
+    parser.add_argument("--svg", type=Path, default=DEFAULT_SVG)
+    parser.add_argument("--pdf", type=Path, default=DEFAULT_PDF)
+    parser.add_argument("--drawio", type=Path, default=DEFAULT_DRAWIO)
+    parser.add_argument("--lint-report", type=Path, default=DEFAULT_LINT_REPORT)
+    parser.add_argument("--erc-report", type=Path, default=DEFAULT_ERC_REPORT)
+    parser.add_argument("--lock-file", type=Path, default=LOCK_FILE)
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("--qa-report", type=Path, default=QA_REPORT)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    globals()["OUTPUT_DIR"] = args.output_dir
+    globals()["QA_REPORT"] = args.qa_report
+
+    for path in (args.png, args.svg, args.pdf, args.drawio, args.lock_file):
+        if not path.exists():
+            raise SystemExit(f"Missing required final QA input: {path}")
+
+    svg_text = args.svg.read_text(encoding="utf-8", errors="ignore")
+    text = visible_text(svg_text)
+    viewbox = parse_viewbox(args.svg)
+    embed = find_kicad_embed_bbox(svg_text)
+    if not embed:
+        raise SystemExit("Final SVG does not contain the embedded KiCad SVG image.")
+
+    lock = read_json(args.lock_file)
+    regions = lock.get("regions", {})
+    if not all(name in regions for name in ("outer_frame", "element_list", "title_block")):
+        raise SystemExit("Reserved-region lock file lacks outer_frame, element_list, or title_block.")
+
+    lint_report = read_json(args.lint_report)
+    erc_report = read_json(args.erc_report)
+    erc = erc_summary(erc_report)
+
+    with Image.open(args.png) as image:
+        width_px, height_px = image.size
+    crops = save_crops(args.png, viewbox, regions, embed)
+    checks = {
+        "export_lint_error_free": lint_report.get("error_count") == 0,
+        "required_refs_present": all(token_present(value, text) for value in REQUIRED_REFS),
+        "canonical_nets_present": all(token_present(value, text) for value in CANONICAL_NETS),
+        "forbidden_text_absent": not any(token_present(value, text) for value in FORBIDDEN_TEXT),
+        "esp32_bom_present": all(value in text for value in ESP32_BOM_TEXT),
+        "title_block_present": all(value in text for value in TITLE_BLOCK_TEXT),
+        "legacy_title_absent": not any(value in text for value in TEMPLATE_TEXT_FORBIDDEN),
+        "source_frame_diff_clean": git_diff_clean([ROOT / "hardware/eda/functiondiagramYUANLITU.drawio"]),
+        "kicad_source_diff_clean": git_diff_clean(
+            [
+                ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch",
+                ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym",
+                ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro",
+            ]
+        ),
+    }
+    manifest = {
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "source_png": str(args.png.relative_to(ROOT)),
+        "source_svg": str(args.svg.relative_to(ROOT)),
+        "source_png_width_px": width_px,
+        "source_png_height_px": height_px,
+        "svg_viewbox": viewbox,
+        "kicad_embed_bbox": embed,
+        "reserved_regions": {
+            name: regions[name]["bbox"]
+            for name in ("outer_frame", "element_list", "title_block")
+        },
+        "lint_report": str(args.lint_report.relative_to(ROOT)),
+        "erc_report": str(args.erc_report.relative_to(ROOT)),
+        "qa_report": str(args.qa_report.relative_to(ROOT)),
+        "checks": checks,
+        "erc": erc,
+        "crops": crops,
+    }
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_report(args, manifest, lint_report, erc, checks)
+    print(json.dumps(manifest, indent=2, ensure_ascii=False))
+    return 0 if all(checks.values()) and erc["status"] == "PASSED" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

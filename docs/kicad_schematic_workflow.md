@@ -238,6 +238,49 @@ Current ERC summary:
 
 - Total violations: `0`
 - Errors: `0`
+
+## Final Thesis Candidate QA Package
+
+The current final-checkpoint package does not change the KiCad source, project
+symbol library, original school frame, List of Elements content, Title Block
+content, refs, nets, topology, or BOM. It only adds a reproducible QA package
+for final human inspection.
+
+The final candidate checks are produced by:
+
+```bash
+python3 tools/export_artifact_lint.py \
+  --export-dir hardware/eda/exports/final \
+  --basename esp32_temperature_control_unit_electrical_schematic \
+  --label final-thesis-candidate \
+  --reports-dir build/reports/final-thesis-candidate-export
+
+python3 hardware/eda/tools/create_final_schematic_review_package.py
+```
+
+The `final-thesis-candidate` lint label requires:
+
+- KiCad embedded schematic geometry inside the locked BSTU frame
+- ESP32 List of Elements text
+- ESP32 Title Block text
+- confirmed thesis refs and canonical nets
+- no stale JLC refs or net names
+- monochrome PNG export with no selection-like artifacts
+
+The review package writes:
+
+- `docs/final_schematic_qa_report.md`
+- `hardware/eda/exports/final/review_crops/overview.png`
+- `hardware/eda/exports/final/review_crops/kicad_block.png`
+- `hardware/eda/exports/final/review_crops/element_list.png`
+- `hardware/eda/exports/final/review_crops/title_block.png`
+- `hardware/eda/exports/final/review_crops/heater_power_area.png`
+- `hardware/eda/exports/final/review_crops/dd1_area.png`
+- `hardware/eda/exports/final/review_crops/manifest.json`
+
+This package is a thesis insertion candidate package, not a final
+human-approved drawing. The user still needs to inspect the final PDF/PNG and
+the review crops visually before thesis insertion.
 - Warnings: `0`
 
 This means the current checkpoint verifies the KiCad source, exports, embedding, visible refs/nets, school frame preservation, and KiCad electrical-rule connectivity for the locally wired middle schematic.

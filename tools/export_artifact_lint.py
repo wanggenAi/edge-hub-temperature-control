@@ -94,6 +94,29 @@ LEGACY_TITLE_BLOCK_FORBIDDEN_TEXT = [
 ]
 
 
+def is_final_kicad_embed_label(label: str) -> bool:
+    label_lower = label.lower()
+    return any(
+        marker in label_lower
+        for marker in (
+            "kicad",
+            "element-list-esp32-bom",
+            "title-block-esp32",
+            "thesis-candidate",
+        )
+    )
+
+
+def requires_esp32_bom_check(label: str) -> bool:
+    label_lower = label.lower()
+    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate"))
+
+
+def requires_esp32_title_block_check(label: str) -> bool:
+    label_lower = label.lower()
+    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate"))
+
+
 @dataclass
 class Finding:
     code: str
@@ -173,21 +196,16 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing required drawing text", ", ".join(required), ", ".join(missing))
     if REQUIRED_DOCUMENT_CODE not in visible_text:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the required BSTU document code text", REQUIRED_DOCUMENT_CODE, "not found")
-    label_lower = label.lower()
-    is_final_kicad_embed = (
-        "kicad" in label_lower
-        or "element-list-esp32-bom" in label_lower
-        or "title-block-esp32" in label_lower
-    )
+    is_final_kicad_embed = is_final_kicad_embed_label(label)
     if not is_final_kicad_embed:
         validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
     else:
         if "Qty" not in visible_text and "Number" not in visible_text:
             error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
         validate_kicad_embed_geometry(text, lock_file, findings, str(path), payload)
-        if "element-list-esp32-bom" in label_lower or "title-block-esp32" in label_lower:
+        if requires_esp32_bom_check(label):
             validate_esp32_bom_visible_text(visible_text, findings, str(path))
-        if "title-block-esp32" in label_lower:
+        if requires_esp32_title_block_check(label):
             validate_esp32_title_block_visible_text(visible_text, findings, str(path))
 
     forbidden_refs = [
@@ -482,11 +500,11 @@ def required_visible_text(label: str) -> list[str]:
         "Note",
         "Э3",
     ]
-    if "title-block-esp32" in label_lower:
+    if requires_esp32_title_block_check(label):
         base.extend(ESP32_TITLE_BLOCK_REQUIRED_TEXT)
     else:
         base.extend(["Department of Computer", "Microcontroller-based I/O Device"])
-    if "kicad" not in label_lower and "title-block-esp32" not in label_lower:
+    if not is_final_kicad_embed_label(label):
         return ["DD1", "ESP32-WROOM-32", *base]
     school_refs = [
         "DD1",

@@ -21,8 +21,10 @@ KICAD_SVG = KICAD_DIR / "exports/esp32_temperature_control_unit_schematic.svg"
 EMBED_SCRIPT = ROOT / "hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py"
 UPDATE_ELEMENT_LIST_SCRIPT = ROOT / "hardware/eda/tools/update_generated_element_list.py"
 UPDATE_TITLE_BLOCK_SCRIPT = ROOT / "hardware/eda/tools/update_generated_title_block.py"
+CREATE_FINAL_QA_PACKAGE_SCRIPT = ROOT / "hardware/eda/tools/create_final_schematic_review_package.py"
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 FINAL_SVG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg"
+FINAL_REVIEW_MANIFEST = ROOT / "hardware/eda/exports/final/review_crops/manifest.json"
 
 REQUIRED_REFS = [
     "DD1",
@@ -472,3 +474,51 @@ def test_final_svg_kicad_embed_geometry_when_present() -> None:
     payload: dict[str, object] = {}
     lint.validate_kicad_embed_geometry(FINAL_SVG.read_text(encoding="utf-8"), LOCK_FILE, findings, str(FINAL_SVG), payload)
     assert findings == []
+
+
+def test_final_thesis_candidate_lint_label_requires_bom_and_title_block() -> None:
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    spec = spec_from_file_location("export_artifact_lint", ROOT / "tools/export_artifact_lint.py")
+    assert spec and spec.loader
+    lint = module_from_spec(spec)
+    sys.modules[spec.name] = lint
+    spec.loader.exec_module(lint)
+
+    label = "final-thesis-candidate"
+    required = lint.required_visible_text(label)
+    assert lint.is_final_kicad_embed_label(label)
+    assert lint.requires_esp32_bom_check(label)
+    assert lint.requires_esp32_title_block_check(label)
+    assert "DD1" in required
+    assert "+3V3" in required
+    assert "ESP32 Temperature Control Unit" in required
+    assert "Brest State Technical University" in required
+
+
+def test_final_review_package_manifest_when_present() -> None:
+    assert CREATE_FINAL_QA_PACKAGE_SCRIPT.exists()
+    if not FINAL_REVIEW_MANIFEST.exists():
+        return
+    manifest = json.loads(FINAL_REVIEW_MANIFEST.read_text(encoding="utf-8"))
+    expected_names = {
+        "overview",
+        "kicad_block",
+        "element_list",
+        "title_block",
+        "heater_power_area",
+        "dd1_area",
+    }
+    actual_names = {crop["name"] for crop in manifest["crops"]}
+    assert actual_names == expected_names
+    assert manifest["checks"]["export_lint_error_free"] is True
+    assert manifest["checks"]["required_refs_present"] is True
+    assert manifest["checks"]["canonical_nets_present"] is True
+    assert manifest["checks"]["forbidden_text_absent"] is True
+    assert manifest["checks"]["esp32_bom_present"] is True
+    assert manifest["checks"]["title_block_present"] is True
+    assert manifest["checks"]["source_frame_diff_clean"] is True
+    assert manifest["checks"]["kicad_source_diff_clean"] is True
+    assert manifest["erc"]["status"] == "PASSED"
+    for crop in manifest["crops"]:
+        assert (ROOT / crop["path"]).exists()
