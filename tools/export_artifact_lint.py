@@ -24,6 +24,12 @@ DEFAULT_REPORTS_DIR = ROOT / "build/reports/export-preview"
 DEFAULT_LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 DEFAULT_BASENAME = "functiondiagramYUANLITU.preview"
 REQUIRED_DOCUMENT_CODE = "BSTU.241297.006"
+KICAD_EMBED_MIN_WIDTH_RATIO = 0.70
+KICAD_EMBED_MAX_WIDTH_RATIO = 0.85
+KICAD_EMBED_MIN_HEIGHT_RATIO = 0.45
+KICAD_EMBED_MAX_HEIGHT_RATIO = 0.70
+KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST = 30.0
+KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK = 40.0
 
 
 @dataclass
@@ -110,6 +116,7 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
     else:
         if "Qty" not in visible_text and "Number" not in visible_text:
             error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
+        validate_kicad_embed_geometry(text, lock_file, findings, str(path), payload)
 
     forbidden_refs = [
         "CN1",
@@ -143,6 +150,113 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         if token_in_text(marker, visible_text):
             error(findings, "SVG_FORBIDDEN_NET_NAME", str(path), "SVG contains a stale net name as visible text", "canonical net names only", marker)
     return payload
+
+
+def validate_kicad_embed_geometry(
+    text: str,
+    lock_file: Path,
+    findings: list[Finding],
+    object_id: str,
+    payload: dict[str, Any],
+) -> None:
+    if not lock_file.exists():
+        error(findings, "LOCK_FILE_MISSING", str(lock_file), "Reserved-region lock file is missing")
+        return
+    lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    regions = lock.get("regions", {})
+    outer = regions.get("outer_frame", {}).get("bbox", {})
+    element_list = regions.get("element_list", {}).get("bbox", {})
+    title_block = regions.get("title_block", {}).get("bbox", {})
+    embed = find_kicad_svg_image_bbox(text)
+    payload["kicad_embed_bbox"] = embed
+    if not embed:
+        error(findings, "KICAD_EMBED_MISSING", object_id, "Final SVG has no embedded KiCad SVG image")
+        return
+    if not (outer and element_list and title_block):
+        error(findings, "LOCKED_REGION_MISSING", object_id, "Lock file lacks outer frame, element list, or title block bbox data")
+        return
+
+    left = float(embed["x"])
+    top = float(embed["y"])
+    right = left + float(embed["width"])
+    bottom = top + float(embed["height"])
+    outer_left = float(outer["x"])
+    outer_top = float(outer["y"])
+    outer_right = float(outer["right"])
+    outer_bottom = float(outer["bottom"])
+    element_left = float(element_list["x"])
+    title_top = float(title_block["y"])
+    main_width = element_left - outer_left
+    main_height = title_top - outer_top
+    width_ratio = float(embed["width"]) / main_width if main_width > 0 else 0.0
+    height_ratio = float(embed["height"]) / main_height if main_height > 0 else 0.0
+    gap_to_element_list = element_left - right
+    gap_to_title_block = title_top - bottom
+    payload["kicad_embed_metrics"] = {
+        "main_width": main_width,
+        "main_height": main_height,
+        "width_ratio": width_ratio,
+        "height_ratio": height_ratio,
+        "gap_to_element_list": gap_to_element_list,
+        "gap_to_title_block": gap_to_title_block,
+    }
+
+    if left < outer_left or top < outer_top or right > outer_right or bottom > outer_bottom:
+        error(
+            findings,
+            "KICAD_EMBED_OUTSIDE_OUTER_FRAME",
+            object_id,
+            "Embedded KiCad block extends outside the locked outer frame",
+            f"inside x={outer_left}..{outer_right}, y={outer_top}..{outer_bottom}",
+            f"x={left}..{right}, y={top}..{bottom}",
+        )
+    if gap_to_element_list < KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST:
+        error(
+            findings,
+            "KICAD_EMBED_OVERLAPS_ELEMENT_LIST",
+            object_id,
+            "Embedded KiCad block is too close to or overlaps the right-top List of Elements",
+            f">= {KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST} units",
+            f"{gap_to_element_list:.2f} units",
+        )
+    if gap_to_title_block < KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK:
+        error(
+            findings,
+            "KICAD_EMBED_OVERLAPS_TITLE_BLOCK",
+            object_id,
+            "Embedded KiCad block is too close to or overlaps the right-bottom Title Block",
+            f">= {KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK} units",
+            f"{gap_to_title_block:.2f} units",
+        )
+    if not (KICAD_EMBED_MIN_WIDTH_RATIO <= width_ratio <= KICAD_EMBED_MAX_WIDTH_RATIO):
+        error(
+            findings,
+            "KICAD_EMBED_WIDTH_RATIO_INVALID",
+            object_id,
+            "Embedded KiCad block does not use the required share of the main schematic width",
+            f"{KICAD_EMBED_MIN_WIDTH_RATIO:.2f}..{KICAD_EMBED_MAX_WIDTH_RATIO:.2f}",
+            f"{width_ratio:.3f}",
+        )
+    if not (KICAD_EMBED_MIN_HEIGHT_RATIO <= height_ratio <= KICAD_EMBED_MAX_HEIGHT_RATIO):
+        error(
+            findings,
+            "KICAD_EMBED_HEIGHT_RATIO_INVALID",
+            object_id,
+            "Embedded KiCad block does not use the required share of the main schematic height",
+            f"{KICAD_EMBED_MIN_HEIGHT_RATIO:.2f}..{KICAD_EMBED_MAX_HEIGHT_RATIO:.2f}",
+            f"{height_ratio:.3f}",
+        )
+
+
+def find_kicad_svg_image_bbox(text: str) -> dict[str, float]:
+    for match in re.finditer(r"<image\b[^>]+>", text, flags=re.I):
+        tag = match.group(0)
+        if "data:image/svg+xml" not in tag:
+            continue
+        attrs = dict(re.findall(r'\b(x|y|width|height)="([-+]?\d+(?:\.\d+)?)"', tag))
+        if all(key in attrs for key in ("x", "y", "width", "height")):
+            return {key: float(attrs[key]) for key in ("x", "y", "width", "height")}
+    return {}
 
 
 def validate_locked_region_boxes_in_svg(text: str, lock_file: Path, findings: list[Finding], object_id: str) -> None:

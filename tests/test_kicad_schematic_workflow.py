@@ -19,6 +19,8 @@ KICAD_SCH = KICAD_DIR / "esp32_temperature_control_unit.kicad_sch"
 KICAD_SYM = KICAD_DIR / "esp32_temperature_control_unit.kicad_sym"
 KICAD_SVG = KICAD_DIR / "exports/esp32_temperature_control_unit_schematic.svg"
 EMBED_SCRIPT = ROOT / "hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py"
+LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
+FINAL_SVG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg"
 
 REQUIRED_REFS = [
     "DD1",
@@ -121,6 +123,16 @@ def drawio_visible_payload(path: Path) -> str:
     for match in re.finditer(r"data:image/svg\+xml,([^\"'&<> ]+)", payload, flags=re.I):
         decoded.append(urllib.parse.unquote(match.group(1)))
     return "\n".join(decoded)
+
+
+def drawio_geometry(path: Path, cell_id: str) -> tuple[float, float, float, float]:
+    root = ET.parse(path).find(".//root")
+    assert root is not None
+    cell = root.find(f".//mxCell[@id='{cell_id}']")
+    assert cell is not None
+    geometry = cell.find("mxGeometry")
+    assert geometry is not None
+    return tuple(float(geometry.get(key, "0")) for key in ("x", "y", "width", "height"))
 
 
 def locked_template_fingerprint(path: Path) -> str:
@@ -226,6 +238,37 @@ def test_embed_script_generates_drawio_without_touching_template(tmp_path: Path)
         assert not token_present(forbidden, payload)
 
 
+def test_embed_script_places_kicad_block_in_main_schematic_area(tmp_path: Path) -> None:
+    output = tmp_path / "generated.drawio"
+    subprocess.run(
+        [
+            sys.executable,
+            str(EMBED_SCRIPT),
+            "--frame",
+            str(FRAME),
+            "--kicad-svg",
+            str(KICAD_SVG),
+            "--output",
+            str(output),
+        ],
+        check=True,
+    )
+    x, y, width, height = drawio_geometry(output, "kicad.schematic.embed")
+    lock = json.loads(LOCK_FILE.read_text(encoding="utf-8"))
+    outer = lock["regions"]["outer_frame"]["bbox"]
+    element_list = lock["regions"]["element_list"]["bbox"]
+    title_block = lock["regions"]["title_block"]["bbox"]
+    main_width = element_list["x"] - outer["x"]
+    main_height = title_block["y"] - outer["y"]
+
+    assert outer["x"] <= x
+    assert outer["y"] <= y
+    assert x + width <= element_list["x"] - 30
+    assert y + height <= title_block["y"] - 40
+    assert 0.70 <= width / main_width <= 0.85
+    assert 0.45 <= height / main_height <= 0.70
+
+
 def test_generated_drawio_is_kicad_embedded_when_present() -> None:
     if not GENERATED.exists():
         return
@@ -236,3 +279,20 @@ def test_generated_drawio_is_kicad_embedded_when_present() -> None:
         assert ref in payload
     for net in CANONICAL_NETS:
         assert net in payload
+
+
+def test_final_svg_kicad_embed_geometry_when_present() -> None:
+    if not FINAL_SVG.exists():
+        return
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    spec = spec_from_file_location("export_artifact_lint", ROOT / "tools/export_artifact_lint.py")
+    assert spec and spec.loader
+    lint = module_from_spec(spec)
+    sys.modules[spec.name] = lint
+    spec.loader.exec_module(lint)
+
+    findings = []
+    payload: dict[str, object] = {}
+    lint.validate_kicad_embed_geometry(FINAL_SVG.read_text(encoding="utf-8"), LOCK_FILE, findings, str(FINAL_SVG), payload)
+    assert findings == []

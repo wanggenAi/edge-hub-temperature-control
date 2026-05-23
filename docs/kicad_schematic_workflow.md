@@ -104,6 +104,40 @@ Final PNG size:
 
 - `6431 x 4654 px`
 
+## BSTU Frame Placement Polish
+
+The current checkpoint does not change the KiCad schematic source or symbol
+library. It only adjusts the KiCad SVG placement inside the generated BSTU
+frame and adds export-time geometry checks.
+
+Current draw.io embed placement:
+
+- x: `270`
+- y: `185`
+- width: `2070`
+- height: `1440`
+
+Measured final SVG embed placement:
+
+- x: `191`
+- y: `178`
+- width: `2070`
+- height: `1440`
+- main schematic width share: `83.5%`
+- main schematic height share: `68.6%`
+- gap to right-top List of Elements: `297.18` SVG units
+- gap to right-bottom Title Block: `489.42` SVG units
+
+The lint target requires the embedded KiCad block to use `70%` to `85%` of the
+left/middle main schematic width and `45%` to `70%` of the available main
+schematic height. It also requires at least `30` units clearance from the
+right-top element list and at least `40` units clearance from the right-bottom
+title block.
+
+Current placement lint report:
+
+`build/reports/final-kicad-embedded-scale-polish-export/export_artifact_lint.json`
+
 ## ERC Status
 
 KiCad ERC was run with KiCad CLI 9.0.2 and passed with zero violations.

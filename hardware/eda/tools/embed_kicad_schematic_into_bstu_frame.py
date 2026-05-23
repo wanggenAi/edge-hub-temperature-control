@@ -14,10 +14,13 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
-DEFAULT_X = 155.0
-DEFAULT_Y = 150.0
-DEFAULT_WIDTH = 2320.0
-DEFAULT_HEIGHT = 1640.0
+# Placement is in draw.io page units. These defaults keep the KiCad SVG in the
+# left/middle schematic area while leaving measured clearance from the preserved
+# element list and title block regions.
+DEFAULT_X = 270.0
+DEFAULT_Y = 185.0
+DEFAULT_WIDTH = 2070.0
+DEFAULT_HEIGHT = 1440.0
 LOCK_FILE = Path(__file__).resolve().parents[1] / "reserved_regions.lock.json"
 GENERATED_IDS = (
     "kicad.schematic.embed",
