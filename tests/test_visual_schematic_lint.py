@@ -20,6 +20,12 @@ CONFIRMED_REFS = {
     "DD1", "R1", "SB1", "R3", "HL1", "C1", "C2", "R2", "XS1", "XS4",
     "R6", "SB2", "R4", "R5", "VT1", "XS2", "XS5", "A1", "XS3", "C3", "C4",
 }
+DISCRETE_SYMBOL_REFS = {
+    "R1", "R2", "R3", "R4", "R5", "R6", "C1", "C2", "C3", "C4", "SB1", "SB2", "HL1", "VT1",
+}
+RECTANGULAR_TABLE_REFS = {
+    "DD1", "A1", "XS1", "XS2", "XS3", "XS4", "XS5",
+}
 FORBIDDEN_VISIBLE_REFS = {
     "CN1", "U1", "Q1", "U3_reset", "U4_boot", "U3_buck", "U7",
     "J2_heater", "J_TS1", "J_Power",
@@ -80,6 +86,27 @@ def component_body_widths(drawio_text: str) -> list[str]:
         if geom is not None:
             widths.append(geom.get("width", ""))
     return widths
+
+
+def component_body_info(drawio_text: str) -> dict[str, dict[str, str]]:
+    root = ET.fromstring(drawio_text)
+    info = {}
+    for cell in root.findall(".//mxCell"):
+        if cell.get("data-role") != "component_body":
+            continue
+        ref = cell.get("data-ref", "")
+        geom = cell.find("mxGeometry")
+        info[ref] = {
+            "width": geom.get("width", "") if geom is not None else "",
+            "style": cell.get("style", ""),
+            "style_lock": cell.get("data-style-lock", ""),
+            "symbol_type": cell.get("data-symbol-type", ""),
+        }
+    return info
+
+
+def symbol_primitive_refs(drawio_text: str) -> set[str]:
+    return set(re.findall(r'data-role="symbol_primitive"[^>]*data-ref="([^"]+)"', drawio_text))
 
 
 def assert_fails(path_name: str, tmp_path: Path, *expected_codes: str):
@@ -511,7 +538,8 @@ def test_layout_refinement_contains_exact_confirmed_components(tmp_path):
     assert len(component_body_refs(generated_text)) == 21
     assert "shape=table;startSize=0;container=1" in generated_text
     assert 'data-style-lock="reference_table_component"' in generated_text
-    assert "210" in component_body_widths(generated_text)
+    assert 'data-style-lock="standard_symbol_component"' in generated_text
+    assert DISCRETE_SYMBOL_REFS.issubset(symbol_primitive_refs(generated_text))
 
 
 def test_layout_refinement_component_widths_locked_to_reference(tmp_path):
@@ -524,9 +552,15 @@ def test_layout_refinement_component_widths_locked_to_reference(tmp_path):
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     generated_text = output.read_text(encoding="utf-8")
-    widths = component_body_widths(generated_text)
-    assert len(widths) == 21
-    assert set(widths) == {"210"}
+    info = component_body_info(generated_text)
+    assert set(info) == CONFIRMED_REFS
+    assert {ref for ref, body in info.items() if body["width"] == "210"} == CONFIRMED_REFS
+    for ref in RECTANGULAR_TABLE_REFS:
+        assert "shape=table" in info[ref]["style"]
+        assert info[ref]["style_lock"] == "reference_table_component"
+    for ref in DISCRETE_SYMBOL_REFS:
+        assert "shape=table" not in info[ref]["style"]
+        assert info[ref]["style_lock"] == "standard_symbol_component"
 
 
 def test_heater_power_readability_polish_passes_generated_lint(tmp_path):
@@ -545,7 +579,12 @@ def test_heater_power_readability_polish_passes_generated_lint(tmp_path):
 
     generated_text = output.read_text(encoding="utf-8")
     assert component_body_refs(generated_text) == CONFIRMED_REFS
-    assert set(component_body_widths(generated_text)) == {"210"}
+    info = component_body_info(generated_text)
+    for ref in DISCRETE_SYMBOL_REFS:
+        assert "shape=table" not in info[ref]["style"]
+        assert ref in symbol_primitive_refs(generated_text)
+    for ref in RECTANGULAR_TABLE_REFS:
+        assert "shape=table" in info[ref]["style"]
     assert 'id="component.R4.body"' in generated_text
     assert 'id="component.A1.body"' in generated_text
     assert 'id="wire.local.HEAT-.VT1_XS2"' in generated_text
@@ -588,7 +627,7 @@ def test_local_wire_too_short_fails(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     text = output.read_text(encoding="utf-8")
     text = text.replace(
-        '<mxPoint x="2205" y="1000" as="targetPoint"/>',
+        '<mxPoint x="2225" y="1000" as="targetPoint"/>',
         '<mxPoint x="2185" y="1000" as="targetPoint"/>',
         1,
     )
@@ -598,7 +637,7 @@ def test_local_wire_too_short_fails(tmp_path):
     assert "LOCAL_WIRE_TOO_SHORT" in codes(payload)
 
 
-def test_component_freehand_rectangle_style_fails(tmp_path):
+def test_rectangular_component_freehand_style_fails(tmp_path):
     fixture = tmp_path / "bad_freehand_component.drawio"
     fixture.write_text(
         """<mxfile host="app.diagrams.net">
@@ -609,7 +648,7 @@ def test_component_freehand_rectangle_style_fails(tmp_path):
         <mxCell id="frame.outer" value="" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="outer_frame"><mxGeometry x="79.74" y="7.74" width="3211.2" height="2322.83" as="geometry"/></mxCell>
         <mxCell id="element_list.lock" value="List of Elements" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="element_list"><mxGeometry x="2558.18" y="10.43" width="730" height="1260" as="geometry"/></mxCell>
         <mxCell id="title_block.lock" value="Title Block" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="title_block"><mxGeometry x="2555.18" y="2107.42" width="733.786" height="221" as="geometry"/></mxCell>
-        <mxCell id="component.R1.body" value="" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="component_body" data-generated="true" data-owner="test" data-ref="R1" data-source-ref="R1" data-zone="reset_en"><mxGeometry x="360" y="690" width="150" height="90" as="geometry"/></mxCell>
+        <mxCell id="component.DD1.body" value="" style="rounded=0;strokeColor=#000000;strokeWidth=1.9685;" parent="1" vertex="1" data-role="component_body" data-generated="true" data-owner="test" data-ref="DD1" data-source-ref="U1" data-zone="esp32_controller"><mxGeometry x="940" y="640" width="150" height="90" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>
@@ -623,6 +662,47 @@ def test_component_freehand_rectangle_style_fails(tmp_path):
     assert "COMPONENT_BODY_WIDTH_NOT_LOCKED" in actual
     assert "COMPONENT_STYLE_LOCK_MISSING" in actual
     assert "COMPONENT_BODY_STYLE_NOT_REFERENCE_TABLE" in actual
+
+
+def test_discrete_component_table_style_fails(tmp_path):
+    output = tmp_path / "bad_discrete_table_component.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    text = output.read_text(encoding="utf-8")
+    text = re.sub(
+        r'(<mxCell id="component\.R1\.body" value="" style=")[^"]+(")',
+        r'\1shape=table;startSize=0;container=1;fillColor=none;strokeColor=#000000;strokeWidth=1.9685;\2',
+        text,
+        count=1,
+    )
+    output.write_text(text, encoding="utf-8")
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    actual = codes(payload)
+    assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
+    assert "FORBIDDEN_TABLE_STYLE_FOR_DISCRETE_SYMBOL" in actual
+
+
+def test_discrete_component_missing_symbol_primitives_fails(tmp_path):
+    output = tmp_path / "bad_missing_discrete_symbol.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--layout-refinement", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    text = output.read_text(encoding="utf-8")
+    text = re.sub(r'\n\s*<mxCell id="symbol\.R1\.[^"]+"[\s\S]*?</mxCell>', "", text)
+    output.write_text(text, encoding="utf-8")
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    actual = codes(payload)
+    assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
+    assert "REQUIRED_SYMBOL_SHAPE_MISSING" in actual
 
 
 def test_layout_refinement_contains_no_source_ref_as_displayed_ref(tmp_path):

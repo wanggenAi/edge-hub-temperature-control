@@ -315,6 +315,12 @@ class VisualSchematicLint:
         self.component_table_style_required = bool(style_lock.get("require_table_body_style", {}).get("value", False))
         self.component_table_line_width = float(style_lock.get("component_table_line_width", {}).get("value", self.component_common_width))
         self.component_table_line_width_tolerance = float(style_lock.get("component_table_line_width", {}).get("tolerance", 0.03))
+        discrete_policy = config.get("standard_schematic_symbols", {})
+        self.discrete_symbol_types: dict[str, str] = discrete_policy.get(
+            "required_by_ref_prefix",
+            {"R": "resistor", "C": "capacitor", "SB": "switch", "HL": "led", "VT": "nmos"},
+        )
+        self.rectangular_component_prefixes = tuple(discrete_policy.get("rectangular_component_prefixes", ["DD", "A", "XS"]))
         self.forbidden_visible_refs = set(config.get("forbidden_visible_refs", []))
         self.forbidden_net_names = set(config.get("forbidden_net_names", []))
         self.findings: list[Finding] = []
@@ -332,6 +338,7 @@ class VisualSchematicLint:
         self.validate_geometry()
         self.validate_local_wire_visibility()
         self.validate_connectivity()
+        self.validate_pin_line_connectivity()
         self.validate_pin_labels()
         self.validate_text_policy()
         self.validate_text_clearance()
@@ -433,6 +440,7 @@ class VisualSchematicLint:
             "component_ref",
             "component_value",
             "component_table_line",
+            "symbol_primitive",
             "pin",
             "pin_label",
             "wire",
@@ -461,6 +469,7 @@ class VisualSchematicLint:
             "component_ref": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
             "component_value": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone"],
             "component_table_line": ["data-generated", "data-owner", "data-ref", "data-line-type", "data-style-source"],
+            "symbol_primitive": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-zone", "data-symbol-type", "data-kind"],
             "pin": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
             "pin_label": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
             "wire": ["data-generated", "data-owner", "data-ref", "data-source-ref", "data-pin", "data-pin-number", "data-net", "data-source-net", "data-zone"],
@@ -577,6 +586,31 @@ class VisualSchematicLint:
                 else:
                     self.error("FLOATING_WIRE_END", wire.id, "Wire endpoint is not connected to a pin, junction, net label, or another wire", f"<= {self.connection_tol}", f"{nearest:.3f}", point[0], point[1])
 
+    def validate_pin_line_connectivity(self) -> None:
+        if self.mode != "generated":
+            return
+        wire_points = [p for wire in self.wires() for p in wire.endpoints]
+        label_points = [
+            (fnum(label.attrs.get("data-anchor-x"), label.center[0]), fnum(label.attrs.get("data-anchor-y"), label.center[1]))
+            for label in self.model.vertices
+            if label.role == "net_label"
+        ]
+        junction_points = [v.center for v in self.model.vertices if v.role == "junction"]
+        external_points = wire_points + label_points + junction_points
+        for pin in self.pin_edges():
+            if not pin.attrs.get("data-pin-number"):
+                self.error("PIN_NUMBER_MISSING", pin.id, "Rendered pin line is missing a pin number", "data-pin-number", "", *pin.center)
+            nearest = min((dist(point, candidate) for point in pin.endpoints for candidate in external_points), default=math.inf)
+            if nearest > self.connection_tol:
+                self.error(
+                    "PIN_LINE_NOT_CONNECTED",
+                    pin.id,
+                    "Pin line has no endpoint connected to a wire, junction, or net label anchor",
+                    f"<= {self.connection_tol}",
+                    f"{nearest:.3f}",
+                    *pin.center,
+                )
+
     def connection_points(self) -> list[tuple[float, float]]:
         points: list[tuple[float, float]] = []
         points.extend(self.pin_points())
@@ -679,7 +713,54 @@ class VisualSchematicLint:
     def validate_reference_component_style(self, bodies: list[Vertex]) -> None:
         if self.mode != "generated":
             return
+        primitives_by_ref: dict[str, list[Vertex | Edge]] = {}
+        for primitive in [*self.model.vertices, *self.model.edges]:
+            if primitive.role == "symbol_primitive":
+                primitives_by_ref.setdefault(primitive.attrs.get("data-ref", ""), []).append(primitive)
         for body in bodies:
+            ref = body.attrs.get("data-ref", "")
+            required_symbol_type = self.required_symbol_type(ref)
+            if required_symbol_type:
+                if "shape=table" in body.style:
+                    self.error(
+                        "FORBIDDEN_TABLE_STYLE_FOR_DISCRETE_SYMBOL",
+                        body.id,
+                        "Discrete schematic components must be rendered as electrical symbols, not table rectangles",
+                        f"{required_symbol_type} symbol primitives",
+                        body.style,
+                        *body.center,
+                    )
+                if body.attrs.get("data-style-lock") != "standard_symbol_component":
+                    self.error(
+                        "FORBIDDEN_RANDOM_SYMBOL_GEOMETRY",
+                        body.id,
+                        "Discrete component body is missing the standard symbol style lock",
+                        "data-style-lock=standard_symbol_component",
+                        body.attrs.get("data-style-lock", ""),
+                        *body.center,
+                    )
+                primitives = primitives_by_ref.get(ref, [])
+                matching = [primitive for primitive in primitives if primitive.attrs.get("data-symbol-type") == required_symbol_type]
+                if not matching:
+                    self.error(
+                        "REQUIRED_SYMBOL_SHAPE_MISSING",
+                        body.id,
+                        "Discrete component is missing required schematic symbol primitives",
+                        required_symbol_type,
+                        ",".join(sorted({primitive.attrs.get("data-symbol-type", "") for primitive in primitives})),
+                        *body.center,
+                    )
+                for primitive in primitives:
+                    if primitive.attrs.get("data-symbol-type") != required_symbol_type:
+                        self.error(
+                            "FORBIDDEN_RANDOM_SYMBOL_GEOMETRY",
+                            primitive.id,
+                            "Symbol primitive has an unexpected symbol type for its reference designator",
+                            required_symbol_type,
+                            primitive.attrs.get("data-symbol-type", ""),
+                            *primitive.center,
+                        )
+                continue
             if abs(body.width - self.component_common_width) > self.component_width_tolerance:
                 self.error(
                     "COMPONENT_BODY_WIDTH_NOT_LOCKED",
@@ -721,11 +802,21 @@ class VisualSchematicLint:
                     *line.center,
                 )
 
+    def required_symbol_type(self, ref: str) -> str:
+        if ref.startswith("SB"):
+            return self.discrete_symbol_types.get("SB", "")
+        if ref.startswith("HL"):
+            return self.discrete_symbol_types.get("HL", "")
+        if ref.startswith("VT"):
+            return self.discrete_symbol_types.get("VT", "")
+        prefix = ref[:1]
+        return self.discrete_symbol_types.get(prefix, "")
+
     def validate_reserved_region_overlap(self) -> None:
         if not self.region_boxes:
             return
-        schematic_vertices = [v for v in self.model.vertices if v.role in {"component_body", "component_ref", "component_value", "pin_label", "net_label", "junction"}]
-        schematic_edges = [e for e in self.model.edges if e.role in {"wire", "pin"}]
+        schematic_vertices = [v for v in self.model.vertices if v.role in {"component_body", "component_ref", "component_value", "pin_label", "net_label", "junction", "symbol_primitive"}]
+        schematic_edges = [e for e in self.model.edges if e.role in {"wire", "pin", "symbol_primitive"}]
         for region_name in ("element_list", "title_block"):
             box = self.region_boxes.get(region_name)
             if not box:

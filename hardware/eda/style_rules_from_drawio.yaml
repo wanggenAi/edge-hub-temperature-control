@@ -180,6 +180,28 @@
       "value": "inside_table_row"
     }
   },
+  "standard_schematic_symbols": {
+    "policy": "Discrete electrical components must be rendered as schematic symbol primitives, not draw.io table rectangles. Rectangular pin-row tables are allowed only for modules and connectors.",
+    "required_by_ref_prefix": {
+      "R": "resistor",
+      "C": "capacitor",
+      "SB": "switch",
+      "HL": "led",
+      "VT": "nmos"
+    },
+    "rectangular_component_prefixes": [
+      "DD",
+      "A",
+      "XS"
+    ],
+    "required_lint_errors": [
+      "FORBIDDEN_TABLE_STYLE_FOR_DISCRETE_SYMBOL",
+      "REQUIRED_SYMBOL_SHAPE_MISSING",
+      "FORBIDDEN_RANDOM_SYMBOL_GEOMETRY",
+      "PIN_LINE_NOT_CONNECTED",
+      "PIN_NUMBER_MISSING"
+    ]
+  },
   "style_histograms": {
     "stroke_width_counts": {
       "1.9685": 484,

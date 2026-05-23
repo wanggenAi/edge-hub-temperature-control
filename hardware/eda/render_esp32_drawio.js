@@ -1009,6 +1009,301 @@ function buildComponentBoxCells(component, box, style, pinSpecs, options = {}) {
   return cells;
 }
 
+function symbolTypeForRef(ref) {
+  if (/^R\d+$/.test(ref)) return "resistor";
+  if (/^C\d+$/.test(ref)) return "capacitor";
+  if (/^SB\d+$/.test(ref)) return "switch";
+  if (/^HL\d+$/.test(ref)) return "led";
+  if (/^VT\d+$/.test(ref)) return "nmos";
+  return "";
+}
+
+function symbolPrimitiveAttrs(component, symbolType, kind) {
+  return {
+    ...generatedAttrs(component),
+    "data-symbol-type": symbolType,
+    "data-kind": kind,
+    "data-style-source": "standard_schematic_symbol",
+  };
+}
+
+function buildSymbolBodyAndText(component, body, style, symbolType, parent) {
+  const refFont = fontSize(style, "component_ref_font_size", 30);
+  const valueFont = fontSize(style, "component_value_font_size", 30);
+  return [
+    vertexCell({
+      id: `component.${component.ref}.body`,
+      parent,
+      x: body.x,
+      y: body.y,
+      width: body.width,
+      height: body.height,
+      role: "component_body",
+      attrs: {
+        ...generatedAttrs(component),
+        "data-style-lock": "standard_symbol_component",
+        "data-symbol-type": symbolType,
+        "data-style-source": "standard_schematic_symbol",
+      },
+      style: "group;strokeColor=none;fillColor=none;connectable=0;",
+    }),
+    textCell({
+      id: `component.${component.ref}.ref`,
+      parent,
+      value: component.ref,
+      x: body.x + body.width / 2 - 45,
+      y: body.y - 46,
+      width: 90,
+      height: 30,
+      role: "component_ref",
+      attrs: generatedAttrs(component),
+      fontSizeValue: refFont,
+    }),
+    textCell({
+      id: `component.${component.ref}.value`,
+      parent,
+      value: englishValue(component),
+      x: body.x + 10,
+      y: body.y + body.height + 14,
+      width: body.width - 20,
+      height: 30,
+      role: "component_value",
+      attrs: generatedAttrs(component),
+      fontSizeValue: valueFont,
+    }),
+  ];
+}
+
+function symbolLine({ id, parent, component, symbolType, kind, x1, y1, x2, y2, style }) {
+  return edgeCell({
+    id,
+    parent,
+    x1: roundCoord(x1),
+    y1: roundCoord(y1),
+    x2: roundCoord(x2),
+    y2: roundCoord(y2),
+    role: "symbol_primitive",
+    attrs: symbolPrimitiveAttrs(component, symbolType, kind),
+    style,
+  });
+}
+
+function symbolVertex({ id, parent, component, symbolType, kind, x, y, width, height, style, value = "" }) {
+  return vertexCell({
+    id,
+    parent,
+    value,
+    x: roundCoord(x),
+    y: roundCoord(y),
+    width: roundCoord(width),
+    height: roundCoord(height),
+    role: "symbol_primitive",
+    attrs: symbolPrimitiveAttrs(component, symbolType, kind),
+    style,
+  });
+}
+
+function buildSymbolPinCells(component, body, style, spec, symbolType, options = {}) {
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const pinFont = fontSize(style, "pin_label_font_size", 30);
+  const netFont = fontSize(style, "net_label_font_size", 15);
+  const parent = options.parent || "generated.schematic.root";
+  const pinLength = options.pinLength || 60;
+  const wireLength = options.wireLength || 90;
+  const textHeight = options.textHeight || 24;
+  const pin = findPin(component, spec.number);
+  const side = spec.side || pin.side || "left";
+  const isLeft = side === "left";
+  const y = spec.y;
+  const innerX = spec.innerX ?? (isLeft ? body.x + 55 : body.x + body.width - 55);
+  const pinOuterX = isLeft ? body.x - pinLength : body.x + body.width + pinLength;
+  const wireOuterX = isLeft ? pinOuterX - wireLength : pinOuterX + wireLength;
+  const label = spec.label || pin.name;
+  const labelWidth = Math.max(72, String(label).length * 18);
+  const netWidth = Math.max(72, String(pin.net).length * 18);
+  const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+  const attrs = generatedAttrs(component, { ...pin, name: label });
+  const pinCenterX = (innerX + pinOuterX) / 2;
+  const cells = [
+    edgeCell({
+      id: `pin.${component.ref}.${xmlSafeId(label)}.${pin.number}`,
+      parent,
+      x1: isLeft ? pinOuterX : innerX,
+      y1: y,
+      x2: isLeft ? innerX : pinOuterX,
+      y2: y,
+      role: "pin",
+      attrs,
+      style: lineStyle,
+    }),
+  ];
+  if (spec.renderPinLabel !== false) {
+    cells.push(textCell({
+      id: `label.pin.${component.ref}.${xmlSafeId(label)}.${pin.number}`,
+      parent,
+      value: label,
+      x: roundCoord(pinCenterX - labelWidth / 2),
+      y: roundCoord(y - textHeight - 2),
+      width: roundCoord(labelWidth),
+      height: textHeight,
+      role: "pin_label",
+      attrs: {
+        ...attrs,
+        "data-label-policy": "above_pin_line",
+        "data-style-source": "standard_schematic_symbol",
+        "data-symbol-type": symbolType,
+      },
+      fontSizeValue: pinFont,
+    }));
+  }
+  if (spec.renderWire !== false) {
+    cells.push(edgeCell({
+      id: `wire.${component.ref}.${xmlSafeId(pin.net)}.${pin.number}`,
+      parent,
+      x1: isLeft ? wireOuterX : pinOuterX,
+      y1: y,
+      x2: isLeft ? pinOuterX : wireOuterX,
+      y2: y,
+      role: "wire",
+      attrs: wireAttrs(component, pin, label),
+      style: lineStyle,
+    }));
+  }
+  if (spec.renderNetLabel !== false) {
+    cells.push(textCell({
+      id: `netlabel.${component.ref}.${xmlSafeId(pin.net)}.${pin.number}`,
+      parent,
+      value: pin.net,
+      x: roundCoord(wireOuterX - netWidth / 2),
+      y: roundCoord(y + 6),
+      width: roundCoord(netWidth),
+      height: textHeight,
+      role: "net_label",
+      attrs: {
+        "data-generated": "true",
+        "data-owner": "render_esp32_drawio.js",
+        "data-net": pin.net,
+        "data-source-net": pin.source_net || pin.net,
+        "data-zone": component.zone,
+        "data-anchor-x": wireOuterX,
+        "data-anchor-y": y,
+      },
+      fontSizeValue: netFont,
+    }));
+  }
+  return cells;
+}
+
+function buildTwoTerminalSymbolCells(component, box, style, pinSpecs, options = {}) {
+  const symbolType = options.symbolType || symbolTypeForRef(component.ref);
+  if (!symbolType) {
+    throw new Error(`${component.ref} has no two-terminal schematic symbol type`);
+  }
+  const parent = options.parent || "generated.schematic.root";
+  const body = lockedBodyBox(box, style, { preserveWidth: options.preserveWidth, centerLockedWidth: options.centerLockedWidth === true });
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const bodyStroke = strokeWidth(style, "component_body_stroke_width", 1.9685);
+  const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+  const bodyLineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${bodyStroke};`;
+  const cells = buildSymbolBodyAndText(component, body, style, symbolType, parent);
+  const y = options.symbolY ?? pinSpecs[0].y;
+  const leftInner = body.x + 55;
+  const rightInner = body.x + body.width - 55;
+
+  if (symbolType === "resistor") {
+    cells.push(symbolVertex({
+      id: `symbol.${component.ref}.resistor.body`,
+      parent,
+      component,
+      symbolType,
+      kind: "resistor_body",
+      x: body.x + 75,
+      y: y - 17,
+      width: 60,
+      height: 34,
+      style: `rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=${bodyStroke};`,
+    }));
+    cells.push(
+      symbolLine({ id: `symbol.${component.ref}.resistor.left_lead`, parent, component, symbolType, kind: "resistor_lead", x1: leftInner, y1: y, x2: body.x + 75, y2: y, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.resistor.right_lead`, parent, component, symbolType, kind: "resistor_lead", x1: body.x + 135, y1: y, x2: rightInner, y2: y, style: bodyLineStyle })
+    );
+  } else if (symbolType === "capacitor") {
+    const plateLeft = body.x + 96;
+    const plateRight = body.x + 114;
+    cells.push(
+      symbolLine({ id: `symbol.${component.ref}.capacitor.left_plate`, parent, component, symbolType, kind: "capacitor_plate", x1: plateLeft, y1: y - 28, x2: plateLeft, y2: y + 28, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.capacitor.right_plate`, parent, component, symbolType, kind: "capacitor_plate", x1: plateRight, y1: y - 28, x2: plateRight, y2: y + 28, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.capacitor.left_lead`, parent, component, symbolType, kind: "capacitor_lead", x1: leftInner, y1: y, x2: plateLeft, y2: y, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.capacitor.right_lead`, parent, component, symbolType, kind: "capacitor_lead", x1: plateRight, y1: y, x2: rightInner, y2: y, style: bodyLineStyle })
+    );
+  } else if (symbolType === "switch") {
+    const leftContact = body.x + 86;
+    const rightContact = body.x + 124;
+    cells.push(
+      symbolLine({ id: `symbol.${component.ref}.switch.left_lead`, parent, component, symbolType, kind: "switch_lead", x1: leftInner, y1: y, x2: leftContact, y2: y, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.switch.right_lead`, parent, component, symbolType, kind: "switch_lead", x1: rightContact, y1: y, x2: rightInner, y2: y, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.switch.left_contact`, parent, component, symbolType, kind: "switch_contact", x1: leftContact, y1: y - 16, x2: leftContact, y2: y + 16, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.switch.right_contact`, parent, component, symbolType, kind: "switch_contact", x1: rightContact, y1: y - 16, x2: rightContact, y2: y + 16, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.switch.actuator`, parent, component, symbolType, kind: "switch_actuator", x1: leftContact, y1: y - 24, x2: rightContact, y2: y - 24, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.switch.plunger`, parent, component, symbolType, kind: "switch_actuator", x1: body.x + body.width / 2, y1: y - 44, x2: body.x + body.width / 2, y2: y - 24, style: bodyLineStyle })
+    );
+  } else if (symbolType === "led") {
+    const diodeX = body.x + 88;
+    const barX = body.x + 128;
+    const arrowStyle = `endArrow=classic;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+    cells.push(
+      symbolLine({ id: `symbol.${component.ref}.led.left_lead`, parent, component, symbolType, kind: "led_lead", x1: leftInner, y1: y, x2: diodeX, y2: y, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.led.right_lead`, parent, component, symbolType, kind: "led_lead", x1: barX, y1: y, x2: rightInner, y2: y, style: bodyLineStyle }),
+      symbolVertex({ id: `symbol.${component.ref}.led.diode`, parent, component, symbolType, kind: "led_diode", x: diodeX, y: y - 26, width: 36, height: 52, style: `shape=triangle;direction=east;fillColor=none;strokeColor=#000000;strokeWidth=${bodyStroke};` }),
+      symbolLine({ id: `symbol.${component.ref}.led.cathode_bar`, parent, component, symbolType, kind: "led_bar", x1: barX, y1: y - 28, x2: barX, y2: y + 28, style: bodyLineStyle }),
+      symbolLine({ id: `symbol.${component.ref}.led.arrow.1`, parent, component, symbolType, kind: "led_light_arrow", x1: barX + 18, y1: y - 34, x2: barX + 42, y2: y - 58, style: arrowStyle }),
+      symbolLine({ id: `symbol.${component.ref}.led.arrow.2`, parent, component, symbolType, kind: "led_light_arrow", x1: barX + 8, y1: y - 46, x2: barX + 32, y2: y - 70, style: arrowStyle })
+    );
+  } else {
+    throw new Error(`${component.ref} unsupported two-terminal symbol type ${symbolType}`);
+  }
+
+  for (const spec of pinSpecs) {
+    const side = spec.side || "left";
+    cells.push(...buildSymbolPinCells(component, body, style, {
+      ...spec,
+      innerX: spec.innerX ?? (side === "left" ? leftInner : rightInner),
+    }, symbolType, options));
+  }
+  return cells;
+}
+
+function buildMosfetSymbolCells(component, box, style, pinSpecs, options = {}) {
+  const symbolType = "nmos";
+  const parent = options.parent || "generated.schematic.root";
+  const body = lockedBodyBox(box, style, { preserveWidth: options.preserveWidth, centerLockedWidth: options.centerLockedWidth === true });
+  const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
+  const bodyStroke = strokeWidth(style, "component_body_stroke_width", 1.9685);
+  const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${bodyStroke};`;
+  const arrowStyle = `endArrow=classic;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+  const gateY = pinSpecs.find((spec) => String(spec.number) === "1")?.y || body.y + 40;
+  const drainY = pinSpecs.find((spec) => String(spec.number) === "3")?.y || body.y + 95;
+  const sourceY = pinSpecs.find((spec) => String(spec.number) === "2")?.y || body.y + 150;
+  const gateInner = body.x + 55;
+  const channelX = body.x + 116;
+  const rightInner = body.x + body.width - 55;
+  const cells = buildSymbolBodyAndText(component, body, style, symbolType, parent);
+  cells.push(
+    symbolLine({ id: `symbol.${component.ref}.mosfet.gate_plate`, parent, component, symbolType, kind: "mosfet_gate", x1: body.x + 92, y1: gateY - 52, x2: body.x + 92, y2: sourceY + 10, style: lineStyle }),
+    symbolLine({ id: `symbol.${component.ref}.mosfet.gate_stub`, parent, component, symbolType, kind: "mosfet_gate", x1: gateInner, y1: gateY, x2: body.x + 92, y2: gateY, style: lineStyle }),
+    symbolLine({ id: `symbol.${component.ref}.mosfet.channel`, parent, component, symbolType, kind: "mosfet_channel", x1: channelX, y1: drainY - 34, x2: channelX, y2: sourceY + 20, style: lineStyle }),
+    symbolLine({ id: `symbol.${component.ref}.mosfet.drain_stub`, parent, component, symbolType, kind: "mosfet_drain", x1: channelX, y1: drainY, x2: rightInner, y2: drainY, style: lineStyle }),
+    symbolLine({ id: `symbol.${component.ref}.mosfet.source_stub`, parent, component, symbolType, kind: "mosfet_source", x1: channelX, y1: sourceY, x2: rightInner, y2: sourceY, style: lineStyle }),
+    symbolLine({ id: `symbol.${component.ref}.mosfet.arrow`, parent, component, symbolType, kind: "mosfet_arrow", x1: channelX + 8, y1: sourceY - 18, x2: channelX - 18, y2: sourceY - 18, style: arrowStyle })
+  );
+  for (const spec of pinSpecs) {
+    let innerX = spec.side === "left" ? gateInner : rightInner;
+    if (String(spec.number) === "1") innerX = gateInner;
+    cells.push(...buildSymbolPinCells(component, body, style, { ...spec, innerX }, symbolType, options));
+  }
+  return cells;
+}
+
 function buildLocalWire({ id, parent = "generated.schematic.root", net, sourceNet, zone, x1, y1, x2, y2, style, ref = "LOCAL", sourceRef = "LOCAL", pin = "LOCAL", pinNumber = "0" }) {
   return edgeCell({
     id,
@@ -1076,11 +1371,11 @@ function buildPowerBlockCells(model, style, options = {}) {
         { number: "3", side: "left", y: 1700, label: "GND" },
         { number: "4", side: "right", y: 1746, label: "+3V3 OUT", labelWidth: 96 },
       ], { pinLength: 60, wireLength: 70 }),
-      ...buildComponentBoxCells(c3, { x: 1600, y: 1840, width: 210, height: 90 }, style, [
+      ...buildTwoTerminalSymbolCells(c3, { x: 1600, y: 1840, width: 210, height: 90 }, style, [
         { number: "1", side: "left", y: 1885, label: "GND" },
         { number: "2", side: "right", y: 1885, label: "+12V" },
       ], { pinLength: 60, wireLength: 58 }),
-      ...buildComponentBoxCells(c4, { x: 2237, y: 1840, width: 210, height: 90 }, style, [
+      ...buildTwoTerminalSymbolCells(c4, { x: 2237, y: 1840, width: 210, height: 90 }, style, [
         { number: "1", side: "left", y: 1885, label: "GND" },
         { number: "2", side: "right", y: 1885, label: "+12V" },
       ], { pinLength: 40, wireLength: 32 }),
@@ -1097,11 +1392,11 @@ function buildPowerBlockCells(model, style, options = {}) {
       { number: "3", side: "left", y: 1665, label: "GND" },
       { number: "4", side: "right", y: 1710, label: "+3V3 OUT" },
     ], { pinLength: 50, wireLength: 45 }),
-    ...buildComponentBoxCells(c3, { x: 1600, y: 1815, width: 210, height: 80 }, style, [
+    ...buildTwoTerminalSymbolCells(c3, { x: 1600, y: 1815, width: 210, height: 80 }, style, [
       { number: "1", side: "left", y: 1855, label: "GND" },
       { number: "2", side: "right", y: 1855, label: "+12V" },
     ], { pinLength: 50, wireLength: 45 }),
-    ...buildComponentBoxCells(c4, { x: 2220, y: 1840, width: 210, height: 80 }, style, [
+    ...buildTwoTerminalSymbolCells(c4, { x: 2220, y: 1840, width: 210, height: 80 }, style, [
       { number: "1", side: "left", y: 1880, label: "GND" },
       { number: "2", side: "right", y: 1880, label: "+12V" },
     ], { pinLength: 50, wireLength: 45 }),
@@ -1118,27 +1413,27 @@ function buildHeaterBlockCells(model, style, options = {}) {
   const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
   if (options.readabilityPolish) {
     return [
-      ...buildComponentBoxCells(r4, { x: 1650, y: 895, width: 210, height: 78 }, style, [
+      ...buildTwoTerminalSymbolCells(r4, { x: 1650, y: 895, width: 210, height: 78 }, style, [
         { number: "1", side: "left", y: 934, label: "GATE" },
-        { number: "2", side: "right", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
+        { number: "2", side: "right", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false, renderPinLabel: false },
       ], { pinLength: 60, wireLength: 58 }),
-      ...buildComponentBoxCells(r5, { x: 1650, y: 1160, width: 210, height: 78 }, style, [
-        { number: "1", side: "right", y: 1199, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
+      ...buildTwoTerminalSymbolCells(r5, { x: 1650, y: 1160, width: 210, height: 78 }, style, [
+        { number: "1", side: "right", y: 1199, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false, renderPinLabel: false },
         { number: "2", side: "left", y: 1199, label: "GND" },
       ], { pinLength: 60, wireLength: 58 }),
-      ...buildComponentBoxCells(vt1, { x: 1925, y: 895, width: 210, height: 185 }, style, [
-        { number: "1", side: "left", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
+      ...buildMosfetSymbolCells(vt1, { x: 1925, y: 895, width: 210, height: 185 }, style, [
+        { number: "1", side: "left", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false, renderPinLabel: false },
         { number: "3", side: "right", y: 1000, label: "HEAT-", renderWire: false, renderNetLabel: false },
-        { number: "2", side: "right", y: 1060, label: "GND", renderWire: false, renderNetLabel: false },
+        { number: "2", side: "right", y: 1060, label: "GND" },
       ], { pinLength: 45, wireLength: 60 }),
       ...buildComponentBoxCells(xs2, { x: 2250, y: 885, width: 210, height: 135 }, style, [
-        { number: "1", side: "left", y: 930, label: "HEAT+", renderWire: false, renderNetLabel: false },
+        { number: "1", side: "left", y: 930, label: "HEAT+" },
         { number: "2", side: "left", y: 1000, label: "HEAT-", renderWire: false, renderNetLabel: false },
-      ], { pinLength: 45, wireLength: 60 }),
+      ], { pinLength: 25, wireLength: 35 }),
       ...buildComponentBoxCells(xs5, { x: 2250, y: 1180, width: 210, height: 95 }, style, [
         { number: "1", side: "left", y: 1220, label: "+12V" },
         { number: "2", side: "left", y: 1260, label: "HEAT+" },
-      ], { pinLength: 45, wireLength: 60 }),
+      ], { pinLength: 25, wireLength: 60 }),
       buildLocalWire({
         id: "wire.local.GATE_R.R4_VT1_R5",
         net: "GATE_R",
@@ -1195,24 +1490,24 @@ function buildHeaterBlockCells(model, style, options = {}) {
         pinNumber: "3_2",
         x1: 2180,
         y1: 1000,
-        x2: 2205,
+        x2: 2225,
         y2: 1000,
         style: lineStyle,
       }),
     ];
   }
   return [
-    ...buildComponentBoxCells(r4, { x: 1660, y: 910, width: 210, height: 70 }, style, [
+    ...buildTwoTerminalSymbolCells(r4, { x: 1660, y: 910, width: 210, height: 70 }, style, [
       { number: "1", side: "left", y: 940, label: "GATE" },
-      { number: "2", side: "right", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false },
+      { number: "2", side: "right", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false, renderPinLabel: false },
     ], { pinLength: 50, wireLength: 45 }),
-    ...buildComponentBoxCells(r5, { x: 1660, y: 1145, width: 210, height: 70 }, style, [
-      { number: "1", side: "right", y: 1185, label: "GATE_R", renderWire: false, renderNetLabel: false },
+    ...buildTwoTerminalSymbolCells(r5, { x: 1660, y: 1145, width: 210, height: 70 }, style, [
+      { number: "1", side: "right", y: 1185, label: "GATE_R", renderWire: false, renderNetLabel: false, renderPinLabel: false },
       { number: "2", side: "left", y: 1185, label: "GND" },
     ], { pinLength: 50, wireLength: 45 }),
-    ...buildComponentBoxCells(vt1, { x: 1940, y: 890, width: 210, height: 160 }, style, [
-      { number: "1", side: "left", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false },
-      { number: "2", side: "right", y: 1025, label: "GND", renderWire: false, renderNetLabel: false },
+    ...buildMosfetSymbolCells(vt1, { x: 1940, y: 890, width: 210, height: 160 }, style, [
+      { number: "1", side: "left", y: 940, label: "GATE_R", renderWire: false, renderNetLabel: false, renderPinLabel: false },
+      { number: "2", side: "right", y: 1025, label: "GND" },
       { number: "3", side: "right", y: 985, label: "HEAT-", renderWire: false, renderNetLabel: false },
     ], { pinLength: 40, wireLength: 45 }),
     ...buildComponentBoxCells(xs2, { x: 2240, y: 895, width: 210, height: 105 }, style, [
@@ -1291,11 +1586,11 @@ function buildBootBlockCells(model, style) {
   const sb2 = requireComponent(model, "SB2");
   const localStubOptions = { wireLength: 45 };
   return [
-    ...buildComponentBoxCells(r6, { x: 1090, y: 1670, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(r6, { x: 1090, y: 1670, width: 210, height: 90 }, style, [
       { number: "1", side: "right", y: 1710, label: "BOOT" },
       { number: "2", side: "left", y: 1710, label: "+3V3" },
     ], localStubOptions),
-    ...buildComponentBoxCells(sb2, { x: 1090, y: 1885, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(sb2, { x: 1090, y: 1885, width: 210, height: 90 }, style, [
       { number: "1", side: "right", y: 1930, label: "BOOT" },
       { number: "3", side: "left", y: 1930, label: "GND" },
     ], localStubOptions),
@@ -1323,7 +1618,7 @@ function buildSensorBlockCells(model, style) {
   const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
   const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
   return [
-    ...buildComponentBoxCells(r2, { x: 1640, y: 305, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(r2, { x: 1640, y: 305, width: 210, height: 90 }, style, [
       { number: "1", side: "right", y: 350, label: "DQ", renderWire: false, renderNetLabel: false },
       { number: "2", side: "left", y: 350, label: "+3V3" },
     ], localDqOptions),
@@ -1355,11 +1650,11 @@ function buildDecouplingBlockCells(model, style) {
   const c2 = requireComponent(model, "C2");
   const localStubOptions = { wireLength: 45 };
   return [
-    ...buildComponentBoxCells(c1, { x: 300, y: 270, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(c1, { x: 300, y: 270, width: 210, height: 90 }, style, [
       { number: "1", side: "left", y: 310, label: "+3V3" },
       { number: "2", side: "right", y: 310, label: "GND" },
     ], localStubOptions),
-    ...buildComponentBoxCells(c2, { x: 300, y: 470, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(c2, { x: 300, y: 470, width: 210, height: 90 }, style, [
       { number: "1", side: "left", y: 510, label: "+3V3" },
       { number: "2", side: "right", y: 510, label: "GND" },
     ], localStubOptions),
@@ -1376,21 +1671,21 @@ function buildResetLedBlockCells(model, style) {
   const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
   const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
   return [
-    ...buildComponentBoxCells(r1, { x: 360, y: 690, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(r1, { x: 360, y: 690, width: 210, height: 90 }, style, [
       { number: "1", side: "left", y: 730, label: "+3V3" },
       { number: "2", side: "right", y: 730, label: "EN" },
     ], localStubOptions),
-    ...buildComponentBoxCells(sb1, { x: 360, y: 875, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(sb1, { x: 360, y: 875, width: 210, height: 90 }, style, [
       { number: "2", side: "right", y: 920, label: "EN" },
       { number: "4", side: "left", y: 920, label: "GND" },
     ], localStubOptions),
-    ...buildComponentBoxCells(r3, { x: 250, y: 1330, width: 210, height: 90 }, style, [
+    ...buildTwoTerminalSymbolCells(r3, { x: 250, y: 1330, width: 210, height: 90 }, style, [
       { number: "1", side: "right", y: 1370, label: "LED_A", labelWidth: 72, renderWire: false, renderNetLabel: false },
       { number: "2", side: "left", y: 1370, label: "+3V3" },
     ], ledLocalOptions),
-    ...buildComponentBoxCells(hl1, { x: 550, y: 1330, width: 210, height: 190 }, style, [
-      { number: "1", side: "left", y: 1500, label: "LED" },
+    ...buildTwoTerminalSymbolCells(hl1, { x: 550, y: 1330, width: 210, height: 190 }, style, [
       { number: "2", side: "left", y: 1370, label: "LED_A", labelWidth: 72, renderWire: false, renderNetLabel: false },
+      { number: "1", side: "right", y: 1370, label: "LED" },
     ], ledLocalOptions),
     buildLocalWire({
       id: "wire.local.LED_A.R3_HL1",
