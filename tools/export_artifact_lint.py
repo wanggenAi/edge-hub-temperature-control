@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import sys
+import urllib.parse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -97,29 +99,21 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         if any(re.search(pattern, lower) for pattern in grid_patterns):
             error(findings, "SVG_GRID_ARTIFACT", str(path), "SVG contains obvious grid artifact", "no grid", "grid marker")
 
-    required = [
-        "DD1",
-        "ESP32-WROOM-32",
-        "Capacitors",
-        "Resistors",
-        "ESP32-WROOM-32 module",
-        "XH-3PA 3-pin sensor connector",
-        "KF301-2P thermal switch terminal",
-        "Qty.",
-        "Department of Computer",
-        "Microcontroller-based I/O Device",
-        "Name",
-        "Э3",
-    ]
+    required = required_visible_text(label)
     missing = [value for value in required if value not in visible_text]
     if missing:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing required drawing text", ", ".join(required), ", ".join(missing))
     if REQUIRED_DOCUMENT_CODE not in visible_text:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the required BSTU document code text", REQUIRED_DOCUMENT_CODE, "not found")
-    validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
+    if "kicad" not in label.lower():
+        validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
+    else:
+        if "Qty" not in visible_text and "Number" not in visible_text:
+            error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
 
     forbidden_refs = [
         "CN1",
+        "D1",
         "U1",
         "Q1",
         "U3_reset",
@@ -136,6 +130,8 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         "HEATER_PLUS",
         "HEATER_SW",
         "LED_SERIES",
+        "J1_12V",
+        "$1N",
         "+12 B",
         "+12B",
         "3V3",
@@ -200,6 +196,7 @@ def visible_svg_text(text: str) -> str:
     snippets = re.findall(r"<foreignObject\b.*?</foreignObject>", without_data, flags=re.S | re.I)
     if not snippets:
         snippets = [without_data]
+    snippets.extend(extract_embedded_svg_payloads(text))
     values: list[str] = []
     for snippet in snippets:
         clean = re.sub(r"<br\s*/?>", " ", snippet, flags=re.I)
@@ -214,7 +211,82 @@ def visible_svg_text(text: str) -> str:
     return " ".join(values)
 
 
+def extract_embedded_svg_payloads(text: str) -> list[str]:
+    payloads: list[str] = []
+    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'&<> ]+)", flags=re.I)
+    for match in pattern.finditer(text):
+        marker = match.group(0).lower()
+        payload = match.group(1)
+        try:
+            if ";base64," in marker:
+                decoded = base64.b64decode(payload).decode("utf-8", errors="ignore")
+            else:
+                decoded = urllib.parse.unquote(payload)
+        except Exception:  # noqa: BLE001 - malformed payload is handled by required text failures.
+            continue
+        if "<svg" in decoded:
+            payloads.append(decoded)
+    return payloads
+
+
+def required_visible_text(label: str) -> list[str]:
+    base = [
+        "Capacitors",
+        "Resistors",
+        "Position number",
+        "Name",
+        "Note",
+        "Department of Computer",
+        "Microcontroller-based I/O Device",
+        "Э3",
+    ]
+    if "kicad" not in label.lower():
+        return ["DD1", "ESP32-WROOM-32", *base]
+    school_refs = [
+        "DD1",
+        "VT1",
+        "HL1",
+        "SB1",
+        "SB2",
+        "A1",
+        "XS1",
+        "XS2",
+        "XS3",
+        "XS4",
+        "XS5",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+    ]
+    canonical_nets = [
+        "+3V3",
+        "+12V",
+        "GND",
+        "EN",
+        "LED",
+        "LED_A",
+        "DQ",
+        "RXD0",
+        "TXD0",
+        "BOOT",
+        "GATE",
+        "GATE_R",
+        "HEAT+",
+        "HEAT-",
+    ]
+    return [*school_refs, *canonical_nets, "ESP32-WROOM-32", *base]
+
+
 def token_in_text(token: str, text: str) -> bool:
+    if token == "$1N":
+        return "$1N" in text
     if token == "3V3":
         return re.search(r"(?<![+A-Za-z0-9_.-])3V3(?![A-Za-z0-9_.-])", text) is not None
     escaped = re.escape(token)

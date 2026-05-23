@@ -1,0 +1,18 @@
+{
+  "board": {},
+  "libraries": {
+    "pinned_footprint_libs": [],
+    "pinned_symbol_libs": []
+  },
+  "meta": {
+    "filename": "esp32_temperature_control_unit.kicad_pro",
+    "version": 1
+  },
+  "net_settings": {},
+  "schematic": {
+    "drawing": {
+      "default_line_thickness": 0.1524,
+      "default_text_size": 1.27
+    }
+  }
+}
