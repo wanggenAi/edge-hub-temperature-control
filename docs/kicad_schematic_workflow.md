@@ -1,6 +1,6 @@
 # KiCad Schematic Embedding Workflow
 
-This checkpoint switches the schematic workflow from draw.io-drawn middle circuitry to a KiCad-based middle schematic embedded into the locked BSTU draw.io frame.
+This checkpoint keeps the KiCad-based schematic workflow and replaces the previous label-only middle circuit with locally wired KiCad circuit blocks. KiCad owns the middle electrical schematic, while draw.io owns the BSTU school frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Source Of Truth
 
@@ -11,6 +11,8 @@ This checkpoint switches the schematic workflow from draw.io-drawn middle circui
 - Final generated draw.io: `hardware/eda/functiondiagramYUANLITU.generated.drawio`
 
 The original school frame file is not modified. The embedding script reads it, keeps the locked outer frame, element list, and title block regions, removes stale middle-circuit content from the generated copy, and inserts the KiCad SVG as the middle schematic block.
+
+The right-top List of Elements and right-bottom Title Block are intentionally preserved from `hardware/eda/functiondiagramYUANLITU.drawio` in this checkpoint. The current work only redraws and verifies the middle KiCad schematic block.
 
 ## Confirmed Refs And Nets
 
@@ -28,6 +30,34 @@ The visible net labels use canonical names:
 - `GATE`, `GATE_R`, `HEAT+`, `HEAT-`
 
 Old source refs and temporary JLC net names are not used as visible KiCad schematic labels.
+
+## Local Wiring Redraw
+
+The middle schematic now uses project-local KiCad symbols and short, explicit wire segments to each pin endpoint. Cross-block connections use canonical global labels only after the local component pin is actually wired.
+
+Local wired blocks:
+
+- Decoupling: `C1`, `C2`
+- Reset / EN: `R1`, `SB1`
+- LED status: `R3`, `HL1`
+- ESP32 controller: `DD1`
+- UART service: `XS4`
+- Sensor interface: `R2`, `XS1`
+- Heater driver: `R4`, `R5`, `VT1`, `XS2`, `XS5`
+- Power: `XS3`, `A1`, `C3`, `C4`
+
+Project-local symbols used:
+
+- `ESP32_Temperature_Control:R_H`
+- `ESP32_Temperature_Control:C_H`
+- `ESP32_Temperature_Control:SW_NO_H`
+- `ESP32_Temperature_Control:LED_H`
+- `ESP32_Temperature_Control:NMOS_GDS`
+- `ESP32_Temperature_Control:CONN_2`
+- `ESP32_Temperature_Control:CONN_3`
+- `ESP32_Temperature_Control:CONN_4`
+- `ESP32_Temperature_Control:ESP32-WROOM-32`
+- `ESP32_Temperature_Control:DCDC_12V_3V3`
 
 ## Export Commands
 
@@ -65,8 +95,9 @@ bash hardware/eda/tools/export_final_artifacts.sh
 Passing checks:
 
 - `python3 -m pytest tests/test_kicad_schematic_workflow.py -q`
-- `python3 -m py_compile hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py tools/export_artifact_lint.py`
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-kicad-embedded --reports-dir build/reports/final-kicad-embedded-export`
+- `python3 -m py_compile hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py tools/export_artifact_lint.py tests/test_kicad_schematic_workflow.py`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-kicad-embedded --reports-dir build/reports/final-kicad-local-wiring-export`
+- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_local_wiring.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
 - `git diff --quiet -- hardware/eda/functiondiagramYUANLITU.drawio`
 
 Final PNG size:
@@ -75,16 +106,16 @@ Final PNG size:
 
 ## ERC Status
 
-KiCad ERC was run and did not pass. The report is:
+KiCad ERC was run with KiCad CLI 9.0.2 and passed with zero violations.
 
-`build/reports/kicad_schematic_erc.json`
+Report:
+
+`build/reports/kicad_schematic_erc_local_wiring.json`
 
 Current ERC summary:
 
-- Total violations: 186
-- Errors: 85
-- Warnings: 101
-- Main types: `pin_not_connected`, `endpoint_off_grid`, `unconnected_wire_endpoint`, `label_dangling`, `power_pin_not_driven`, `pin_not_driven`
+- Total violations: `0`
+- Errors: `0`
+- Warnings: `0`
 
-This means the current checkpoint verifies the KiCad source, exports, embedding, visible refs/nets, and school frame preservation, but it does not yet verify electrical connectivity by ERC. The next round should fix KiCad pin endpoint placement and grid alignment until ERC errors are eliminated.
-
+This means the current checkpoint verifies the KiCad source, exports, embedding, visible refs/nets, school frame preservation, and KiCad electrical-rule connectivity for the locally wired middle schematic.

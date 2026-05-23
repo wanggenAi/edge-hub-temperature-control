@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+import shutil
 import subprocess
 import sys
 import urllib.parse
@@ -83,6 +85,19 @@ FORBIDDEN_NETS = [
     "$1N",
 ]
 
+PROFESSIONAL_PROJECT_SYMBOLS = [
+    "ESP32_Temperature_Control:R_H",
+    "ESP32_Temperature_Control:C_H",
+    "ESP32_Temperature_Control:SW_NO_H",
+    "ESP32_Temperature_Control:LED_H",
+    "ESP32_Temperature_Control:NMOS_GDS",
+    "ESP32_Temperature_Control:CONN_2",
+    "ESP32_Temperature_Control:CONN_3",
+    "ESP32_Temperature_Control:CONN_4",
+    "ESP32_Temperature_Control:ESP32-WROOM-32",
+    "ESP32_Temperature_Control:DCDC_12V_3V3",
+]
+
 
 def text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
@@ -134,16 +149,11 @@ def test_kicad_sources_exist_and_use_professional_symbols() -> None:
     assert KICAD_SCH.exists()
     assert KICAD_SYM.exists()
     schematic = text(KICAD_SCH)
-    assert "Device:R" in schematic
-    assert "Device:C" in schematic
-    assert "Device:LED" in schematic
-    assert "Switch:SW_Push" in schematic
-    assert "Transistor_FET:Q_NMOS_GDS" in schematic
-    assert "Connector_Generic:Conn_01x02" in schematic
-    assert "Connector_Generic:Conn_01x03" in schematic
-    assert "Connector_Generic:Conn_01x04" in schematic
-    assert "ESP32_Temperature_Control:ESP32-WROOM-32" in schematic
-    assert "ESP32_Temperature_Control:DCDC_12V_3V3" in schematic
+    for symbol in PROFESSIONAL_PROJECT_SYMBOLS:
+        assert symbol in schematic
+    assert "(generator \"codex-kicad-local-wiring\")" in schematic
+    assert "(label " not in schematic
+    assert "(global_label " in schematic
 
 
 def test_kicad_source_visible_refs_and_nets_are_canonical() -> None:
@@ -151,12 +161,39 @@ def test_kicad_source_visible_refs_and_nets_are_canonical() -> None:
     for ref in REQUIRED_REFS:
         assert f'"Reference" "{ref}"' in schematic
     for net in CANONICAL_NETS:
-        assert f'(label "{net}"' in schematic
+        assert f'(global_label "{net}"' in schematic
     for forbidden in FORBIDDEN_SOURCE_REFS:
         assert not token_present(forbidden, schematic)
     for forbidden in FORBIDDEN_NETS:
         assert forbidden not in schematic
     assert not token_present("3V3", schematic)
+
+
+def test_kicad_erc_has_no_violations_when_cli_available(tmp_path: Path) -> None:
+    kicad_cli = shutil.which("kicad-cli")
+    macos_cli = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
+    if not kicad_cli and macos_cli.exists():
+        kicad_cli = str(macos_cli)
+    if not kicad_cli:
+        return
+
+    report = tmp_path / "erc.json"
+    subprocess.run(
+        [
+            kicad_cli,
+            "sch",
+            "erc",
+            "--format",
+            "json",
+            "--output",
+            str(report),
+            str(KICAD_SCH),
+        ],
+        check=True,
+    )
+    data = json.loads(report.read_text(encoding="utf-8"))
+    violations = [violation for sheet in data.get("sheets", []) for violation in sheet.get("violations", [])]
+    assert violations == []
 
 
 def test_embed_script_generates_drawio_without_touching_template(tmp_path: Path) -> None:
