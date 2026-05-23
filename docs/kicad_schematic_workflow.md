@@ -138,6 +138,46 @@ Current placement lint report:
 
 `build/reports/final-kicad-embedded-scale-polish-export/export_artifact_lint.json`
 
+## Generated List Of Elements Update
+
+The original school frame source still stays locked:
+
+`hardware/eda/functiondiagramYUANLITU.drawio`
+
+The generated/final copies now replace only the right-top List of Elements text
+content with the ESP32 temperature-control BOM. The table frame, column header
+text, border geometry, title block, and outer frame remain inherited from the
+school draw.io template.
+
+The update is applied by:
+
+```bash
+python3 hardware/eda/tools/update_generated_element_list.py \
+  --input hardware/eda/functiondiagramYUANLITU.generated.drawio \
+  --output hardware/eda/functiondiagramYUANLITU.generated.drawio
+```
+
+`hardware/eda/tools/export_final_artifacts.sh` runs this updater before copying
+and exporting the final artifacts, so regenerated final files keep the ESP32 BOM.
+
+The generated List of Elements now contains:
+
+- Capacitors: `C1, C4`, `C2`, `C3`
+- Resistors: `R1, R5, R6`, `R2`, `R3`, `R4`
+- Semiconductor Devices: `DD1`, `HL1`, `VT1`
+- Switching Components: `SB1, SB2`
+- Connectors: `XS1`, `XS2, XS3`, `XS4`, `XS5`
+- Power Modules: `A1`
+
+The final export lint label `final-element-list-esp32-bom` requires this ESP32
+BOM text to be visible and rejects legacy template entries such as
+`Microcontroller AT89C52`, `LCD1602-A`, `Crystal Oscillator`, `RV1`, `ZQ1`,
+`DD2`, and `DD3`.
+
+Current element-list update report:
+
+`build/reports/final-element-list-esp32-bom-export/export_artifact_lint.json`
+
 ## ERC Status
 
 KiCad ERC was run with KiCad CLI 9.0.2 and passed with zero violations.

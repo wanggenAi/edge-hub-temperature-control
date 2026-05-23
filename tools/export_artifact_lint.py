@@ -30,6 +30,51 @@ KICAD_EMBED_MIN_HEIGHT_RATIO = 0.45
 KICAD_EMBED_MAX_HEIGHT_RATIO = 0.70
 KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST = 30.0
 KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK = 40.0
+ESP32_BOM_REQUIRED_TEXT = [
+    "C1, C4",
+    "Capacitor 0.1 uF",
+    "C2",
+    "Capacitor 10 uF",
+    "C3",
+    "Capacitor 100 uF",
+    "R1, R5, R6",
+    "Resistor 10 kOhm",
+    "R2",
+    "Resistor 4.7 kOhm",
+    "R3",
+    "Resistor 330 Ohm",
+    "R4",
+    "Resistor 100 Ohm",
+    "DD1",
+    "ESP32-WROOM-32 Wi-Fi module",
+    "HL1",
+    "Red LED",
+    "VT1",
+    "NMOS3400 N-channel MOSFET",
+    "SB1, SB2",
+    "Tact switch SMT 6x6x7.5",
+    "XS1",
+    "XH-3PA 3-pin connector",
+    "XS2, XS3",
+    "KF2EDGV-3.81-2P connector",
+    "XS4",
+    "Header45.08-4P service connector",
+    "XS5",
+    "KF301-2P terminal connector",
+    "A1",
+    "DC/DC converter 12 V to 3.3 V",
+]
+LEGACY_BOM_FORBIDDEN_TEXT = [
+    "Microcontroller AT89C52",
+    "LCD1602-A",
+    "Crystal Oscillator",
+    "BUTTON SPST",
+    "Micro-USB to DIP adapter",
+    "RV1",
+    "ZQ1",
+    "DD2",
+    "DD3",
+]
 
 
 @dataclass
@@ -111,12 +156,15 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing required drawing text", ", ".join(required), ", ".join(missing))
     if REQUIRED_DOCUMENT_CODE not in visible_text:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the required BSTU document code text", REQUIRED_DOCUMENT_CODE, "not found")
-    if "kicad" not in label.lower():
+    is_final_kicad_embed = "kicad" in label.lower() or "element-list-esp32-bom" in label.lower()
+    if not is_final_kicad_embed:
         validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
     else:
         if "Qty" not in visible_text and "Number" not in visible_text:
             error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
         validate_kicad_embed_geometry(text, lock_file, findings, str(path), payload)
+        if "element-list-esp32-bom" in label.lower():
+            validate_esp32_bom_visible_text(visible_text, findings, str(path))
 
     forbidden_refs = [
         "CN1",
@@ -150,6 +198,29 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         if token_in_text(marker, visible_text):
             error(findings, "SVG_FORBIDDEN_NET_NAME", str(path), "SVG contains a stale net name as visible text", "canonical net names only", marker)
     return payload
+
+
+def validate_esp32_bom_visible_text(visible_text: str, findings: list[Finding], object_id: str) -> None:
+    missing = [value for value in ESP32_BOM_REQUIRED_TEXT if value not in visible_text]
+    if missing:
+        error(
+            findings,
+            "SVG_ESP32_BOM_REQUIRED_TEXT_MISSING",
+            object_id,
+            "Final SVG is missing required ESP32 List of Elements text",
+            ", ".join(ESP32_BOM_REQUIRED_TEXT),
+            ", ".join(missing),
+        )
+    stale = [value for value in LEGACY_BOM_FORBIDDEN_TEXT if token_in_text(value, visible_text)]
+    if stale:
+        error(
+            findings,
+            "SVG_LEGACY_BOM_TEXT_VISIBLE",
+            object_id,
+            "Final SVG still contains legacy/template List of Elements text",
+            "ESP32 BOM only",
+            ", ".join(stale),
+        )
 
 
 def validate_kicad_embed_geometry(

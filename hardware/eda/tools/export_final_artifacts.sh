@@ -22,6 +22,10 @@ if [[ ! -f "${SOURCE_DRAWIO}" ]]; then
   exit 1
 fi
 
+python3 "${ROOT_DIR}/hardware/eda/tools/update_generated_element_list.py" \
+  --input "${SOURCE_DRAWIO}" \
+  --output "${SOURCE_DRAWIO}"
+
 mkdir -p "${EXPORT_DIR}"
 cp "${SOURCE_DRAWIO}" "${DRAWIO_OUT}"
 

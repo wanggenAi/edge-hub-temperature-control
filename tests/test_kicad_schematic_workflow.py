@@ -19,6 +19,7 @@ KICAD_SCH = KICAD_DIR / "esp32_temperature_control_unit.kicad_sch"
 KICAD_SYM = KICAD_DIR / "esp32_temperature_control_unit.kicad_sym"
 KICAD_SVG = KICAD_DIR / "exports/esp32_temperature_control_unit_schematic.svg"
 EMBED_SCRIPT = ROOT / "hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py"
+UPDATE_ELEMENT_LIST_SCRIPT = ROOT / "hardware/eda/tools/update_generated_element_list.py"
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 FINAL_SVG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg"
 
@@ -100,6 +101,53 @@ PROFESSIONAL_PROJECT_SYMBOLS = [
     "ESP32_Temperature_Control:DCDC_12V_3V3",
 ]
 
+ESP32_BOM_TEXT = [
+    "C1, C4",
+    "Capacitor 0.1 uF",
+    "C2",
+    "Capacitor 10 uF",
+    "C3",
+    "Capacitor 100 uF",
+    "R1, R5, R6",
+    "Resistor 10 kOhm",
+    "R2",
+    "Resistor 4.7 kOhm",
+    "R3",
+    "Resistor 330 Ohm",
+    "R4",
+    "Resistor 100 Ohm",
+    "DD1",
+    "ESP32-WROOM-32 Wi-Fi module",
+    "HL1",
+    "Red LED",
+    "VT1",
+    "NMOS3400 N-channel MOSFET",
+    "SB1, SB2",
+    "Tact switch SMT 6x6x7.5",
+    "XS1",
+    "XH-3PA 3-pin connector",
+    "XS2, XS3",
+    "KF2EDGV-3.81-2P connector",
+    "XS4",
+    "Header45.08-4P service connector",
+    "XS5",
+    "KF301-2P terminal connector",
+    "A1",
+    "DC/DC converter 12 V to 3.3 V",
+]
+
+LEGACY_BOM_TEXT = [
+    "Microcontroller AT89C52",
+    "LCD1602-A",
+    "Crystal Oscillator",
+    "BUTTON SPST",
+    "Micro-USB to DIP adapter",
+    "RV1",
+    "ZQ1",
+    "DD2",
+    "DD3",
+]
+
 
 def text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
@@ -155,6 +203,24 @@ def locked_template_fingerprint(path: Path) -> str:
         ):
             values.append(f"{cell.get('id')}|{value}|{style}|{geom_attrs}")
     return hashlib.sha256("\n".join(sorted(values)).encode("utf-8")).hexdigest()
+
+
+def visible_drawio_xml_text(path: Path) -> str:
+    values: list[str] = []
+    for cell in ET.parse(path).findall(".//mxCell"):
+        value = cell.get("value", "")
+        if not value:
+            continue
+        value = value.replace("&nbsp;", " ")
+        value = value.replace("&amp;", "&")
+        value = value.replace("&lt;", "<")
+        value = value.replace("&gt;", ">")
+        value = re.sub(r"<br\s*/?>", " ", value)
+        value = re.sub(r"<[^>]+>", " ", value)
+        value = re.sub(r"\s+", " ", value).strip()
+        if value:
+            values.append(value)
+    return " ".join(values)
 
 
 def test_kicad_sources_exist_and_use_professional_symbols() -> None:
@@ -238,6 +304,42 @@ def test_embed_script_generates_drawio_without_touching_template(tmp_path: Path)
         assert not token_present(forbidden, payload)
 
 
+def test_update_generated_element_list_replaces_legacy_bom_without_touching_source_frame(tmp_path: Path) -> None:
+    generated = tmp_path / "generated.drawio"
+    updated = tmp_path / "updated.drawio"
+    subprocess.run(
+        [
+            sys.executable,
+            str(EMBED_SCRIPT),
+            "--frame",
+            str(FRAME),
+            "--kicad-svg",
+            str(KICAD_SVG),
+            "--output",
+            str(generated),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            str(UPDATE_ELEMENT_LIST_SCRIPT),
+            "--input",
+            str(generated),
+            "--output",
+            str(updated),
+        ],
+        check=True,
+    )
+    frame_text = visible_drawio_xml_text(FRAME)
+    assert "Microcontroller AT89C52" in frame_text
+    updated_text = visible_drawio_xml_text(updated)
+    for value in ESP32_BOM_TEXT:
+        assert value in updated_text
+    for value in LEGACY_BOM_TEXT:
+        assert value not in updated_text
+
+
 def test_embed_script_places_kicad_block_in_main_schematic_area(tmp_path: Path) -> None:
     output = tmp_path / "generated.drawio"
     subprocess.run(
@@ -279,6 +381,16 @@ def test_generated_drawio_is_kicad_embedded_when_present() -> None:
         assert ref in payload
     for net in CANONICAL_NETS:
         assert net in payload
+
+
+def test_generated_drawio_has_esp32_bom_when_present() -> None:
+    if not GENERATED.exists():
+        return
+    payload = visible_drawio_xml_text(GENERATED)
+    for value in ESP32_BOM_TEXT:
+        assert value in payload
+    for value in LEGACY_BOM_TEXT:
+        assert value not in payload
 
 
 def test_final_svg_kicad_embed_geometry_when_present() -> None:
