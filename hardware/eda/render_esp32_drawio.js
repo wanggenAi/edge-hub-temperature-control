@@ -32,6 +32,7 @@ function parseArgs(argv) {
     heaterBlock: false,
     powerBlock: false,
     layoutRefinement: false,
+    heaterPowerReadabilityPolish: false,
     writeOutput: false,
     ...DEFAULTS,
   };
@@ -109,6 +110,19 @@ function parseArgs(argv) {
       args.heaterBlock = true;
       args.powerBlock = true;
       args.layoutRefinement = true;
+      args.noCircuit = false;
+    }
+    else if (arg === "--heater-power-readability-polish") {
+      args.dd1Block = true;
+      args.resetLedBlock = true;
+      args.decouplingBlock = true;
+      args.sensorBlock = true;
+      args.uartBlock = true;
+      args.bootBlock = true;
+      args.heaterBlock = true;
+      args.powerBlock = true;
+      args.layoutRefinement = true;
+      args.heaterPowerReadabilityPolish = true;
       args.noCircuit = false;
     }
     else if (arg === "--write-output") args.writeOutput = true;
@@ -1045,11 +1059,33 @@ function englishValue(component) {
   return overrides[component.ref] || component.value || component.type || component.ref;
 }
 
-function buildPowerBlockCells(model, style) {
+function buildPowerBlockCells(model, style, options = {}) {
   const a1 = requireComponent(model, "A1");
   const xs3 = requireComponent(model, "XS3");
   const c3 = requireComponent(model, "C3");
   const c4 = requireComponent(model, "C4");
+  if (options.readabilityPolish) {
+    return [
+      ...buildComponentBoxCells(xs3, { x: 1600, y: 1610, width: 210, height: 115 }, style, [
+        { number: "1", side: "left", y: 1648, label: "+12V" },
+        { number: "2", side: "left", y: 1700, label: "GND" },
+      ], { pinLength: 60, wireLength: 58 }),
+      ...buildComponentBoxCells(a1, { x: 2020, y: 1560, width: 210, height: 215 }, style, [
+        { number: "1", side: "left", y: 1608, label: "+12V IN", labelWidth: 88 },
+        { number: "2", side: "left", y: 1654, label: "GND" },
+        { number: "3", side: "left", y: 1700, label: "GND" },
+        { number: "4", side: "right", y: 1746, label: "+3V3 OUT", labelWidth: 96 },
+      ], { pinLength: 60, wireLength: 70 }),
+      ...buildComponentBoxCells(c3, { x: 1600, y: 1840, width: 210, height: 90 }, style, [
+        { number: "1", side: "left", y: 1885, label: "GND" },
+        { number: "2", side: "right", y: 1885, label: "+12V" },
+      ], { pinLength: 60, wireLength: 58 }),
+      ...buildComponentBoxCells(c4, { x: 2237, y: 1840, width: 210, height: 90 }, style, [
+        { number: "1", side: "left", y: 1885, label: "GND" },
+        { number: "2", side: "right", y: 1885, label: "+12V" },
+      ], { pinLength: 40, wireLength: 32 }),
+    ];
+  }
   return [
     ...buildComponentBoxCells(xs3, { x: 1600, y: 1595, width: 210, height: 110 }, style, [
       { number: "1", side: "left", y: 1630, label: "+12V" },
@@ -1072,7 +1108,7 @@ function buildPowerBlockCells(model, style) {
   ];
 }
 
-function buildHeaterBlockCells(model, style) {
+function buildHeaterBlockCells(model, style, options = {}) {
   const r4 = requireComponent(model, "R4");
   const r5 = requireComponent(model, "R5");
   const vt1 = requireComponent(model, "VT1");
@@ -1080,6 +1116,91 @@ function buildHeaterBlockCells(model, style) {
   const xs5 = requireComponent(model, "XS5");
   const wireStroke = strokeWidth(style, "wire_stroke_width", 1.9685);
   const lineStyle = `endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=${wireStroke};`;
+  if (options.readabilityPolish) {
+    return [
+      ...buildComponentBoxCells(r4, { x: 1650, y: 895, width: 210, height: 78 }, style, [
+        { number: "1", side: "left", y: 934, label: "GATE" },
+        { number: "2", side: "right", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
+      ], { pinLength: 60, wireLength: 58 }),
+      ...buildComponentBoxCells(r5, { x: 1650, y: 1160, width: 210, height: 78 }, style, [
+        { number: "1", side: "right", y: 1199, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
+        { number: "2", side: "left", y: 1199, label: "GND" },
+      ], { pinLength: 60, wireLength: 58 }),
+      ...buildComponentBoxCells(vt1, { x: 1945, y: 895, width: 210, height: 185 }, style, [
+        { number: "1", side: "left", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
+        { number: "3", side: "right", y: 1000, label: "HEAT-", renderWire: false, renderNetLabel: false },
+        { number: "2", side: "right", y: 1060, label: "GND", renderWire: false, renderNetLabel: false },
+      ], { pinLength: 45, wireLength: 60 }),
+      ...buildComponentBoxCells(xs2, { x: 2250, y: 885, width: 210, height: 135 }, style, [
+        { number: "1", side: "left", y: 930, label: "HEAT+", renderWire: false, renderNetLabel: false },
+        { number: "2", side: "left", y: 1000, label: "HEAT-", renderWire: false, renderNetLabel: false },
+      ], { pinLength: 45, wireLength: 60 }),
+      ...buildComponentBoxCells(xs5, { x: 2250, y: 1180, width: 210, height: 95 }, style, [
+        { number: "1", side: "left", y: 1220, label: "+12V" },
+        { number: "2", side: "left", y: 1260, label: "HEAT+" },
+      ], { pinLength: 45, wireLength: 60 }),
+      buildLocalWire({
+        id: "wire.local.GATE_R.R4_VT1_R5",
+        net: "GATE_R",
+        sourceNet: "$1N24",
+        zone: "mosfet_heater_driver",
+        ref: "R4_VT1_R5",
+        sourceRef: "R4_Q1_R5",
+        pin: "GATE_R",
+        pinNumber: "2_1_1",
+        x1: 1920,
+        y1: 934,
+        x2: 1920,
+        y2: 1199,
+        style: lineStyle,
+      }),
+      buildLocalWire({
+        id: "wire.local.GATE_R.R4_bus",
+        net: "GATE_R",
+        sourceNet: "$1N24",
+        zone: "mosfet_heater_driver",
+        ref: "R4_VT1_R5",
+        sourceRef: "R4_Q1_R5",
+        pin: "GATE_R",
+        pinNumber: "2_1_1",
+        x1: 1920,
+        y1: 934,
+        x2: 1900,
+        y2: 934,
+        style: lineStyle,
+      }),
+      buildLocalWire({
+        id: "wire.local.GATE_R.R5_bus",
+        net: "GATE_R",
+        sourceNet: "$1N24",
+        zone: "mosfet_heater_driver",
+        ref: "R4_VT1_R5",
+        sourceRef: "R4_Q1_R5",
+        pin: "GATE_R",
+        pinNumber: "2_1_1",
+        x1: 1920,
+        y1: 1199,
+        x2: 1920,
+        y2: 1199,
+        style: lineStyle,
+      }),
+      buildLocalWire({
+        id: "wire.local.HEAT-.VT1_XS2",
+        net: "HEAT-",
+        sourceNet: "$1N29",
+        zone: "mosfet_heater_driver",
+        ref: "VT1_XS2",
+        sourceRef: "Q1_J2_heater",
+        pin: "HEAT-",
+        pinNumber: "3_2",
+        x1: 2200,
+        y1: 1000,
+        x2: 2205,
+        y2: 1000,
+        style: lineStyle,
+      }),
+    ];
+  }
   return [
     ...buildComponentBoxCells(r4, { x: 1660, y: 910, width: 210, height: 70 }, style, [
       { number: "1", side: "left", y: 940, label: "GATE" },
@@ -1396,7 +1517,7 @@ function buildHeaterBlockDrawio(sourceText, lock, model, style) {
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
-function buildPowerBlockDrawio(sourceText, lock, model, style) {
+function buildPowerBlockDrawio(sourceText, lock, model, style, options = {}) {
   const noCircuit = buildNoCircuitDrawio(sourceText, lock, model, style);
   const rootEnd = noCircuit.indexOf("</root>");
   if (rootEnd < 0) {
@@ -1409,20 +1530,22 @@ function buildPowerBlockDrawio(sourceText, lock, model, style) {
     ...buildSensorBlockCells(model, style),
     ...buildUartBlockCells(model, style),
     ...buildBootBlockCells(model, style),
-    ...buildHeaterBlockCells(model, style),
-    ...buildPowerBlockCells(model, style),
+    ...buildHeaterBlockCells(model, style, options),
+    ...buildPowerBlockCells(model, style, options),
   ].map((cell) => `        ${cell}`).join("\n");
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
 
-function buildLayoutRefinementDrawio(sourceText, lock, model, style) {
-  return buildPowerBlockDrawio(sourceText, lock, model, style);
+function buildLayoutRefinementDrawio(sourceText, lock, model, style, options = {}) {
+  return buildPowerBlockDrawio(sourceText, lock, model, style, options);
 }
 
 function main() {
   const args = parseArgs(process.argv);
   const { model, style, lock } = validateInputs(args);
-  const renderedStage = args.layoutRefinement
+  const renderedStage = args.heaterPowerReadabilityPolish
+    ? "heater_power_readability_polish"
+    : args.layoutRefinement
     ? "middle_schematic_layout_refinement"
     : (args.powerBlock ? "power-block-checkpoint" : (args.heaterBlock ? "heater-block-checkpoint" : (args.bootBlock ? "boot-block-checkpoint" : (args.uartBlock ? "uart-block-checkpoint" : (args.sensorBlock ? "sensor-block-checkpoint" : (args.decouplingBlock ? "decoupling-block-checkpoint" : (args.resetLedBlock ? "reset-led-block-checkpoint" : (args.dd1Block ? "dd1-controller-block-checkpoint" : (args.writeOutput ? "copy-template-no-circuit" : "dry-run-no-circuit")))))))));
   const summary = {
@@ -1453,6 +1576,7 @@ function main() {
     heaterBlockRendered: args.heaterBlock,
     powerBlockRendered: args.powerBlock,
     layoutRefinementRendered: args.layoutRefinement,
+    heaterPowerReadabilityPolishRendered: args.heaterPowerReadabilityPolish,
     changedLayoutOnly: args.layoutRefinement,
     generatedComponentsCount: args.layoutRefinement ? 21 : undefined,
     finalCircuitRendered: false,
@@ -1460,7 +1584,9 @@ function main() {
   };
   if (args.writeOutput) {
     const sourceText = fs.readFileSync(args.sourceDrawio, "utf8");
-    const generated = args.layoutRefinement
+    const generated = args.heaterPowerReadabilityPolish
+      ? buildLayoutRefinementDrawio(sourceText, lock, model, style, { readabilityPolish: true })
+      : args.layoutRefinement
       ? buildLayoutRefinementDrawio(sourceText, lock, model, style)
       : args.powerBlock
       ? buildPowerBlockDrawio(sourceText, lock, model, style)

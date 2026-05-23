@@ -529,6 +529,32 @@ def test_layout_refinement_component_widths_locked_to_reference(tmp_path):
     assert set(widths) == {"210"}
 
 
+def test_heater_power_readability_polish_passes_generated_lint(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--heater-power-readability-polish", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    summary = json.loads(proc.stdout)
+    assert summary["renderedStage"] == "heater_power_readability_polish"
+    assert summary["heaterPowerReadabilityPolishRendered"] is True
+    assert summary["generatedComponentsCount"] == 21
+
+    generated_text = output.read_text(encoding="utf-8")
+    assert component_body_refs(generated_text) == CONFIRMED_REFS
+    assert set(component_body_widths(generated_text)) == {"210"}
+    assert 'id="component.R4.body"' in generated_text
+    assert 'id="component.A1.body"' in generated_text
+    assert 'id="wire.local.HEAT-.VT1_XS2"' in generated_text
+
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode == 0, lint_proc.stdout + lint_proc.stderr
+    assert payload["error_count"] == 0
+
+
 def test_component_freehand_rectangle_style_fails(tmp_path):
     fixture = tmp_path / "bad_freehand_component.drawio"
     fixture.write_text(
