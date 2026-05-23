@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-83292b3
+TBD after readability commit
 
 ## Current Branch
 main
@@ -19,6 +19,17 @@ Firefox ChatGPT reviewed the current schematic and said the remaining problem wa
 - Do not claim success just because machine lint passes; update the actual drawing/export so GPT/reviewer can inspect the image.
 
 ## What Was Done In This Round
+
+## Readability Refinement After Style Lock
+Firefox ChatGPT accepted `83292b3` as the style-lock checkpoint and requested the next pass focus only on schematic readability: DD1, power area, heater area, net labels, local wire segments, and module spacing. No topology, refs, components, or net names were to be changed.
+
+This follow-up pass:
+- adjusted DD1 rendered row positions for better lower-pin readability;
+- kept the style lock and common component width;
+- strengthened lint so generated text-to-text overlaps are checked even within the same component;
+- regenerated final draw.io/SVG/PDF/PNG artifacts;
+- passed generated visual lint, final export lint, and pytest.
+
 - Implemented a reference-constrained style lock for generated middle schematic components.
 - Changed generated component bodies from freehand `rounded=0` rectangles to table-style component bodies (`shape=table`) with explicit role metadata.
 - Locked all generated component body widths to `210` draw.io page units; component heights still vary by pin count/layout needs.
@@ -72,11 +83,11 @@ Firefox ChatGPT reviewed the current schematic and said the remaining problem wa
   - Result: passed
 - `node hardware/eda/render_esp32_drawio.js --write-output --layout-refinement --output hardware/eda/functiondiagramYUANLITU.generated.drawio`
   - Result: passed
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/style-lock-generated`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/readability-generated`
   - Result: passed, `0` errors
 - `bash hardware/eda/tools/export_final_artifacts.sh`
   - Result: passed
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/style-lock-final-export`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/readability-final-export`
   - Result: passed, `0` errors
 - `python3 -m pytest tests/test_visual_schematic_lint.py -q`
   - Result: `34 passed`

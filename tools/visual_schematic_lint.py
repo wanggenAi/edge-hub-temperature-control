@@ -577,8 +577,6 @@ class VisualSchematicLint:
         text_vertices = [v for v in self.model.vertices if v.role in text_roles]
         for index, first in enumerate(text_vertices):
             for second in text_vertices[index + 1:]:
-                if first.attrs.get("data-ref") == second.attrs.get("data-ref") and {first.role, second.role} <= {"pin_label", "component_value"}:
-                    continue
                 if intersects(first.bbox, second.bbox, self.text_symbol_clearance):
                     self.error(
                         "TEXT_OVERLAPS_TEXT",

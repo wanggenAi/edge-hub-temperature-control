@@ -24,6 +24,9 @@ This round did not use KiCad and did not perform KiCad ERC.
 - Export lint: `tools/export_artifact_lint.py`
 
 ## What Changed
+- Added a readability refinement pass after Firefox ChatGPT requested DD1/power/heater/net-label cleanup without topology changes.
+- Repositioned DD1 rendered pin rows to reduce lower-pin label crowding while preserving the same nets and pins.
+- Strengthened generated lint so text-to-text overlap is no longer ignored even within the same component.
 - Added a reference-constrained redraw/style-lock pass after Firefox ChatGPT review.
 - Changed generated component bodies to use the functiondiagram-style table component pattern instead of freehand rectangles.
 - Locked generated component body width to a single normalized width (`210` draw.io page units); component height is allowed to vary by pin count.
@@ -117,13 +120,13 @@ No electrical topology, ref mapping, component set, or net naming was changed in
   - Result: passed
 - `node hardware/eda/render_esp32_drawio.js --write-output --layout-refinement`
   - Result: passed
-- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/style-lock-generated`
+- `python3 tools/visual_schematic_lint.py hardware/eda/functiondiagramYUANLITU.generated.drawio --mode generated --reports-dir build/reports/readability-generated`
   - Result: passed, `0` errors
 - `bash -n hardware/eda/tools/export_final_artifacts.sh hardware/eda/tools/export_preview_artifacts.sh`
   - Result: passed
 - `bash hardware/eda/tools/export_final_artifacts.sh`
   - Result: passed
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/style-lock-final-export`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final --reports-dir build/reports/readability-final-export`
   - Result: passed, `0` errors
 - `python3 -m pytest tests/test_visual_schematic_lint.py -q`
   - Result: `34 passed`

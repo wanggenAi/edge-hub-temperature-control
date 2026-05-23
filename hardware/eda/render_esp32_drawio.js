@@ -268,6 +268,22 @@ function selectedDd1Pins(component) {
   return (component.pins || []).filter((pin) => selectedNumbers.has(String(pin.number)));
 }
 
+function dd1ReadablePinY(pin) {
+  const readableRows = {
+    "24": 730,
+    "25": 820,
+    "30": 910,
+    "33": 1000,
+    "34": 1090,
+    "2": 1150,
+    "35": 1180,
+    "1": 1210,
+    "38": 1300,
+    "3": 1330,
+  };
+  return readableRows[String(pin.number)] || Number(pin.endpoint.y);
+}
+
 function textCell({ id, parent, value, x, y, width, height, role, attrs = {}, fontSizeValue = 30, align = "center" }) {
   const extra = Object.entries(attrs)
     .map(([key, val]) => ` ${key}="${xmlAttr(val)}"`)
@@ -620,7 +636,7 @@ function buildDd1BlockCells(model, style) {
   const wireLength = 140;
   const textHeight = 24;
   const reference = referenceComponentStyle(style);
-  const rowGroups = rowsByY(pins.map((pin) => ({ ...pin, side: pin.side || "left", y: Number(pin.endpoint.y), label: pin.name })));
+  const rowGroups = rowsByY(pins.map((pin) => ({ ...pin, side: pin.side || "left", y: dd1ReadablePinY(pin), label: pin.name })));
   const lineStyle = tableLineStyle(wireStroke);
   const cells = [
     vertexCell({
@@ -670,9 +686,9 @@ function buildDd1BlockCells(model, style) {
       id: "component.DD1.value",
       parent: rootId,
       value: component.value,
-      x: body.x - 20,
+      x: body.x - 70,
       y: body.y + body.height + 14,
-      width: body.width + 40,
+      width: body.width + 140,
       height: 44,
       role: "component_value",
       attrs: generatedAttrs(component),
@@ -713,7 +729,7 @@ function buildDd1BlockCells(model, style) {
     const bodyX = isLeft ? body.x : body.x + body.width;
     const pinOuterX = isLeft ? body.x - pinLength : body.x + body.width + pinLength;
     const wireOuterX = isLeft ? pinOuterX - wireLength : pinOuterX + wireLength;
-    const y = Number(pin.endpoint.y);
+    const y = dd1ReadablePinY(pin);
     const pinCenterX = (bodyX + pinOuterX) / 2;
     const netWidth = Math.max(72, String(pin.net).length * 18);
     const row = rowGroups.find((candidate) => Math.abs(candidate.y - y) < 0.001);
