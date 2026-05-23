@@ -1126,7 +1126,7 @@ function buildHeaterBlockCells(model, style, options = {}) {
         { number: "1", side: "right", y: 1199, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
         { number: "2", side: "left", y: 1199, label: "GND" },
       ], { pinLength: 60, wireLength: 58 }),
-      ...buildComponentBoxCells(vt1, { x: 1945, y: 895, width: 210, height: 185 }, style, [
+      ...buildComponentBoxCells(vt1, { x: 1925, y: 895, width: 210, height: 185 }, style, [
         { number: "1", side: "left", y: 934, label: "GATE_R", labelWidth: 82, renderWire: false, renderNetLabel: false },
         { number: "3", side: "right", y: 1000, label: "HEAT-", renderWire: false, renderNetLabel: false },
         { number: "2", side: "right", y: 1060, label: "GND", renderWire: false, renderNetLabel: false },
@@ -1148,9 +1148,9 @@ function buildHeaterBlockCells(model, style, options = {}) {
         sourceRef: "R4_Q1_R5",
         pin: "GATE_R",
         pinNumber: "2_1_1",
-        x1: 1920,
+        x1: 1880,
         y1: 934,
-        x2: 1920,
+        x2: 1880,
         y2: 1199,
         style: lineStyle,
       }),
@@ -1163,9 +1163,9 @@ function buildHeaterBlockCells(model, style, options = {}) {
         sourceRef: "R4_Q1_R5",
         pin: "GATE_R",
         pinNumber: "2_1_1",
-        x1: 1920,
+        x1: 1880,
         y1: 934,
-        x2: 1900,
+        x2: 1920,
         y2: 934,
         style: lineStyle,
       }),
@@ -1178,7 +1178,7 @@ function buildHeaterBlockCells(model, style, options = {}) {
         sourceRef: "R4_Q1_R5",
         pin: "GATE_R",
         pinNumber: "2_1_1",
-        x1: 1920,
+        x1: 1880,
         y1: 1199,
         x2: 1920,
         y2: 1199,
@@ -1193,7 +1193,7 @@ function buildHeaterBlockCells(model, style, options = {}) {
         sourceRef: "Q1_J2_heater",
         pin: "HEAT-",
         pinNumber: "3_2",
-        x1: 2200,
+        x1: 2180,
         y1: 1000,
         x2: 2205,
         y2: 1000,
@@ -1512,7 +1512,7 @@ function buildHeaterBlockDrawio(sourceText, lock, model, style) {
     ...buildSensorBlockCells(model, style),
     ...buildUartBlockCells(model, style),
     ...buildBootBlockCells(model, style),
-    ...buildHeaterBlockCells(model, style),
+    ...buildHeaterBlockCells(model, style, { readabilityPolish: true }),
   ].map((cell) => `        ${cell}`).join("\n");
   return `${noCircuit.slice(0, rootEnd)}${cells}\n      ${noCircuit.slice(rootEnd)}`;
 }
@@ -1587,9 +1587,9 @@ function main() {
     const generated = args.heaterPowerReadabilityPolish
       ? buildLayoutRefinementDrawio(sourceText, lock, model, style, { readabilityPolish: true })
       : args.layoutRefinement
-      ? buildLayoutRefinementDrawio(sourceText, lock, model, style)
+      ? buildLayoutRefinementDrawio(sourceText, lock, model, style, { readabilityPolish: true })
       : args.powerBlock
-      ? buildPowerBlockDrawio(sourceText, lock, model, style)
+      ? buildPowerBlockDrawio(sourceText, lock, model, style, { readabilityPolish: true })
       : args.heaterBlock
       ? buildHeaterBlockDrawio(sourceText, lock, model, style)
       : args.bootBlock
@@ -1609,7 +1609,9 @@ function main() {
     summary.generatedCellPolicy = {
       lockedRegionCellsPreservedUnchanged: true,
       lockedAncestorContainersTagged: RESERVED_CONTAINER_ROLE,
-      middleCircuitRendered: args.layoutRefinement
+      middleCircuitRendered: args.heaterPowerReadabilityPolish
+        ? "middle schematic layout refinement with heater/power local wire visibility polish; no export artifacts"
+        : args.layoutRefinement
         ? "middle schematic layout refinement with all 21 confirmed components; no export artifacts"
         : args.powerBlock
         ? "DD1 + RESET/EN + LED status + C1/C2 decoupling + XS1/R2 sensor + XS4 UART/service + R6/SB2 BOOT + R4/R5/VT1/XS2/XS5 heater + A1/XS3/C3/C4 power checkpoint only"

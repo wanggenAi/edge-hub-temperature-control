@@ -555,6 +555,49 @@ def test_heater_power_readability_polish_passes_generated_lint(tmp_path):
     assert payload["error_count"] == 0
 
 
+def test_local_zero_length_wire_fails(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--heater-power-readability-polish", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    text = output.read_text(encoding="utf-8")
+    text = re.sub(
+        r'(<mxCell id="wire\.local\.GATE_R\.R5_bus"[\s\S]*?<mxPoint x=")1920(" y="1199" as="targetPoint"/>)',
+        r'\g<1>1880\2',
+        text,
+        count=1,
+    )
+    output.write_text(text, encoding="utf-8")
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
+    assert "ZERO_LENGTH_WIRE" in codes(payload)
+
+
+def test_local_wire_too_short_fails(tmp_path):
+    output = tmp_path / "functiondiagramYUANLITU.generated.drawio"
+    proc = subprocess.run(
+        ["node", str(RENDERER), "--write-output", "--heater-power-readability-polish", "--output", str(output)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    text = output.read_text(encoding="utf-8")
+    text = text.replace(
+        '<mxPoint x="2205" y="1000" as="targetPoint"/>',
+        '<mxPoint x="2185" y="1000" as="targetPoint"/>',
+        1,
+    )
+    output.write_text(text, encoding="utf-8")
+    lint_proc, payload = run_lint(output, tmp_path, lock=REAL_LOCK, mode="generated")
+    assert lint_proc.returncode != 0, lint_proc.stdout + lint_proc.stderr
+    assert "LOCAL_WIRE_TOO_SHORT" in codes(payload)
+
+
 def test_component_freehand_rectangle_style_fails(tmp_path):
     fixture = tmp_path / "bad_freehand_component.drawio"
     fixture.write_text(

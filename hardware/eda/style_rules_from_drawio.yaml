@@ -38,6 +38,8 @@
     "min_text_to_wire_clearance_mm": 0.5,
     "min_text_to_symbol_clearance_mm": 0.5,
     "min_component_spacing_mm": 3.0,
+    "min_local_wire_visible_length_units": 25.0,
+    "max_net_label_anchor_distance_units": 90.0,
     "allowed_wire_angles_deg": [
       0,
       90

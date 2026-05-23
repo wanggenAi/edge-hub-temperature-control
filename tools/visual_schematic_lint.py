@@ -109,6 +109,10 @@ class Edge:
     def center(self) -> tuple[float, float]:
         return ((self.x1 + self.x2) / 2.0, (self.y1 + self.y2) / 2.0)
 
+    @property
+    def length(self) -> float:
+        return math.hypot(self.x2 - self.x1, self.y2 - self.y1)
+
 
 class DrawioModel:
     def __init__(self, path: Path) -> None:
@@ -302,6 +306,8 @@ class VisualSchematicLint:
         self.text_symbol_clearance = float(rules.get("min_text_to_symbol_clearance_mm", 0.5))
         self.component_zone_tol = float(rules.get("component_zone_tolerance_mm", 0.5))
         self.component_spacing = float(rules.get("min_component_spacing_mm", 3.0))
+        self.min_local_wire_length = float(rules.get("min_local_wire_visible_length_units", 25.0))
+        self.net_label_anchor_max = float(rules.get("max_net_label_anchor_distance_units", 90.0))
         reference_style = config.get("reference_component_table", {})
         style_lock = config.get("renderer_component_style_lock", {})
         self.component_common_width = float(style_lock.get("common_body_width", {}).get("value", reference_style.get("common_width", {}).get("value", 210.0)))
@@ -324,6 +330,7 @@ class VisualSchematicLint:
         if self.mode == "generated":
             self.validate_element_list_content()
         self.validate_geometry()
+        self.validate_local_wire_visibility()
         self.validate_connectivity()
         self.validate_pin_labels()
         self.validate_text_policy()
@@ -501,6 +508,57 @@ class VisualSchematicLint:
         for edge in self.wires():
             if not orthogonal(edge):
                 self.error("DIAGONAL_WIRE", edge.id, "Wire is not horizontal or vertical", "angle 0 or 90 degrees", f"({edge.x1},{edge.y1}) -> ({edge.x2},{edge.y2})", *edge.center)
+
+    def validate_local_wire_visibility(self) -> None:
+        if self.mode != "generated":
+            return
+        local_wires = [
+            edge for edge in self.wires()
+            if edge.id.startswith("wire.local.")
+            and edge.attrs.get("data-zone") in {"mosfet_heater_driver", "dcdc_power_module"}
+        ]
+        for wire in local_wires:
+            if wire.length <= 1e-6:
+                self.error(
+                    "ZERO_LENGTH_WIRE",
+                    wire.id,
+                    "Local wire has identical source and target points and can disappear in exports",
+                    "> 0",
+                    f"{wire.length:.3f}",
+                    *wire.center,
+                )
+                continue
+            if wire.length < self.min_local_wire_length:
+                self.error(
+                    "LOCAL_WIRE_TOO_SHORT",
+                    wire.id,
+                    "Local heater/power wire is shorter than the configured visible length",
+                    f">= {self.min_local_wire_length}",
+                    f"{wire.length:.3f}",
+                    *wire.center,
+                )
+        for required_net in {"GATE_R", "HEAT-"}:
+            total = sum(wire.length for wire in local_wires if wire.net == required_net)
+            if total and total < self.min_local_wire_length:
+                self.error(
+                    "LOCAL_NET_VISIBILITY_WEAK",
+                    f"local-net.{required_net}",
+                    "Local net is represented only by very short linework",
+                    f">= {self.min_local_wire_length}",
+                    f"{total:.3f}",
+                )
+        for label in [v for v in self.model.vertices if v.role == "net_label"]:
+            anchor = (fnum(label.attrs.get("data-anchor-x"), label.center[0]), fnum(label.attrs.get("data-anchor-y"), label.center[1]))
+            anchor_distance = dist(label.center, anchor)
+            if anchor_distance > self.net_label_anchor_max:
+                self.error(
+                    "NET_LABEL_TOO_FAR_FROM_ANCHOR",
+                    label.id,
+                    "Net label center is too far from its declared wire/pin anchor",
+                    f"<= {self.net_label_anchor_max}",
+                    f"{anchor_distance:.3f}",
+                    *label.center,
+                )
 
     def validate_connectivity(self) -> None:
         connection_points = self.connection_points()
