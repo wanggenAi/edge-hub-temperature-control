@@ -553,8 +553,11 @@ def test_final_review_package_manifest_when_present() -> None:
     expected_names = {
         "overview",
         "kicad_block",
-        "element_list",
-        "title_block",
+        "element_list_full",
+        "element_list_top",
+        "element_list_middle",
+        "element_list_bottom",
+        "title_block_full",
         "heater_power_area",
         "dd1_area",
     }
@@ -568,6 +571,7 @@ def test_final_review_package_manifest_when_present() -> None:
     assert manifest["checks"]["title_block_present"] is True
     assert manifest["checks"]["source_frame_diff_clean"] is True
     assert manifest["checks"]["kicad_source_diff_clean"] is True
+    assert manifest["checks"]["master_table_lock_passed"] is True
     assert manifest["erc"]["status"] == "PASSED"
     for crop in manifest["crops"]:
         assert (ROOT / crop["path"]).exists()

@@ -8,20 +8,22 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - SVG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
 - PDF: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
 - PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- PNG resolution: `6431 x 4654 px`
+- PNG resolution: `6433 x 4654 px`
 
 ## Automated Checks
 
 - KiCad ERC: `PASSED`; violations `0`, errors `0`, warnings `0`
-- KiCad ERC report: `build/reports/kicad_schematic_erc_final_candidate.json`
-- Pytest: `13 passed in 1.06s`
+- KiCad ERC report: `build/reports/kicad_schematic_erc_master_table_lock.json`
+- Pytest: `27 passed in focused KiCad/table-lock suite`
 - Export lint errors: `0`
-- Export lint report: `build/reports/final-thesis-candidate-export/export_artifact_lint.json`
+- Export lint report: `build/reports/final-master-table-lock-export/export_artifact_lint.json`
 - Required school refs present: `True`
 - Canonical nets present: `True`
 - Forbidden refs/stale nets absent: `True`
 - Source frame diff clean: `True`
 - KiCad source/symbol/project diff clean: `True`
+- Master table lock passed: `True`
+- Master table lock report: `build/reports/bstu_master_table_lock.json`
 
 ## KiCad Block Placement
 
@@ -34,19 +36,40 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 ## List Of Elements
 
 - ESP32 BOM text present: `True`
+- Master table body source: `hardware/eda/functiondiagramYUANLITU.drawio`
+- Generated/final rule: text value replacement only; table geometry, line widths, rows, columns, font/alignment metadata, and cell IDs stay locked to the master.
+- BOM readability note: the master table has a fixed row count, so several ESP32 BOM items are merged into existing rows instead of adding new rows.
 - Required BOM groups: Capacitors, Resistors, Semiconductor Devices, Switching Components, Connectors, Power Modules
+
+## Master Table Lock
+
+- Status: `PASS`
+- Errors: `0`
+- Master cell count: `101`
+- Master geometry hash: `34ef44b8ced36aa76933db11fa585bb5d57ca868ab93e5d2f95193670983edf0`
+- `hardware/eda/functiondiagramYUANLITU.generated.drawio`: geometry matches master `True`, value-only changed cells `39`
+- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`: geometry matches master `True`, value-only changed cells `39`
+
+The review crops include `element_list_full`, `element_list_top`,
+`element_list_middle`, and `element_list_bottom` so reviewers can inspect
+whether the merged BOM text remains readable under the locked master table.
 
 ## Title Block
 
 - ESP32 title block text present: `True`
 - Legacy template title text absent: `True`
+- Title block body source: `hardware/eda/functiondiagramYUANLITU.drawio`
+- Generated/final rule: text value replacement only.
 
 ## Review Crops
 
 - `overview`: `hardware/eda/exports/final/review_crops/overview.png`
 - `kicad_block`: `hardware/eda/exports/final/review_crops/kicad_block.png`
-- `element_list`: `hardware/eda/exports/final/review_crops/element_list.png`
-- `title_block`: `hardware/eda/exports/final/review_crops/title_block.png`
+- `element_list_full`: `hardware/eda/exports/final/review_crops/element_list_full.png`
+- `element_list_top`: `hardware/eda/exports/final/review_crops/element_list_top.png`
+- `element_list_middle`: `hardware/eda/exports/final/review_crops/element_list_middle.png`
+- `element_list_bottom`: `hardware/eda/exports/final/review_crops/element_list_bottom.png`
+- `title_block_full`: `hardware/eda/exports/final/review_crops/title_block_full.png`
 - `heater_power_area`: `hardware/eda/exports/final/review_crops/heater_power_area.png`
 - `dd1_area`: `hardware/eda/exports/final/review_crops/dd1_area.png`
 

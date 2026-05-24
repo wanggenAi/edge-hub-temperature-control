@@ -23,10 +23,10 @@ TITLE_BLOCK_TEXT_BY_ID = {
     "pFFQBGnBG81xobuCz_b_-23": "",
     "pFFQBGnBG81xobuCz_b_-24": "Wang Gen",
     "pFFQBGnBG81xobuCz_b_-25": "BSTU.241297.006 Э3",
-    "pFFQBGnBG81xobuCz_b_-36": "ESP32 Temperature Control Unit\nElectrical Schematic Diagram",
-    "pFFQBGnBG81xobuCz_b_-37": "Sheet\n1",
-    "pFFQBGnBG81xobuCz_b_-38": "Sheets\n1",
-    "pFFQBGnBG81xobuCz_b_-39": "Brest State Technical University\nFormat A1\nScale N/A   Mass N/A\nDate 2026-05-20",
+    "pFFQBGnBG81xobuCz_b_-36": "ESP32 Temperature\nControl Unit",
+    "pFFQBGnBG81xobuCz_b_-37": "Sheet 1\nA1",
+    "pFFQBGnBG81xobuCz_b_-38": "Sheets 1\nN/A",
+    "pFFQBGnBG81xobuCz_b_-39": "Electrical Schematic Diagram\nBrest State Technical University",
 }
 
 REQUIRED_EXISTING_TITLE_CELLS = set(TITLE_BLOCK_TEXT_BY_ID)

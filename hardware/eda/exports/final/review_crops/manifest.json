@@ -1,13 +1,13 @@
 {
-  "created_at": "2026-05-23T20:44:35",
+  "created_at": "2026-05-24T09:51:07",
   "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
   "source_svg": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg",
-  "source_png_width_px": 6431,
+  "source_png_width_px": 6433,
   "source_png_height_px": 4654,
   "svg_viewbox": {
     "x": -0.5,
     "y": -0.5,
-    "width": 3215.0,
+    "width": 3216.0,
     "height": 2326.0
   },
   "kicad_embed_bbox": {
@@ -42,8 +42,9 @@
       "bottom": 2328.42
     }
   },
-  "lint_report": "build/reports/final-thesis-candidate-export/export_artifact_lint.json",
-  "erc_report": "build/reports/kicad_schematic_erc_final_candidate.json",
+  "lint_report": "build/reports/final-master-table-lock-export/export_artifact_lint.json",
+  "erc_report": "build/reports/kicad_schematic_erc_master_table_lock.json",
+  "table_lock_report": "build/reports/bstu_master_table_lock.json",
   "qa_report": "docs/final_schematic_qa_report.md",
   "checks": {
     "export_lint_error_free": true,
@@ -54,7 +55,8 @@
     "title_block_present": true,
     "legacy_title_absent": true,
     "source_frame_diff_clean": true,
-    "kicad_source_diff_clean": true
+    "kicad_source_diff_clean": true,
+    "master_table_lock_passed": true
   },
   "erc": {
     "status": "PASSED",
@@ -69,14 +71,14 @@
       "svg_box": {
         "x": -0.5,
         "y": -0.5,
-        "width": 3215.0,
+        "width": 3216.0,
         "height": 2326.0
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
         "x": 0,
         "y": 0,
-        "width": 6431,
+        "width": 6433,
         "height": 4654
       }
     },
@@ -98,41 +100,88 @@
       }
     },
     {
-      "name": "element_list",
-      "path": "hardware/eda/exports/final/review_crops/element_list.png",
+      "name": "element_list_full",
+      "path": "hardware/eda/exports/final/review_crops/element_list_full.png",
       "svg_box": {
-        "x": 2558.18,
-        "y": 10.43,
-        "width": 730.0,
-        "height": 1260.0,
-        "right": 3288.18,
-        "bottom": 1270.43
+        "x": 2378.18,
+        "y": -1.5700000000000003,
+        "width": 922.0,
+        "height": 1284.0
       },
-      "margin_svg_units": 10.0,
+      "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 5098,
-        "y": 2,
-        "width": 1333,
-        "height": 2561
+        "x": 4758,
+        "y": 0,
+        "width": 1675,
+        "height": 2567
       }
     },
     {
-      "name": "title_block",
-      "path": "hardware/eda/exports/final/review_crops/title_block.png",
+      "name": "element_list_top",
+      "path": "hardware/eda/exports/final/review_crops/element_list_top.png",
       "svg_box": {
-        "x": 2555.18,
-        "y": 2107.42,
-        "width": 733.786,
-        "height": 221.0,
-        "right": 3288.966,
-        "bottom": 2328.42
+        "x": 2375.68,
+        "y": -1.5700000000000003,
+        "width": 912.5,
+        "height": 465.59999999999997
       },
-      "margin_svg_units": 10.0,
+      "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 5092,
-        "y": 4198,
-        "width": 1339,
-        "height": 456
+        "x": 4753,
+        "y": 0,
+        "width": 1680,
+        "height": 929
+      }
+    },
+    {
+      "name": "element_list_middle",
+      "path": "hardware/eda/exports/final/review_crops/element_list_middle.png",
+      "svg_box": {
+        "x": 2375.68,
+        "y": 401.63,
+        "width": 912.5,
+        "height": 477.59999999999997
+      },
+      "margin_svg_units": 0.0,
+      "pixel_box": {
+        "x": 4753,
+        "y": 805,
+        "width": 1680,
+        "height": 955
+      }
+    },
+    {
+      "name": "element_list_bottom",
+      "path": "hardware/eda/exports/final/review_crops/element_list_bottom.png",
+      "svg_box": {
+        "x": 2375.68,
+        "y": 816.8299999999999,
+        "width": 912.5,
+        "height": 465.59999999999997
+      },
+      "margin_svg_units": 0.0,
+      "pixel_box": {
+        "x": 4753,
+        "y": 1635,
+        "width": 1680,
+        "height": 932
+      }
+    },
+    {
+      "name": "title_block_full",
+      "path": "hardware/eda/exports/final/review_crops/title_block_full.png",
+      "svg_box": {
+        "x": 2520.18,
+        "y": 2093.42,
+        "width": 776.786,
+        "height": 243.0
+      },
+      "margin_svg_units": 0.0,
+      "pixel_box": {
+        "x": 5042,
+        "y": 4190,
+        "width": 1391,
+        "height": 464
       }
     },
     {

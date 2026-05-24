@@ -26,12 +26,13 @@ DEFAULT_PNG = FINAL_DIR / f"{FINAL_BASENAME}.png"
 DEFAULT_SVG = FINAL_DIR / f"{FINAL_BASENAME}.svg"
 DEFAULT_PDF = FINAL_DIR / f"{FINAL_BASENAME}.pdf"
 DEFAULT_DRAWIO = FINAL_DIR / f"{FINAL_BASENAME}.drawio"
-DEFAULT_LINT_REPORT = ROOT / "build/reports/final-thesis-candidate-export/export_artifact_lint.json"
-DEFAULT_ERC_REPORT = ROOT / "build/reports/kicad_schematic_erc_final_candidate.json"
+DEFAULT_LINT_REPORT = ROOT / "build/reports/final-master-table-lock-export/export_artifact_lint.json"
+DEFAULT_ERC_REPORT = ROOT / "build/reports/kicad_schematic_erc_master_table_lock.json"
+DEFAULT_TABLE_LOCK_REPORT = ROOT / "build/reports/bstu_master_table_lock.json"
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 OUTPUT_DIR = FINAL_DIR / "review_crops"
 QA_REPORT = ROOT / "docs/final_schematic_qa_report.md"
-PYTEST_RESULT = "13 passed in 1.06s"
+PYTEST_RESULT = "27 passed in focused KiCad/table-lock suite"
 
 REQUIRED_REFS = [
     "DD1",
@@ -223,11 +224,20 @@ def token_present(token: str, text: str) -> bool:
     return re.search(rf"(?<![A-Za-z0-9_.+-]){escaped}(?![A-Za-z0-9_.+-])", text) is not None
 
 
-def svg_box_to_pixels(box: dict[str, float], viewbox: dict[str, float], image: Image.Image, margin: float = 0.0) -> tuple[int, int, int, int]:
-    left = box["x"] - margin
-    top = box["y"] - margin
-    right = box["x"] + box["width"] + margin
-    bottom = box["y"] + box["height"] + margin
+def svg_box_to_pixels(
+    box: dict[str, float],
+    viewbox: dict[str, float],
+    image: Image.Image,
+    margin: float | tuple[float, float, float, float] = 0.0,
+) -> tuple[int, int, int, int]:
+    if isinstance(margin, tuple):
+        margin_left, margin_top, margin_right, margin_bottom = margin
+    else:
+        margin_left = margin_top = margin_right = margin_bottom = margin
+    left = box["x"] - margin_left
+    top = box["y"] - margin_top
+    right = box["x"] + box["width"] + margin_right
+    bottom = box["y"] + box["height"] + margin_bottom
     sx = image.width / viewbox["width"]
     sy = image.height / viewbox["height"]
     return (
@@ -247,14 +257,35 @@ def sub_box(parent: dict[str, float], x: float, y: float, width: float, height: 
     }
 
 
+def expand_box(
+    box: dict[str, float],
+    *,
+    left: float = 0.0,
+    top: float = 0.0,
+    right: float = 0.0,
+    bottom: float = 0.0,
+) -> dict[str, float]:
+    return {
+        "x": box["x"] - left,
+        "y": box["y"] - top,
+        "width": box["width"] + left + right,
+        "height": box["height"] + top + bottom,
+    }
+
+
 def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any], embed: dict[str, float]) -> list[dict[str, Any]]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     image = Image.open(png_path).convert("RGBA")
-    crops: list[tuple[str, dict[str, float], float]] = [
+    element_list = regions["element_list"]["bbox"]
+    title_block = regions["title_block"]["bbox"]
+    crops: list[tuple[str, dict[str, float], float | tuple[float, float, float, float]]] = [
         ("overview", {"x": viewbox["x"], "y": viewbox["y"], "width": viewbox["width"], "height": viewbox["height"]}, 0.0),
         ("kicad_block", embed, 40.0),
-        ("element_list", regions["element_list"]["bbox"], 10.0),
-        ("title_block", regions["title_block"]["bbox"], 10.0),
+        ("element_list_full", expand_box(element_list, left=180.0, top=12.0, right=12.0, bottom=12.0), 0.0),
+        ("element_list_top", expand_box(sub_box(element_list, -0.25, 0.00, 1.25, 0.36), top=12.0), 0.0),
+        ("element_list_middle", expand_box(sub_box(element_list, -0.25, 0.32, 1.25, 0.36), top=12.0, bottom=12.0), 0.0),
+        ("element_list_bottom", expand_box(sub_box(element_list, -0.25, 0.64, 1.25, 0.36), bottom=12.0), 0.0),
+        ("title_block_full", expand_box(title_block, left=35.0, top=14.0, right=8.0, bottom=8.0), 0.0),
         ("heater_power_area", sub_box(embed, 0.45, 0.36, 0.52, 0.58), 20.0),
         ("dd1_area", sub_box(embed, 0.18, 0.20, 0.40, 0.36), 20.0),
     ]
@@ -310,6 +341,7 @@ def write_report(
     manifest: dict[str, Any],
     lint_report: dict[str, Any],
     erc: dict[str, Any],
+    table_lock_report: dict[str, Any],
     checks: dict[str, Any],
 ) -> None:
     lint_errors = lint_report.get("error_count", "missing")
@@ -317,6 +349,8 @@ def write_report(
     embed = lint_report.get("svg", {}).get("kicad_embed_bbox", {})
     png = lint_report.get("png", {})
     crops = manifest["crops"]
+    table_lock_master = table_lock_report.get("master", {})
+    table_lock_candidates = table_lock_report.get("candidates", [])
     lines = [
         "# Final Schematic QA Report",
         "",
@@ -342,6 +376,8 @@ def write_report(
         f"- Forbidden refs/stale nets absent: `{checks['forbidden_text_absent']}`",
         f"- Source frame diff clean: `{checks['source_frame_diff_clean']}`",
         f"- KiCad source/symbol/project diff clean: `{checks['kicad_source_diff_clean']}`",
+        f"- Master table lock passed: `{checks['master_table_lock_passed']}`",
+        f"- Master table lock report: `{args.table_lock_report.relative_to(ROOT)}`",
         "",
         "## KiCad Block Placement",
         "",
@@ -354,16 +390,46 @@ def write_report(
         "## List Of Elements",
         "",
         f"- ESP32 BOM text present: `{checks['esp32_bom_present']}`",
+        "- Master table body source: `hardware/eda/functiondiagramYUANLITU.drawio`",
+        "- Generated/final rule: text value replacement only; table geometry, line widths, rows, columns, font/alignment metadata, and cell IDs stay locked to the master.",
+        "- BOM readability note: the master table has a fixed row count, so several ESP32 BOM items are merged into existing rows instead of adding new rows.",
         "- Required BOM groups: Capacitors, Resistors, Semiconductor Devices, Switching Components, Connectors, Power Modules",
         "",
+        "## Master Table Lock",
+        "",
+        f"- Status: `{table_lock_report.get('status', 'missing')}`",
+        f"- Errors: `{table_lock_report.get('error_count', 'missing')}`",
+        f"- Master cell count: `{table_lock_master.get('cell_count', 'missing')}`",
+        f"- Master geometry hash: `{table_lock_master.get('geometry_hash', 'missing')}`",
+    ]
+    for candidate in table_lock_candidates:
+        lines.append(
+            f"- `{candidate.get('path', 'unknown')}`: geometry matches master "
+            f"`{candidate.get('geometry_matches_master')}`, value-only changed cells "
+            f"`{candidate.get('value_changed_cell_count')}`"
+        )
+    lines.extend(
+        [
+            "",
+            "The review crops include `element_list_full`, `element_list_top`,",
+            "`element_list_middle`, and `element_list_bottom` so reviewers can inspect",
+            "whether the merged BOM text remains readable under the locked master table.",
+            "",
+        ]
+    )
+    lines.extend(
+        [
         "## Title Block",
         "",
         f"- ESP32 title block text present: `{checks['title_block_present']}`",
         f"- Legacy template title text absent: `{checks['legacy_title_absent']}`",
+        "- Title block body source: `hardware/eda/functiondiagramYUANLITU.drawio`",
+        "- Generated/final rule: text value replacement only.",
         "",
         "## Review Crops",
         "",
-    ]
+        ]
+    )
     for crop in crops:
         lines.append(f"- `{crop['name']}`: `{crop['path']}`")
     lines.extend(
@@ -386,6 +452,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--drawio", type=Path, default=DEFAULT_DRAWIO)
     parser.add_argument("--lint-report", type=Path, default=DEFAULT_LINT_REPORT)
     parser.add_argument("--erc-report", type=Path, default=DEFAULT_ERC_REPORT)
+    parser.add_argument("--table-lock-report", type=Path, default=DEFAULT_TABLE_LOCK_REPORT)
     parser.add_argument("--lock-file", type=Path, default=LOCK_FILE)
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--qa-report", type=Path, default=QA_REPORT)
@@ -415,6 +482,7 @@ def main() -> int:
 
     lint_report = read_json(args.lint_report)
     erc_report = read_json(args.erc_report)
+    table_lock_report = read_json(args.table_lock_report)
     erc = erc_summary(erc_report)
 
     with Image.open(args.png) as image:
@@ -436,6 +504,7 @@ def main() -> int:
                 ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro",
             ]
         ),
+        "master_table_lock_passed": table_lock_report.get("status") == "PASS" and table_lock_report.get("error_count") == 0,
     }
     manifest = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -451,6 +520,7 @@ def main() -> int:
         },
         "lint_report": str(args.lint_report.relative_to(ROOT)),
         "erc_report": str(args.erc_report.relative_to(ROOT)),
+        "table_lock_report": str(args.table_lock_report.relative_to(ROOT)),
         "qa_report": str(args.qa_report.relative_to(ROOT)),
         "checks": checks,
         "erc": erc,
@@ -458,7 +528,7 @@ def main() -> int:
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    write_report(args, manifest, lint_report, erc, checks)
+    write_report(args, manifest, lint_report, erc, table_lock_report, checks)
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
     return 0 if all(checks.values()) and erc["status"] == "PASSED" else 1
 
