@@ -1,0 +1,104 @@
+{
+  "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+  "items": [
+    {
+      "kind": "block",
+      "name": "DD1 ESP32 core block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_dd1_esp32_core_block.png",
+      "pixel_box": [
+        1041,
+        889,
+        2292,
+        1862
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "RESET/EN block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_reset_en_block.png",
+      "pixel_box": [
+        108,
+        846,
+        775,
+        1567
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "BOOT block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_boot_block.png",
+      "pixel_box": [
+        1332,
+        2275,
+        2000,
+        2997
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "LED block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_led_block.png",
+      "pixel_box": [
+        108,
+        1604,
+        1358,
+        2143
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "DS18B20 sensor block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_ds18b20_sensor_block.png",
+      "pixel_box": [
+        2557,
+        152,
+        3808,
+        822
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "UART/service block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_uart_service_block.png",
+      "pixel_box": [
+        2557,
+        781,
+        3225,
+        1363
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "heater driver block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_heater_driver_block.png",
+      "pixel_box": [
+        2557,
+        1452,
+        4799,
+        2447
+      ]
+    },
+    {
+      "kind": "block",
+      "name": "power block",
+      "path": "hardware/eda/exports/final/layout_audit_crops/block_power_block.png",
+      "pixel_box": [
+        2557,
+        2405,
+        4158,
+        3443
+      ]
+    },
+    {
+      "kind": "finding",
+      "id": "KICAD_PROPERTY_TEXT_NEAR_SYMBOL_BODY",
+      "path": "hardware/eda/exports/final/layout_audit_crops/finding_001_kicad_property_text_near_symbol_body.png",
+      "pixel_box": [
+        586,
+        248,
+        4204,
+        3131
+      ]
+    }
+  ]
+}
