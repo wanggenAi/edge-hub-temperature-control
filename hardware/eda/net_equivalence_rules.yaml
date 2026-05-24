@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "description": "JLC TEL to KiCad topology equivalence rules for the ESP32 temperature control unit.",
+  "ref_mappings": {
+    "C1": "C1",
+    "C2": "C2",
+    "C3": "C3",
+    "C4": "C4",
+    "R1": "R1",
+    "R2": "R2",
+    "R3": "R3",
+    "R4": "R4",
+    "R5": "R5",
+    "R6": "R6",
+    "U1": "DD1",
+    "Q1": "VT1",
+    "D1": "HL1",
+    "U3_reset": "SB1",
+    "U4_boot": "SB2",
+    "U3_buck": "A1",
+    "CN1": "XS1",
+    "J2_heater": "XS2",
+    "J_Power": "XS3",
+    "U7": "XS4",
+    "J_TS1": "XS5"
+  },
+  "net_mappings": {
+    "J1_12V": "+12V",
+    "3V3": "+3V3",
+    "GND": "GND",
+    "$1N14": "DQ",
+    "$1N8": "EN",
+    "$1N55": "BOOT",
+    "$1N42": "RXD0",
+    "$1N43": "TXD0",
+    "$1N39": "GND",
+    "$1N21": "LED",
+    "$1N18": "LED_A",
+    "$1N23": "GATE",
+    "$1N24": "GATE_R",
+    "$1N29": "HEAT-",
+    "$1N65": "HEAT+"
+  },
+  "pin_aliases": {
+    "D1": {
+      "1": "2",
+      "2": "1"
+    },
+    "R2": {
+      "1": "2",
+      "2": "1"
+    },
+    "R3": {
+      "1": "2",
+      "2": "1"
+    },
+    "R6": {
+      "1": "2",
+      "2": "1"
+    },
+    "U3_reset": {
+      "2": "2",
+      "4": "1"
+    },
+    "U4_boot": {
+      "1": "2",
+      "3": "1"
+    },
+    "CN1": {
+      "1": "3",
+      "2": "2",
+      "3": "1"
+    },
+    "U7": {
+      "1": "4",
+      "2": "3",
+      "3": "2",
+      "4": "1"
+    },
+    "J_TS1": {
+      "1": "2",
+      "2": "1"
+    },
+    "J2_heater": {
+      "1": "2",
+      "2": "1"
+    },
+    "Q1": {
+      "1": "1",
+      "2": "3",
+      "3": "2"
+    }
+  },
+  "allowed_abstract_equivalences": [
+    "KiCad custom symbol pin names may differ from JLC pin numbers.",
+    "Equivalence is defined by normalized ref, normalized KiCad-side pin number, and normalized net.",
+    "Two-terminal passive components may use documented pin aliases when KiCad symbol orientation is reversed relative to the JLC footprint numbering.",
+    "Connector pin aliases document the intentional KiCad drawing orientation where terminal order is mirrored relative to the JLC footprint numbering.",
+    "The MOSFET alias maps the JLC SOT-23 footprint pins to the KiCad G/D/S logical symbol pins.",
+    "The JLC four-pad tactile switch footprints are reduced to two logical KiCad switch pins using documented aliases.",
+    "Do not change .kicad_sym to force equivalence."
+  ],
+  "ignored_cases": [],
+  "forbidden_behavior": [
+    "Do not silently drop any JLC net.",
+    "Do not silently rename any ref or net not listed in this rules file.",
+    "Do not treat mismatches as pass.",
+    "Do not modify KiCad source while running the equivalence audit."
+  ]
+}

@@ -343,3 +343,53 @@ Final artifacts:
 
 This checkpoint is a JLC-faithful KiCad engineering redraw checkpoint, not a
 final human-approved drawing.
+
+## JLC / KiCad Netlist Equivalence Audit Checkpoint
+
+This checkpoint adds a read-only topology audit between the original JLC
+Altium-format netlist and the current KiCad schematic. It does not modify the
+KiCad schematic, KiCad symbol library, KiCad project file, school frame,
+generated/final drawing artifacts, refs, nets, BOM, List of Elements, or Title
+Block.
+
+The audit is implemented by:
+
+```bash
+python3 hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py \
+  --jlc-netlist hardware/eda/jlc_netlist_altium.tel \
+  --kicad-schematic hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch \
+  --ref-mapping hardware/eda/ref_mapping.yaml \
+  --model hardware/eda/schematic_model.yaml \
+  --rules hardware/eda/net_equivalence_rules.yaml \
+  --json-report build/reports/jlc_kicad_netlist_equivalence.json \
+  --md-report docs/jlc_kicad_netlist_equivalence_report.md
+```
+
+The checker uses `kicad-cli sch export netlist --format kicadxml` for the
+KiCad-side topology, then compares normalized component-pin membership by net.
+The normalization rules are documented in
+`hardware/eda/net_equivalence_rules.yaml`, including confirmed ref mappings,
+canonical net mappings, and explicit pin aliases for intentional symbol/footprint
+orientation differences.
+
+Current equivalence result:
+
+- Final status: `PASS`
+- JLC raw nets parsed: `15`
+- JLC canonical nets compared: `14`
+- KiCad nets compared: `14`
+- JLC component-pin connections: `57`
+- KiCad component-pin connections: `57`
+- Unmapped refs: `0`
+- Unmapped nets: `0`
+- Blockers: `0`
+- Warnings: `0`
+
+Reports:
+
+- `build/reports/jlc_kicad_netlist_equivalence.json`
+- `docs/jlc_kicad_netlist_equivalence_report.md`
+
+This audit proves topology equivalence under documented alias rules. It is still
+not a final human-approved drawing; final PDF/PNG visual inspection and table
+geometry review remain separate checkpoints.
