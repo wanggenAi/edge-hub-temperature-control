@@ -1,14 +1,28 @@
 # Final Visual Review Index
 
-This index is for ChatGPT/user visual inspection. It does not claim human visual approval.
+This index is for ChatGPT/user visual inspection. Web ChatGPT reviewer marked
+this checkpoint as visually acceptable for the current JLC-style direction, but
+this is still not a final university/teacher approval.
 
 ## Status
 
 - Automated Check Result: `PASS`
-- Visual Review Result: `PENDING_REVIEW`
-- Human Approval Status: `NOT_APPROVED_YET`
+- Visual Review Result: `VISUAL_PASS_FOR_CHECKPOINT`
+- Human Approval Status: `FINAL_TEACHER_APPROVAL_NOT_CLAIMED`
 - Final PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
 - Final PDF: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
+
+## Web ChatGPT Review
+
+- Reviewer result: `VISUAL_PASS_FOR_CHECKPOINT`
+- Review round: `JLC-style visual repair round 2`
+- Reviewed commit: `890425dc`
+- Handoff commit: `2890be0b`
+- Reviewer note: the JLC-style direction is established and the drawing can
+  move into the final thesis insertion candidate / final human approval package
+  stage.
+- Boundary: this does not mean final approval by the university reviewer or
+  thesis supervisor.
 
 ## Review Images
 
@@ -159,4 +173,3 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 ## Finding Crops
 
 No warning/blocker finding crops are present in the current layout audit.
-

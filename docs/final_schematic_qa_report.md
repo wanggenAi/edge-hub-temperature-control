@@ -1,6 +1,8 @@
 # Final Schematic QA Report
 
-This is a thesis insertion candidate package, not a final human-approved drawing.
+This is a thesis insertion candidate package. Web ChatGPT reviewer marked this
+checkpoint as `VISUAL_PASS_FOR_CHECKPOINT`, but this is not final
+university/teacher approval.
 
 ## Final Artifacts
 
@@ -25,6 +27,17 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - KiCad schematic source is unchanged in this JLC-style workflow and is used only for topology verification.
 - Master table lock passed: `True`
 - Master table lock report: `build/reports/bstu_master_table_lock_jlc_style_layout.json`
+
+## Visual Review
+
+- Web ChatGPT visual review result: `VISUAL_PASS_FOR_CHECKPOINT`
+- Reviewed layout commit: `890425dc`
+- Handoff commit used for review: `2890be0b`
+- Review scope: JLC-style symbol preservation, A1 balance, DD1 label
+  readability, R4/GATE/GATE_R/VT1 local crowding, power-area cohesion, and
+  locked List of Elements / Title Block handling.
+- Reviewer boundary: this is a checkpoint pass and thesis insertion candidate,
+  not final university/teacher approval.
 
 ## JLC-Style Schematic Block Placement
 
@@ -81,4 +94,4 @@ whether the merged BOM text remains readable under the locked master table.
 ## Conclusion
 
 No automated blocker is recorded in this QA package if all booleans above are `True`, export lint reports `0`, and ERC is `PASSED`.
-Visual Review PASS is not claimed until the review crops and final PDF/PNG are inspected by ChatGPT/user.
+Web ChatGPT visual review passed this checkpoint; final teacher approval is still not claimed.
