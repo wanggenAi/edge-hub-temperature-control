@@ -51,6 +51,13 @@ This project is `edge-hub-temperature-control`, used for graduation thesis and d
 - Source-confirmed refs: `DD1`, `XS1`
 - Next action: user must provide true MPN/model and Manufacturer values for the remaining refs before the right-top List of Elements text can be updated.
 
+## Web ChatGPT BOM Confirmation Review
+- Reviewer: Web ChatGPT, conversation `电路原理图规范化`
+- Review time: `2026-05-25 00:30 +03`
+- Result: `BOM_CONFIRMATION_PACKAGE_ACCEPTED`
+- Reviewer summary: the package correctly avoids inventing MPN/Manufacturer values and should stop automatic drawing edits.
+- Reviewer instruction: wait for the user to confirm real MPN/Manufacturer values; then update only List of Elements cell values. If text becomes unreadable, edit the mother draw.io table first.
+
 ## NEEDS_BOM_MPN_CONFIRMATION
 Refs requiring user/source confirmation:
 `C1`, `C4`, `C2`, `C3`, `HL1`, `XS2`, `XS3`, `XS5`, `VT1`, `R1`, `R5`, `R6`, `R2`, `R3`, `R4`, `A1`, `XS4`, `SB1`, `SB2`.

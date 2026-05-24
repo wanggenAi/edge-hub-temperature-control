@@ -17,6 +17,7 @@ This register tracks human-style visual review defects that are outside automate
 | ROUND2_POWER_COHESION | Accepted for checkpoint | A1 / C3 / C4 power area can still read as less cohesive because the JLC source body is embedded as one preserved vector block. | No topology or per-symbol shape edit was made. Web ChatGPT accepted this checkpoint; deeper per-JLC-symbol extraction/regrouping remains optional only if a later human reviewer requests it. |
 | LAYOUT_OPTIMIZER_SCORE | Checkpoint passed | User requested an engineering layout optimizer instead of one-off manual placement. | Added quantified score fields and candidate evaluation. Current visually approved placement remains the best candidate: previous score `71.344`, new score `71.344`, adopted candidate `false`. Web ChatGPT optimizer review result: `VISUAL_PASS_FOR_CHECKPOINT`. |
 | BOM_MPN_MANUFACTURER_GAPS | Needs BOM confirmation | User requested real purchasable MPN/model in Name and Manufacturer in Note. The JLC BOM lacks true Manufacturer Part and/or Manufacturer for 19 refs. | Added BOM audit. Known MPN/model fields from the BOM are visible where available. Missing MPN/Manufacturer values are reported as `NEEDS_BOM_MPN_CONFIRMATION`; no AI-invented values were added. |
+| BOM_CONFIRMATION_PACKAGE | Accepted, waiting on user data | Web ChatGPT reviewed the BOM confirmation package and accepted the format. | Result: `BOM_CONFIRMATION_PACKAGE_ACCEPTED`. Stop visual/layout edits. Wait for true MPN/Manufacturer values, then update only right-top List of Elements cell text while preserving mother table geometry. |
 
 ## Current Checkpoint Notes
 
@@ -27,6 +28,7 @@ This register tracks human-style visual review defects that are outside automate
 - Web ChatGPT review of Round 2: `VISUAL_PASS_FOR_CHECKPOINT`.
 - Web ChatGPT review of the optimizer Visual Review Pack: `VISUAL_PASS_FOR_CHECKPOINT`.
 - Reviewer caveat: this is not final university/teacher approval; the remaining substantive issue is true purchasable MPN/model and Manufacturer data for the right-top List of Elements.
+- Web ChatGPT review of the BOM confirmation package: `BOM_CONFIRMATION_PACKAGE_ACCEPTED`.
 - Automated result is not human visual approval.
 - Visual Review Result: `VISUAL_PASS_FOR_CHECKPOINT`.
 - Human Approval Status: `FINAL_TEACHER_APPROVAL_NOT_CLAIMED`.
