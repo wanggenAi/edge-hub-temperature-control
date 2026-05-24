@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "unit": "drawio_page_unit",
+  "source_of_truth": [
+    "hardware/eda/functiondiagramYUANLITU.drawio locked BSTU frame",
+    "user-approved generated ESP32 BOM/title text",
+    "measured draw.io reserved-region geometry"
+  ],
+  "notes": [
+    "This file is JSON-compatible YAML so the checker does not depend on PyYAML.",
+    "It hard-validates generated/final draw.io table geometry only; it does not claim official ГОСТ cell-coordinate proof."
+  ],
+  "line_width_tolerance": 0.06,
+  "geometry_tolerance": 0.5,
+  "element_list": {
+    "parent_id": "OTuqVLYWGNuakiADof2M-1",
+    "locked_region_bbox": {
+      "x": 2558.18,
+      "y": 10.43,
+      "width": 730.0,
+      "height": 1260.0,
+      "right": 3288.18,
+      "bottom": 1270.43
+    },
+    "table_bbox": {
+      "x": 2558.18,
+      "y": 10.43,
+      "width": 730.0,
+      "height": 1208.0,
+      "right": 3288.18,
+      "bottom": 1218.43
+    },
+    "headers": ["Position number", "Name", "Qty", "Note"],
+    "columns": [
+      {"id": "ref", "title": "Position number", "width": 150.0},
+      {"id": "name", "title": "Name", "width": 340.0},
+      {"id": "qty", "title": "Qty", "width": 68.0},
+      {"id": "note", "title": "Note", "width": 172.0}
+    ],
+    "header_height": 64.0,
+    "row_height": 52.0,
+    "line_widths": {
+      "outer": 3.937,
+      "header": 3.937,
+      "vertical": 3.937,
+      "horizontal": 1.969
+    },
+    "font_sizes": {
+      "header": 16,
+      "group": 15,
+      "body": 14
+    },
+    "rows": [
+      {"kind": "group", "name": "Capacitors"},
+      {"kind": "item", "ref": "C1, C4", "name": "Capacitor 0.1 uF, C0603", "qty": "2", "note": "Generic"},
+      {"kind": "item", "ref": "C2", "name": "Capacitor 10 uF, C0603", "qty": "1", "note": "Generic"},
+      {"kind": "item", "ref": "C3", "name": "Capacitor 100 uF, C0603", "qty": "1", "note": "Generic"},
+      {"kind": "group", "name": "Resistors"},
+      {"kind": "item", "ref": "R1, R5, R6", "name": "Resistor 10 kOhm, R0603", "qty": "3", "note": "Generic"},
+      {"kind": "item", "ref": "R2", "name": "Resistor 4.7 kOhm, R0603", "qty": "1", "note": "Generic"},
+      {"kind": "item", "ref": "R3", "name": "Resistor 330 Ohm, R0603", "qty": "1", "note": "Generic"},
+      {"kind": "item", "ref": "R4", "name": "Resistor 100 Ohm, R0603", "qty": "1", "note": "Generic"},
+      {"kind": "group", "name": "Semiconductor Devices"},
+      {"kind": "item", "ref": "DD1", "name": "ESP32-WROOM-32 Wi-Fi module", "qty": "1", "note": "Espressif"},
+      {"kind": "item", "ref": "HL1", "name": "Red LED, LED0603-RD_RED", "qty": "1", "note": "LCSC"},
+      {"kind": "item", "ref": "VT1", "name": "NMOS3400 N-channel MOSFET", "qty": "1", "note": "LCSC"},
+      {"kind": "group", "name": "Switching Components"},
+      {"kind": "item", "ref": "SB1, SB2", "name": "Tact switch SMT 6x6x7.5", "qty": "2", "note": "LCSC"},
+      {"kind": "group", "name": "Connectors"},
+      {"kind": "item", "ref": "XS1", "name": "XH-3PA 3-pin connector", "qty": "1", "note": "ZHOURI/LCSC"},
+      {"kind": "item", "ref": "XS2, XS3", "name": "KF2EDGV-3.81-2P connector", "qty": "2", "note": "LCSC"},
+      {"kind": "item", "ref": "XS4", "name": "Header45.08-4P service connector", "qty": "1", "note": "LCSC"},
+      {"kind": "item", "ref": "XS5", "name": "KF301-2P terminal connector", "qty": "1", "note": "LCSC"},
+      {"kind": "group", "name": "Power Modules"},
+      {"kind": "item", "ref": "A1", "name": "DC/DC converter 12 V to 3.3 V", "qty": "1", "note": "LCSC"}
+    ]
+  },
+  "title_block": {
+    "group_id": "pFFQBGnBG81xobuCz_b_-1",
+    "bbox": {
+      "x": 2555.18,
+      "y": 2107.42,
+      "width": 733.786,
+      "height": 221.0,
+      "right": 3288.966,
+      "bottom": 2328.42
+    },
+    "overall_mm": {
+      "width": 185.0,
+      "height": 55.0
+    },
+    "vertical_grid_mm": [0.0, 7.0, 17.0, 40.0, 55.0, 65.0, 135.0, 185.0],
+    "horizontal_grid_mm": [0.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0],
+    "line_widths": {
+      "outer": 3.937,
+      "major": 3.937,
+      "minor": 1.969
+    },
+    "font_sizes": {
+      "large": 22,
+      "title": 13,
+      "body": 10,
+      "small": 8
+    },
+    "required_text": [
+      "BSTU.241297.006 Э3",
+      "ESP32 Temperature Control Unit",
+      "Electrical Schematic Diagram",
+      "Brest State Technical University",
+      "Wang Gen",
+      "A1",
+      "N/A",
+      "2026-05-20"
+    ],
+    "cells": [
+      {"id": "document_code", "x_mm": 65.0, "y_mm": 0.0, "width_mm": 70.0, "height_mm": 15.0, "text": "BSTU.241297.006 Э3", "font_key": "large", "bold": false},
+      {"id": "product_name", "x_mm": 65.0, "y_mm": 15.0, "width_mm": 70.0, "height_mm": 25.0, "text": "ESP32 Temperature Control Unit", "font_key": "title", "bold": true},
+      {"id": "document_name", "x_mm": 65.0, "y_mm": 40.0, "width_mm": 70.0, "height_mm": 15.0, "text": "Electrical Schematic Diagram", "font_key": "body", "bold": false},
+      {"id": "signature_header_name", "x_mm": 17.0, "y_mm": 15.0, "width_mm": 23.0, "height_mm": 5.0, "text": "Name", "font_key": "small", "bold": false},
+      {"id": "signature_header_sign", "x_mm": 40.0, "y_mm": 15.0, "width_mm": 15.0, "height_mm": 5.0, "text": "Sign", "font_key": "small", "bold": false},
+      {"id": "signature_header_date", "x_mm": 55.0, "y_mm": 15.0, "width_mm": 10.0, "height_mm": 5.0, "text": "Date", "font_key": "small", "bold": false},
+      {"id": "executed_label", "x_mm": 0.0, "y_mm": 20.0, "width_mm": 17.0, "height_mm": 5.0, "text": "Executed", "font_key": "small", "bold": false},
+      {"id": "executed_name", "x_mm": 17.0, "y_mm": 20.0, "width_mm": 23.0, "height_mm": 5.0, "text": "Wang Gen", "font_key": "small", "bold": false},
+      {"id": "executed_date", "x_mm": 55.0, "y_mm": 20.0, "width_mm": 10.0, "height_mm": 5.0, "text": "2026-05-20", "font_key": "small", "bold": false},
+      {"id": "checked_label", "x_mm": 0.0, "y_mm": 25.0, "width_mm": 17.0, "height_mm": 5.0, "text": "Checked", "font_key": "small", "bold": false},
+      {"id": "n_control_label", "x_mm": 0.0, "y_mm": 30.0, "width_mm": 17.0, "height_mm": 5.0, "text": "N. ctrl", "font_key": "small", "bold": false},
+      {"id": "approved_label", "x_mm": 0.0, "y_mm": 35.0, "width_mm": 17.0, "height_mm": 5.0, "text": "Approved", "font_key": "small", "bold": false},
+      {"id": "letter", "x_mm": 135.0, "y_mm": 0.0, "width_mm": 16.67, "height_mm": 15.0, "text": "Letter\n-", "font_key": "small", "bold": false},
+      {"id": "mass", "x_mm": 151.67, "y_mm": 0.0, "width_mm": 16.67, "height_mm": 15.0, "text": "Mass\nN/A", "font_key": "small", "bold": false},
+      {"id": "scale", "x_mm": 168.34, "y_mm": 0.0, "width_mm": 16.66, "height_mm": 15.0, "text": "Scale\nN/A", "font_key": "small", "bold": false},
+      {"id": "sheet", "x_mm": 135.0, "y_mm": 15.0, "width_mm": 25.0, "height_mm": 10.0, "text": "Sheet\n1", "font_key": "small", "bold": false},
+      {"id": "sheets", "x_mm": 160.0, "y_mm": 15.0, "width_mm": 25.0, "height_mm": 10.0, "text": "Sheets\n1", "font_key": "small", "bold": false},
+      {"id": "organization", "x_mm": 135.0, "y_mm": 25.0, "width_mm": 50.0, "height_mm": 20.0, "text": "Brest State Technical University", "font_key": "body", "bold": false},
+      {"id": "format", "x_mm": 135.0, "y_mm": 45.0, "width_mm": 50.0, "height_mm": 10.0, "text": "Format\nA1", "font_key": "small", "bold": false}
+    ]
+  }
+}

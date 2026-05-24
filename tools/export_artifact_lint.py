@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import html
+import importlib.util
 import json
 import re
 import sys
@@ -104,18 +105,23 @@ def is_final_kicad_embed_label(label: str) -> bool:
             "title-block-esp32",
             "thesis-candidate",
             "jlc-faithful-kicad-redraw",
+            "bstu-table-geometry",
         )
     )
 
 
 def requires_esp32_bom_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw"))
+    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry"))
 
 
 def requires_esp32_title_block_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw"))
+    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry"))
+
+
+def requires_bstu_table_geometry_check(label: str) -> bool:
+    return "bstu-table-geometry" in label.lower()
 
 
 @dataclass
@@ -616,6 +622,41 @@ def validate_pdf(path: Path, findings: list[Finding], label: str) -> dict[str, A
     return payload
 
 
+def validate_bstu_table_geometry(drawio: Path, findings: list[Finding], label: str) -> dict[str, Any]:
+    payload: dict[str, Any] = {"path": str(drawio), "exists": drawio.exists(), "label": label}
+    if not requires_bstu_table_geometry_check(label):
+        return payload
+    if not drawio.exists():
+        error(findings, "DRAWIO_MISSING", str(drawio), "Final draw.io source is missing for BSTU table geometry validation")
+        return payload
+    module_path = ROOT / "hardware/eda/tools/rebuild_generated_tables.py"
+    rules_path = ROOT / "hardware/eda/table_geometry_rules.yaml"
+    try:
+        spec = importlib.util.spec_from_file_location("rebuild_generated_tables", module_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Could not load rebuild_generated_tables.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        rules = module.load_rules(rules_path)
+        tree = module.parse_drawio(drawio)
+        table_findings, summary = module.validate_tables(tree, rules)
+        payload["summary"] = summary
+        payload["error_count"] = len(table_findings)
+        for table_finding in table_findings:
+            error(
+                findings,
+                table_finding.code,
+                table_finding.object_id,
+                table_finding.message,
+                table_finding.expected,
+                table_finding.actual,
+            )
+    except Exception as exc:  # noqa: BLE001 - table validator failures should fail export lint.
+        error(findings, "BSTU_TABLE_GEOMETRY_VALIDATOR_FAILED", str(drawio), "Could not run BSTU table geometry validator", "validator success", str(exc))
+    return payload
+
+
 def write_reports(findings: list[Finding], payload: dict[str, Any], reports_dir: Path) -> None:
     reports_dir.mkdir(parents=True, exist_ok=True)
     report = {
@@ -656,6 +697,7 @@ def main() -> int:
     svg = args.export_dir / f"{args.basename}.svg"
     pdf = args.export_dir / f"{args.basename}.pdf"
     png = args.export_dir / f"{args.basename}.png"
+    drawio = args.export_dir / f"{args.basename}.drawio"
     findings: list[Finding] = []
     payload = {
         "export_dir": str(args.export_dir),
@@ -664,6 +706,7 @@ def main() -> int:
         "svg": validate_svg(svg, findings, args.lock_file, args.label),
         "png": validate_png(png, findings, args.min_png_width, args.label),
         "pdf": validate_pdf(pdf, findings, args.label),
+        "drawio_table_geometry": validate_bstu_table_geometry(drawio, findings, args.label),
     }
     write_reports(findings, payload, args.reports_dir)
     return 1 if any(f.severity == "error" for f in findings) else 0

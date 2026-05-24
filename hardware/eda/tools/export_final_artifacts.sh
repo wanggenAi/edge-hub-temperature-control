@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+FRAME_DRAWIO="${ROOT_DIR}/hardware/eda/functiondiagramYUANLITU.drawio"
+KICAD_SVG="${ROOT_DIR}/hardware/kicad_schematic/exports/esp32_temperature_control_unit_schematic.svg"
 SOURCE_DRAWIO="${ROOT_DIR}/hardware/eda/functiondiagramYUANLITU.generated.drawio"
 EXPORT_DIR="${ROOT_DIR}/hardware/eda/exports/final"
 DRAWIO_CLI="${DRAWIO_CLI:-/Applications/draw.io.app/Contents/MacOS/draw.io}"
@@ -17,10 +19,20 @@ if [[ ! -x "${DRAWIO_CLI}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${SOURCE_DRAWIO}" ]]; then
-  printf 'ERROR: generated draw.io source missing: %s\n' "${SOURCE_DRAWIO}" >&2
+if [[ ! -f "${FRAME_DRAWIO}" ]]; then
+  printf 'ERROR: school frame draw.io source missing: %s\n' "${FRAME_DRAWIO}" >&2
   exit 1
 fi
+
+if [[ ! -f "${KICAD_SVG}" ]]; then
+  printf 'ERROR: KiCad SVG source missing: %s\n' "${KICAD_SVG}" >&2
+  exit 1
+fi
+
+python3 "${ROOT_DIR}/hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py" \
+  --frame "${FRAME_DRAWIO}" \
+  --kicad-svg "${KICAD_SVG}" \
+  --output "${SOURCE_DRAWIO}"
 
 python3 "${ROOT_DIR}/hardware/eda/tools/update_generated_element_list.py" \
   --input "${SOURCE_DRAWIO}" \
@@ -29,6 +41,13 @@ python3 "${ROOT_DIR}/hardware/eda/tools/update_generated_element_list.py" \
 python3 "${ROOT_DIR}/hardware/eda/tools/update_generated_title_block.py" \
   --input "${SOURCE_DRAWIO}" \
   --output "${SOURCE_DRAWIO}"
+
+python3 "${ROOT_DIR}/hardware/eda/tools/rebuild_generated_tables.py" \
+  --input "${SOURCE_DRAWIO}" \
+  --output "${SOURCE_DRAWIO}" \
+  --rules "${ROOT_DIR}/hardware/eda/table_geometry_rules.yaml" \
+  --report "${ROOT_DIR}/docs/bstu_table_geometry_report.md" \
+  --json-report "${ROOT_DIR}/build/reports/bstu_table_geometry.json"
 
 mkdir -p "${EXPORT_DIR}"
 cp "${SOURCE_DRAWIO}" "${DRAWIO_OUT}"

@@ -226,6 +226,59 @@ Current title-block update report:
 
 `build/reports/final-title-block-esp32-export/export_artifact_lint.json`
 
+## BSTU Table Geometry Rebuild
+
+The generated/final draw.io copies now rebuild the right-top List of Elements
+and right-bottom Title Block as generated table geometry. This checkpoint does
+not change KiCad topology, KiCad source, KiCad exports, the original school
+frame, refs, nets, or BOM content.
+
+Rules and reports:
+
+- Rules: `hardware/eda/table_geometry_rules.yaml`
+- Rebuilder and validator: `hardware/eda/tools/rebuild_generated_tables.py`
+- Geometry report: `docs/bstu_table_geometry_report.md`
+- JSON report: `build/reports/bstu_table_geometry.json`
+
+The export pipeline now runs:
+
+```bash
+python3 hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py
+python3 hardware/eda/tools/update_generated_element_list.py
+python3 hardware/eda/tools/update_generated_title_block.py
+python3 hardware/eda/tools/rebuild_generated_tables.py
+bash hardware/eda/tools/export_final_artifacts.sh
+```
+
+Measured List of Elements geometry:
+
+- x: `2558.18`
+- y: `10.43`
+- width: `730.0`
+- height: `1208.0`
+- column widths: `150.0 / 340.0 / 68.0 / 172.0`
+- minimum font size: `14 px`
+- bottom blank row removed
+- header is `Position number | Name | Qty | Note`
+
+Measured Title Block geometry:
+
+- x: `2555.18`
+- y: `2107.42`
+- width: `733.786`
+- height: `221.0`
+- minimum font size: `8 px`
+- required text includes `BSTU.241297.006 Э3`, `ESP32 Temperature Control Unit`,
+  `Electrical Schematic Diagram`, `Brest State Technical University`,
+  `Wang Gen`, `A1`, `N/A`, and `2026-05-20`
+
+Table geometry checks are now wired into export lint when the label contains
+`bstu-table-geometry`.
+
+Current table-geometry lint report:
+
+`build/reports/final-bstu-table-geometry-export/export_artifact_lint.json`
+
 ## ERC Status
 
 KiCad ERC was run with KiCad CLI 9.0.2 and passed with zero violations.
