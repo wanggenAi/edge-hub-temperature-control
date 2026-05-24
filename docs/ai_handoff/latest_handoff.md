@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-7c4f9847
+a6a46e71
 
 ## Current Branch
 main
@@ -10,23 +10,22 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active schematic workflow is KiCad-based: KiCad owns the middle electrical schematic, while draw.io owns the locked BSTU school frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Previous Reviewer Result
-- Previous web ChatGPT visual review result: `FAIL`
-- Automated checks were passing, but the human-style visual review rejected the drawing because the middle KiCad schematic was too scattered, too small, and visually fragmented.
-- Human approval status before this round: `NOT_APPROVED`
+- Web ChatGPT review after Visual Repair Round 1: `CONDITIONAL_PASS`
+- Human approval status after Visual Repair Round 1: `NEEDS_MINOR_REPAIR`
+- Reviewer requested only a focused KiCad middle-schematic composition polish, not a topology redesign and not a master-table edit.
 
 ## What Was Done In This Round
-- Performed `Visual Repair Round 1`.
-- Polished only KiCad schematic visual composition:
-  - moved functional blocks closer to `DD1`;
-  - compacted reset/EN, LED, BOOT, sensor/UART, heater, and power areas;
-  - shortened local wire/label distances while preserving real local wires;
-  - aligned the heater driver and power conversion sections more tightly;
-  - moved two visible property texts to avoid human-visible text/wire or text/pin crowding.
+- Performed `Visual Repair Round 2` focused KiCad composition polish.
+- Changed only KiCad schematic layout/label/wire/property coordinates and regenerated outputs.
+- DD1 right-side labels were staggered into clearer signal groups to reduce visual crowding.
+- XS4 was moved under XS1 so the sensor/UART area reads as one tighter right-side interface column.
+- C3/C4 were moved closer to A1 while preserving their original `+12V/GND` nets.
+- Heater/output area labels were separated so `GND`, `HEAT+`, `HEAT-`, `GATE_R`, and `+12V` are easier to read around VT1/XS2/XS5.
 - Regenerated KiCad SVG/PDF exports.
 - Re-embedded the KiCad SVG into the BSTU draw.io frame.
 - Regenerated final draw.io/SVG/PDF/PNG artifacts.
-- Regenerated the mandatory Visual Review Pack and layout audit crops.
-- Added `docs/visual_defect_register.md`.
+- Regenerated Visual Review Pack and layout audit crops.
+- Updated `docs/visual_defect_register.md` with Round 2 status.
 
 ## Strict No-Change Statement
 This round did not modify:
@@ -40,8 +39,8 @@ This round did not modify:
 - BOM content
 - confirmed refs
 - canonical net names
-- right-top List of Elements geometry/style/cell structure
-- right-bottom Title Block geometry/style/cell structure
+- right-top List of Elements geometry/style/cell structure/content
+- right-bottom Title Block geometry/style/cell structure/content
 - document code
 
 ## Automated Check Result
@@ -107,11 +106,11 @@ Finding crops:
 
 ## Visual Defect Register
 - Register path: `docs/visual_defect_register.md`
-- `WHOLE_SHEET_IMBALANCE`: in repair
-- `KICAD_BLOCK_FRAGMENTED`: in repair
-- `LOCAL_BLOCK_ISLAND_FEEL`: in repair
-- `SENSOR_UART_RELATION_WEAK`: in repair
-- `HEATER_POWER_PATH_WEAK`: in repair
+- `WHOLE_SHEET_IMBALANCE`: Round 2 repair applied
+- `KICAD_BLOCK_FRAGMENTED`: Round 2 repair applied
+- `LOCAL_BLOCK_ISLAND_FEEL`: Round 2 repair applied
+- `SENSOR_UART_RELATION_WEAK`: Round 2 repair applied
+- `HEATER_POWER_PATH_WEAK`: Round 2 repair applied
 - `ELEMENT_LIST_COMPRESSED`: needs master-table decision if reviewer still finds it unreadable
 - `TITLE_BLOCK_SMALL_FIELD_CROWDING`: needs master-table decision if reviewer still finds it unreadable
 
@@ -122,17 +121,17 @@ Finding crops:
   - Result: passed
 - `bash hardware/eda/tools/export_final_artifacts.sh`
   - Result: passed
-- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_visual_repair.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
+- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_visual_repair_round2.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
   - Result: `0` violations
-- `python3 hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py --jlc-netlist hardware/eda/jlc_netlist_altium.tel --kicad-schematic hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch --ref-mapping hardware/eda/ref_mapping.yaml --model hardware/eda/schematic_model.yaml --rules hardware/eda/net_equivalence_rules.yaml --json-report build/reports/jlc_kicad_netlist_equivalence_visual_repair.json --md-report docs/jlc_kicad_netlist_equivalence_report.md`
+- `python3 hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py --jlc-netlist hardware/eda/jlc_netlist_altium.tel --kicad-schematic hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch --ref-mapping hardware/eda/ref_mapping.yaml --model hardware/eda/schematic_model.yaml --rules hardware/eda/net_equivalence_rules.yaml --json-report build/reports/jlc_kicad_netlist_equivalence_visual_repair_round2.json --md-report docs/jlc_kicad_netlist_equivalence_report.md`
   - Result: `PASS`
-- `python3 hardware/eda/tools/validate_generated_tables_match_master.py --master hardware/eda/functiondiagramYUANLITU.drawio --candidate hardware/eda/functiondiagramYUANLITU.generated.drawio --final-candidate hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --report docs/bstu_master_table_lock_report.md --json-report build/reports/bstu_master_table_lock_visual_repair.json`
+- `python3 hardware/eda/tools/validate_generated_tables_match_master.py --master hardware/eda/functiondiagramYUANLITU.drawio --candidate hardware/eda/functiondiagramYUANLITU.generated.drawio --final-candidate hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --report docs/bstu_master_table_lock_report.md --json-report build/reports/bstu_master_table_lock_visual_repair_round2.json`
   - Result: `PASS`
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-bstu-table-geometry --reports-dir build/reports/final-visual-repair-export`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-bstu-table-geometry --reports-dir build/reports/final-visual-repair-round2-export`
   - Result: `0` errors
-- `python3 hardware/eda/tools/audit_final_schematic_layout.py --erc-report build/reports/kicad_schematic_erc_visual_repair.json --equivalence-report build/reports/jlc_kicad_netlist_equivalence_visual_repair.json --table-lock-report build/reports/bstu_master_table_lock_visual_repair.json --export-lint-report build/reports/final-visual-repair-export/export_artifact_lint.json --json-report build/reports/final_schematic_layout_audit.json --md-report docs/final_schematic_layout_audit_report.md --crops-dir hardware/eda/exports/final/layout_audit_crops`
+- `python3 hardware/eda/tools/audit_final_schematic_layout.py --erc-report build/reports/kicad_schematic_erc_visual_repair_round2.json --equivalence-report build/reports/jlc_kicad_netlist_equivalence_visual_repair_round2.json --table-lock-report build/reports/bstu_master_table_lock_visual_repair_round2.json --export-lint-report build/reports/final-visual-repair-round2-export/export_artifact_lint.json --json-report build/reports/final_schematic_layout_audit.json --md-report docs/final_schematic_layout_audit_report.md --crops-dir hardware/eda/exports/final/layout_audit_crops`
   - Result: `PASS`, `0` blockers, `0` warnings
-- `python3 hardware/eda/tools/create_final_schematic_review_package.py --lint-report build/reports/final-visual-repair-export/export_artifact_lint.json --erc-report build/reports/kicad_schematic_erc_visual_repair.json --table-lock-report build/reports/bstu_master_table_lock_visual_repair.json`
+- `python3 hardware/eda/tools/create_final_schematic_review_package.py --lint-report build/reports/final-visual-repair-round2-export/export_artifact_lint.json --erc-report build/reports/kicad_schematic_erc_visual_repair_round2.json --table-lock-report build/reports/bstu_master_table_lock_visual_repair_round2.json`
   - Result: review pack generated
 - `python3 -m pytest tests/test_bstu_master_table_lock.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_final_schematic_layout_audit.py tests/test_kicad_schematic_workflow.py -q`
   - Result: `33 passed`
@@ -152,19 +151,18 @@ Primary review entry point:
 - `docs/final_visual_review_index.md`
 
 Please review:
-1. Whole-sheet balance after KiCad block compaction.
-2. Whether DD1 now reads as the controller core with surrounding functional blocks.
-3. Reset/boot/LED local wiring readability.
-4. Sensor/UART connector grouping and relation to DD1.
-5. Heater/power path readability.
-6. List of Elements readability under locked master table geometry.
-7. Title Block readability under locked master title block geometry.
+1. Whether Visual Repair Round 2 resolves the minor repair request from the previous `CONDITIONAL_PASS` review.
+2. Whole-sheet balance after the tighter KiCad composition polish.
+3. DD1 right-side net-label grouping and readability.
+4. Sensor/UART grouping around XS1 and XS4.
+5. Heater/output and power block readability around VT1, XS2, XS5, XS3, A1, C3, and C4.
+6. Whether right-top List of Elements or right-bottom Title Block readability must be escalated to `NEEDS_MASTER_TABLE_EDIT` despite being locked to the master draw.io.
 
 ## Open Questions For ChatGPT Reviewer
-1. Does Visual Repair Round 1 resolve the previous `FAIL` enough to proceed, or is another visual repair round needed?
-2. Is the KiCad middle schematic still too label-island-heavy, or now acceptable for thesis draft insertion?
-3. Should `ELEMENT_LIST_COMPRESSED` be escalated to `NEEDS_MASTER_TABLE_EDIT`, given that table geometry is locked?
+1. Can the drawing now be marked `VISUAL_PASS_FOR_CHECKPOINT`, or is another small repair round required?
+2. If another round is required, give only focused KiCad middle schematic changes. Do not request topology/ref/net/BOM/master table changes unless there is a hard blocker.
+3. Should `ELEMENT_LIST_COMPRESSED` or `TITLE_BLOCK_SMALL_FIELD_CROWDING` be escalated to `NEEDS_MASTER_TABLE_EDIT`?
 4. What should the next Codex prompt be?
 
 ## Suggested Next Step
-Send the visual polish commit, this handoff, and the Visual Review Pack paths to the web ChatGPT reviewer. Continue only with the reviewer’s next focused prompt. Do not modify topology, refs, nets, BOM, master table geometry, or school frame unless a specific blocker is identified.
+Send the visual polish round 2 commit, this handoff, and the Visual Review Pack paths to the web ChatGPT reviewer. Continue only with the reviewer’s next focused prompt. Do not modify topology, refs, nets, BOM, master table geometry, or school frame unless a specific blocker is identified.
