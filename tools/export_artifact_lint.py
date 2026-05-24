@@ -629,19 +629,26 @@ def validate_bstu_table_geometry(drawio: Path, findings: list[Finding], label: s
     if not drawio.exists():
         error(findings, "DRAWIO_MISSING", str(drawio), "Final draw.io source is missing for BSTU table geometry validation")
         return payload
-    module_path = ROOT / "hardware/eda/tools/rebuild_generated_tables.py"
-    rules_path = ROOT / "hardware/eda/table_geometry_rules.yaml"
+    module_path = ROOT / "hardware/eda/tools/validate_generated_tables_match_master.py"
+    master_path = ROOT / "hardware/eda/functiondiagramYUANLITU.drawio"
     try:
-        spec = importlib.util.spec_from_file_location("rebuild_generated_tables", module_path)
+        spec = importlib.util.spec_from_file_location("validate_generated_tables_match_master", module_path)
         if spec is None or spec.loader is None:
-            raise RuntimeError("Could not load rebuild_generated_tables.py")
+            raise RuntimeError("Could not load validate_generated_tables_match_master.py")
         module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
-        rules = module.load_rules(rules_path)
-        tree = module.parse_drawio(drawio)
-        table_findings, summary = module.validate_tables(tree, rules)
-        payload["summary"] = summary
+        master = module.master_signature(master_path)
+        table_findings, summary = module.compare_candidate(master, drawio)
+        payload["summary"] = {
+            "status": "PASS" if not table_findings else "FAILED",
+            "master": {
+                "path": str(master_path),
+                "cell_count": master["cell_count"],
+                "geometry_hash": master["geometry_hash"],
+            },
+            "candidate": summary,
+        }
         payload["error_count"] = len(table_findings)
         for table_finding in table_findings:
             error(

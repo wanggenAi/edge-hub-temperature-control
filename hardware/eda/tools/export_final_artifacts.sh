@@ -42,12 +42,12 @@ python3 "${ROOT_DIR}/hardware/eda/tools/update_generated_title_block.py" \
   --input "${SOURCE_DRAWIO}" \
   --output "${SOURCE_DRAWIO}"
 
-python3 "${ROOT_DIR}/hardware/eda/tools/rebuild_generated_tables.py" \
-  --input "${SOURCE_DRAWIO}" \
-  --output "${SOURCE_DRAWIO}" \
-  --rules "${ROOT_DIR}/hardware/eda/table_geometry_rules.yaml" \
-  --report "${ROOT_DIR}/docs/bstu_table_geometry_report.md" \
-  --json-report "${ROOT_DIR}/build/reports/bstu_table_geometry.json"
+python3 "${ROOT_DIR}/hardware/eda/tools/validate_generated_tables_match_master.py" \
+  --master "${FRAME_DRAWIO}" \
+  --candidate "${SOURCE_DRAWIO}" \
+  --final-candidate "${SOURCE_DRAWIO}" \
+  --report "${ROOT_DIR}/docs/bstu_master_table_lock_report.md" \
+  --json-report "${ROOT_DIR}/build/reports/bstu_master_table_lock.json"
 
 mkdir -p "${EXPORT_DIR}"
 cp "${SOURCE_DRAWIO}" "${DRAWIO_OUT}"

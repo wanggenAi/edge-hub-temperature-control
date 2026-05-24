@@ -15,16 +15,18 @@ ROOT = Path(__file__).resolve().parents[3]
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 
 TITLE_BLOCK_TEXT_BY_ID = {
-    "pFFQBGnBG81xobuCz_b_-25": '<font style="font-size: 26px;">BSTU.241297.006 Э3</font>',
-    "pFFQBGnBG81xobuCz_b_-36": (
-        '<font style="font-size: 16px;"><b>ESP32 Temperature Control Unit</b><br>'
-        "Electrical Schematic Diagram</font>"
-    ),
-    "pFFQBGnBG81xobuCz_b_-24": '<font style="font-size: 8px;">Wang Gen</font>',
+    "pFFQBGnBG81xobuCz_b_-18": "Name",
+    "pFFQBGnBG81xobuCz_b_-19": "Sign",
+    "pFFQBGnBG81xobuCz_b_-20": "Date",
+    "pFFQBGnBG81xobuCz_b_-21": "Executed",
+    "pFFQBGnBG81xobuCz_b_-22": "Checked",
     "pFFQBGnBG81xobuCz_b_-23": "",
-    "pFFQBGnBG81xobuCz_b_-37": '<font style="font-size: 8px;">Sheet 1</font>',
-    "pFFQBGnBG81xobuCz_b_-38": '<font style="font-size: 8px;">Sheets 1</font>',
-    "pFFQBGnBG81xobuCz_b_-39": '<font style="font-size: 12px;">Brest State Technical University</font>',
+    "pFFQBGnBG81xobuCz_b_-24": "Wang Gen",
+    "pFFQBGnBG81xobuCz_b_-25": "BSTU.241297.006 Э3",
+    "pFFQBGnBG81xobuCz_b_-36": "ESP32 Temperature Control Unit\nElectrical Schematic Diagram",
+    "pFFQBGnBG81xobuCz_b_-37": "Sheet\n1",
+    "pFFQBGnBG81xobuCz_b_-38": "Sheets\n1",
+    "pFFQBGnBG81xobuCz_b_-39": "Brest State Technical University\nFormat A1\nScale N/A   Mass N/A\nDate 2026-05-20",
 }
 
 REQUIRED_EXISTING_TITLE_CELLS = set(TITLE_BLOCK_TEXT_BY_ID)
@@ -142,66 +144,16 @@ def update_existing_title_cells(root_cell: ET.Element) -> None:
         raise ValueError(f"Could not uniquely locate required title-block text cells: {', '.join(missing)}")
     for cell_id, value in TITLE_BLOCK_TEXT_BY_ID.items():
         cell = cells[cell_id]
-        cell.set("value", value)
-        cell.set("data-role", "generated_title_block_text")
-
-
-def add_text_cell(
-    root_cell: ET.Element,
-    *,
-    cell_id: str,
-    parent: str,
-    value: str,
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-    font_size: int,
-) -> None:
-    style = (
-        "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;"
-        f"fontFamily=Helvetica;fontSize={font_size};fontColor=#000000;labelBackgroundColor=none;spacing=1;"
-    )
-    cell = ET.SubElement(
-        root_cell,
-        "mxCell",
-        {
-            "id": cell_id,
-            "value": value,
-            "style": style,
-            "vertex": "1",
-            "parent": parent,
-            "data-role": "generated_title_block_text",
-        },
-    )
-    ET.SubElement(
-        cell,
-        "mxGeometry",
-        {
-            "x": f"{x:.3f}".rstrip("0").rstrip("."),
-            "y": f"{y:.3f}".rstrip("0").rstrip("."),
-            "width": f"{width:.3f}".rstrip("0").rstrip("."),
-            "height": f"{height:.3f}".rstrip("0").rstrip("."),
-            "as": "geometry",
-        },
-    )
-
-
-def add_generated_title_metadata(root_cell: ET.Element, group_cell: ET.Element) -> None:
-    parent = group_cell.get("id")
-    if not parent:
-        raise ValueError("Title-block group has no id")
-    add_text_cell(
-        root_cell,
-        cell_id="title_block.generated.metadata",
-        parent=parent,
-        value='<font style="font-size: 10px;">Format: A1<br>Scale: N/A&nbsp;&nbsp;&nbsp;Mass: N/A<br>Date: 2026-05-20</font>',
-        x=263.0,
-        y=162.0,
-        width=266.0,
-        height=56.0,
-        font_size=10,
-    )
+        escaped = html.escape(value).replace("\n", "<br>")
+        original_value = cell.get("value", "")
+        font_size_match = re.search(r"font-size:\s*([0-9.]+)px", original_value, flags=re.I)
+        if not value:
+            cell.set("value", "")
+        elif font_size_match:
+            tag = "span" if re.search(r"<span\b", original_value, flags=re.I) else "font"
+            cell.set("value", f'<{tag} style="font-size: {font_size_match.group(1)}px;">{escaped}</{tag}>')
+        else:
+            cell.set("value", escaped)
 
 
 def visible_title_text(root_cell: ET.Element, region: dict[str, float]) -> str:
@@ -234,10 +186,9 @@ def update_title_block(tree: ET.ElementTree) -> None:
     lock = json.loads(LOCK_FILE.read_text(encoding="utf-8"))
     region = lock["regions"]["title_block"]["bbox"]
     root_cell = find_root_cell(tree)
-    group_cell = find_title_block_group(root_cell, region)
+    find_title_block_group(root_cell, region)
     remove_previous_generated_title_cells(root_cell)
     update_existing_title_cells(root_cell)
-    add_generated_title_metadata(root_cell, group_cell)
     validate_title_text(root_cell, region)
 
 

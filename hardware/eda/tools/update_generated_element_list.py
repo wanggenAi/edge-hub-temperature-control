@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import html
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 MODEL_FILE = ROOT / "hardware/eda/schematic_model.yaml"
 KICAD_SCH = ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch"
+ELEMENT_PREFIX = "Evo6jcjRQjkPnHUFUJlg-"
 
 HEADER_TEXT = {"Position number", "Name", "Number", "Qty", "Note"}
 REQUIRED_REFS = {
@@ -76,6 +77,49 @@ ELEMENT_LIST_ROWS = [
     BomRow("group", name="Power Modules"),
     BomRow("item", "A1", "DC/DC converter 12 V to 3.3 V", "1", "LCSC"),
 ]
+
+ELEMENT_LIST_TEXT_BY_ID = {
+    "Evo6jcjRQjkPnHUFUJlg-6": "Position number",
+    "Evo6jcjRQjkPnHUFUJlg-7": "Name",
+    "Evo6jcjRQjkPnHUFUJlg-8": "Qty",
+    "Evo6jcjRQjkPnHUFUJlg-9": "Note",
+    "Evo6jcjRQjkPnHUFUJlg-12": "Capacitors",
+    "Evo6jcjRQjkPnHUFUJlg-13": "C1, C4; C2",
+    "Evo6jcjRQjkPnHUFUJlg-14": "Capacitor 0.1 uF / Capacitor 10 uF, C0603",
+    "Evo6jcjRQjkPnHUFUJlg-15": "3",
+    "Evo6jcjRQjkPnHUFUJlg-16": "Generic",
+    "Evo6jcjRQjkPnHUFUJlg-18": "C2",
+    "Evo6jcjRQjkPnHUFUJlg-19": "Capacitor 10 uF, C0603",
+    "Evo6jcjRQjkPnHUFUJlg-20": "1",
+    "Evo6jcjRQjkPnHUFUJlg-21": "Generic",
+    "Evo6jcjRQjkPnHUFUJlg-27": "Capacitor 100 uF, C0603",
+    "Evo6jcjRQjkPnHUFUJlg-26": "C3",
+    "Evo6jcjRQjkPnHUFUJlg-25": "Resistors",
+    "Evo6jcjRQjkPnHUFUJlg-28": "1",
+    "Evo6jcjRQjkPnHUFUJlg-30": "R1, R5, R6",
+    "Evo6jcjRQjkPnHUFUJlg-31": "Resistor 10 kOhm, R0603",
+    "Evo6jcjRQjkPnHUFUJlg-32": "3",
+    "Evo6jcjRQjkPnHUFUJlg-35": "Generic",
+    "Evo6jcjRQjkPnHUFUJlg-37": "R2, R3, R4",
+    "Evo6jcjRQjkPnHUFUJlg-38": "Resistor 4.7 kOhm / Resistor 330 Ohm / Resistor 100 Ohm, R0603",
+    "Evo6jcjRQjkPnHUFUJlg-39": "3",
+    "Evo6jcjRQjkPnHUFUJlg-40": "Generic",
+    "Evo6jcjRQjkPnHUFUJlg-42": "DD1, HL1, VT1",
+    "Evo6jcjRQjkPnHUFUJlg-43": "ESP32-WROOM-32 Wi-Fi module; Red LED; NMOS3400 N-channel MOSFET",
+    "Evo6jcjRQjkPnHUFUJlg-44": "3",
+    "Evo6jcjRQjkPnHUFUJlg-45": "Espressif / LCSC",
+    "Evo6jcjRQjkPnHUFUJlg-50": "SB1, SB2",
+    "Evo6jcjRQjkPnHUFUJlg-51": "Tact switch SMT 6x6x7.5",
+    "Evo6jcjRQjkPnHUFUJlg-52": "2",
+    "Evo6jcjRQjkPnHUFUJlg-53": "LCSC",
+    "Evo6jcjRQjkPnHUFUJlg-54": "XS1; XS2, XS3",
+    "Evo6jcjRQjkPnHUFUJlg-55": "XH-3PA 3-pin connector; KF2EDGV-3.81-2P connector",
+    "Evo6jcjRQjkPnHUFUJlg-56": "3",
+    "Evo6jcjRQjkPnHUFUJlg-57": "Espressif",
+    "Evo6jcjRQjkPnHUFUJlg-60": "XS4, XS5, A1",
+    "Evo6jcjRQjkPnHUFUJlg-61": "Header45.08-4P service connector; KF301-2P terminal connector; DC/DC converter 12 V to 3.3 V",
+    "Evo6jcjRQjkPnHUFUJlg-62": "3",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -173,47 +217,25 @@ def validate_bom_refs() -> None:
         raise ValueError(f"KiCad schematic is missing refs required by generated element list: {', '.join(missing_from_kicad)}")
 
 
-def find_element_list_frame(root_cell: ET.Element, region: dict[str, float]) -> ET.Element:
-    bboxes = absolute_bbox_by_id(root_cell)
-    candidates = []
-    for cell in root_cell:
-        cell_id = cell.get("id", "")
-        if not cell_id:
-            continue
-        rect = bboxes.get(cell_id)
-        if not rect or not overlaps_region(rect, region):
-            continue
-        x, y, width, height = rect
-        area_delta = abs(width - float(region["width"])) + abs(height - float(region["height"]))
-        if width > 600 and height > 1000:
-            candidates.append((area_delta, cell))
-    if not candidates:
-        raise ValueError("Could not locate the element-list frame cell")
-    return sorted(candidates, key=lambda item: item[0])[0][1]
-
-
-def clear_generated_element_list_text(root_cell: ET.Element, region: dict[str, float]) -> None:
-    bboxes = absolute_bbox_by_id(root_cell)
-    for cell in root_cell:
-        value = cell.get("value", "")
-        if not value:
-            continue
-        rect = bboxes.get(cell.get("id", ""))
-        if not rect or not overlaps_region(rect, region):
-            continue
-        if plain_text(value) in HEADER_TEXT:
-            continue
-        if "text;" not in cell.get("style", ""):
-            continue
-        cell.set("value", "")
-        cell.set("data-role", "legacy_element_list_text_cleared")
-
-
 def html_value(text: str, font_size: int, bold: bool = False) -> str:
     escaped = html.escape(text).replace("\n", "<br>")
     if bold:
         escaped = f"<b>{escaped}</b>"
     return f'<font style="font-size: {font_size}px;">{escaped}</font>'
+
+
+def replacement_value_preserving_master_markup(original_value: str, text: str) -> str:
+    """Replace visible text while preserving the master cell's basic text wrapper."""
+    if not text:
+        return ""
+    escaped = html.escape(text).replace("\n", "<br>")
+    font_size_match = re.search(r"font-size:\s*([0-9.]+)px", original_value or "", flags=re.I)
+    if not font_size_match:
+        return escaped
+    if re.search(r"<b\b", original_value or "", flags=re.I):
+        escaped = f"<b>{escaped}</b>"
+    tag = "span" if re.search(r"<span\b", original_value or "", flags=re.I) else "font"
+    return f'<{tag} style="font-size: {font_size_match.group(1)}px;">{escaped}</{tag}>'
 
 
 def add_text_cell(
@@ -268,74 +290,21 @@ def remove_previous_generated_bom_cells(root_cell: ET.Element) -> None:
             root_cell.remove(cell)
 
 
-def add_esp32_bom_text(root_cell: ET.Element, frame_cell: ET.Element) -> None:
-    frame_geom = frame_cell.find("mxGeometry")
-    if frame_geom is None:
-        raise ValueError("Element-list frame has no geometry")
-    parent = frame_cell.get("parent", "1")
-    table_x = float(frame_geom.get("x", "0") or 0)
-    table_y = float(frame_geom.get("y", "0") or 0)
-    table_height = float(frame_geom.get("height", "0") or 0)
-
-    columns = {
-        "refs": (table_x + 2, 148.0),
-        "name": (table_x + 151.0, 340.0),
-        "qty": (table_x + 491.0, 68.0),
-        "note": (table_x + 559.0, 169.0),
-    }
-    row_height = 52.0
-    y = table_y + 68.0
-    bottom_limit = table_y + table_height - 8.0
-    for index, row in enumerate(ELEMENT_LIST_ROWS, start=1):
-        if y + row_height > bottom_limit:
-            raise ValueError("ESP32 BOM rows do not fit inside the locked element-list frame")
-        if row.kind == "group":
-            x, width = columns["name"]
-            add_text_cell(
-                root_cell,
-                cell_id=f"element_list.generated.group.{index:02d}",
-                parent=parent,
-                value=row.name,
-                x=x,
-                y=y,
-                width=width,
-                height=row_height,
-                font_size=13,
-                role="generated_element_list_group",
-                bold=True,
-            )
-        else:
-            for column, value in (
-                ("refs", row.refs),
-                ("name", row.name),
-                ("qty", row.quantity),
-                ("note", row.note),
-            ):
-                x, width = columns[column]
-                add_text_cell(
-                    root_cell,
-                    cell_id=f"element_list.generated.row.{index:02d}.{column}",
-                    parent=parent,
-                    value=value,
-                    x=x,
-                    y=y,
-                    width=width,
-                    height=row_height,
-                    font_size=12,
-                    role="generated_element_list_text",
-                )
-        y += row_height
+def replace_master_element_list_text(root_cell: ET.Element) -> None:
+    cells = {cell.get("id", ""): cell for cell in root_cell if cell.get("id")}
+    missing = sorted(set(ELEMENT_LIST_TEXT_BY_ID) - set(cells))
+    if missing:
+        raise ValueError(f"Could not locate master element-list text cells: {', '.join(missing)}")
+    for cell_id, value in ELEMENT_LIST_TEXT_BY_ID.items():
+        cell = cells[cell_id]
+        cell.set("value", replacement_value_preserving_master_markup(cell.get("value", ""), value))
 
 
 def update_element_list(tree: ET.ElementTree) -> None:
     validate_bom_refs()
-    lock = json.loads(LOCK_FILE.read_text(encoding="utf-8"))
-    region = lock["regions"]["element_list"]["bbox"]
     root_cell = find_root_cell(tree)
-    frame_cell = find_element_list_frame(root_cell, region)
-    clear_generated_element_list_text(root_cell, region)
     remove_previous_generated_bom_cells(root_cell)
-    add_esp32_bom_text(root_cell, frame_cell)
+    replace_master_element_list_text(root_cell)
 
 
 def write_tree(tree: ET.ElementTree, output: Path) -> None:

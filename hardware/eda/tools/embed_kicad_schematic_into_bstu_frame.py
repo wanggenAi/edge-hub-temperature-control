@@ -27,6 +27,7 @@ GENERATED_IDS = (
     "kicad.schematic.background",
     "generated.schematic.root",
 )
+ELEMENT_LIST_CELL_PREFIX = "Evo6jcjRQjkPnHUFUJlg-"
 
 
 def parse_args() -> argparse.Namespace:
@@ -162,7 +163,7 @@ def root_with_locked_regions_only(tree: ET.ElementTree) -> ET.Element:
     element_bbox = regions.get("element_list", {}).get("bbox", {})
     if element_bbox:
         for cell_id, rect in bboxes.items():
-            if overlaps_region(rect, element_bbox):
+            if overlaps_region(rect, element_bbox) or cell_id.startswith(ELEMENT_LIST_CELL_PREFIX):
                 keep_ids.add(cell_id)
 
     old_cells = {cell.get("id", ""): cell for cell in old_root if cell.get("id")}

@@ -226,19 +226,30 @@ Current title-block update report:
 
 `build/reports/final-title-block-esp32-export/export_artifact_lint.json`
 
-## BSTU Table Geometry Rebuild
+## BSTU Master Table Lock
 
-The generated/final draw.io copies now rebuild the right-top List of Elements
-and right-bottom Title Block as generated table geometry. This checkpoint does
-not change KiCad topology, KiCad source, KiCad exports, the original school
-frame, refs, nets, or BOM content.
+The project now treats the right-top List of Elements and right-bottom Title
+Block in `hardware/eda/functiondiagramYUANLITU.drawio` as the only accepted
+table standard. Generated and final drawings may replace text values inside the
+existing table cells, but they must not change table geometry, line width, row
+or column structure, font/alignment metadata, outer frame, or cell IDs.
 
-Rules and reports:
+This is intentionally different from the previous generated-table rebuild
+checkpoint. The rebuild script and separate table-rule YAML were removed because
+they allowed a second table definition to compete with the master draw.io file.
 
-- Rules: `hardware/eda/table_geometry_rules.yaml`
-- Rebuilder and validator: `hardware/eda/tools/rebuild_generated_tables.py`
-- Geometry report: `docs/bstu_table_geometry_report.md`
-- JSON report: `build/reports/bstu_table_geometry.json`
+Current implementation:
+
+- Text replacement only:
+  - `hardware/eda/tools/update_generated_element_list.py`
+  - `hardware/eda/tools/update_generated_title_block.py`
+- Master table lock validator:
+  - `hardware/eda/tools/validate_generated_tables_match_master.py`
+- Regression tests:
+  - `tests/test_bstu_master_table_lock.py`
+- Reports:
+  - `docs/bstu_master_table_lock_report.md`
+  - `build/reports/bstu_master_table_lock.json`
 
 The export pipeline now runs:
 
@@ -246,38 +257,38 @@ The export pipeline now runs:
 python3 hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py
 python3 hardware/eda/tools/update_generated_element_list.py
 python3 hardware/eda/tools/update_generated_title_block.py
-python3 hardware/eda/tools/rebuild_generated_tables.py
+python3 hardware/eda/tools/validate_generated_tables_match_master.py
 bash hardware/eda/tools/export_final_artifacts.sh
 ```
 
-Measured List of Elements geometry:
+The validator compares all master table `mxCell` attributes except `value`,
+plus all `mxGeometry` attributes and geometry child points. Therefore a changed
+line width, alignment, font metadata, table position, row/column line, parent,
+edge/vertex flag, cell ID, or extra/missing table cell fails the check. Only
+approved text-cell `value` changes are allowed.
 
-- x: `2558.18`
-- y: `10.43`
-- width: `730.0`
-- height: `1208.0`
-- column widths: `150.0 / 340.0 / 68.0 / 172.0`
-- minimum font size: `14 px`
-- bottom blank row removed
-- header is `Position number | Name | Qty | Note`
+Current master-lock result:
 
-Measured Title Block geometry:
+- Master table cell count: `101`
+- Generated table cell count: `101`
+- Final table cell count: `101`
+- Generated geometry matches master: `true`
+- Final geometry matches master: `true`
+- Geometry hash:
+  `34ef44b8ced36aa76933db11fa585bb5d57ca868ab93e5d2f95193670983edf0`
+- Value-only changed cells per candidate: `36`
 
-- x: `2555.18`
-- y: `2107.42`
-- width: `733.786`
-- height: `221.0`
-- minimum font size: `8 px`
-- required text includes `BSTU.241297.006 Э3`, `ESP32 Temperature Control Unit`,
-  `Electrical Schematic Diagram`, `Brest State Technical University`,
-  `Wang Gen`, `A1`, `N/A`, and `2026-05-20`
+Because the master List of Elements has a fixed row count, the ESP32 BOM is
+merged into the existing master rows instead of adding rows or changing the
+table body. This preserves the master table exactly while keeping all required
+ESP32 refs and descriptions visible in the final SVG/PDF/PNG.
 
-Table geometry checks are now wired into export lint when the label contains
+Table-lock checks are wired into export lint when the label contains
 `bstu-table-geometry`.
 
-Current table-geometry lint report:
+Current table-lock lint report:
 
-`build/reports/final-bstu-table-geometry-export/export_artifact_lint.json`
+`build/reports/final-master-table-lock-export/export_artifact_lint.json`
 
 ## ERC Status
 
