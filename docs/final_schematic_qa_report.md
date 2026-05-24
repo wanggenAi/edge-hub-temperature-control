@@ -13,10 +13,10 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 ## Automated Checks
 
 - KiCad ERC: `PASSED`; violations `0`, errors `0`, warnings `0`
-- KiCad ERC report: `build/reports/kicad_schematic_erc_visual_repair.json`
+- KiCad ERC report: `build/reports/kicad_schematic_erc_visual_repair_round2.json`
 - Pytest: `33 passed in focused schematic/table/audit suite`
 - Export lint errors: `0`
-- Export lint report: `build/reports/final-visual-repair-export/export_artifact_lint.json`
+- Export lint report: `build/reports/final-visual-repair-round2-export/export_artifact_lint.json`
 - Required school refs present: `True`
 - Canonical nets present: `True`
 - Forbidden refs/stale nets absent: `True`
@@ -24,7 +24,7 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - KiCad symbol/project diff clean: `True`
 - KiCad schematic source may change only for reviewed layout, wire-route, net-label, and property-text coordinates.
 - Master table lock passed: `True`
-- Master table lock report: `build/reports/bstu_master_table_lock_visual_repair.json`
+- Master table lock report: `build/reports/bstu_master_table_lock_visual_repair_round2.json`
 
 ## KiCad Block Placement
 

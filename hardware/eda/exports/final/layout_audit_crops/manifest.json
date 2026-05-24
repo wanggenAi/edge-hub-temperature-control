@@ -7,9 +7,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_dd1_esp32_core_block.png",
       "pixel_box": [
         945,
-        671,
+        690,
         2401,
-        1892
+        1984
       ]
     },
     {
@@ -18,9 +18,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_reset_en_block.png",
       "pixel_box": [
         62,
-        671,
+        690,
         840,
-        1576
+        1649
       ]
     },
     {
@@ -29,9 +29,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_boot_block.png",
       "pixel_box": [
         1284,
-        1921,
+        2015,
         2061,
-        2827
+        2975
       ]
     },
     {
@@ -40,9 +40,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_led_block.png",
       "pixel_box": [
         130,
-        1459,
+        1526,
         2129,
-        2136
+        2243
       ]
     },
     {
@@ -51,9 +51,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_ds18b20_sensor_block.png",
       "pixel_box": [
         2370,
-        291,
+        287,
         3826,
-        1130
+        1177
       ]
     },
     {
@@ -61,10 +61,10 @@
       "name": "UART/service block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_uart_service_block.png",
       "pixel_box": [
-        2574,
-        753,
-        3351,
-        1484
+        3049,
+        776,
+        3826,
+        1551
       ]
     },
     {
@@ -73,9 +73,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_heater_driver_block.png",
       "pixel_box": [
         2438,
-        1432,
+        1497,
         4844,
-        2517
+        2646
       ]
     },
     {
@@ -84,9 +84,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/block_power_block.png",
       "pixel_box": [
         2302,
-        2193,
+        2303,
         4233,
-        3495
+        3511
       ]
     },
     {
@@ -95,9 +95,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png",
       "pixel_box": [
         3072,
-        2278,
+        2379,
         3880,
-        2777
+        2904
       ]
     },
     {
@@ -106,9 +106,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png",
       "pixel_box": [
         1391,
-        939,
+        969,
         2315,
-        1749
+        1822
       ]
     },
     {
@@ -117,9 +117,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png",
       "pixel_box": [
         1681,
-        1596,
+        1660,
         2083,
-        1964
+        2048
       ]
     },
     {
@@ -128,9 +128,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_VT1.png",
       "pixel_box": [
         3304,
-        1619,
+        1686,
         3648,
-        1988
+        2074
       ]
     },
     {
@@ -139,9 +139,9 @@
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_XS1.png",
       "pixel_box": [
         3188,
-        711,
+        729,
         3532,
-        1079
+        1117
       ]
     },
     {
@@ -149,10 +149,10 @@
       "ref": "XS4",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_XS4.png",
       "pixel_box": [
-        2782,
-        973,
-        3126,
-        1390
+        3188,
+        1005,
+        3532,
+        1444
       ]
     }
   ]

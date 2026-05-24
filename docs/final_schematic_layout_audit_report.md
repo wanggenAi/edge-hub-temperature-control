@@ -18,7 +18,7 @@
 ## KiCad Geometry Metrics
 
 - Symbols: `21`
-- Wires: `75`
+- Wires: `73`
 - Global labels: `57`
 - Junctions: `0`
 - Diagonal wires: `0`
@@ -61,7 +61,7 @@
 - Nets: `+3V3, GND, EN, LED, BOOT, GATE, DQ, RXD0, TXD0`
 - Symbol count: `1`
 - Wire count near block: `11`
-- Label count near block: `13`
+- Label count near block: `6`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_dd1_esp32_core_block.png`
 
@@ -120,8 +120,8 @@
 - Refs: `R4, R5, VT1, XS2, XS5`
 - Nets: `GATE, GATE_R, HEAT+, HEAT-, +12V, GND`
 - Symbol count: `5`
-- Wire count near block: `19`
-- Label count near block: `11`
+- Wire count near block: `17`
+- Label count near block: `12`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_heater_driver_block.png`
 
