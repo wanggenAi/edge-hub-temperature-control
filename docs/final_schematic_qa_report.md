@@ -13,26 +13,26 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 ## Automated Checks
 
 - KiCad ERC: `PASSED`; violations `0`, errors `0`, warnings `0`
-- KiCad ERC report: `build/reports/kicad_schematic_erc_visual_repair_round2.json`
+- KiCad ERC report: `build/reports/kicad_schematic_erc_layout_audit.json`
 - Pytest: `33 passed in focused schematic/table/audit suite`
 - Export lint errors: `0`
-- Export lint report: `build/reports/final-visual-repair-round2-export/export_artifact_lint.json`
+- Export lint report: `build/reports/final-jlc-style-layout-export/export_artifact_lint.json`
 - Required school refs present: `True`
 - Canonical nets present: `True`
 - Forbidden refs/stale nets absent: `True`
 - Source frame diff clean: `True`
 - KiCad symbol/project diff clean: `True`
-- KiCad schematic source may change only for reviewed layout, wire-route, net-label, and property-text coordinates.
+- KiCad schematic source is unchanged in this JLC-style workflow and is used only for topology verification.
 - Master table lock passed: `True`
-- Master table lock report: `build/reports/bstu_master_table_lock_visual_repair_round2.json`
+- Master table lock report: `build/reports/bstu_master_table_lock_jlc_style_layout.json`
 
-## KiCad Block Placement
+## JLC-Style Schematic Block Placement
 
-- Embed bbox: `{'x': 191.0, 'y': 178.0, 'width': 2070.0, 'height': 1440.0}`
-- Main width share: `0.835`
-- Main height share: `0.686`
-- Gap to List of Elements: `297.18` SVG units
-- Gap to Title Block: `489.42` SVG units
+- Embed bbox: `{'x': 171.0, 'y': 448.0, 'width': 2100.0, 'height': 1180.0}`
+- Main width share: `0.847`
+- Main height share: `0.562`
+- Gap to List of Elements: `287.18` SVG units
+- Gap to Title Block: `479.42` SVG units
 
 ## List Of Elements
 
@@ -66,6 +66,7 @@ whether the merged BOM text remains readable under the locked master table.
 
 - `overview`: `hardware/eda/exports/final/review_crops/overview.png`
 - `kicad_block`: `hardware/eda/exports/final/review_crops/kicad_block.png`
+- `jlc_style_block`: `hardware/eda/exports/final/review_crops/jlc_style_block.png`
 - `dd1_area`: `hardware/eda/exports/final/review_crops/dd1_area.png`
 - `reset_boot_led_area`: `hardware/eda/exports/final/review_crops/reset_boot_led_area.png`
 - `sensor_uart_area`: `hardware/eda/exports/final/review_crops/sensor_uart_area.png`
@@ -80,4 +81,4 @@ whether the merged BOM text remains readable under the locked master table.
 ## Conclusion
 
 No automated blocker is recorded in this QA package if all booleans above are `True`, export lint reports `0`, and ERC is `PASSED`.
-The user still needs to visually inspect the review crops and final PDF/PNG before thesis insertion.
+Visual Review PASS is not claimed until the review crops and final PDF/PNG are inspected by ChatGPT/user.

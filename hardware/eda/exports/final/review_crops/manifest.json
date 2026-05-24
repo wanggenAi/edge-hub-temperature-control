@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-24T17:47:41",
+  "created_at": "2026-05-24T19:10:31",
   "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
   "source_svg": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg",
   "source_png_width_px": 6433,
@@ -11,10 +11,16 @@
     "height": 2326.0
   },
   "kicad_embed_bbox": {
-    "x": 191.0,
-    "y": 178.0,
-    "width": 2070.0,
-    "height": 1440.0
+    "x": 171.0,
+    "y": 448.0,
+    "width": 2100.0,
+    "height": 1180.0
+  },
+  "jlc_style_embed_bbox": {
+    "x": 171.0,
+    "y": 448.0,
+    "width": 2100.0,
+    "height": 1180.0
   },
   "reserved_regions": {
     "outer_frame": {
@@ -42,9 +48,10 @@
       "bottom": 2328.42
     }
   },
-  "lint_report": "build/reports/final-visual-repair-round2-export/export_artifact_lint.json",
-  "erc_report": "build/reports/kicad_schematic_erc_visual_repair_round2.json",
-  "table_lock_report": "build/reports/bstu_master_table_lock_visual_repair_round2.json",
+  "lint_report": "build/reports/final-jlc-style-layout-export/export_artifact_lint.json",
+  "erc_report": "build/reports/kicad_schematic_erc_layout_audit.json",
+  "layout_audit_report": "build/reports/jlc_style_layout_audit.json",
+  "table_lock_report": "build/reports/bstu_master_table_lock_jlc_style_layout.json",
   "qa_report": "docs/final_schematic_qa_report.md",
   "visual_review_index": "docs/final_visual_review_index.md",
   "checks": {
@@ -112,8 +119,6 @@
         "+12V",
         "GND",
         "EN",
-        "LED",
-        "LED_A",
         "DQ",
         "RXD0",
         "TXD0",
@@ -123,25 +128,25 @@
         "HEAT+",
         "HEAT-"
       ],
-      "purpose": "Whole-sheet visual review: frame, title block, element list, KiCad block placement, and overall balance.",
-      "focus": "Check that nothing is cropped, no UI artifacts exist, and the KiCad block does not overlap the tables."
+      "purpose": "Whole-sheet visual review: frame, title block, element list, JLC-style schematic block placement, and overall balance.",
+      "focus": "Check that nothing is cropped, no UI artifacts exist, and the JLC-style schematic block does not overlap the tables."
     },
     {
       "name": "kicad_block",
       "path": "hardware/eda/exports/final/review_crops/kicad_block.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 191.0,
-        "y": 178.0,
-        "width": 2070.0,
-        "height": 1440.0
+        "x": 171.0,
+        "y": 448.0,
+        "width": 2100.0,
+        "height": 1180.0
       },
       "margin_svg_units": 40.0,
       "pixel_box": {
-        "x": 303,
-        "y": 277,
-        "width": 4301,
-        "height": 3041
+        "x": 263,
+        "y": 817,
+        "width": 4361,
+        "height": 2521
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -172,8 +177,6 @@
         "+12V",
         "GND",
         "EN",
-        "LED",
-        "LED_A",
         "DQ",
         "RXD0",
         "TXD0",
@@ -183,25 +186,83 @@
         "HEAT+",
         "HEAT-"
       ],
-      "purpose": "Middle schematic review.",
-      "focus": "Check symbol readability, orthogonal wires, text placement, and functional block spacing."
+      "purpose": "Legacy middle-block crop kept for backwards-compatible scripts.",
+      "focus": "Prefer jlc_style_block for the current visual review."
+    },
+    {
+      "name": "jlc_style_block",
+      "path": "hardware/eda/exports/final/review_crops/jlc_style_block.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+      "svg_box": {
+        "x": 171.0,
+        "y": 448.0,
+        "width": 2100.0,
+        "height": 1180.0
+      },
+      "margin_svg_units": 40.0,
+      "pixel_box": {
+        "x": 263,
+        "y": 817,
+        "width": 4361,
+        "height": 2521
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "DD1",
+        "VT1",
+        "HL1",
+        "SB1",
+        "SB2",
+        "A1",
+        "XS1",
+        "XS2",
+        "XS3",
+        "XS4",
+        "XS5",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "related_nets": [
+        "+3V3",
+        "+12V",
+        "GND",
+        "EN",
+        "DQ",
+        "RXD0",
+        "TXD0",
+        "BOOT",
+        "GATE",
+        "GATE_R",
+        "HEAT+",
+        "HEAT-"
+      ],
+      "purpose": "JLC-style middle schematic review.",
+      "focus": "Check that the middle circuit keeps the original JLC symbol style while using school refs and canonical net names."
     },
     {
       "name": "dd1_area",
       "path": "hardware/eda/exports/final/review_crops/dd1_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 542.9000000000001,
-        "y": 422.8,
-        "width": 869.4,
-        "height": 547.2
+        "x": 528.0,
+        "y": 648.6,
+        "width": 882.0,
+        "height": 448.4
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 1043,
-        "y": 803,
-        "width": 1827,
-        "height": 1183
+        "x": 1013,
+        "y": 1255,
+        "width": 1852,
+        "height": 985
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -226,17 +287,17 @@
       "path": "hardware/eda/exports/final/review_crops/reset_boot_led_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 191.0,
-        "y": 638.8,
-        "width": 890.1,
-        "height": 720.0
+        "x": 171.0,
+        "y": 825.6,
+        "width": 903.0,
+        "height": 590.0
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 339,
-        "y": 1235,
-        "width": 1869,
-        "height": 1529
+        "x": 299,
+        "y": 1609,
+        "width": 1894,
+        "height": 1268
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -263,17 +324,17 @@
       "path": "hardware/eda/exports/final/review_crops/sensor_uart_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1081.1,
-        "y": 178.0,
-        "width": 786.6,
-        "height": 576.0
+        "x": 1074.0,
+        "y": 448.0,
+        "width": 798.0,
+        "height": 472.0
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2120,
-        "y": 313,
-        "width": 1661,
-        "height": 1241
+        "x": 2105,
+        "y": 853,
+        "width": 1685,
+        "height": 1033
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -296,17 +357,17 @@
       "path": "hardware/eda/exports/final/review_crops/heater_power_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1122.5,
-        "y": 667.6,
-        "width": 1138.5,
-        "height": 950.4000000000001
+        "x": 1116.0,
+        "y": 849.2,
+        "width": 1155.0,
+        "height": 778.8000000000001
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2202,
-        "y": 1293,
-        "width": 2366,
-        "height": 1989
+        "x": 2189,
+        "y": 1656,
+        "width": 2399,
+        "height": 1646
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -337,17 +398,17 @@
       "path": "hardware/eda/exports/final/review_crops/power_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1226.0,
-        "y": 1157.2,
-        "width": 890.1,
-        "height": 460.8
+        "x": 1221.0,
+        "y": 1250.4,
+        "width": 903.0,
+        "height": 377.6
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2409,
-        "y": 2272,
-        "width": 1869,
-        "height": 1010
+        "x": 2399,
+        "y": 2459,
+        "width": 1895,
+        "height": 843
       },
       "automated_status": "PASS",
       "related_refs": [

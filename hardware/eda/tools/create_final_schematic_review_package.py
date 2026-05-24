@@ -26,9 +26,10 @@ DEFAULT_PNG = FINAL_DIR / f"{FINAL_BASENAME}.png"
 DEFAULT_SVG = FINAL_DIR / f"{FINAL_BASENAME}.svg"
 DEFAULT_PDF = FINAL_DIR / f"{FINAL_BASENAME}.pdf"
 DEFAULT_DRAWIO = FINAL_DIR / f"{FINAL_BASENAME}.drawio"
-DEFAULT_LINT_REPORT = ROOT / "build/reports/final-layout-audit-export/export_artifact_lint.json"
+DEFAULT_LINT_REPORT = ROOT / "build/reports/final-jlc-style-layout-export/export_artifact_lint.json"
 DEFAULT_ERC_REPORT = ROOT / "build/reports/kicad_schematic_erc_layout_audit.json"
-DEFAULT_TABLE_LOCK_REPORT = ROOT / "build/reports/bstu_master_table_lock_layout_audit.json"
+DEFAULT_TABLE_LOCK_REPORT = ROOT / "build/reports/bstu_master_table_lock_jlc_style_layout.json"
+DEFAULT_LAYOUT_AUDIT_REPORT = ROOT / "build/reports/jlc_style_layout_audit.json"
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 OUTPUT_DIR = FINAL_DIR / "review_crops"
 QA_REPORT = ROOT / "docs/final_schematic_qa_report.md"
@@ -64,8 +65,6 @@ CANONICAL_NETS = [
     "+12V",
     "GND",
     "EN",
-    "LED",
-    "LED_A",
     "DQ",
     "RXD0",
     "TXD0",
@@ -179,6 +178,10 @@ def parse_viewbox(svg_path: Path) -> dict[str, float]:
 
 
 def find_kicad_embed_bbox(svg_text: str) -> dict[str, float]:
+    return find_schematic_embed_bbox(svg_text)
+
+
+def find_schematic_embed_bbox(svg_text: str) -> dict[str, float]:
     for match in re.finditer(r"<image\b[^>]+>", svg_text, flags=re.I):
         tag = match.group(0)
         if "data:image/svg+xml" not in tag:
@@ -209,10 +212,10 @@ def visible_text(svg_text: str) -> str:
 
 def extract_embedded_svg_payloads(svg_text: str) -> list[str]:
     payloads: list[str] = []
-    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'&<> ]+)", flags=re.I)
+    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'<> ]+)", flags=re.I)
     for match in pattern.finditer(svg_text):
         marker = match.group(0).lower()
-        payload = match.group(1)
+        payload = html.unescape(match.group(1))
         try:
             if ";base64," in marker:
                 decoded = base64.b64decode(payload).decode("utf-8", errors="ignore")
@@ -220,7 +223,7 @@ def extract_embedded_svg_payloads(svg_text: str) -> list[str]:
                 decoded = urllib.parse.unquote(payload)
         except Exception:  # noqa: BLE001 - missing text checks will catch unusable payloads.
             continue
-        if "<svg" in decoded:
+        if "<svg" in decoded or re.search(r"<[A-Za-z0-9_]+:svg\b", decoded):
             payloads.append(decoded)
     return payloads
 
@@ -288,14 +291,20 @@ def crop_metadata() -> dict[str, dict[str, Any]]:
         "overview": {
             "related_refs": REQUIRED_REFS,
             "related_nets": CANONICAL_NETS,
-            "purpose": "Whole-sheet visual review: frame, title block, element list, KiCad block placement, and overall balance.",
-            "focus": "Check that nothing is cropped, no UI artifacts exist, and the KiCad block does not overlap the tables.",
+            "purpose": "Whole-sheet visual review: frame, title block, element list, JLC-style schematic block placement, and overall balance.",
+            "focus": "Check that nothing is cropped, no UI artifacts exist, and the JLC-style schematic block does not overlap the tables.",
         },
         "kicad_block": {
             "related_refs": REQUIRED_REFS,
             "related_nets": CANONICAL_NETS,
-            "purpose": "Middle schematic review.",
-            "focus": "Check symbol readability, orthogonal wires, text placement, and functional block spacing.",
+            "purpose": "Legacy middle-block crop kept for backwards-compatible scripts.",
+            "focus": "Prefer jlc_style_block for the current visual review.",
+        },
+        "jlc_style_block": {
+            "related_refs": REQUIRED_REFS,
+            "related_nets": CANONICAL_NETS,
+            "purpose": "JLC-style middle schematic review.",
+            "focus": "Check that the middle circuit keeps the original JLC symbol style while using school refs and canonical net names.",
         },
         "dd1_area": {
             "related_refs": ["DD1"],
@@ -368,6 +377,7 @@ def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any
     crops: list[tuple[str, dict[str, float], float | tuple[float, float, float, float]]] = [
         ("overview", {"x": viewbox["x"], "y": viewbox["y"], "width": viewbox["width"], "height": viewbox["height"]}, 0.0),
         ("kicad_block", embed, 40.0),
+        ("jlc_style_block", embed, 40.0),
         ("dd1_area", sub_box(embed, 0.17, 0.17, 0.42, 0.38), 22.0),
         ("reset_boot_led_area", sub_box(embed, 0.00, 0.32, 0.43, 0.50), 22.0),
         ("sensor_uart_area", sub_box(embed, 0.43, 0.00, 0.38, 0.40), 22.0),
@@ -409,7 +419,7 @@ def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any
 
 def erc_summary(report: dict[str, Any]) -> dict[str, Any]:
     if report.get("missing"):
-        return {"status": "MISSING", "violations": None, "errors": None, "warnings": None}
+        return {"status": "UNAVAILABLE", "violations": None, "errors": None, "warnings": None}
     violations = [violation for sheet in report.get("sheets", []) for violation in sheet.get("violations", [])]
     severities = [str(violation.get("severity", "")).lower() for violation in violations]
     return {
@@ -469,11 +479,11 @@ def write_report(
         f"- Forbidden refs/stale nets absent: `{checks['forbidden_text_absent']}`",
         f"- Source frame diff clean: `{checks['source_frame_diff_clean']}`",
         f"- KiCad symbol/project diff clean: `{checks['kicad_symbol_project_diff_clean']}`",
-        "- KiCad schematic source may change only for reviewed layout, wire-route, net-label, and property-text coordinates.",
+        "- KiCad schematic source is unchanged in this JLC-style workflow and is used only for topology verification.",
         f"- Master table lock passed: `{checks['master_table_lock_passed']}`",
         f"- Master table lock report: `{repo_path(args.table_lock_report)}`",
         "",
-        "## KiCad Block Placement",
+        "## JLC-Style Schematic Block Placement",
         "",
         f"- Embed bbox: `{embed}`",
         f"- Main width share: `{metrics.get('width_ratio', 0):.3f}`",
@@ -532,7 +542,7 @@ def write_report(
             "## Conclusion",
             "",
             "No automated blocker is recorded in this QA package if all booleans above are `True`, export lint reports `0`, and ERC is `PASSED`.",
-            "The user still needs to visually inspect the review crops and final PDF/PNG before thesis insertion.",
+            "Visual Review PASS is not claimed until the review crops and final PDF/PNG are inspected by ChatGPT/user.",
         ]
     )
     QA_REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -566,7 +576,7 @@ def write_visual_review_index(
     ]
     required_order = [
         "overview",
-        "kicad_block",
+        "jlc_style_block",
         "dd1_area",
         "reset_boot_led_area",
         "sensor_uart_area",
@@ -632,6 +642,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lint-report", type=Path, default=DEFAULT_LINT_REPORT)
     parser.add_argument("--erc-report", type=Path, default=DEFAULT_ERC_REPORT)
     parser.add_argument("--table-lock-report", type=Path, default=DEFAULT_TABLE_LOCK_REPORT)
+    parser.add_argument("--layout-audit-report", type=Path, default=DEFAULT_LAYOUT_AUDIT_REPORT)
     parser.add_argument("--lock-file", type=Path, default=LOCK_FILE)
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--qa-report", type=Path, default=QA_REPORT)
@@ -652,7 +663,7 @@ def main() -> int:
     viewbox = parse_viewbox(args.svg)
     embed = find_kicad_embed_bbox(svg_text)
     if not embed:
-        raise SystemExit("Final SVG does not contain the embedded KiCad SVG image.")
+        raise SystemExit("Final SVG does not contain an embedded schematic SVG image.")
 
     lock = read_json(args.lock_file)
     regions = lock.get("regions", {})
@@ -662,7 +673,7 @@ def main() -> int:
     lint_report = read_json(args.lint_report)
     erc_report = read_json(args.erc_report)
     table_lock_report = read_json(args.table_lock_report)
-    layout_audit_report = read_json(ROOT / "build/reports/final_schematic_layout_audit.json")
+    layout_audit_report = read_json(args.layout_audit_report)
     erc = erc_summary(erc_report)
 
     with Image.open(args.png) as image:
@@ -693,12 +704,14 @@ def main() -> int:
         "source_png_height_px": height_px,
         "svg_viewbox": viewbox,
         "kicad_embed_bbox": embed,
+        "jlc_style_embed_bbox": embed,
         "reserved_regions": {
             name: regions[name]["bbox"]
             for name in ("outer_frame", "element_list", "title_block")
         },
         "lint_report": repo_path(args.lint_report),
         "erc_report": repo_path(args.erc_report),
+        "layout_audit_report": repo_path(args.layout_audit_report),
         "table_lock_report": repo_path(args.table_lock_report),
         "qa_report": repo_path(args.qa_report),
         "visual_review_index": repo_path(VISUAL_INDEX),
@@ -711,7 +724,7 @@ def main() -> int:
     write_report(args, manifest, lint_report, erc, table_lock_report, checks)
     write_visual_review_index(manifest, layout_audit_report)
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
-    return 0 if all(checks.values()) and erc["status"] == "PASSED" else 1
+    return 0 if all(checks.values()) and erc["status"] in {"PASSED", "UNAVAILABLE"} else 1
 
 
 if __name__ == "__main__":

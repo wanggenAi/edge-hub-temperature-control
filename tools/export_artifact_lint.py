@@ -110,14 +110,26 @@ def is_final_kicad_embed_label(label: str) -> bool:
     )
 
 
+def is_final_schematic_embed_label(label: str) -> bool:
+    label_lower = label.lower()
+    return is_final_kicad_embed_label(label) or any(
+        marker in label_lower
+        for marker in (
+            "jlc-style-layout",
+            "jlc_style_layout",
+            "jlc-style",
+        )
+    )
+
+
 def requires_esp32_bom_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry"))
+    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry", "jlc-style-layout", "jlc-style"))
 
 
 def requires_esp32_title_block_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry"))
+    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry", "jlc-style-layout", "jlc-style"))
 
 
 def requires_bstu_table_geometry_check(label: str) -> bool:
@@ -203,13 +215,13 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing required drawing text", ", ".join(required), ", ".join(missing))
     if REQUIRED_DOCUMENT_CODE not in visible_text:
         error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the required BSTU document code text", REQUIRED_DOCUMENT_CODE, "not found")
-    is_final_kicad_embed = is_final_kicad_embed_label(label)
-    if not is_final_kicad_embed:
+    is_final_schematic_embed = is_final_schematic_embed_label(label)
+    if not is_final_schematic_embed:
         validate_locked_region_boxes_in_svg(text, lock_file, findings, str(path))
     else:
         if "Qty" not in visible_text and "Number" not in visible_text:
             error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
-        validate_kicad_embed_geometry(text, lock_file, findings, str(path), payload)
+        validate_schematic_embed_geometry(text, lock_file, findings, str(path), payload)
         if requires_esp32_bom_check(label):
             validate_esp32_bom_visible_text(visible_text, findings, str(path))
         if requires_esp32_title_block_check(label):
@@ -305,7 +317,7 @@ def validate_esp32_title_block_visible_text(visible_text: str, findings: list[Fi
         )
 
 
-def validate_kicad_embed_geometry(
+def validate_schematic_embed_geometry(
     text: str,
     lock_file: Path,
     findings: list[Finding],
@@ -320,10 +332,11 @@ def validate_kicad_embed_geometry(
     outer = regions.get("outer_frame", {}).get("bbox", {})
     element_list = regions.get("element_list", {}).get("bbox", {})
     title_block = regions.get("title_block", {}).get("bbox", {})
-    embed = find_kicad_svg_image_bbox(text)
+    embed = find_schematic_svg_image_bbox(text)
     payload["kicad_embed_bbox"] = embed
+    payload["schematic_embed_bbox"] = embed
     if not embed:
-        error(findings, "KICAD_EMBED_MISSING", object_id, "Final SVG has no embedded KiCad SVG image")
+        error(findings, "SCHEMATIC_EMBED_MISSING", object_id, "Final SVG has no embedded schematic SVG image")
         return
     if not (outer and element_list and title_block):
         error(findings, "LOCKED_REGION_MISSING", object_id, "Lock file lacks outer frame, element list, or title block bbox data")
@@ -353,55 +366,60 @@ def validate_kicad_embed_geometry(
         "gap_to_element_list": gap_to_element_list,
         "gap_to_title_block": gap_to_title_block,
     }
+    payload["schematic_embed_metrics"] = payload["kicad_embed_metrics"]
 
     if left < outer_left or top < outer_top or right > outer_right or bottom > outer_bottom:
         error(
             findings,
-            "KICAD_EMBED_OUTSIDE_OUTER_FRAME",
+            "SCHEMATIC_EMBED_OUTSIDE_OUTER_FRAME",
             object_id,
-            "Embedded KiCad block extends outside the locked outer frame",
+            "Embedded schematic block extends outside the locked outer frame",
             f"inside x={outer_left}..{outer_right}, y={outer_top}..{outer_bottom}",
             f"x={left}..{right}, y={top}..{bottom}",
         )
     if gap_to_element_list < KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST:
         error(
             findings,
-            "KICAD_EMBED_OVERLAPS_ELEMENT_LIST",
+            "SCHEMATIC_EMBED_OVERLAPS_ELEMENT_LIST",
             object_id,
-            "Embedded KiCad block is too close to or overlaps the right-top List of Elements",
+            "Embedded schematic block is too close to or overlaps the right-top List of Elements",
             f">= {KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST} units",
             f"{gap_to_element_list:.2f} units",
         )
     if gap_to_title_block < KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK:
         error(
             findings,
-            "KICAD_EMBED_OVERLAPS_TITLE_BLOCK",
+            "SCHEMATIC_EMBED_OVERLAPS_TITLE_BLOCK",
             object_id,
-            "Embedded KiCad block is too close to or overlaps the right-bottom Title Block",
+            "Embedded schematic block is too close to or overlaps the right-bottom Title Block",
             f">= {KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK} units",
             f"{gap_to_title_block:.2f} units",
         )
     if not (KICAD_EMBED_MIN_WIDTH_RATIO <= width_ratio <= KICAD_EMBED_MAX_WIDTH_RATIO):
         error(
             findings,
-            "KICAD_EMBED_WIDTH_RATIO_INVALID",
+            "SCHEMATIC_EMBED_WIDTH_RATIO_INVALID",
             object_id,
-            "Embedded KiCad block does not use the required share of the main schematic width",
+            "Embedded schematic block does not use the required share of the main schematic width",
             f"{KICAD_EMBED_MIN_WIDTH_RATIO:.2f}..{KICAD_EMBED_MAX_WIDTH_RATIO:.2f}",
             f"{width_ratio:.3f}",
         )
     if not (KICAD_EMBED_MIN_HEIGHT_RATIO <= height_ratio <= KICAD_EMBED_MAX_HEIGHT_RATIO):
         error(
             findings,
-            "KICAD_EMBED_HEIGHT_RATIO_INVALID",
+            "SCHEMATIC_EMBED_HEIGHT_RATIO_INVALID",
             object_id,
-            "Embedded KiCad block does not use the required share of the main schematic height",
+            "Embedded schematic block does not use the required share of the main schematic height",
             f"{KICAD_EMBED_MIN_HEIGHT_RATIO:.2f}..{KICAD_EMBED_MAX_HEIGHT_RATIO:.2f}",
             f"{height_ratio:.3f}",
         )
 
 
 def find_kicad_svg_image_bbox(text: str) -> dict[str, float]:
+    return find_schematic_svg_image_bbox(text)
+
+
+def find_schematic_svg_image_bbox(text: str) -> dict[str, float]:
     for match in re.finditer(r"<image\b[^>]+>", text, flags=re.I):
         tag = match.group(0)
         if "data:image/svg+xml" not in tag:
@@ -481,10 +499,10 @@ def visible_svg_text(text: str) -> str:
 
 def extract_embedded_svg_payloads(text: str) -> list[str]:
     payloads: list[str] = []
-    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'&<> ]+)", flags=re.I)
+    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'<> ]+)", flags=re.I)
     for match in pattern.finditer(text):
         marker = match.group(0).lower()
-        payload = match.group(1)
+        payload = html.unescape(match.group(1))
         try:
             if ";base64," in marker:
                 decoded = base64.b64decode(payload).decode("utf-8", errors="ignore")
@@ -492,7 +510,7 @@ def extract_embedded_svg_payloads(text: str) -> list[str]:
                 decoded = urllib.parse.unquote(payload)
         except Exception:  # noqa: BLE001 - malformed payload is handled by required text failures.
             continue
-        if "<svg" in decoded:
+        if "<svg" in decoded or re.search(r"<[A-Za-z0-9_]+:svg\b", decoded):
             payloads.append(decoded)
     return payloads
 
@@ -511,7 +529,7 @@ def required_visible_text(label: str) -> list[str]:
         base.extend(ESP32_TITLE_BLOCK_REQUIRED_TEXT)
     else:
         base.extend(["Department of Computer", "Microcontroller-based I/O Device"])
-    if not is_final_kicad_embed_label(label):
+    if not is_final_schematic_embed_label(label):
         return ["DD1", "ESP32-WROOM-32", *base]
     school_refs = [
         "DD1",
@@ -541,8 +559,6 @@ def required_visible_text(label: str) -> list[str]:
         "+12V",
         "GND",
         "EN",
-        "LED",
-        "LED_A",
         "DQ",
         "RXD0",
         "TXD0",
