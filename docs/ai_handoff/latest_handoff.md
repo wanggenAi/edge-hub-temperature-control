@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-b835e621
+fdf79ea7
 
 ## Current Branch
 main
@@ -10,72 +10,87 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active schematic workflow is KiCad-based: KiCad owns the middle electrical schematic, while draw.io owns the BSTU school frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Workflow State
-- Current round target: JLC schematic faithful redraw + KiCad engineering beautification.
-- JLC schematic/netlist remains the topology and module-structure source of truth.
+- Current round target: JLC `.tel` to KiCad netlist topology equivalence audit.
+- Previous JLC-faithful KiCad redraw checkpoint `b835e621` remains conditional-pass pending reviewer approval.
 - The old draw.io auto-generated middle schematic remains deprecated.
-- KiCad schematic source was adjusted only for local wiring/layout clarity.
-- Original school frame source `hardware/eda/functiondiagramYUANLITU.drawio` remains unchanged.
-- KiCad symbol library and KiCad project file remain unchanged.
-- Right-top List of Elements content, right-bottom Title Block content, document code, BOM, confirmed refs, and canonical net names remain unchanged.
+- This round did not modify KiCad schematic source, KiCad symbol library, KiCad project file, school frame, generated/final artifacts, refs, nets, BOM, List of Elements, or Title Block.
 
 ## What Was Done In This Round
-- Added local true wire continuity to reduce label-only schematic islands in the KiCad middle schematic.
-- Kept cross-region connections on canonical net labels where long wires would reduce readability.
-- Preserved the confirmed school designators:
-  - `DD1`, `VT1`, `HL1`, `SB1`, `SB2`, `A1`
-  - `XS1`, `XS2`, `XS3`, `XS4`, `XS5`
-  - `R1-R6`, `C1-C4`
-- Preserved canonical nets:
-  - `+3V3`, `+12V`, `GND`, `EN`, `LED`, `LED_A`, `DQ`, `RXD0`, `TXD0`, `BOOT`, `GATE`, `GATE_R`, `HEAT+`, `HEAT-`
-- Added regression tests requiring local JLC-faithful wire segments to stay present.
-- Added export-lint support for the `final-jlc-faithful-kicad-redraw` validation label.
-- Regenerated KiCad SVG/PDF and final BSTU-frame draw.io/SVG/PDF/PNG artifacts.
+- Added a read-only JLC/KiCad topology equivalence checker:
+  - `hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py`
+- Added explicit normalization rules:
+  - `hardware/eda/net_equivalence_rules.yaml`
+- Added regression tests:
+  - `tests/test_jlc_kicad_netlist_equivalence.py`
+- Generated the human-readable equivalence report:
+  - `docs/jlc_kicad_netlist_equivalence_report.md`
+- Updated the KiCad schematic workflow documentation with the new audit checkpoint.
+
+## Equivalence Audit Result
+PASS.
+
+The checker compares JLC `.tel` component-pin membership against KiCad XML netlist component-pin membership after applying confirmed ref mappings, canonical net mappings, and documented pin aliases for symbol/footprint orientation differences.
+
+Summary:
+- JLC raw nets parsed: `15`
+- JLC canonical nets compared: `14`
+- KiCad nets compared: `14`
+- JLC component-pin connections: `57`
+- KiCad component-pin connections: `57`
+- Mapped refs: `21`
+- Mapped nets: `15`
+- Unmapped refs: `0`
+- Unmapped nets: `0`
+- Blockers: `0`
+- Warnings: `0`
+
+Reports:
+- JSON: `build/reports/jlc_kicad_netlist_equivalence.json`
+- Markdown: `docs/jlc_kicad_netlist_equivalence_report.md`
+
+## Validation Performed
+- `python3 -m pytest tests/test_jlc_kicad_netlist_equivalence.py -q`
+  - Result: `6 passed`
+- `python3 -m pytest tests/test_kicad_schematic_workflow.py -q`
+  - Result: `16 passed`
+- `python3 -m py_compile hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py tests/test_jlc_kicad_netlist_equivalence.py tools/export_artifact_lint.py tests/test_kicad_schematic_workflow.py`
+  - Result: passed
+- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_netlist_equivalence_check.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
+  - Result: `0` violations
+- `python3 hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py --jlc-netlist hardware/eda/jlc_netlist_altium.tel --kicad-schematic hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch --ref-mapping hardware/eda/ref_mapping.yaml --model hardware/eda/schematic_model.yaml --rules hardware/eda/net_equivalence_rules.yaml --json-report build/reports/jlc_kicad_netlist_equivalence.json --md-report docs/jlc_kicad_netlist_equivalence_report.md`
+  - Result: `PASS`
+- Diff guards:
+  - `hardware/eda/functiondiagramYUANLITU.drawio`: clean
+  - `hardware/eda/functiondiagramYUANLITU.generated.drawio`: clean
+  - `hardware/eda/exports/final/*`: clean
+  - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`: clean
+  - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym`: clean
+  - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro`: clean
+  - `hardware/kicad_schematic/exports/*`: clean
 
 ## Files Changed In This Round
-- `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
-- `hardware/kicad_schematic/exports/esp32_temperature_control_unit_schematic.svg`
-- `hardware/kicad_schematic/exports/esp32_temperature_control_unit_schematic.pdf`
-- `hardware/eda/functiondiagramYUANLITU.generated.drawio`
-- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`
-- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
-- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
-- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- `tools/export_artifact_lint.py`
-- `tests/test_kicad_schematic_workflow.py`
+- `hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py`
+- `hardware/eda/net_equivalence_rules.yaml`
+- `tests/test_jlc_kicad_netlist_equivalence.py`
+- `docs/jlc_kicad_netlist_equivalence_report.md`
 - `docs/kicad_schematic_workflow.md`
 - `docs/ai_handoff/latest_handoff.md`
 
 ## Files Intentionally Not Changed
 - `hardware/eda/functiondiagramYUANLITU.drawio`
+- `hardware/eda/functiondiagramYUANLITU.generated.drawio`
+- `hardware/eda/exports/final/*`
+- `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro`
-- Right-top List of Elements content
-- Right-bottom Title Block content
+- `hardware/kicad_schematic/exports/*`
+- Right-top List of Elements
+- Right-bottom Title Block
 - Document code
 - BOM content
 - Confirmed refs and canonical net names
+- Schematic topology
 - Unrelated dirty files
-
-## Validation Performed
-- `python3 -m pytest tests/test_kicad_schematic_workflow.py -q`
-  - Result: `16 passed`
-- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_jlc_faithful_redraw.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
-  - Result: `0` violations, `0` errors, `0` warnings
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-jlc-faithful-kicad-redraw --reports-dir build/reports/final-jlc-faithful-kicad-redraw-export`
-  - Result: passed, `0` errors
-- `git diff --quiet -- hardware/eda/functiondiagramYUANLITU.drawio`
-  - Result: clean
-- `git diff --quiet -- hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym`
-  - Result: clean
-- `git diff --quiet -- hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro`
-  - Result: clean
-
-## Final Artifacts
-- Final editable draw.io: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`
-- Final SVG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
-- Final PDF: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
-- Final PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Final PNG resolution: `6431 x 4654 px`
 
 ## ERC Status
 PASSED.
@@ -84,23 +99,20 @@ KiCad CLI was available:
 `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli`
 
 ERC report:
-`build/reports/kicad_schematic_erc_jlc_faithful_redraw.json`
+`build/reports/kicad_schematic_erc_netlist_equivalence_check.json`
 
 Summary:
 - Total ERC violations: `0`
-- Errors: `0`
-- Warnings: `0`
 
 ## Remaining Risks / Human Review Points
-1. This is a JLC-faithful KiCad engineering redraw checkpoint, not a final human-approved drawing.
-2. The user still needs to inspect the final PNG/PDF for thesis insertion aesthetics.
-3. The right-top List of Elements and right-bottom Title Block were intentionally preserved and not redesigned in this round.
-4. No unresolved electrical connection blocker is recorded in this round.
+1. This round proves JLC/KiCad topology equivalence under documented alias rules, but it is not a final human-approved drawing.
+2. The final PDF/PNG still needs visual inspection for thesis insertion aesthetics.
+3. The right-top List of Elements and right-bottom Title Block geometry remain a separate reviewer concern from the electrical topology audit.
 
 ## Open Questions For ChatGPT
-1. Does the JLC-faithful local-wiring redraw improve the previous label-only schematic enough for the next checkpoint?
-2. Should the next round focus on visual spacing/crop review, or should it add a stricter netlist-equivalence checker that compares JLC `.tel` to KiCad XML netlist while respecting symbol-pin abstractions?
-3. Is any further KiCad layout polish needed before thesis insertion?
+1. With JLC/KiCad topology equivalence now passing, should the next checkpoint focus on final visual engineering QA, table geometry, or manual PDF/PNG crop review?
+2. Are the documented pin aliases acceptable as proof of intentional symbol/footprint orientation differences?
+3. Should the equivalence checker be wired into a broader schematic check script in a later round?
 
 ## Suggested Next Step
-Send this commit and handoff to ChatGPT reviewer. Apply only focused reviewer feedback in the next round.
+Send commit `fdf79ea7` and this handoff to ChatGPT reviewer. If the reviewer accepts the topology audit, proceed only to the next focused visual/table checkpoint; do not change topology unless a reviewer or user identifies a specific confirmed mismatch.
