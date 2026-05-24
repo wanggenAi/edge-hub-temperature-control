@@ -9,6 +9,7 @@ reports, and cuts evidence crops from the already exported final PNG.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import math
 import os
@@ -17,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import urllib.parse
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +30,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_KICAD = ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch"
+DEFAULT_KICAD_SVG = ROOT / "hardware/kicad_schematic/exports/esp32_temperature_control_unit_schematic.svg"
 DEFAULT_FINAL_SVG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg"
 DEFAULT_FINAL_PNG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png"
 DEFAULT_FINAL_DRAWIO = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio"
@@ -76,6 +79,9 @@ REQUIRED_REFS = [
 ]
 
 CANONICAL_NETS = ["+3V3", "+12V", "GND", "EN", "LED", "LED_A", "DQ", "RXD0", "TXD0", "BOOT", "GATE", "GATE_R", "HEAT+", "HEAT-"]
+PROPERTY_TEXT_REVIEW_REFS = ["A1", "DD1", "HL1", "VT1", "XS1", "XS4"]
+PROPERTY_TEXT_BODY_CLEARANCE_MM = 0.4
+PROPERTY_TEXT_WIRE_CLEARANCE_MM = 0.5
 
 
 Point = tuple[float, float]
@@ -145,9 +151,19 @@ class Label:
     font_size: Point
 
 
+@dataclass
+class RenderedText:
+    value: str
+    anchor: Point
+    bbox: BBox
+    font_size: float
+    source: str
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Audit final schematic layout without modifying drawing artifacts.")
     parser.add_argument("--kicad-schematic", type=Path, default=DEFAULT_KICAD)
+    parser.add_argument("--kicad-svg", type=Path, default=DEFAULT_KICAD_SVG)
     parser.add_argument("--final-svg", type=Path, default=DEFAULT_FINAL_SVG)
     parser.add_argument("--final-png", type=Path, default=DEFAULT_FINAL_PNG)
     parser.add_argument("--final-drawio", type=Path, default=DEFAULT_FINAL_DRAWIO)
@@ -397,6 +413,11 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def as_repo_path(path: Path) -> str:
+    absolute = path if path.is_absolute() else ROOT / path
+    return str(absolute.relative_to(ROOT))
+
+
 def erc_status(report: dict[str, Any]) -> dict[str, Any]:
     violations = [violation for sheet in report.get("sheets", []) for violation in sheet.get("violations", [])]
     return {"status": "PASS" if not violations and not report.get("missing") else "FAIL", "violations": len(violations)}
@@ -421,10 +442,241 @@ def image_crop_box_from_kicad_bbox(kicad_box: BBox, kicad_overall: BBox, embed: 
     return (max(0, left), max(0, top), min(image.width, right), min(image.height, bottom))
 
 
+def image_crop_box_from_embedded_kicad_bbox(
+    kicad_box: BBox,
+    embedded_viewbox: dict[str, float],
+    embed: dict[str, float],
+    svg_viewbox: dict[str, float],
+    image: Image.Image,
+    margin_mm: float = 4.0,
+) -> tuple[int, int, int, int]:
+    view_x = embedded_viewbox["x"]
+    view_y = embedded_viewbox["y"]
+    view_w = embedded_viewbox["width"]
+    view_h = embedded_viewbox["height"]
+    svg_box = {
+        "x": embed["x"] + (kicad_box[0] - margin_mm - view_x) * embed["width"] / view_w,
+        "y": embed["y"] + (kicad_box[1] - margin_mm - view_y) * embed["height"] / view_h,
+        "width": (kicad_box[2] - kicad_box[0] + 2 * margin_mm) * embed["width"] / view_w,
+        "height": (kicad_box[3] - kicad_box[1] + 2 * margin_mm) * embed["height"] / view_h,
+    }
+    px_per_svg_x = image.width / svg_viewbox["width"]
+    px_per_svg_y = image.height / svg_viewbox["height"]
+    left = round((svg_box["x"] - svg_viewbox["x"]) * px_per_svg_x)
+    top = round((svg_box["y"] - svg_viewbox["y"]) * px_per_svg_y)
+    right = round((svg_box["x"] + svg_box["width"] - svg_viewbox["x"]) * px_per_svg_x)
+    bottom = round((svg_box["y"] + svg_box["height"] - svg_viewbox["y"]) * px_per_svg_y)
+    return (max(0, left), max(0, top), min(image.width, right), min(image.height, bottom))
+
+
 def parse_svg_viewbox(svg_path: Path) -> dict[str, float]:
     root = ET.fromstring(svg_path.read_text(encoding="utf-8", errors="ignore"))
     values = [float(value) for value in root.get("viewBox", "0 0 0 0").split()]
     return {"x": values[0], "y": values[1], "width": values[2], "height": values[3]}
+
+
+def parse_svg_viewbox_from_text(svg_text: str) -> dict[str, float] | None:
+    match = re.search(r'\bviewBox="([^"]+)"', svg_text)
+    if not match:
+        return None
+    values = [float(value) for value in match.group(1).split()]
+    if len(values) != 4:
+        return None
+    return {"x": values[0], "y": values[1], "width": values[2], "height": values[3]}
+
+
+def extract_embedded_svg_payloads(svg_text: str) -> list[str]:
+    payloads: list[str] = []
+    pattern = re.compile(r"data:image/svg\+xml(?:;base64)?,([^\"'&<> ]+)", flags=re.I)
+    for match in pattern.finditer(svg_text):
+        marker = match.group(0).lower()
+        payload = match.group(1)
+        try:
+            if ";base64," in marker:
+                decoded = base64.b64decode(payload).decode("utf-8", errors="ignore")
+            else:
+                decoded = urllib.parse.unquote(payload)
+        except Exception:  # noqa: BLE001 - unusable payloads are simply ignored.
+            continue
+        if "<svg" in decoded:
+            payloads.append(decoded)
+    return payloads
+
+
+def parse_rendered_texts(svg_text: str, source: str) -> list[RenderedText]:
+    """Return rendered text bboxes from KiCad SVG stroked text groups.
+
+    KiCad emits an invisible <text> node followed by a stroked path group with
+    a <desc> containing the same text. The path coordinates are the best
+    machine-readable approximation of the actual rendered glyph extents.
+    """
+
+    rendered: list[RenderedText] = []
+    pattern = re.compile(r"<text\s+([^>]*)>(.*?)</text>\s*<g class=\"stroked-text\"><desc>(.*?)</desc>(.*?)</g>", re.S)
+    for match in pattern.finditer(svg_text):
+        attrs = match.group(1)
+        text_value = re.sub(r"\s+", " ", match.group(2)).strip()
+        desc_value = re.sub(r"\s+", " ", match.group(3)).strip()
+        group = match.group(4)
+        value = text_value or desc_value
+        attr_map = dict(re.findall(r'\b([A-Za-z_:][-A-Za-z0-9_:.]*)="([^"]*)"', attrs))
+        try:
+            x = float(attr_map.get("x", "0"))
+            y = float(attr_map.get("y", "0"))
+            font_size = float(attr_map.get("font-size", "0"))
+        except ValueError:
+            continue
+        points: list[Point] = []
+        for path_data in re.findall(r'<path\s+d="([^"]+)"', group, re.S):
+            values = [float(value) for value in re.findall(r"[-+]?\d+(?:\.\d+)?", path_data)]
+            points.extend((values[index], values[index + 1]) for index in range(0, len(values) - 1, 2))
+        if points:
+            bbox = (min(point[0] for point in points), min(point[1] for point in points), max(point[0] for point in points), max(point[1] for point in points))
+        else:
+            text_length = float(attr_map.get("textLength", "0") or 0)
+            anchor = attr_map.get("text-anchor", "start")
+            if anchor == "middle":
+                bbox = (x - text_length / 2, y - font_size, x + text_length / 2, y + 0.2 * font_size)
+            elif anchor == "end":
+                bbox = (x - text_length, y - font_size, x, y + 0.2 * font_size)
+            else:
+                bbox = (x, y - font_size, x + text_length, y + 0.2 * font_size)
+        rendered.append(RenderedText(value=value, anchor=(x, y), bbox=bbox, font_size=font_size, source=source))
+    return rendered
+
+
+def parse_kicad_rendered_texts(kicad_svg: Path, final_svg: Path) -> list[RenderedText]:
+    texts: list[RenderedText] = []
+    if kicad_svg.exists():
+        texts.extend(parse_rendered_texts(kicad_svg.read_text(encoding="utf-8", errors="ignore"), as_repo_path(kicad_svg)))
+    if final_svg.exists():
+        final_text = final_svg.read_text(encoding="utf-8", errors="ignore")
+        for index, payload in enumerate(extract_embedded_svg_payloads(final_text), start=1):
+            texts.extend(parse_rendered_texts(payload, f"{as_repo_path(final_svg)}#embedded-svg-{index}"))
+    return texts
+
+
+def parse_embedded_kicad_viewbox(final_svg: Path) -> dict[str, float] | None:
+    if not final_svg.exists():
+        return None
+    payloads = extract_embedded_svg_payloads(final_svg.read_text(encoding="utf-8", errors="ignore"))
+    for payload in payloads:
+        viewbox = parse_svg_viewbox_from_text(payload)
+        if viewbox:
+            return viewbox
+    return None
+
+
+def box_clearance_to_box(text_box: BBox, symbol_box: BBox) -> tuple[float, str]:
+    tx1, ty1, tx2, ty2 = text_box
+    sx1, sy1, sx2, sy2 = symbol_box
+    if sx1 <= tx1 and tx2 <= sx2 and sy1 <= ty1 and ty2 <= sy2:
+        return min(tx1 - sx1, sx2 - tx2, ty1 - sy1, sy2 - ty2), "inside_body"
+    dx = max(sx1 - tx2, tx1 - sx2, 0.0)
+    dy = max(sy1 - ty2, ty1 - sy2, 0.0)
+    if dx == 0.0 and dy == 0.0:
+        overlap_x = min(tx2, sx2) - max(tx1, sx1)
+        overlap_y = min(ty2, sy2) - max(ty1, sy1)
+        return -min(overlap_x, overlap_y), "boundary_overlap"
+    return math.hypot(dx, dy), "outside_body"
+
+
+def segment_distance_to_box(box: BBox, start: Point, end: Point) -> float:
+    x1, y1, x2, y2 = box
+    sx, sy = start
+    ex, ey = end
+    if math.isclose(sx, ex, abs_tol=1e-9):
+        x = sx
+        seg_y1, seg_y2 = sorted((sy, ey))
+        if x1 <= x <= x2 and max(y1, seg_y1) <= min(y2, seg_y2):
+            return 0.0
+        dx = 0.0 if x1 <= x <= x2 else min(abs(x - x1), abs(x - x2))
+        dy = 0.0 if max(y1, seg_y1) <= min(y2, seg_y2) else min(abs(y1 - seg_y2), abs(seg_y1 - y2))
+        return math.hypot(dx, dy)
+    if math.isclose(sy, ey, abs_tol=1e-9):
+        y = sy
+        seg_x1, seg_x2 = sorted((sx, ex))
+        if y1 <= y <= y2 and max(x1, seg_x1) <= min(x2, seg_x2):
+            return 0.0
+        dx = 0.0 if max(x1, seg_x1) <= min(x2, seg_x2) else min(abs(x1 - seg_x2), abs(seg_x1 - x2))
+        dy = 0.0 if y1 <= y <= y2 else min(abs(y - y1), abs(y - y2))
+        return math.hypot(dx, dy)
+    # The diagonal-wire check reports these elsewhere; keep this conservative.
+    return min(distance((x1, y1), start), distance((x2, y2), end))
+
+
+def nearest_wire_clearance(box: BBox, wires: list[Wire]) -> float:
+    distances = [segment_distance_to_box(box, start, end) for wire in wires for start, end in zip(wire.points, wire.points[1:])]
+    return min(distances) if distances else math.inf
+
+
+def estimate_text_bbox(prop: PropertyText) -> BBox:
+    font_width = prop.font_size[0] if prop.font_size[0] else 1.27
+    font_height = prop.font_size[1] if prop.font_size[1] else 1.27
+    width = max(font_width, len(prop.value) * font_width * 0.55)
+    return (prop.at[0] - width / 2, prop.at[1] - font_height * 0.78, prop.at[0] + width / 2, prop.at[1] + font_height * 0.22)
+
+
+def find_rendered_property_text(prop: PropertyText, rendered_texts: list[RenderedText]) -> RenderedText | None:
+    candidates = [text for text in rendered_texts if text.value == prop.value]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda text: distance(((text.bbox[0] + text.bbox[2]) / 2, (text.bbox[1] + text.bbox[3]) / 2), prop.at))
+
+
+def assess_property_text_spacing(symbols: list[SymbolInstance], wires: list[Wire], rendered_texts: list[RenderedText]) -> dict[str, Any]:
+    symbol_by_ref = {symbol.ref: symbol for symbol in symbols}
+    rows: list[dict[str, Any]] = []
+    unresolved: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    for ref in PROPERTY_TEXT_REVIEW_REFS:
+        symbol = symbol_by_ref.get(ref)
+        if not symbol:
+            unresolved.append({"ref": ref, "reason": "symbol_not_found"})
+            continue
+        for property_name in ("Reference", "Value"):
+            prop = symbol.properties.get(property_name)
+            if prop is None or prop.hidden:
+                continue
+            rendered = find_rendered_property_text(prop, rendered_texts)
+            if rendered is not None:
+                text_bbox = rendered.bbox
+                source = rendered.source
+                method = "kicad_svg_stroked_text_bbox"
+            else:
+                text_bbox = estimate_text_bbox(prop)
+                source = "kicad_schematic_property_anchor"
+                method = "estimated_from_property_font"
+            body_clearance, relation = box_clearance_to_box(text_bbox, symbol.bbox)
+            wire_clearance = nearest_wire_clearance(text_bbox, wires)
+            body_ok = body_clearance >= PROPERTY_TEXT_BODY_CLEARANCE_MM
+            wire_ok = wire_clearance >= PROPERTY_TEXT_WIRE_CLEARANCE_MM
+            status = "PASS" if body_ok and wire_ok and method != "estimated_from_property_font" else "FAIL"
+            if method == "estimated_from_property_font":
+                status = "UNRESOLVED"
+                unresolved.append({"ref": ref, "property": property_name, "reason": "rendered_svg_text_bbox_unavailable"})
+            row = {
+                "ref": ref,
+                "property": property_name,
+                "text": prop.value,
+                "method": method,
+                "source": source,
+                "property_anchor_mm": {"x": round(prop.at[0], 4), "y": round(prop.at[1], 4)},
+                "text_bbox_mm": {"x1": round(text_bbox[0], 4), "y1": round(text_bbox[1], 4), "x2": round(text_bbox[2], 4), "y2": round(text_bbox[3], 4)},
+                "symbol_body_bbox_mm": {"x1": round(symbol.bbox[0], 4), "y1": round(symbol.bbox[1], 4), "x2": round(symbol.bbox[2], 4), "y2": round(symbol.bbox[3], 4)},
+                "relation_to_symbol_body": relation,
+                "body_clearance_mm": round(body_clearance, 4),
+                "body_clearance_threshold_mm": PROPERTY_TEXT_BODY_CLEARANCE_MM,
+                "nearest_wire_clearance_mm": round(wire_clearance, 4) if not math.isinf(wire_clearance) else None,
+                "wire_clearance_threshold_mm": PROPERTY_TEXT_WIRE_CLEARANCE_MM,
+                "status": status,
+            }
+            rows.append(row)
+            if status == "FAIL":
+                failures.append(row)
+    overall = "FAIL" if failures or unresolved else "PASS"
+    resolution = "FIXED_BY_TEXT_PROPERTY_MOVE" if overall == "PASS" else "FAIL_WITH_BLOCKERS"
+    return {"status": overall, "resolution": resolution, "rows": rows, "failures": failures, "unresolved": unresolved}
 
 
 def make_finding(
@@ -490,7 +742,13 @@ def is_endpoint_connected(endpoint: Point, connect_points: list[Point], toleranc
     return nearest_distance(endpoint, connect_points) <= tolerance
 
 
-def audit_kicad_geometry(symbols: list[SymbolInstance], wires: list[Wire], labels: list[Label], kicad_path: Path) -> tuple[list[Finding], dict[str, Any], dict[str, Any]]:
+def audit_kicad_geometry(
+    symbols: list[SymbolInstance],
+    wires: list[Wire],
+    labels: list[Label],
+    kicad_path: Path,
+    property_text_spacing: dict[str, Any],
+) -> tuple[list[Finding], dict[str, Any], dict[str, Any]]:
     findings: list[Finding] = []
     symbol_by_ref = {symbol.ref: symbol for symbol in symbols}
     symbol_boxes = {symbol.ref: symbol.bbox for symbol in symbols}
@@ -599,8 +857,6 @@ def audit_kicad_geometry(symbols: list[SymbolInstance], wires: list[Wire], label
             )
         )
 
-    property_overlap_count = 0
-    property_overlap_refs: list[str] = []
     min_symbol_spacing = math.inf
     spacing_pairs: list[dict[str, Any]] = []
     refs = sorted(symbol_by_ref)
@@ -648,23 +904,35 @@ def audit_kicad_geometry(symbols: list[SymbolInstance], wires: list[Wire], label
                         explanation="The requested drawing style allows horizontal text only.",
                     )
                 )
-            prop_box = (prop.at[0] - 5.0, prop.at[1] - 1.5, prop.at[0] + 5.0, prop.at[1] + 1.5)
-            if bbox_intersects(prop_box, symbol.bbox):
-                property_overlap_count += 1
-                property_overlap_refs.append(symbol.ref)
-
-    if property_overlap_count:
+    if property_text_spacing.get("unresolved"):
         findings.append(
             make_finding(
-                "KICAD_PROPERTY_TEXT_NEAR_SYMBOL_BODY",
-                "WARNING",
+                "KICAD_PROPERTY_TEXT_SPACING_UNRESOLVED",
+                "BLOCKER",
                 "text_symbol_spacing",
-                "Some ref/value text boxes are close to symbol bodies and should be visually reviewed.",
-                refs=sorted(set(property_overlap_refs)),
+                "Rendered SVG text bbox could not be resolved for one or more reviewed property texts.",
+                refs=sorted({item.get("ref", "") for item in property_text_spacing.get("unresolved", []) if item.get("ref")}),
                 source_file=kicad_path,
-                measured_value=property_overlap_count,
-                threshold="manual review",
-                explanation="The check uses conservative text bboxes because KiCad stores text anchors rather than rendered glyph extents.",
+                measured_value=property_text_spacing.get("unresolved"),
+                threshold="all reviewed property text bboxes from final/KiCad SVG",
+                explanation="The review prompt forbids PASS based on fallback estimates for this text-spacing warning.",
+            )
+        )
+    if property_text_spacing.get("failures"):
+        findings.append(
+            make_finding(
+                "KICAD_PROPERTY_TEXT_CLEARANCE_FAIL",
+                "BLOCKER",
+                "text_symbol_spacing",
+                "One or more reviewed Reference/Value texts violate symbol-body or wire clearance thresholds.",
+                refs=sorted({item.get("ref", "") for item in property_text_spacing.get("failures", []) if item.get("ref")}),
+                source_file=kicad_path,
+                measured_value=property_text_spacing.get("failures"),
+                threshold={
+                    "body_clearance_mm": PROPERTY_TEXT_BODY_CLEARANCE_MM,
+                    "wire_clearance_mm": PROPERTY_TEXT_WIRE_CLEARANCE_MM,
+                },
+                explanation="Measured from KiCad SVG stroked glyph extents against KiCad symbol body bboxes and wire segments.",
             )
         )
 
@@ -706,7 +974,11 @@ def audit_kicad_geometry(symbols: list[SymbolInstance], wires: list[Wire], label
         "dangling_endpoint_count": dangling_count,
         "floating_label_count": len(floating_labels),
         "wire_through_symbol_body_count": body_cross_count,
-        "property_text_near_symbol_body_count": property_overlap_count,
+        "property_text_spacing_status": property_text_spacing.get("status"),
+        "property_text_spacing_resolution": property_text_spacing.get("resolution"),
+        "property_text_spacing_fail_count": len(property_text_spacing.get("failures", [])),
+        "property_text_spacing_unresolved_count": len(property_text_spacing.get("unresolved", [])),
+        "property_text_spacing": property_text_spacing,
         "min_symbol_spacing_mm": None if math.isinf(min_symbol_spacing) else round(min_symbol_spacing, 3),
         "close_symbol_pairs_under_2mm": spacing_pairs[:20],
         "symbols": {
@@ -757,11 +1029,19 @@ def create_evidence_crops(
     findings: list[Finding],
     block_results: dict[str, Any],
     metrics: dict[str, Any],
+    property_text_spacing: dict[str, Any],
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    args.crops_dir.mkdir(parents=True, exist_ok=True)
+    crops_dir = args.crops_dir if args.crops_dir.is_absolute() else ROOT / args.crops_dir
+    crops_dir.mkdir(parents=True, exist_ok=True)
+    for stale in crops_dir.glob("*.png"):
+        stale.unlink()
+    manifest_path = crops_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest_path.unlink()
     image = Image.open(args.final_png).convert("RGBA")
     svg_viewbox = parse_svg_viewbox(args.final_svg)
+    embedded_kicad_viewbox = parse_embedded_kicad_viewbox(args.final_svg)
     review_manifest = read_json(args.review_manifest)
     embed = review_manifest.get("kicad_embed_bbox", {})
     symbol_boxes = [tuple(value["bbox_mm"].values()) for value in metrics.get("symbols", {}).values()]
@@ -769,7 +1049,7 @@ def create_evidence_crops(
         kicad_overall = bbox_union(symbol_boxes)  # type: ignore[arg-type]
     else:
         kicad_overall = (0, 0, 210, 190)
-    evidence: dict[str, Any] = {"source_png": str(args.final_png.relative_to(ROOT)), "items": []}
+    evidence: dict[str, Any] = {"source_png": as_repo_path(args.final_png), "items": []}
     for block_name, result in block_results.items():
         bbox_dict = result["bbox_mm"]
         box = (bbox_dict["x1"], bbox_dict["y1"], bbox_dict["x2"], bbox_dict["y2"])
@@ -778,10 +1058,32 @@ def create_evidence_crops(
         draw = ImageDraw.Draw(crop)
         draw.rectangle((2, 2, max(2, crop.width - 3), max(2, crop.height - 3)), outline=(0, 0, 0, 255), width=3)
         safe_name = re.sub(r"[^a-z0-9]+", "_", block_name.lower()).strip("_")
-        output = args.crops_dir / f"block_{safe_name}.png"
+        output = crops_dir / f"block_{safe_name}.png"
         crop.save(output)
-        result["evidence_crop"] = str(output.relative_to(ROOT))
-        evidence["items"].append({"kind": "block", "name": block_name, "path": str(output.relative_to(ROOT)), "pixel_box": crop_box})
+        result["evidence_crop"] = as_repo_path(output)
+        evidence["items"].append({"kind": "block", "name": block_name, "path": as_repo_path(output), "pixel_box": crop_box})
+
+    for row in property_text_spacing.get("rows", []):
+        ref = row.get("ref", "")
+        if any(item.get("kind") == "text_spacing" and item.get("ref") == ref for item in evidence["items"]):
+            existing = next(item for item in evidence["items"] if item.get("kind") == "text_spacing" and item.get("ref") == ref)
+            row["evidence_crop"] = existing["path"]
+            continue
+        symbol_info = metrics.get("symbols", {}).get(ref)
+        if not symbol_info or not embedded_kicad_viewbox or not embed:
+            continue
+        bbox_dict = symbol_info["bbox_mm"]
+        symbol_box = (bbox_dict["x1"], bbox_dict["y1"], bbox_dict["x2"], bbox_dict["y2"])
+        text_bbox_dict = row["text_bbox_mm"]
+        text_box = (text_bbox_dict["x1"], text_bbox_dict["y1"], text_bbox_dict["x2"], text_bbox_dict["y2"])
+        crop_box = image_crop_box_from_embedded_kicad_bbox(bbox_union([symbol_box, text_box]), embedded_kicad_viewbox, embed, svg_viewbox, image, margin_mm=5)
+        crop = image.crop(crop_box)
+        draw = ImageDraw.Draw(crop)
+        draw.rectangle((2, 2, max(2, crop.width - 3), max(2, crop.height - 3)), outline=(0, 0, 0, 255), width=3)
+        output = crops_dir / f"text_spacing_{ref}.png"
+        crop.save(output)
+        row["evidence_crop"] = as_repo_path(output)
+        evidence["items"].append({"kind": "text_spacing", "ref": ref, "path": as_repo_path(output), "pixel_box": crop_box})
 
     for idx, finding in enumerate([f for f in findings if f.severity in {"BLOCKER", "WARNING"}], start=1):
         if finding.evidence_crop:
@@ -803,11 +1105,11 @@ def create_evidence_crops(
         crop = image.crop(crop_box)
         draw = ImageDraw.Draw(crop)
         draw.rectangle((2, 2, max(2, crop.width - 3), max(2, crop.height - 3)), outline=(255, 0, 0, 255), width=3)
-        output = args.crops_dir / f"finding_{idx:03d}_{finding.id.lower()}.png"
+        output = crops_dir / f"finding_{idx:03d}_{finding.id.lower()}.png"
         crop.save(output)
-        finding.evidence_crop = str(output.relative_to(ROOT))
-        evidence["items"].append({"kind": "finding", "id": finding.id, "path": str(output.relative_to(ROOT)), "pixel_box": crop_box})
-    (args.crops_dir / "manifest.json").write_text(json.dumps(evidence, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        finding.evidence_crop = as_repo_path(output)
+        evidence["items"].append({"kind": "finding", "id": finding.id, "path": as_repo_path(output), "pixel_box": crop_box})
+    manifest_path.write_text(json.dumps(evidence, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return evidence
 
 
@@ -846,10 +1148,10 @@ def write_reports(
         "findings": [asdict(finding) for finding in findings],
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "source_files": {
-            "kicad_schematic": str(args.kicad_schematic.relative_to(ROOT)),
-            "final_svg": str(args.final_svg.relative_to(ROOT)),
-            "final_png": str(args.final_png.relative_to(ROOT)),
-            "final_drawio": str(args.final_drawio.relative_to(ROOT)),
+            "kicad_schematic": as_repo_path(args.kicad_schematic),
+            "final_svg": as_repo_path(args.final_svg),
+            "final_png": as_repo_path(args.final_png),
+            "final_drawio": as_repo_path(args.final_drawio),
         },
         "statement": "This is an automated engineering-layout audit, not final human approval.",
     }
@@ -865,8 +1167,8 @@ def write_reports(
         f"- Status: **{status}**",
         f"- Blockers: `{blocker_count}`",
         f"- Warnings: `{warning_count}`",
-        f"- JSON report: `{args.json_report.relative_to(ROOT)}`",
-        f"- Evidence crop directory: `{args.crops_dir.relative_to(ROOT)}`",
+        f"- JSON report: `{as_repo_path(args.json_report)}`",
+        f"- Evidence crop directory: `{as_repo_path(args.crops_dir)}`",
         "",
         "## Electrical Baseline",
         "",
@@ -887,11 +1189,40 @@ def write_reports(
         f"- Dangling endpoints: `{metrics['dangling_endpoint_count']}`",
         f"- Floating labels: `{metrics['floating_label_count']}`",
         f"- Wire-through-symbol-body count: `{metrics['wire_through_symbol_body_count']}`",
+        f"- Property text spacing status: `{metrics['property_text_spacing_status']}`",
+        f"- Property text spacing resolution: `{metrics['property_text_spacing_resolution']}`",
+        f"- Property text spacing failures: `{metrics['property_text_spacing_fail_count']}`",
+        f"- Property text spacing unresolved: `{metrics['property_text_spacing_unresolved_count']}`",
         f"- Minimum symbol spacing: `{metrics['min_symbol_spacing_mm']}` mm",
         "",
-        "## Block Review",
+        "## Property Text Clearance",
         "",
+        f"- Body clearance threshold: `{PROPERTY_TEXT_BODY_CLEARANCE_MM}` mm",
+        f"- Wire clearance threshold: `{PROPERTY_TEXT_WIRE_CLEARANCE_MM}` mm",
+        "",
+        "| Ref | Property | Text | Relation | Body clearance mm | Wire clearance mm | Status | Evidence crop |",
+        "| --- | --- | --- | --- | ---: | ---: | --- | --- |",
     ]
+    for row in metrics.get("property_text_spacing", {}).get("rows", []):
+        lines.append(
+            "| {ref} | {property} | `{text}` | {relation} | {body:.4f} | {wire} | {status} | `{crop}` |".format(
+                ref=row["ref"],
+                property=row["property"],
+                text=row["text"].replace("|", "\\|"),
+                relation=row["relation_to_symbol_body"],
+                body=row["body_clearance_mm"],
+                wire="" if row["nearest_wire_clearance_mm"] is None else f"{row['nearest_wire_clearance_mm']:.4f}",
+                status=row["status"],
+                crop=row.get("evidence_crop", ""),
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "## Block Review",
+            "",
+        ]
+    )
     for name, result in blocks.items():
         lines.extend(
             [
@@ -940,11 +1271,13 @@ def write_reports(
 
 def main() -> int:
     args = parse_args()
-    for path in (args.kicad_schematic, args.final_svg, args.final_png, args.final_drawio, args.review_manifest):
+    for path in (args.kicad_schematic, args.kicad_svg, args.final_svg, args.final_png, args.final_drawio, args.review_manifest):
         if not path.exists():
             raise SystemExit(f"Missing audit input: {path}")
     symbols, wires, labels, metadata = parse_kicad(args.kicad_schematic)
-    findings, metrics, block_results = audit_kicad_geometry(symbols, wires, labels, args.kicad_schematic)
+    rendered_texts = parse_kicad_rendered_texts(args.kicad_svg, args.final_svg)
+    property_text_spacing = assess_property_text_spacing(symbols, wires, rendered_texts)
+    findings, metrics, block_results = audit_kicad_geometry(symbols, wires, labels, args.kicad_schematic, property_text_spacing)
     erc = read_json(args.erc_report)
     equivalence = read_json(args.equivalence_report)
     table_lock = read_json(args.table_lock_report)
@@ -957,7 +1290,7 @@ def main() -> int:
         findings.append(make_finding("PNG_SELECTION_ARTIFACT", "BLOCKER", "final_png", "Selection-like blue/green pixels detected.", source_file=args.final_png, measured_value=png_visual["selection_like_pixels"], threshold=0))
     if png_visual["colored_ratio"] > 0.005:
         findings.append(make_finding("PNG_COLORED_PIXEL_RATIO_HIGH", "WARNING", "final_png", "Colored pixel ratio is above monochrome-review threshold.", source_file=args.final_png, measured_value=png_visual["colored_ratio"], threshold="<= 0.005"))
-    evidence = create_evidence_crops(findings, block_results, metrics, args)
+    evidence = create_evidence_crops(findings, block_results, metrics, property_text_spacing, args)
     status = final_status(findings)
     write_reports(args, status, findings, metrics, block_results, external, png_visual)
     print(json.dumps({"status": status, "blocker_count": sum(f.severity == "BLOCKER" for f in findings), "warning_count": sum(f.severity == "WARNING" for f in findings), "json_report": str(args.json_report), "md_report": str(args.md_report), "crops_dir": str(args.crops_dir)}, ensure_ascii=False, indent=2))

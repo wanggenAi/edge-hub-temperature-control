@@ -21,10 +21,11 @@ def run_audit() -> dict:
     return json.loads(JSON_REPORT.read_text(encoding="utf-8"))
 
 
-def test_final_schematic_layout_audit_generates_warn_or_pass_report() -> None:
+def test_final_schematic_layout_audit_generates_pass_report() -> None:
     payload = run_audit()
-    assert payload["status"] in {"PASS", "WARN"}
+    assert payload["status"] == "PASS"
     assert payload["blocker_count"] == 0
+    assert payload["warning_count"] == 0
     assert payload["per_rule_results"]["electrical_baseline"]["status"] == "PASS"
     assert payload["per_rule_results"]["topology_equivalence"]["status"] == "PASS"
     assert payload["per_rule_results"]["master_table_lock"]["status"] == "PASS"
@@ -32,6 +33,11 @@ def test_final_schematic_layout_audit_generates_warn_or_pass_report() -> None:
     assert payload["per_rule_results"]["kicad_geometry"]["diagonal_wire_count"] == 0
     assert payload["per_rule_results"]["kicad_geometry"]["dangling_endpoint_count"] == 0
     assert payload["per_rule_results"]["kicad_geometry"]["floating_label_count"] == 0
+    assert payload["per_rule_results"]["kicad_geometry"]["property_text_spacing_status"] == "PASS"
+    assert payload["per_rule_results"]["kicad_geometry"]["property_text_spacing_resolution"] in {
+        "FIXED_BY_TEXT_PROPERTY_MOVE",
+        "FALSE_POSITIVE_WITH_EVIDENCE",
+    }
     assert payload["per_rule_results"]["png_visual"]["width_px"] >= 3000
     assert payload["per_rule_results"]["png_visual"]["selection_like_pixels"] == 0
     assert "This is an automated engineering-layout audit, not final human approval." in payload["statement"]
@@ -71,6 +77,23 @@ def test_final_schematic_layout_audit_has_evidence_for_all_warnings() -> None:
             assert finding["threshold"] != ""
 
 
+def test_final_schematic_layout_audit_reports_precise_property_text_clearance() -> None:
+    payload = run_audit()
+    spacing = payload["per_rule_results"]["kicad_geometry"]["property_text_spacing"]
+    assert spacing["status"] == "PASS"
+    assert not spacing["failures"]
+    assert not spacing["unresolved"]
+    refs = {row["ref"] for row in spacing["rows"]}
+    assert refs == {"A1", "DD1", "HL1", "VT1", "XS1", "XS4"}
+    for row in spacing["rows"]:
+        assert row["method"] == "kicad_svg_stroked_text_bbox"
+        assert row["body_clearance_mm"] >= row["body_clearance_threshold_mm"]
+        assert row["nearest_wire_clearance_mm"] >= row["wire_clearance_threshold_mm"]
+        crop = ROOT / row["evidence_crop"]
+        assert crop.exists()
+        assert crop.stat().st_size > 0
+
+
 def test_final_schematic_layout_audit_markdown_contains_required_sections() -> None:
     run_audit()
     text = MD_REPORT.read_text(encoding="utf-8")
@@ -102,7 +125,11 @@ def test_final_schematic_layout_audit_does_not_modify_drawing_artifacts() -> Non
         "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro",
         "hardware/kicad_schematic/exports",
     ]
+    before = {
+        path: subprocess.check_output(["git", "diff", "--", path], cwd=ROOT, text=True)
+        for path in tracked_guard_paths
+    }
     run_audit()
     for path in tracked_guard_paths:
-        result = subprocess.run(["git", "diff", "--quiet", "--", path], cwd=ROOT, check=False)
-        assert result.returncode == 0, path
+        after = subprocess.check_output(["git", "diff", "--", path], cwd=ROOT, text=True)
+        assert after == before[path], path

@@ -553,13 +553,16 @@ def test_final_review_package_manifest_when_present() -> None:
     expected_names = {
         "overview",
         "kicad_block",
+        "dd1_area",
+        "reset_boot_led_area",
+        "sensor_uart_area",
+        "heater_power_area",
+        "power_area",
         "element_list_full",
         "element_list_top",
         "element_list_middle",
         "element_list_bottom",
         "title_block_full",
-        "heater_power_area",
-        "dd1_area",
     }
     actual_names = {crop["name"] for crop in manifest["crops"]}
     assert actual_names == expected_names
@@ -570,8 +573,16 @@ def test_final_review_package_manifest_when_present() -> None:
     assert manifest["checks"]["esp32_bom_present"] is True
     assert manifest["checks"]["title_block_present"] is True
     assert manifest["checks"]["source_frame_diff_clean"] is True
-    assert manifest["checks"]["kicad_source_diff_clean"] is True
+    assert manifest["checks"]["kicad_symbol_project_diff_clean"] is True
     assert manifest["checks"]["master_table_lock_passed"] is True
     assert manifest["erc"]["status"] == "PASSED"
+    assert manifest["visual_review_index"] == "docs/final_visual_review_index.md"
     for crop in manifest["crops"]:
         assert (ROOT / crop["path"]).exists()
+        assert crop["source_png"] == "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png"
+        assert crop["related_refs"] is not None
+        assert crop["related_nets"] is not None
+        assert crop["purpose"]
+        assert crop["pixel_box"]["width"] > 0
+        assert crop["pixel_box"]["height"] > 0
+    assert (ROOT / manifest["visual_review_index"]).exists()

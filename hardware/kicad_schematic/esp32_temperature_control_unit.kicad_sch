@@ -617,7 +617,7 @@
     (dnp no)
     (uuid "c56d970e-323a-53f4-9efb-e02214bb7321")
     (property "Reference" "HL1"
-      (at 58.42 101.6 0)
+      (at 58.42 100.33 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "Red LED"
@@ -735,11 +735,11 @@
     (dnp no)
     (uuid "35b611fb-64c8-53cb-b5ad-e8ee3be740f0")
     (property "Reference" "XS4"
-      (at 142.24 53.34 0)
+      (at 142.24 52.07 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "UART service"
-      (at 142.24 63.5 0)
+      (at 142.24 64.77 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Footprint" ""

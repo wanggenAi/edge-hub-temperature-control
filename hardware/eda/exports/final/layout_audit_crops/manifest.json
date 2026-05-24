@@ -90,14 +90,69 @@
       ]
     },
     {
-      "kind": "finding",
-      "id": "KICAD_PROPERTY_TEXT_NEAR_SYMBOL_BODY",
-      "path": "hardware/eda/exports/final/layout_audit_crops/finding_001_kicad_property_text_near_symbol_body.png",
+      "kind": "text_spacing",
+      "ref": "A1",
+      "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png",
       "pixel_box": [
-        586,
-        248,
-        4204,
-        3131
+        3149,
+        2459,
+        3857,
+        2864
+      ]
+    },
+    {
+      "kind": "text_spacing",
+      "ref": "DD1",
+      "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png",
+      "pixel_box": [
+        1420,
+        1101,
+        2230,
+        1758
+      ]
+    },
+    {
+      "kind": "text_spacing",
+      "ref": "HL1",
+      "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png",
+      "pixel_box": [
+        1064,
+        1711,
+        1417,
+        2010
+      ]
+    },
+    {
+      "kind": "text_spacing",
+      "ref": "VT1",
+      "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_VT1.png",
+      "pixel_box": [
+        3301,
+        1653,
+        3603,
+        1952
+      ]
+    },
+    {
+      "kind": "text_spacing",
+      "ref": "XS1",
+      "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_XS1.png",
+      "pixel_box": [
+        3250,
+        528,
+        3552,
+        827
+      ]
+    },
+    {
+      "kind": "text_spacing",
+      "ref": "XS4",
+      "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_XS4.png",
+      "pixel_box": [
+        2742,
+        973,
+        3044,
+        1312
       ]
     }
   ]

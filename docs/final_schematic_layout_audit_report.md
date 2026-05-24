@@ -2,9 +2,9 @@
 
 **This is an automated engineering-layout audit, not final human approval.**
 
-- Status: **WARN**
+- Status: **PASS**
 - Blockers: `0`
-- Warnings: `1`
+- Warnings: `0`
 - JSON report: `build/reports/final_schematic_layout_audit.json`
 - Evidence crop directory: `hardware/eda/exports/final/layout_audit_crops`
 
@@ -27,7 +27,31 @@
 - Dangling endpoints: `0`
 - Floating labels: `0`
 - Wire-through-symbol-body count: `0`
+- Property text spacing status: `PASS`
+- Property text spacing resolution: `FIXED_BY_TEXT_PROPERTY_MOVE`
+- Property text spacing failures: `0`
+- Property text spacing unresolved: `0`
 - Minimum symbol spacing: `2.54` mm
+
+## Property Text Clearance
+
+- Body clearance threshold: `0.4` mm
+- Wire clearance threshold: `0.5` mm
+
+| Ref | Property | Text | Relation | Body clearance mm | Wire clearance mm | Status | Evidence crop |
+| --- | --- | --- | --- | ---: | ---: | --- | --- |
+| A1 | Reference | `A1` | inside_body | 3.1195 | 16.7519 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png` |
+| A1 | Value | `DC/DC 12 V to 3.3 V` | inside_body | 1.6581 | 7.7390 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png` |
+| DD1 | Reference | `DD1` | inside_body | 10.7395 | 18.7897 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png` |
+| DD1 | Value | `ESP32-WROOM-32` | inside_body | 6.2593 | 11.3393 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png` |
+| HL1 | Reference | `HL1` | outside_body | 0.6905 | 8.3808 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png` |
+| HL1 | Value | `Red LED` | outside_body | 1.8495 | 5.8723 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png` |
+| VT1 | Reference | `VT1` | outside_body | 0.6905 | 6.2672 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_VT1.png` |
+| VT1 | Value | `NMOS3400` | outside_body | 0.5191 | 2.8299 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_VT1.png` |
+| XS1 | Reference | `XS1` | outside_body | 0.6905 | 6.3000 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_XS1.png` |
+| XS1 | Value | `XH-3PA` | outside_body | 0.5795 | 4.3717 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_XS1.png` |
+| XS4 | Reference | `XS4` | outside_body | 0.6905 | 6.3000 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_XS4.png` |
+| XS4 | Value | `UART service` | outside_body | 0.5795 | 2.5696 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_XS4.png` |
 
 ## Block Review
 
@@ -113,16 +137,7 @@
 
 ## Findings
 
-### KICAD_PROPERTY_TEXT_NEAR_SYMBOL_BODY
-- Severity: `WARNING`
-- Rule: `text_symbol_spacing`
-- Refs: `A1, DD1, HL1, VT1, XS1, XS4`
-- Nets: ``
-- Measured: `11`
-- Threshold: `manual review`
-- Evidence crop: `hardware/eda/exports/final/layout_audit_crops/finding_001_kicad_property_text_near_symbol_body.png`
-- Explanation: The check uses conservative text bboxes because KiCad stores text anchors rather than rendered glyph extents.
-
+No blocker or warning findings were generated.
 ## Conclusion
 
 - PASS/WARN means the package can proceed to brief human visual approval.

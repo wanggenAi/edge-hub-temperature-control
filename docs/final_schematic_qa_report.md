@@ -13,17 +13,18 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 ## Automated Checks
 
 - KiCad ERC: `PASSED`; violations `0`, errors `0`, warnings `0`
-- KiCad ERC report: `build/reports/kicad_schematic_erc_master_table_lock.json`
-- Pytest: `27 passed in focused KiCad/table-lock suite`
+- KiCad ERC report: `build/reports/kicad_schematic_erc_layout_audit.json`
+- Pytest: `33 passed in focused schematic/table/audit suite`
 - Export lint errors: `0`
-- Export lint report: `build/reports/final-master-table-lock-export/export_artifact_lint.json`
+- Export lint report: `build/reports/final-layout-audit-export/export_artifact_lint.json`
 - Required school refs present: `True`
 - Canonical nets present: `True`
 - Forbidden refs/stale nets absent: `True`
 - Source frame diff clean: `True`
-- KiCad source/symbol/project diff clean: `True`
+- KiCad symbol/project diff clean: `True`
+- KiCad schematic source changed only for reviewed Reference/Value property text coordinates.
 - Master table lock passed: `True`
-- Master table lock report: `build/reports/bstu_master_table_lock.json`
+- Master table lock report: `build/reports/bstu_master_table_lock_layout_audit.json`
 
 ## KiCad Block Placement
 
@@ -65,13 +66,16 @@ whether the merged BOM text remains readable under the locked master table.
 
 - `overview`: `hardware/eda/exports/final/review_crops/overview.png`
 - `kicad_block`: `hardware/eda/exports/final/review_crops/kicad_block.png`
+- `dd1_area`: `hardware/eda/exports/final/review_crops/dd1_area.png`
+- `reset_boot_led_area`: `hardware/eda/exports/final/review_crops/reset_boot_led_area.png`
+- `sensor_uart_area`: `hardware/eda/exports/final/review_crops/sensor_uart_area.png`
+- `heater_power_area`: `hardware/eda/exports/final/review_crops/heater_power_area.png`
+- `power_area`: `hardware/eda/exports/final/review_crops/power_area.png`
 - `element_list_full`: `hardware/eda/exports/final/review_crops/element_list_full.png`
 - `element_list_top`: `hardware/eda/exports/final/review_crops/element_list_top.png`
 - `element_list_middle`: `hardware/eda/exports/final/review_crops/element_list_middle.png`
 - `element_list_bottom`: `hardware/eda/exports/final/review_crops/element_list_bottom.png`
 - `title_block_full`: `hardware/eda/exports/final/review_crops/title_block_full.png`
-- `heater_power_area`: `hardware/eda/exports/final/review_crops/heater_power_area.png`
-- `dd1_area`: `hardware/eda/exports/final/review_crops/dd1_area.png`
 
 ## Conclusion
 

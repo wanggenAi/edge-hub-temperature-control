@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-24T09:51:07",
+  "created_at": "2026-05-24T14:53:40",
   "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
   "source_svg": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg",
   "source_png_width_px": 6433,
@@ -42,10 +42,11 @@
       "bottom": 2328.42
     }
   },
-  "lint_report": "build/reports/final-master-table-lock-export/export_artifact_lint.json",
-  "erc_report": "build/reports/kicad_schematic_erc_master_table_lock.json",
-  "table_lock_report": "build/reports/bstu_master_table_lock.json",
+  "lint_report": "build/reports/final-layout-audit-export/export_artifact_lint.json",
+  "erc_report": "build/reports/kicad_schematic_erc_layout_audit.json",
+  "table_lock_report": "build/reports/bstu_master_table_lock_layout_audit.json",
   "qa_report": "docs/final_schematic_qa_report.md",
+  "visual_review_index": "docs/final_visual_review_index.md",
   "checks": {
     "export_lint_error_free": true,
     "required_refs_present": true,
@@ -55,7 +56,7 @@
     "title_block_present": true,
     "legacy_title_absent": true,
     "source_frame_diff_clean": true,
-    "kicad_source_diff_clean": true,
+    "kicad_symbol_project_diff_clean": true,
     "master_table_lock_passed": true
   },
   "erc": {
@@ -68,6 +69,7 @@
     {
       "name": "overview",
       "path": "hardware/eda/exports/final/review_crops/overview.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": -0.5,
         "y": -0.5,
@@ -80,11 +82,54 @@
         "y": 0,
         "width": 6433,
         "height": 4654
-      }
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "DD1",
+        "VT1",
+        "HL1",
+        "SB1",
+        "SB2",
+        "A1",
+        "XS1",
+        "XS2",
+        "XS3",
+        "XS4",
+        "XS5",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "related_nets": [
+        "+3V3",
+        "+12V",
+        "GND",
+        "EN",
+        "LED",
+        "LED_A",
+        "DQ",
+        "RXD0",
+        "TXD0",
+        "BOOT",
+        "GATE",
+        "GATE_R",
+        "HEAT+",
+        "HEAT-"
+      ],
+      "purpose": "Whole-sheet visual review: frame, title block, element list, KiCad block placement, and overall balance.",
+      "focus": "Check that nothing is cropped, no UI artifacts exist, and the KiCad block does not overlap the tables."
     },
     {
       "name": "kicad_block",
       "path": "hardware/eda/exports/final/review_crops/kicad_block.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 191.0,
         "y": 178.0,
@@ -97,11 +142,232 @@
         "y": 277,
         "width": 4301,
         "height": 3041
-      }
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "DD1",
+        "VT1",
+        "HL1",
+        "SB1",
+        "SB2",
+        "A1",
+        "XS1",
+        "XS2",
+        "XS3",
+        "XS4",
+        "XS5",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "related_nets": [
+        "+3V3",
+        "+12V",
+        "GND",
+        "EN",
+        "LED",
+        "LED_A",
+        "DQ",
+        "RXD0",
+        "TXD0",
+        "BOOT",
+        "GATE",
+        "GATE_R",
+        "HEAT+",
+        "HEAT-"
+      ],
+      "purpose": "Middle schematic review.",
+      "focus": "Check symbol readability, orthogonal wires, text placement, and functional block spacing."
+    },
+    {
+      "name": "dd1_area",
+      "path": "hardware/eda/exports/final/review_crops/dd1_area.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+      "svg_box": {
+        "x": 542.9000000000001,
+        "y": 422.8,
+        "width": 869.4,
+        "height": 547.2
+      },
+      "margin_svg_units": 22.0,
+      "pixel_box": {
+        "x": 1043,
+        "y": 803,
+        "width": 1827,
+        "height": 1183
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "DD1"
+      ],
+      "related_nets": [
+        "+3V3",
+        "GND",
+        "EN",
+        "LED",
+        "BOOT",
+        "GATE",
+        "DQ",
+        "RXD0",
+        "TXD0"
+      ],
+      "purpose": "ESP32 controller area review.",
+      "focus": "Check DD1 pin labels, net labels, local wire endpoints, and text clearance."
+    },
+    {
+      "name": "reset_boot_led_area",
+      "path": "hardware/eda/exports/final/review_crops/reset_boot_led_area.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+      "svg_box": {
+        "x": 191.0,
+        "y": 638.8,
+        "width": 890.1,
+        "height": 720.0
+      },
+      "margin_svg_units": 22.0,
+      "pixel_box": {
+        "x": 339,
+        "y": 1235,
+        "width": 1869,
+        "height": 1529
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "R1",
+        "SB1",
+        "R6",
+        "SB2",
+        "R3",
+        "HL1"
+      ],
+      "related_nets": [
+        "+3V3",
+        "GND",
+        "EN",
+        "BOOT",
+        "LED",
+        "LED_A"
+      ],
+      "purpose": "Reset, boot, and LED blocks review.",
+      "focus": "Check local wire continuity and that symbols/text are not crowded."
+    },
+    {
+      "name": "sensor_uart_area",
+      "path": "hardware/eda/exports/final/review_crops/sensor_uart_area.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+      "svg_box": {
+        "x": 1081.1,
+        "y": 178.0,
+        "width": 786.6,
+        "height": 576.0
+      },
+      "margin_svg_units": 22.0,
+      "pixel_box": {
+        "x": 2120,
+        "y": 313,
+        "width": 1661,
+        "height": 1241
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "R2",
+        "XS1",
+        "XS4"
+      ],
+      "related_nets": [
+        "DQ",
+        "+3V3",
+        "GND",
+        "RXD0",
+        "TXD0"
+      ],
+      "purpose": "Sensor and UART/service connector review.",
+      "focus": "Check connector labels, pull-up wiring, and UART net visibility."
+    },
+    {
+      "name": "heater_power_area",
+      "path": "hardware/eda/exports/final/review_crops/heater_power_area.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+      "svg_box": {
+        "x": 1122.5,
+        "y": 667.6,
+        "width": 1138.5,
+        "height": 950.4000000000001
+      },
+      "margin_svg_units": 22.0,
+      "pixel_box": {
+        "x": 2202,
+        "y": 1293,
+        "width": 2366,
+        "height": 1989
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "R4",
+        "R5",
+        "VT1",
+        "XS2",
+        "XS5",
+        "XS3",
+        "A1",
+        "C3",
+        "C4"
+      ],
+      "related_nets": [
+        "GATE",
+        "GATE_R",
+        "HEAT+",
+        "HEAT-",
+        "+12V",
+        "+3V3",
+        "GND"
+      ],
+      "purpose": "Heater driver and power area review.",
+      "focus": "Check MOSFET gate network, heater connector, thermal switch, and power conversion wiring."
+    },
+    {
+      "name": "power_area",
+      "path": "hardware/eda/exports/final/review_crops/power_area.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
+      "svg_box": {
+        "x": 1226.0,
+        "y": 1157.2,
+        "width": 890.1,
+        "height": 460.8
+      },
+      "margin_svg_units": 22.0,
+      "pixel_box": {
+        "x": 2409,
+        "y": 2272,
+        "width": 1869,
+        "height": 1010
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "XS3",
+        "A1",
+        "C3",
+        "C4"
+      ],
+      "related_nets": [
+        "+12V",
+        "+3V3",
+        "GND"
+      ],
+      "purpose": "Power input and DC/DC converter review.",
+      "focus": "Check input/output power labels and capacitor placement."
     },
     {
       "name": "element_list_full",
       "path": "hardware/eda/exports/final/review_crops/element_list_full.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 2378.18,
         "y": -1.5700000000000003,
@@ -114,11 +380,39 @@
         "y": 0,
         "width": 1675,
         "height": 2567
-      }
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "DD1",
+        "VT1",
+        "HL1",
+        "SB1",
+        "SB2",
+        "A1",
+        "XS1",
+        "XS2",
+        "XS3",
+        "XS4",
+        "XS5",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "related_nets": [],
+      "purpose": "Right-top List of Elements full-table review.",
+      "focus": "Check text readability, row alignment, line weight consistency, and locked master geometry."
     },
     {
       "name": "element_list_top",
       "path": "hardware/eda/exports/final/review_crops/element_list_top.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 2375.68,
         "y": -1.5700000000000003,
@@ -131,11 +425,28 @@
         "y": 0,
         "width": 1680,
         "height": 929
-      }
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6"
+      ],
+      "related_nets": [],
+      "purpose": "Top part of List of Elements review.",
+      "focus": "Check capacitor/resistor rows and table header alignment."
     },
     {
       "name": "element_list_middle",
       "path": "hardware/eda/exports/final/review_crops/element_list_middle.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 2375.68,
         "y": 401.63,
@@ -148,11 +459,26 @@
         "y": 805,
         "width": 1680,
         "height": 955
-      }
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "DD1",
+        "HL1",
+        "VT1",
+        "SB1",
+        "SB2",
+        "XS1",
+        "XS2",
+        "XS3"
+      ],
+      "related_nets": [],
+      "purpose": "Middle part of List of Elements review.",
+      "focus": "Check semiconductor, switch, and connector rows."
     },
     {
       "name": "element_list_bottom",
       "path": "hardware/eda/exports/final/review_crops/element_list_bottom.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 2375.68,
         "y": 816.8299999999999,
@@ -165,11 +491,21 @@
         "y": 1635,
         "width": 1680,
         "height": 932
-      }
+      },
+      "automated_status": "PASS",
+      "related_refs": [
+        "XS4",
+        "XS5",
+        "A1"
+      ],
+      "related_nets": [],
+      "purpose": "Bottom part of List of Elements review.",
+      "focus": "Check service connector, thermal switch terminal, and power module rows."
     },
     {
       "name": "title_block_full",
       "path": "hardware/eda/exports/final/review_crops/title_block_full.png",
+      "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 2520.18,
         "y": 2093.42,
@@ -182,41 +518,12 @@
         "y": 4190,
         "width": 1391,
         "height": 464
-      }
-    },
-    {
-      "name": "heater_power_area",
-      "path": "hardware/eda/exports/final/review_crops/heater_power_area.png",
-      "svg_box": {
-        "x": 1122.5,
-        "y": 696.4,
-        "width": 1076.4,
-        "height": 835.1999999999999
       },
-      "margin_svg_units": 20.0,
-      "pixel_box": {
-        "x": 2206,
-        "y": 1354,
-        "width": 2233,
-        "height": 1752
-      }
-    },
-    {
-      "name": "dd1_area",
-      "path": "hardware/eda/exports/final/review_crops/dd1_area.png",
-      "svg_box": {
-        "x": 563.5999999999999,
-        "y": 466.0,
-        "width": 828.0,
-        "height": 518.4
-      },
-      "margin_svg_units": 20.0,
-      "pixel_box": {
-        "x": 1088,
-        "y": 893,
-        "width": 1737,
-        "height": 1118
-      }
+      "automated_status": "PASS",
+      "related_refs": [],
+      "related_nets": [],
+      "purpose": "Right-bottom Title Block review.",
+      "focus": "Check document code, title text, organization, format, sheet fields, and master geometry."
     }
   ]
 }

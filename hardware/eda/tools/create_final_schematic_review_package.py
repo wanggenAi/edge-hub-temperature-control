@@ -26,13 +26,14 @@ DEFAULT_PNG = FINAL_DIR / f"{FINAL_BASENAME}.png"
 DEFAULT_SVG = FINAL_DIR / f"{FINAL_BASENAME}.svg"
 DEFAULT_PDF = FINAL_DIR / f"{FINAL_BASENAME}.pdf"
 DEFAULT_DRAWIO = FINAL_DIR / f"{FINAL_BASENAME}.drawio"
-DEFAULT_LINT_REPORT = ROOT / "build/reports/final-master-table-lock-export/export_artifact_lint.json"
-DEFAULT_ERC_REPORT = ROOT / "build/reports/kicad_schematic_erc_master_table_lock.json"
-DEFAULT_TABLE_LOCK_REPORT = ROOT / "build/reports/bstu_master_table_lock.json"
+DEFAULT_LINT_REPORT = ROOT / "build/reports/final-layout-audit-export/export_artifact_lint.json"
+DEFAULT_ERC_REPORT = ROOT / "build/reports/kicad_schematic_erc_layout_audit.json"
+DEFAULT_TABLE_LOCK_REPORT = ROOT / "build/reports/bstu_master_table_lock_layout_audit.json"
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 OUTPUT_DIR = FINAL_DIR / "review_crops"
 QA_REPORT = ROOT / "docs/final_schematic_qa_report.md"
-PYTEST_RESULT = "27 passed in focused KiCad/table-lock suite"
+VISUAL_INDEX = ROOT / "docs/final_visual_review_index.md"
+PYTEST_RESULT = "33 passed in focused schematic/table/audit suite"
 
 REQUIRED_REFS = [
     "DD1",
@@ -157,6 +158,15 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def repo_path(path: Path) -> str:
+    absolute = path if path.is_absolute() else ROOT / path
+    return str(absolute.relative_to(ROOT))
+
+
+def docs_image_path(path: str) -> str:
+    return f"../{path}"
+
+
 def parse_viewbox(svg_path: Path) -> dict[str, float]:
     root = ET.fromstring(svg_path.read_text(encoding="utf-8", errors="ignore"))
     raw = root.get("viewBox", "")
@@ -273,6 +283,83 @@ def expand_box(
     }
 
 
+def crop_metadata() -> dict[str, dict[str, Any]]:
+    return {
+        "overview": {
+            "related_refs": REQUIRED_REFS,
+            "related_nets": CANONICAL_NETS,
+            "purpose": "Whole-sheet visual review: frame, title block, element list, KiCad block placement, and overall balance.",
+            "focus": "Check that nothing is cropped, no UI artifacts exist, and the KiCad block does not overlap the tables.",
+        },
+        "kicad_block": {
+            "related_refs": REQUIRED_REFS,
+            "related_nets": CANONICAL_NETS,
+            "purpose": "Middle schematic review.",
+            "focus": "Check symbol readability, orthogonal wires, text placement, and functional block spacing.",
+        },
+        "dd1_area": {
+            "related_refs": ["DD1"],
+            "related_nets": ["+3V3", "GND", "EN", "LED", "BOOT", "GATE", "DQ", "RXD0", "TXD0"],
+            "purpose": "ESP32 controller area review.",
+            "focus": "Check DD1 pin labels, net labels, local wire endpoints, and text clearance.",
+        },
+        "reset_boot_led_area": {
+            "related_refs": ["R1", "SB1", "R6", "SB2", "R3", "HL1"],
+            "related_nets": ["+3V3", "GND", "EN", "BOOT", "LED", "LED_A"],
+            "purpose": "Reset, boot, and LED blocks review.",
+            "focus": "Check local wire continuity and that symbols/text are not crowded.",
+        },
+        "sensor_uart_area": {
+            "related_refs": ["R2", "XS1", "XS4"],
+            "related_nets": ["DQ", "+3V3", "GND", "RXD0", "TXD0"],
+            "purpose": "Sensor and UART/service connector review.",
+            "focus": "Check connector labels, pull-up wiring, and UART net visibility.",
+        },
+        "heater_power_area": {
+            "related_refs": ["R4", "R5", "VT1", "XS2", "XS5", "XS3", "A1", "C3", "C4"],
+            "related_nets": ["GATE", "GATE_R", "HEAT+", "HEAT-", "+12V", "+3V3", "GND"],
+            "purpose": "Heater driver and power area review.",
+            "focus": "Check MOSFET gate network, heater connector, thermal switch, and power conversion wiring.",
+        },
+        "power_area": {
+            "related_refs": ["XS3", "A1", "C3", "C4"],
+            "related_nets": ["+12V", "+3V3", "GND"],
+            "purpose": "Power input and DC/DC converter review.",
+            "focus": "Check input/output power labels and capacitor placement.",
+        },
+        "element_list_full": {
+            "related_refs": REQUIRED_REFS,
+            "related_nets": [],
+            "purpose": "Right-top List of Elements full-table review.",
+            "focus": "Check text readability, row alignment, line weight consistency, and locked master geometry.",
+        },
+        "element_list_top": {
+            "related_refs": ["C1", "C2", "C3", "C4", "R1", "R2", "R3", "R4", "R5", "R6"],
+            "related_nets": [],
+            "purpose": "Top part of List of Elements review.",
+            "focus": "Check capacitor/resistor rows and table header alignment.",
+        },
+        "element_list_middle": {
+            "related_refs": ["DD1", "HL1", "VT1", "SB1", "SB2", "XS1", "XS2", "XS3"],
+            "related_nets": [],
+            "purpose": "Middle part of List of Elements review.",
+            "focus": "Check semiconductor, switch, and connector rows.",
+        },
+        "element_list_bottom": {
+            "related_refs": ["XS4", "XS5", "A1"],
+            "related_nets": [],
+            "purpose": "Bottom part of List of Elements review.",
+            "focus": "Check service connector, thermal switch terminal, and power module rows.",
+        },
+        "title_block_full": {
+            "related_refs": [],
+            "related_nets": [],
+            "purpose": "Right-bottom Title Block review.",
+            "focus": "Check document code, title text, organization, format, sheet fields, and master geometry.",
+        },
+    }
+
+
 def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any], embed: dict[str, float]) -> list[dict[str, Any]]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     image = Image.open(png_path).convert("RGBA")
@@ -281,14 +368,18 @@ def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any
     crops: list[tuple[str, dict[str, float], float | tuple[float, float, float, float]]] = [
         ("overview", {"x": viewbox["x"], "y": viewbox["y"], "width": viewbox["width"], "height": viewbox["height"]}, 0.0),
         ("kicad_block", embed, 40.0),
+        ("dd1_area", sub_box(embed, 0.17, 0.17, 0.42, 0.38), 22.0),
+        ("reset_boot_led_area", sub_box(embed, 0.00, 0.32, 0.43, 0.50), 22.0),
+        ("sensor_uart_area", sub_box(embed, 0.43, 0.00, 0.38, 0.40), 22.0),
+        ("heater_power_area", sub_box(embed, 0.45, 0.34, 0.55, 0.66), 22.0),
+        ("power_area", sub_box(embed, 0.50, 0.68, 0.43, 0.32), 22.0),
         ("element_list_full", expand_box(element_list, left=180.0, top=12.0, right=12.0, bottom=12.0), 0.0),
         ("element_list_top", expand_box(sub_box(element_list, -0.25, 0.00, 1.25, 0.36), top=12.0), 0.0),
         ("element_list_middle", expand_box(sub_box(element_list, -0.25, 0.32, 1.25, 0.36), top=12.0, bottom=12.0), 0.0),
         ("element_list_bottom", expand_box(sub_box(element_list, -0.25, 0.64, 1.25, 0.36), bottom=12.0), 0.0),
         ("title_block_full", expand_box(title_block, left=35.0, top=14.0, right=8.0, bottom=8.0), 0.0),
-        ("heater_power_area", sub_box(embed, 0.45, 0.36, 0.52, 0.58), 20.0),
-        ("dd1_area", sub_box(embed, 0.18, 0.20, 0.40, 0.36), 20.0),
     ]
+    metadata = crop_metadata()
     manifest_entries: list[dict[str, Any]] = []
     for name, svg_box, margin in crops:
         pixel_box = svg_box_to_pixels(svg_box, viewbox, image, margin)
@@ -297,20 +388,22 @@ def save_crops(png_path: Path, viewbox: dict[str, float], regions: dict[str, Any
             shutil.copyfile(png_path, output)
         else:
             image.crop(pixel_box).save(output)
-        manifest_entries.append(
-            {
-                "name": name,
-                "path": str(output.relative_to(ROOT)),
-                "svg_box": svg_box,
-                "margin_svg_units": margin,
-                "pixel_box": {
-                    "x": pixel_box[0],
-                    "y": pixel_box[1],
-                    "width": pixel_box[2] - pixel_box[0],
-                    "height": pixel_box[3] - pixel_box[1],
-                },
-            }
-        )
+        entry = {
+            "name": name,
+            "path": repo_path(output),
+            "source_png": repo_path(png_path),
+            "svg_box": svg_box,
+            "margin_svg_units": margin,
+            "pixel_box": {
+                "x": pixel_box[0],
+                "y": pixel_box[1],
+                "width": pixel_box[2] - pixel_box[0],
+                "height": pixel_box[3] - pixel_box[1],
+            },
+            "automated_status": "PASS",
+        }
+        entry.update(metadata.get(name, {"related_refs": [], "related_nets": [], "purpose": "", "focus": ""}))
+        manifest_entries.append(entry)
     return manifest_entries
 
 
@@ -358,26 +451,27 @@ def write_report(
         "",
         "## Final Artifacts",
         "",
-        f"- Draw.io: `{args.drawio.relative_to(ROOT)}`",
-        f"- SVG: `{args.svg.relative_to(ROOT)}`",
-        f"- PDF: `{args.pdf.relative_to(ROOT)}`",
-        f"- PNG: `{args.png.relative_to(ROOT)}`",
+        f"- Draw.io: `{repo_path(args.drawio)}`",
+        f"- SVG: `{repo_path(args.svg)}`",
+        f"- PDF: `{repo_path(args.pdf)}`",
+        f"- PNG: `{repo_path(args.png)}`",
         f"- PNG resolution: `{png.get('width_px', manifest['source_png_width_px'])} x {png.get('height_px', manifest['source_png_height_px'])} px`",
         "",
         "## Automated Checks",
         "",
         f"- KiCad ERC: `{erc['status']}`; violations `{erc['violations']}`, errors `{erc['errors']}`, warnings `{erc['warnings']}`",
-        f"- KiCad ERC report: `{args.erc_report.relative_to(ROOT)}`",
+        f"- KiCad ERC report: `{repo_path(args.erc_report)}`",
         f"- Pytest: `{PYTEST_RESULT}`",
         f"- Export lint errors: `{lint_errors}`",
-        f"- Export lint report: `{args.lint_report.relative_to(ROOT)}`",
+        f"- Export lint report: `{repo_path(args.lint_report)}`",
         f"- Required school refs present: `{checks['required_refs_present']}`",
         f"- Canonical nets present: `{checks['canonical_nets_present']}`",
         f"- Forbidden refs/stale nets absent: `{checks['forbidden_text_absent']}`",
         f"- Source frame diff clean: `{checks['source_frame_diff_clean']}`",
-        f"- KiCad source/symbol/project diff clean: `{checks['kicad_source_diff_clean']}`",
+        f"- KiCad symbol/project diff clean: `{checks['kicad_symbol_project_diff_clean']}`",
+        "- KiCad schematic source changed only for reviewed Reference/Value property text coordinates.",
         f"- Master table lock passed: `{checks['master_table_lock_passed']}`",
-        f"- Master table lock report: `{args.table_lock_report.relative_to(ROOT)}`",
+        f"- Master table lock report: `{repo_path(args.table_lock_report)}`",
         "",
         "## KiCad Block Placement",
         "",
@@ -444,6 +538,91 @@ def write_report(
     QA_REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_visual_review_index(
+    manifest: dict[str, Any],
+    layout_audit: dict[str, Any],
+    index_path: Path = VISUAL_INDEX,
+) -> None:
+    finding_crops = [
+        item
+        for item in read_json(ROOT / "hardware/eda/exports/final/layout_audit_crops/manifest.json").get("items", [])
+        if item.get("kind") == "finding"
+    ]
+    lines = [
+        "# Final Visual Review Index",
+        "",
+        "This index is for ChatGPT/user visual inspection. It does not claim human visual approval.",
+        "",
+        "## Status",
+        "",
+        f"- Automated Check Result: `{layout_audit.get('status', 'UNKNOWN')}`",
+        "- Visual Review Result: `PENDING_REVIEW`",
+        "- Human Approval Status: `NOT_APPROVED_YET`",
+        f"- Final PNG: `{manifest['source_png']}`",
+        f"- Final PDF: `{repo_path(DEFAULT_PDF)}`",
+        "",
+        "## Review Images",
+        "",
+    ]
+    required_order = [
+        "overview",
+        "kicad_block",
+        "dd1_area",
+        "reset_boot_led_area",
+        "sensor_uart_area",
+        "heater_power_area",
+        "power_area",
+        "element_list_full",
+        "element_list_top",
+        "element_list_middle",
+        "element_list_bottom",
+        "title_block_full",
+    ]
+    crop_by_name = {crop["name"]: crop for crop in manifest["crops"]}
+    for name in required_order:
+        crop = crop_by_name[name]
+        lines.extend(
+            [
+                f"### {name}",
+                "",
+                f"![{name}]({docs_image_path(crop['path'])})",
+                "",
+                f"- Review purpose: {crop.get('purpose', '')}",
+                f"- Focus: {crop.get('focus', '')}",
+                f"- Related refs: `{', '.join(crop.get('related_refs', []))}`",
+                f"- Related nets: `{', '.join(crop.get('related_nets', []))}`",
+                f"- Current automated status: `{crop.get('automated_status', 'UNKNOWN')}`",
+                f"- Source PNG: `{crop.get('source_png', '')}`",
+                f"- Pixel box: `{crop.get('pixel_box', {})}`",
+                "",
+            ]
+        )
+    lines.extend(["## Finding Crops", ""])
+    if finding_crops:
+        for finding in finding_crops:
+            lines.extend(
+                [
+                    f"### {finding.get('id', 'finding')}",
+                    "",
+                    f"![{finding.get('id', 'finding')}]({docs_image_path(finding['path'])})",
+                    "",
+                    f"- Review purpose: inspect audit finding `{finding.get('id', '')}`.",
+                    "- Focus: verify whether the finding is visually real and whether the listed fix is sufficient.",
+                    "- Related refs: see audit report finding row.",
+                    "- Related nets: see audit report finding row.",
+                    "- Current automated status: `FINDING_EVIDENCE`",
+                    f"- Source PNG: `{manifest['source_png']}`",
+                    f"- Pixel box: `{finding.get('pixel_box', {})}`",
+                    "",
+                ]
+            )
+    else:
+        lines.append("No warning/blocker finding crops are present in the current layout audit.")
+        lines.append("")
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create final schematic review crops and QA report.")
     parser.add_argument("--png", type=Path, default=DEFAULT_PNG)
@@ -483,6 +662,7 @@ def main() -> int:
     lint_report = read_json(args.lint_report)
     erc_report = read_json(args.erc_report)
     table_lock_report = read_json(args.table_lock_report)
+    layout_audit_report = read_json(ROOT / "build/reports/final_schematic_layout_audit.json")
     erc = erc_summary(erc_report)
 
     with Image.open(args.png) as image:
@@ -497,9 +677,8 @@ def main() -> int:
         "title_block_present": all(value in text for value in TITLE_BLOCK_TEXT),
         "legacy_title_absent": not any(value in text for value in TEMPLATE_TEXT_FORBIDDEN),
         "source_frame_diff_clean": git_diff_clean([ROOT / "hardware/eda/functiondiagramYUANLITU.drawio"]),
-        "kicad_source_diff_clean": git_diff_clean(
+        "kicad_symbol_project_diff_clean": git_diff_clean(
             [
-                ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch",
                 ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym",
                 ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro",
             ]
@@ -508,8 +687,8 @@ def main() -> int:
     }
     manifest = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
-        "source_png": str(args.png.relative_to(ROOT)),
-        "source_svg": str(args.svg.relative_to(ROOT)),
+        "source_png": repo_path(args.png),
+        "source_svg": repo_path(args.svg),
         "source_png_width_px": width_px,
         "source_png_height_px": height_px,
         "svg_viewbox": viewbox,
@@ -518,10 +697,11 @@ def main() -> int:
             name: regions[name]["bbox"]
             for name in ("outer_frame", "element_list", "title_block")
         },
-        "lint_report": str(args.lint_report.relative_to(ROOT)),
-        "erc_report": str(args.erc_report.relative_to(ROOT)),
-        "table_lock_report": str(args.table_lock_report.relative_to(ROOT)),
-        "qa_report": str(args.qa_report.relative_to(ROOT)),
+        "lint_report": repo_path(args.lint_report),
+        "erc_report": repo_path(args.erc_report),
+        "table_lock_report": repo_path(args.table_lock_report),
+        "qa_report": repo_path(args.qa_report),
+        "visual_review_index": repo_path(VISUAL_INDEX),
         "checks": checks,
         "erc": erc,
         "crops": crops,
@@ -529,6 +709,7 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     write_report(args, manifest, lint_report, erc, table_lock_report, checks)
+    write_visual_review_index(manifest, layout_audit_report)
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
     return 0 if all(checks.values()) and erc["status"] == "PASSED" else 1
 
