@@ -1,0 +1,24 @@
+schema_version: 1
+workflow: bom_mpn_manufacturer_audit
+source_bom:
+  path: hardware/eda/jlc_schematic_bom.csv
+  encoding: utf-16
+  delimiter: tab
+fields:
+  source_ref: Designator
+  quantity: Quantity
+  comment: Comment
+  footprint: Footprint
+  value: Value
+  manufacturer_part: Manufacturer Part
+  manufacturer: Manufacturer
+  supplier_part: Supplier Part
+  supplier: Supplier
+policy:
+  name_column_requires_real_mpn_or_model: true
+  note_column_requires_manufacturer: true
+  supplier_names_not_allowed_as_manufacturer:
+    - LCSC
+  missing_source_data_code: NEEDS_BOM_MPN_CONFIRMATION
+  do_not_invent_mpn_or_manufacturer: true
+  preserve_master_table_geometry: true

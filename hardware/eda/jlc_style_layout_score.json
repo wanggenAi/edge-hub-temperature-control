@@ -1,0 +1,2185 @@
+{
+  "created_at": "2026-05-24T23:12:15",
+  "status": "UNCHANGED_CURRENT_BEST",
+  "constraints": "hardware/eda/layout_constraints.yaml",
+  "input_svg": "hardware/eda/jlc_schematic_original.svg",
+  "input_drawio": "hardware/eda/functiondiagramYUANLITU.generated.drawio",
+  "output_drawio": "hardware/eda/functiondiagramYUANLITU.generated.drawio",
+  "previous_box": {
+    "x": 205.0,
+    "y": 520.0,
+    "width": 2260.0,
+    "height": 1270.0
+  },
+  "best_box": {
+    "x": 205.0,
+    "y": 520.0,
+    "width": 2260.0,
+    "height": 1270.0
+  },
+  "previous_layout_score": {
+    "wire_crossing_count": 0.0,
+    "wire_total_length": 36.830299633550396,
+    "wire_bend_count": 0.0,
+    "wire_through_symbol_body_count": 0.0,
+    "text_wire_overlap_count": 0.0,
+    "text_symbol_overlap_count": 0.0,
+    "symbol_overlap_count": 0.0,
+    "label_floating_count": 0.0,
+    "block_sparsity_penalty": 0.1808857256549401,
+    "main_area_balance_penalty": 0.10432310488123049,
+    "right_table_overlap_penalty": 0.0,
+    "title_block_overlap_penalty": 0.0,
+    "DQ_long_vertical_penalty": 9.600000000000005,
+    "HEAT_output_floating_penalty": 5.8,
+    "A1_C3_C4_distance_penalty": 16.8,
+    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+    "SB1_DD1_distance_penalty": 0.0,
+    "total": 71.34449236815229
+  },
+  "new_layout_score": {
+    "wire_crossing_count": 0.0,
+    "wire_total_length": 36.830299633550396,
+    "wire_bend_count": 0.0,
+    "wire_through_symbol_body_count": 0.0,
+    "text_wire_overlap_count": 0.0,
+    "text_symbol_overlap_count": 0.0,
+    "symbol_overlap_count": 0.0,
+    "label_floating_count": 0.0,
+    "block_sparsity_penalty": 0.1808857256549401,
+    "main_area_balance_penalty": 0.10432310488123049,
+    "right_table_overlap_penalty": 0.0,
+    "title_block_overlap_penalty": 0.0,
+    "DQ_long_vertical_penalty": 9.600000000000005,
+    "HEAT_output_floating_penalty": 5.8,
+    "A1_C3_C4_distance_penalty": 16.8,
+    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+    "SB1_DD1_distance_penalty": 0.0,
+    "total": 71.34449236815229
+  },
+  "best_layout_score": {
+    "wire_crossing_count": 0.0,
+    "wire_total_length": 36.830299633550396,
+    "wire_bend_count": 0.0,
+    "wire_through_symbol_body_count": 0.0,
+    "text_wire_overlap_count": 0.0,
+    "text_symbol_overlap_count": 0.0,
+    "symbol_overlap_count": 0.0,
+    "label_floating_count": 0.0,
+    "block_sparsity_penalty": 0.1808857256549401,
+    "main_area_balance_penalty": 0.10432310488123049,
+    "right_table_overlap_penalty": 0.0,
+    "title_block_overlap_penalty": 0.0,
+    "DQ_long_vertical_penalty": 9.600000000000005,
+    "HEAT_output_floating_penalty": 5.8,
+    "A1_C3_C4_distance_penalty": 16.8,
+    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+    "SB1_DD1_distance_penalty": 0.0,
+    "total": 71.34449236815229
+  },
+  "adopted_candidate": false,
+  "candidate_count": 75,
+  "candidate_scores": [
+    {
+      "box": {
+        "x": 165.0,
+        "y": 490.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 5.366987577660122,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 79.00174462665208
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 505.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 4.509714088366516,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 78.14447113735848
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 520.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 3.6524405990729094,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.28719764806488
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 535.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 3.1534754234270723,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.78823247241904
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 550.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 4.010748912720679,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.64550596171264
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 490.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 4.398636518122672,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 78.03339356711463
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 505.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 3.541363028829065,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.17612007782103
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 520.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 2.6840895395354587,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.31884658852742
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 535.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 2.1851243638896216,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.81988141288159
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 550.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 3.042397853183228,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.67715490217519
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 490.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 3.430285458585221,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.06504250757718
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 505.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 2.5730119692916142,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.20776901828357
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 520.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.7157384799980075,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.35049552898997
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 535.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.2167733043521707,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.85153035334413
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 550.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 2.074046793645777,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.70880384263774
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 490.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 2.46193439904777,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.09669144803973
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 505.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.6046609097541629,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.23941795874613
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 520.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 0.7473874204605564,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.38214446945251
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 535.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 0.2484222448147197,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.88317929380668
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 550.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.1056957341083262,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.74045278310028
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 490.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 3.2917492826035506,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.9265063315955
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 505.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 2.4344757933099443,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.0692328423019
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 520.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.5772023040163377,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.2119593530083
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 535.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.078237128370501,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.71299417736246
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 550.0,
+        "width": 2214.8,
+        "height": 1244.6
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.575473511375872,
+        "main_area_balance_penalty": 1.9355106176641075,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.799999999999998,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.57026766665606
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 490.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 3.5469259927808845,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.78709525605194
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 505.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.689652503487278,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.92982176675834
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 520.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.9277901244580735,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.16795938772913
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 535.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.78506361375168,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.02523287702275
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 550.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 3.6423371030452865,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.88250636631635
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 490.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.5785749332434333,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.81874419651449
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 505.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.721301443949827,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 72.96147070722088
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 520.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 0.9594390649206228,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 72.19960832819169
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 535.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.8167125542142293,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.05688181748529
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 550.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.6739860435078358,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.9141553067789
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 490.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.7234589732040413,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 72.9636282364751
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 505.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 0.8661854839104347,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 72.1063547471815
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 520.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 0.10432310488123049,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 71.34449236815229
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 535.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 0.961596594174837,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 72.20176585744589
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 550.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.8188700834684435,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.05903934673951
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 490.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.691810032741492,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.93197929601256
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 505.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.8345365434478857,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.07470580671895
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 520.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.0726741644186815,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 72.31284342768974
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 535.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 1.9299476537122877,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.17011691698335
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 550.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.7872211430058944,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.02739040627695
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 490.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 3.660161092278943,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.90033035555
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 505.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.802887602985337,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.04305686625639
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 520.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.0410252239561326,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 73.2811944872272
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 535.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 2.8982987132497393,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.1384679765208
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 550.0,
+        "width": 2260.0,
+        "height": 1270.0
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.830299633550396,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 0.1808857256549401,
+        "main_area_balance_penalty": 3.755572202543345,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000005,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.9957414658144
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 490.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 1.7268644079016464,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.6708591887796
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 505.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 0.8695909186080399,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.813585699486
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 520.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 1.5593783147826812,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.50337309566065
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 535.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 2.416651804076288,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.36064658495425
+      }
+    },
+    {
+      "box": {
+        "x": 165.0,
+        "y": 550.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 3.273925293369894,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.21792007424786
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 490.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 1.1235197233419827,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.06751450421994
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 505.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 0.2662462340483762,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.21024101492634
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 520.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 0.9560336302230175,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 74.90002841110098
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 535.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 1.813307119516624,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.75730190039458
+      }
+    },
+    {
+      "box": {
+        "x": 185.0,
+        "y": 550.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 2.6705806088102304,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.6145753896882
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 490.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 2.091870782879434,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.0358655637574
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 505.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 1.2345972935858271,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.1785920744638
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 520.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 1.9243846897604686,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 75.86837947063843
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 535.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 2.781658179054075,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.72565295993203
+      }
+    },
+    {
+      "box": {
+        "x": 205.0,
+        "y": 550.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 3.6389316683476816,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.58292644922564
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 490.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 3.060221842416884,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.00421662329485
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 505.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 2.2029483531232783,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.14694313400123
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 520.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 2.8927357492979193,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 76.83673053017588
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 535.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 3.750009238591526,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.69400401946949
+      }
+    },
+    {
+      "box": {
+        "x": 225.0,
+        "y": 550.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 4.607282727885132,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 78.55127750876309
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 490.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 4.028572901954336,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.97256768283229
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 505.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 3.1712994126607295,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.11529419353869
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 520.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 3.8610868088353705,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 77.80508158971332
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 535.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 4.718360298128977,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 78.66235507900694
+      }
+    },
+    {
+      "box": {
+        "x": 245.0,
+        "y": 550.0,
+        "width": 2305.2,
+        "height": 1295.4
+      },
+      "score": {
+        "wire_crossing_count": 0.0,
+        "wire_total_length": 36.83029963355041,
+        "wire_bend_count": 0.0,
+        "wire_through_symbol_body_count": 0.0,
+        "text_wire_overlap_count": 0.0,
+        "text_symbol_overlap_count": 0.0,
+        "symbol_overlap_count": 0.0,
+        "label_floating_count": 0.0,
+        "block_sparsity_penalty": 2.884711243261835,
+        "main_area_balance_penalty": 5.575633787422583,
+        "right_table_overlap_penalty": 0.0,
+        "title_block_overlap_penalty": 0.0,
+        "DQ_long_vertical_penalty": 9.600000000000001,
+        "HEAT_output_floating_penalty": 5.800000000000003,
+        "A1_C3_C4_distance_penalty": 16.8,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "SB1_DD1_distance_penalty": 0.0,
+        "total": 79.51962856830055
+      }
+    }
+  ],
+  "changed_layout_summary": "Current JLC-style placement remained the lowest-score candidate; generated draw.io was not moved."
+}

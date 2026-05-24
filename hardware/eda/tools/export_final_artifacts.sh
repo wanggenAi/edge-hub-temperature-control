@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 FRAME_DRAWIO="${ROOT_DIR}/hardware/eda/functiondiagramYUANLITU.drawio"
-KICAD_SVG="${ROOT_DIR}/hardware/kicad_schematic/exports/esp32_temperature_control_unit_schematic.svg"
 SOURCE_DRAWIO="${ROOT_DIR}/hardware/eda/functiondiagramYUANLITU.generated.drawio"
 EXPORT_DIR="${ROOT_DIR}/hardware/eda/exports/final"
 DRAWIO_CLI="${DRAWIO_CLI:-/Applications/draw.io.app/Contents/MacOS/draw.io}"
@@ -24,15 +23,11 @@ if [[ ! -f "${FRAME_DRAWIO}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${KICAD_SVG}" ]]; then
-  printf 'ERROR: KiCad SVG source missing: %s\n' "${KICAD_SVG}" >&2
+if [[ ! -f "${SOURCE_DRAWIO}" ]]; then
+  printf 'ERROR: JLC-style generated draw.io source missing: %s\n' "${SOURCE_DRAWIO}" >&2
+  printf 'Run hardware/eda/tools/create_jlc_style_schematic_drawio.py or the layout optimizer first.\n' >&2
   exit 1
 fi
-
-python3 "${ROOT_DIR}/hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py" \
-  --frame "${FRAME_DRAWIO}" \
-  --kicad-svg "${KICAD_SVG}" \
-  --output "${SOURCE_DRAWIO}"
 
 python3 "${ROOT_DIR}/hardware/eda/tools/update_generated_element_list.py" \
   --input "${SOURCE_DRAWIO}" \

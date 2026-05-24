@@ -19,6 +19,7 @@ FINAL_SVG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_el
 FINAL_PNG = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png"
 CREATE_SCRIPT = ROOT / "hardware/eda/tools/create_jlc_style_schematic_drawio.py"
 AUDIT_SCRIPT = ROOT / "hardware/eda/tools/audit_jlc_style_layout.py"
+OPTIMIZE_SCRIPT = ROOT / "hardware/eda/tools/optimize_jlc_style_layout.py"
 VALIDATE_TABLES = ROOT / "hardware/eda/tools/validate_generated_tables_match_master.py"
 
 REQUIRED_REFS = {
@@ -209,3 +210,64 @@ def test_current_final_jlc_style_outputs_pass_audit_when_present(tmp_path: Path)
     assert data["checks"]["old_refs_absent"] is True
     assert data["checks"]["old_nets_absent"] is True
     assert data["checks"]["kicad_style_markers_absent"] is True
+
+
+def test_layout_optimizer_writes_quantified_score(tmp_path: Path) -> None:
+    output = tmp_path / "generated.drawio"
+    subprocess.run(
+        [
+            sys.executable,
+            str(CREATE_SCRIPT),
+            "--frame",
+            str(FRAME),
+            "--jlc-svg",
+            str(JLC_SVG),
+            "--output",
+            str(output),
+        ],
+        check=True,
+    )
+    score_json = tmp_path / "layout_score.json"
+    report = tmp_path / "layout_report.md"
+    subprocess.run(
+        [
+            sys.executable,
+            str(OPTIMIZE_SCRIPT),
+            "--constraints",
+            str(ROOT / "hardware/eda/layout_constraints.yaml"),
+            "--input-svg",
+            str(JLC_SVG),
+            "--input-drawio",
+            str(output),
+            "--output-drawio",
+            str(output),
+            "--score-json",
+            str(score_json),
+            "--report",
+            str(report),
+        ],
+        check=True,
+    )
+    data = json.loads(score_json.read_text(encoding="utf-8"))
+    required_score_items = {
+        "wire_crossing_count",
+        "wire_total_length",
+        "wire_bend_count",
+        "wire_through_symbol_body_count",
+        "text_wire_overlap_count",
+        "text_symbol_overlap_count",
+        "symbol_overlap_count",
+        "label_floating_count",
+        "block_sparsity_penalty",
+        "main_area_balance_penalty",
+        "right_table_overlap_penalty",
+        "title_block_overlap_penalty",
+        "DQ_long_vertical_penalty",
+        "HEAT_output_floating_penalty",
+        "A1_C3_C4_distance_penalty",
+        "R4_GATE_R_VT1_crowding_penalty",
+        "SB1_DD1_distance_penalty",
+    }
+    assert required_score_items <= set(data["new_layout_score"])
+    assert data["candidate_count"] > 1
+    assert "changed_layout_summary" in data

@@ -1,0 +1,68 @@
+schema_version: 1
+workflow: jlc_style_layout_optimizer
+coordinate_system: drawio_page_units
+locked_inputs:
+  mother_drawio: hardware/eda/functiondiagramYUANLITU.drawio
+  jlc_source_svg: hardware/eda/jlc_schematic_original.svg
+  jlc_netlist: hardware/eda/jlc_netlist_altium.tel
+  schematic_model: hardware/eda/schematic_model.yaml
+  ref_mapping: hardware/eda/ref_mapping.yaml
+modules:
+  core:
+    refs: [DD1]
+    preferred_region: center_left
+  decoupling:
+    refs: [C1, C2]
+    preferred_region: left_top_of_DD1
+  reset:
+    refs: [R1, SB1]
+    preferred_region: left_of_DD1
+  boot:
+    refs: [R6, SB2]
+    preferred_region: below_or_right_bottom_of_DD1
+  led:
+    refs: [R3, HL1]
+    preferred_region: below_DD1
+  sensor:
+    refs: [R2, XS1]
+    preferred_region: right_top_of_DD1
+  uart:
+    refs: [XS4]
+    preferred_region: right_of_DD1
+  heater:
+    refs: [R4, R5, VT1, XS2, XS5]
+    preferred_region: right_middle
+  power:
+    refs: [XS3, A1, C3, C4]
+    preferred_region: right_bottom
+score_items:
+  - wire_crossing_count
+  - wire_total_length
+  - wire_bend_count
+  - wire_through_symbol_body_count
+  - text_wire_overlap_count
+  - text_symbol_overlap_count
+  - symbol_overlap_count
+  - label_floating_count
+  - block_sparsity_penalty
+  - main_area_balance_penalty
+  - right_table_overlap_penalty
+  - title_block_overlap_penalty
+  - DQ_long_vertical_penalty
+  - HEAT_output_floating_penalty
+  - A1_C3_C4_distance_penalty
+  - R4_GATE_R_VT1_crowding_penalty
+  - SB1_DD1_distance_penalty
+optimizer:
+  preserve_symbol_group_internal_geometry: true
+  preserve_topology_refs_nets_bom: true
+  candidate_dx: [-40, -20, 0, 20, 40]
+  candidate_dy: [-30, -15, 0, 15, 30]
+  candidate_scale: [0.98, 1.0, 1.02]
+  accept_only_if_score_improves: true
+  score_tolerance: 0.001
+targets:
+  main_area_width_ratio: 0.91
+  main_area_height_ratio: 0.605
+  main_area_center_x_ratio: 0.506
+  main_area_center_y_ratio: 0.546

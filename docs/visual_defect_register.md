@@ -15,14 +15,17 @@ This register tracks human-style visual review defects that are outside automate
 | ROUND2_DD1_PIN_TEXT_HEAVY | Checkpoint passed | DD1 pin labels were restored but visually heavy/dense. | Reduced restored DD1 pin-label and pin-number font sizes without changing pin content, refs, nets, or symbol geometry. Web ChatGPT Round 2 result: `VISUAL_PASS_FOR_CHECKPOINT`. |
 | ROUND2_GATE_VT1_CROWDING | Checkpoint passed | R4 / GATE / GATE_R / VT1 area remained mildly crowded. | Moved only overlay labels around GATE/GATE_R/R4/VT1 to reduce local visual pressure; topology and JLC source symbol shape remain unchanged. Web ChatGPT Round 2 result: `VISUAL_PASS_FOR_CHECKPOINT`. |
 | ROUND2_POWER_COHESION | Accepted for checkpoint | A1 / C3 / C4 power area can still read as less cohesive because the JLC source body is embedded as one preserved vector block. | No topology or per-symbol shape edit was made. Web ChatGPT accepted this checkpoint; deeper per-JLC-symbol extraction/regrouping remains optional only if a later human reviewer requests it. |
+| LAYOUT_OPTIMIZER_SCORE | Pending reviewer check | User requested an engineering layout optimizer instead of one-off manual placement. | Added quantified score fields and candidate evaluation. Current visually approved placement remains the best candidate: previous score `71.344`, new score `71.344`, adopted candidate `false`. |
+| BOM_MPN_MANUFACTURER_GAPS | Needs BOM confirmation | User requested real purchasable MPN/model in Name and Manufacturer in Note. The JLC BOM lacks true Manufacturer Part and/or Manufacturer for 19 refs. | Added BOM audit. Known MPN/model fields from the BOM are visible where available. Missing MPN/Manufacturer values are reported as `NEEDS_BOM_MPN_CONFIRMATION`; no AI-invented values were added. |
 
 ## Current Checkpoint Notes
 
-- Workflow: `JLC-style faithful layout beautification`, visual repair round 2.
+- Workflow: `JLC-style faithful layout beautification`, engineering layout optimizer checkpoint.
 - The generated middle schematic uses the JLC original SVG style, school refs, and canonical net labels.
 - The right-top List of Elements and right-bottom Title Block are locked to `hardware/eda/functiondiagramYUANLITU.drawio`.
 - Web ChatGPT review of the previous checkpoint: `NEEDS_MINOR_REPAIR`.
 - Web ChatGPT review of Round 2: `VISUAL_PASS_FOR_CHECKPOINT`.
+- Current optimizer pass changes review status back to `PENDING_REVIEW` until the refreshed screenshots are reviewed.
 - Automated result is not human visual approval.
-- Visual Review Result: `VISUAL_PASS_FOR_CHECKPOINT`.
+- Visual Review Result: `PENDING_REVIEW`.
 - Human Approval Status: `FINAL_TEACHER_APPROVAL_NOT_CLAIMED`.
