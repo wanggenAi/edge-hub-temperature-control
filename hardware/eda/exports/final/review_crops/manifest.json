@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-24T19:10:31",
+  "created_at": "2026-05-24T20:25:21",
   "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
   "source_svg": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg",
   "source_png_width_px": 6433,
@@ -11,16 +11,16 @@
     "height": 2326.0
   },
   "kicad_embed_bbox": {
-    "x": 171.0,
-    "y": 448.0,
-    "width": 2100.0,
-    "height": 1180.0
+    "x": 126.0,
+    "y": 513.0,
+    "width": 2260.0,
+    "height": 1270.0
   },
   "jlc_style_embed_bbox": {
-    "x": 171.0,
-    "y": 448.0,
-    "width": 2100.0,
-    "height": 1180.0
+    "x": 126.0,
+    "y": 513.0,
+    "width": 2260.0,
+    "height": 1270.0
   },
   "reserved_regions": {
     "outer_frame": {
@@ -136,17 +136,17 @@
       "path": "hardware/eda/exports/final/review_crops/kicad_block.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 171.0,
-        "y": 448.0,
-        "width": 2100.0,
-        "height": 1180.0
+        "x": 126.0,
+        "y": 513.0,
+        "width": 2260.0,
+        "height": 1270.0
       },
       "margin_svg_units": 40.0,
       "pixel_box": {
-        "x": 263,
-        "y": 817,
-        "width": 4361,
-        "height": 2521
+        "x": 173,
+        "y": 947,
+        "width": 4681,
+        "height": 2702
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -194,17 +194,17 @@
       "path": "hardware/eda/exports/final/review_crops/jlc_style_block.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 171.0,
-        "y": 448.0,
-        "width": 2100.0,
-        "height": 1180.0
+        "x": 126.0,
+        "y": 513.0,
+        "width": 2260.0,
+        "height": 1270.0
       },
       "margin_svg_units": 40.0,
       "pixel_box": {
-        "x": 263,
-        "y": 817,
-        "width": 4361,
-        "height": 2521
+        "x": 173,
+        "y": 947,
+        "width": 4681,
+        "height": 2702
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -252,17 +252,17 @@
       "path": "hardware/eda/exports/final/review_crops/dd1_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 528.0,
-        "y": 648.6,
-        "width": 882.0,
-        "height": 448.4
+        "x": 510.20000000000005,
+        "y": 728.9,
+        "width": 949.1999999999999,
+        "height": 482.6
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 1013,
-        "y": 1255,
-        "width": 1852,
-        "height": 985
+        "x": 978,
+        "y": 1415,
+        "width": 1986,
+        "height": 1054
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -287,17 +287,17 @@
       "path": "hardware/eda/exports/final/review_crops/reset_boot_led_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 171.0,
-        "y": 825.6,
-        "width": 903.0,
-        "height": 590.0
+        "x": 126.0,
+        "y": 919.4000000000001,
+        "width": 971.8,
+        "height": 635.0
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 299,
-        "y": 1609,
-        "width": 1894,
-        "height": 1268
+        "x": 209,
+        "y": 1797,
+        "width": 2032,
+        "height": 1358
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -324,17 +324,17 @@
       "path": "hardware/eda/exports/final/review_crops/sensor_uart_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1074.0,
-        "y": 448.0,
-        "width": 798.0,
-        "height": 472.0
+        "x": 1097.8,
+        "y": 513.0,
+        "width": 858.8,
+        "height": 508.0
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2105,
-        "y": 853,
-        "width": 1685,
-        "height": 1033
+        "x": 2153,
+        "y": 983,
+        "width": 1806,
+        "height": 1105
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -357,17 +357,17 @@
       "path": "hardware/eda/exports/final/review_crops/heater_power_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1116.0,
-        "y": 849.2,
-        "width": 1155.0,
-        "height": 778.8000000000001
+        "x": 1143.0,
+        "y": 944.8,
+        "width": 1243.0,
+        "height": 838.2
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2189,
-        "y": 1656,
-        "width": 2399,
-        "height": 1646
+        "x": 2243,
+        "y": 1847,
+        "width": 2575,
+        "height": 1766
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -398,17 +398,17 @@
       "path": "hardware/eda/exports/final/review_crops/power_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1221.0,
-        "y": 1250.4,
-        "width": 903.0,
-        "height": 377.6
+        "x": 1256.0,
+        "y": 1376.6,
+        "width": 971.8,
+        "height": 406.40000000000003
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2399,
-        "y": 2459,
-        "width": 1895,
-        "height": 843
+        "x": 2469,
+        "y": 2711,
+        "width": 2032,
+        "height": 902
       },
       "automated_status": "PASS",
       "related_refs": [

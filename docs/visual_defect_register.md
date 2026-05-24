@@ -11,11 +11,16 @@ This register tracks human-style visual review defects that are outside automate
 | MASTER_TABLE_LOCK | Active constraint | Right-top List of Elements and right-bottom Title Block must remain identical to the master draw.io table geometry/style. | Table geometry/style/font/alignment/line-width/cell IDs are locked by `validate_generated_tables_match_master.py`; only approved text values may differ. |
 | ELEMENT_LIST_COMPRESSED | Needs master-table decision if rejected | Right-top BOM text can still look compressed because the master table has fixed rows. | Do not secretly edit table geometry. Escalate as `NEEDS_MASTER_TABLE_EDIT` if reviewer rejects readability. |
 | TITLE_BLOCK_SMALL_FIELD_CROWDING | Needs master-table decision if rejected | Right-bottom title block small fields may remain crowded because the master title block is locked. | Do not secretly edit title block geometry. Escalate as `NEEDS_MASTER_TABLE_EDIT` if reviewer rejects readability. |
+| ROUND2_A1_COMPOSITION_BALANCE | Repaired, pending review | Web ChatGPT reviewer marked the previous JLC-style checkpoint as `NEEDS_MINOR_REPAIR`: the middle schematic was still slightly too small/high for A1. | Enlarged the JLC-style schematic block from 2100 x 1180 to 2260 x 1270 and moved it down while preserving safe gaps to the List of Elements and Title Block. |
+| ROUND2_DD1_PIN_TEXT_HEAVY | Repaired, pending review | DD1 pin labels were restored but visually heavy/dense. | Reduced restored DD1 pin-label and pin-number font sizes without changing pin content, refs, nets, or symbol geometry. |
+| ROUND2_GATE_VT1_CROWDING | Repaired, pending review | R4 / GATE / GATE_R / VT1 area remained mildly crowded. | Moved only overlay labels around GATE/GATE_R/R4/VT1 to reduce local visual pressure; topology and JLC source symbol shape remain unchanged. |
+| ROUND2_POWER_COHESION | Residual risk, pending review | A1 / C3 / C4 power area can still read as less cohesive because the JLC source body is embedded as one preserved vector block. | No topology or per-symbol shape edit was made. If reviewer requires true local regrouping, next round needs per-JLC-symbol extraction/translation while preserving symbol geometry. |
 
 ## Current Checkpoint Notes
 
-- Workflow: `JLC-style faithful layout beautification`.
+- Workflow: `JLC-style faithful layout beautification`, visual repair round 2.
 - The generated middle schematic uses the JLC original SVG style, school refs, and canonical net labels.
 - The right-top List of Elements and right-bottom Title Block are locked to `hardware/eda/functiondiagramYUANLITU.drawio`.
+- Web ChatGPT review of the previous checkpoint: `NEEDS_MINOR_REPAIR`.
 - Automated result is not human visual approval.
 - Visual Review Result: `PENDING_REVIEW`.

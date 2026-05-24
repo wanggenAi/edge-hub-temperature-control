@@ -28,11 +28,11 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 
 ## JLC-Style Schematic Block Placement
 
-- Embed bbox: `{'x': 171.0, 'y': 448.0, 'width': 2100.0, 'height': 1180.0}`
-- Main width share: `0.847`
-- Main height share: `0.562`
-- Gap to List of Elements: `287.18` SVG units
-- Gap to Title Block: `479.42` SVG units
+- Embed bbox: `{'x': 126.0, 'y': 513.0, 'width': 2260.0, 'height': 1270.0}`
+- Main width share: `0.912`
+- Main height share: `0.605`
+- Gap to List of Elements: `172.18` SVG units
+- Gap to Title Block: `324.42` SVG units
 
 ## List Of Elements
 

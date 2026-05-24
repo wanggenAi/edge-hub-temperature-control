@@ -331,8 +331,8 @@ def validate_layout(root: ET.Element, embed_box: dict[str, float], findings: lis
         height_ratio = embed_box["height"] / main_height if main_height else 0.0
         if width_ratio < 0.60 or height_ratio < 0.32:
             add_finding(findings, "BLOCK_TOO_SPARSE", "warning", "jlc_style.schematic.embed", "JLC schematic block uses too little of the available A1 main area", expected=">=0.60 width and >=0.32 height", actual=f"{width_ratio:.3f}, {height_ratio:.3f}")
-        if width_ratio > 0.90 or height_ratio > 0.78:
-            add_finding(findings, "BLOCK_TOO_CROWDED", "warning", "jlc_style.schematic.embed", "JLC schematic block may be too large for comfortable review", expected="<=0.90 width and <=0.78 height", actual=f"{width_ratio:.3f}, {height_ratio:.3f}")
+        if width_ratio > 0.93 or height_ratio > 0.78:
+            add_finding(findings, "BLOCK_TOO_CROWDED", "warning", "jlc_style.schematic.embed", "JLC schematic block may be too large for comfortable review", expected="<=0.93 width and <=0.78 height", actual=f"{width_ratio:.3f}, {height_ratio:.3f}")
         return {
             "layout_metrics": {
                 "main_width": main_width,

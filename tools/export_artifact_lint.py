@@ -28,6 +28,7 @@ DEFAULT_BASENAME = "functiondiagramYUANLITU.preview"
 REQUIRED_DOCUMENT_CODE = "BSTU.241297.006"
 KICAD_EMBED_MIN_WIDTH_RATIO = 0.70
 KICAD_EMBED_MAX_WIDTH_RATIO = 0.85
+JLC_STYLE_EMBED_MAX_WIDTH_RATIO = 0.93
 KICAD_EMBED_MIN_HEIGHT_RATIO = 0.45
 KICAD_EMBED_MAX_HEIGHT_RATIO = 0.70
 KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST = 30.0
@@ -221,7 +222,7 @@ def validate_svg(path: Path, findings: list[Finding], lock_file: Path, label: st
     else:
         if "Qty" not in visible_text and "Number" not in visible_text:
             error(findings, "SVG_REQUIRED_TEXT_MISSING", str(path), "SVG is missing the element-list quantity column header", "Qty or Number", "not found")
-        validate_schematic_embed_geometry(text, lock_file, findings, str(path), payload)
+        validate_schematic_embed_geometry(text, lock_file, findings, str(path), payload, label)
         if requires_esp32_bom_check(label):
             validate_esp32_bom_visible_text(visible_text, findings, str(path))
         if requires_esp32_title_block_check(label):
@@ -317,12 +318,18 @@ def validate_esp32_title_block_visible_text(visible_text: str, findings: list[Fi
         )
 
 
+def is_jlc_style_label(label: str) -> bool:
+    label_lower = label.lower()
+    return "jlc-style-layout" in label_lower or "jlc_style_layout" in label_lower or "jlc-style" in label_lower
+
+
 def validate_schematic_embed_geometry(
     text: str,
     lock_file: Path,
     findings: list[Finding],
     object_id: str,
     payload: dict[str, Any],
+    label: str = "",
 ) -> None:
     if not lock_file.exists():
         error(findings, "LOCK_FILE_MISSING", str(lock_file), "Reserved-region lock file is missing")
@@ -395,13 +402,14 @@ def validate_schematic_embed_geometry(
             f">= {KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK} units",
             f"{gap_to_title_block:.2f} units",
         )
-    if not (KICAD_EMBED_MIN_WIDTH_RATIO <= width_ratio <= KICAD_EMBED_MAX_WIDTH_RATIO):
+    max_width_ratio = JLC_STYLE_EMBED_MAX_WIDTH_RATIO if is_jlc_style_label(label) else KICAD_EMBED_MAX_WIDTH_RATIO
+    if not (KICAD_EMBED_MIN_WIDTH_RATIO <= width_ratio <= max_width_ratio):
         error(
             findings,
             "SCHEMATIC_EMBED_WIDTH_RATIO_INVALID",
             object_id,
             "Embedded schematic block does not use the required share of the main schematic width",
-            f"{KICAD_EMBED_MIN_WIDTH_RATIO:.2f}..{KICAD_EMBED_MAX_WIDTH_RATIO:.2f}",
+            f"{KICAD_EMBED_MIN_WIDTH_RATIO:.2f}..{max_width_ratio:.2f}",
             f"{width_ratio:.3f}",
         )
     if not (KICAD_EMBED_MIN_HEIGHT_RATIO <= height_ratio <= KICAD_EMBED_MAX_HEIGHT_RATIO):

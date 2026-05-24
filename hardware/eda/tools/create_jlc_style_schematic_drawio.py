@@ -28,10 +28,10 @@ FRAME_DRAWIO = ROOT / "hardware/eda/functiondiagramYUANLITU.drawio"
 JLC_SVG = ROOT / "hardware/eda/jlc_schematic_original.svg"
 OUTPUT_DRAWIO = ROOT / "hardware/eda/functiondiagramYUANLITU.generated.drawio"
 
-DEFAULT_X = 250.0
-DEFAULT_Y = 455.0
-DEFAULT_WIDTH = 2100.0
-DEFAULT_HEIGHT = 1180.0
+DEFAULT_X = 205.0
+DEFAULT_Y = 520.0
+DEFAULT_WIDTH = 2260.0
+DEFAULT_HEIGHT = 1270.0
 
 # Source SVG coordinate crop.  It removes the JLC page frame/title block while
 # keeping the complete schematic body and the source symbol geometry.
@@ -155,8 +155,8 @@ ADDED_NET_LABELS = {
     "BOOT": (620, -625),
     "LED": (565, -395),
     "LED_A": (670, -420),
-    "GATE": (558, -545),
-    "GATE_R": (625, -555),
+    "GATE": (548, -535),
+    "GATE_R": (650, -558),
     "HEAT+": (880, -520),
     "HEAT-": (870, -445),
 }
@@ -167,17 +167,17 @@ ADDED_REF_LABELS = {
     "C2": (270, -670),
     "C3": (830, -415),
     "C4": (830, -365),
-    "R4": (520, -557),
+    "R4": (520, -565),
     "R5": (595, -595),
     "SB1": (225, -565),
     "SB2": (560, -670),
     "HL1": (535, -385),
-    "VT1": (618, -570),
+    "VT1": (603, -578),
     "XS2": (895, -550),
     "XS3": (930, -460),
     "XS4": (545, -500),
     "XS5": (742, -545),
-    "A1": (810, -635),
+    "A1": (825, -595),
 }
 
 DD1_PIN_LABELS = [
@@ -518,7 +518,7 @@ def add_dd1_pin_labels(root: ET.Element) -> None:
                 value=name,
                 x=name_x,
                 y=y,
-                font_size=6.4,
+                font_size=5.7,
                 anchor=anchor,
                 role="pin_label",
                 extra={"data-ref": "DD1", "data-pin": name, "data-pin-number": number},
@@ -528,7 +528,7 @@ def add_dd1_pin_labels(root: ET.Element) -> None:
             value=number,
             x=number_x,
             y=y,
-            font_size=5.8,
+            font_size=5.0,
             anchor=number_anchor,
             role="pin_number",
             extra={"data-ref": "DD1", "data-pin": name, "data-pin-number": number},
