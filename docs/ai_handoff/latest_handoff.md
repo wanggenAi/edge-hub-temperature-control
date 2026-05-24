@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-9d028d87
+10c2ef4d
 
 ## Current Branch
 main
@@ -10,86 +10,73 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active schematic workflow is KiCad-based: KiCad owns the middle electrical schematic, while draw.io owns the BSTU school frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Workflow State
-- Current round target: BSTU right-top List of Elements and right-bottom Title Block geometry rebuild/hard-validation.
-- Previous topology checkpoint remains accepted: KiCad ERC passes and JLC `.tel` to KiCad netlist equivalence passes.
-- This round did not modify KiCad schematic topology, KiCad source files, KiCad exports, the original school frame, refs, nets, or BOM content.
-- The generated/final draw.io copies now rebuild the right-top and right-bottom tables from explicit geometry rules.
+- Current round target: correct the previous generated-table rebuild direction.
+- New hard rule from user: the master draw.io table geometry, line widths, row/column structure, fonts, alignment, and outer frame are the only accepted standard.
+- Generated/final draw.io files may replace table text values only.
+- This round does not change KiCad schematic topology, KiCad source files, KiCad exports, original school frame, refs, nets, or confirmed netlist equivalence.
 
 ## What Was Done In This Round
-- Added table geometry rules:
-  - `hardware/eda/table_geometry_rules.yaml`
-- Added generated table rebuilder/validator:
-  - `hardware/eda/tools/rebuild_generated_tables.py`
-- Updated final export pipeline to rebuild tables before SVG/PDF/PNG export:
-  - `hardware/eda/tools/export_final_artifacts.sh`
-- Wired BSTU table geometry validation into export lint for the `final-bstu-table-geometry` label:
-  - `tools/export_artifact_lint.py`
-- Added regression tests with positive and negative geometry cases:
-  - `tests/test_bstu_table_geometry.py`
+- Removed the separate generated-table geometry rule path:
+  - deleted `hardware/eda/table_geometry_rules.yaml`
+  - deleted `hardware/eda/tools/rebuild_generated_tables.py`
+  - deleted `tests/test_bstu_table_geometry.py`
+  - deleted `docs/bstu_table_geometry_report.md`
+- Added master table lock validation:
+  - `hardware/eda/tools/validate_generated_tables_match_master.py`
+  - `tests/test_bstu_master_table_lock.py`
+  - `docs/bstu_master_table_lock_report.md`
+- Updated generated text updaters so they replace only existing master cell `value` text and preserve the table body.
+- Updated the embed script to preserve all master List of Elements cells, including edge cells without normal bounding boxes.
+- Updated final export and export lint to validate generated/final table objects against the master draw.io table objects.
 - Regenerated final draw.io/SVG/PDF/PNG artifacts.
-- Added geometry report:
-  - `docs/bstu_table_geometry_report.md`
-- Updated workflow documentation:
-  - `docs/kicad_schematic_workflow.md`
+- Updated workflow documentation to replace the old “table rebuild” wording with “master table lock / text-only replacement”.
 
-## Table Geometry Result
+## Master Table Lock Result
 PASS.
 
-Right-top List of Elements:
-- x: `2558.18`
-- y: `10.43`
-- width: `730.0`
-- height: `1208.0`
-- column widths: `150.0 / 340.0 / 68.0 / 172.0`
-- horizontal line count: `22`
-- minimum font size: `14 px`
-- header: `Position number | Name | Qty | Note`
-- bottom blank row removed
+Master source:
+- `hardware/eda/functiondiagramYUANLITU.drawio`
 
-Right-bottom Title Block:
-- x: `2555.18`
-- y: `2107.42`
-- width: `733.786`
-- height: `221.0`
-- minimum font size: `8 px`
-- each configured cell reported zero geometry delta against `hardware/eda/table_geometry_rules.yaml`
-- required text includes `BSTU.241297.006 Э3`, `ESP32 Temperature Control Unit`, `Electrical Schematic Diagram`, `Brest State Technical University`, `Wang Gen`, `A1`, `N/A`, and `2026-05-20`
+Generated/final rule:
+- compare every master table `mxCell` except `value`
+- compare all `mxGeometry` attributes and child points
+- fail on changed line width, style, font metadata, alignment, row/column geometry, cell ID, parent, edge/vertex flag, missing cell, or extra table cell
+- allow only approved text-cell value changes
 
 Reports:
-- Markdown: `docs/bstu_table_geometry_report.md`
-- JSON: `build/reports/bstu_table_geometry.json`
+- Markdown: `docs/bstu_master_table_lock_report.md`
+- JSON: `build/reports/bstu_master_table_lock.json`
+
+Measured result:
+- Master table cell count: `101`
+- Generated table cell count: `101`
+- Final table cell count: `101`
+- Generated geometry matches master: `true`
+- Final geometry matches master: `true`
+- Geometry hash: `34ef44b8ced36aa76933db11fa585bb5d57ca868ab93e5d2f95193670983edf0`
+- Value-only changed cells per candidate: `36`
+
+## BOM Text Note
+The master List of Elements has a fixed row count. To obey the new rule, the ESP32 BOM is merged into the existing master rows instead of adding/removing rows or modifying table geometry. This keeps all required ESP32 refs and descriptions visible while preserving the master table body exactly.
 
 ## Validation Performed
-- `python3 -m pytest tests/test_bstu_table_geometry.py -q`
-  - Result: `6 passed`
-- `python3 -m pytest tests/test_jlc_kicad_netlist_equivalence.py -q`
-  - Result: `6 passed`
-- `python3 -m pytest tests/test_kicad_schematic_workflow.py -q`
-  - Result: `16 passed`
-- `python3 -m py_compile hardware/eda/tools/rebuild_generated_tables.py hardware/eda/tools/update_generated_element_list.py hardware/eda/tools/update_generated_title_block.py hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py tools/export_artifact_lint.py tests/test_bstu_table_geometry.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_kicad_schematic_workflow.py`
+- `python3 -m pytest tests/test_bstu_master_table_lock.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_kicad_schematic_workflow.py -q`
+  - Result: `27 passed`
+- `python3 -m py_compile hardware/eda/tools/validate_generated_tables_match_master.py hardware/eda/tools/update_generated_element_list.py hardware/eda/tools/update_generated_title_block.py hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py tools/export_artifact_lint.py tests/test_bstu_master_table_lock.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_kicad_schematic_workflow.py`
   - Result: passed
-- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_table_geometry_rebuild.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
+- `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --format json --output build/reports/kicad_schematic_erc_master_table_lock.json hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
   - Result: `0` violations
-- `python3 hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py --jlc-netlist hardware/eda/jlc_netlist_altium.tel --kicad-schematic hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch --ref-mapping hardware/eda/ref_mapping.yaml --model hardware/eda/schematic_model.yaml --rules hardware/eda/net_equivalence_rules.yaml --json-report build/reports/jlc_kicad_netlist_equivalence_table_geometry_rebuild.json --md-report docs/jlc_kicad_netlist_equivalence_report.md`
+- `python3 hardware/eda/tools/validate_generated_tables_match_master.py --master hardware/eda/functiondiagramYUANLITU.drawio --candidate hardware/eda/functiondiagramYUANLITU.generated.drawio --final-candidate hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --report docs/bstu_master_table_lock_report.md --json-report build/reports/bstu_master_table_lock.json`
   - Result: `PASS`
-- `bash hardware/eda/tools/export_final_artifacts.sh`
-  - Result: final draw.io/SVG/PDF/PNG regenerated
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-bstu-table-geometry --reports-dir build/reports/final-bstu-table-geometry-export`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-bstu-table-geometry --reports-dir build/reports/final-master-table-lock-export`
   - Result: `0` errors
-- Diff guards:
-  - `hardware/eda/functiondiagramYUANLITU.drawio`: clean
-  - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`: clean
-  - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym`: clean
-  - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro`: clean
-  - `hardware/kicad_schematic/exports/*`: clean
-  - `docs/jlc_kicad_netlist_equivalence_report.md`: clean
 
 ## Final Artifacts
 - Draw.io: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`
 - SVG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
 - PDF: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
 - PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- PNG resolution: `6431 x 4654 px`
+- PNG resolution: `6433 x 4670 px`
 
 ## Files Changed In Engineering Commit
 - `hardware/eda/functiondiagramYUANLITU.generated.drawio`
@@ -97,13 +84,16 @@ Reports:
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
 - `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- `hardware/eda/table_geometry_rules.yaml`
-- `hardware/eda/tools/rebuild_generated_tables.py`
+- `hardware/eda/tools/embed_kicad_schematic_into_bstu_frame.py`
 - `hardware/eda/tools/export_final_artifacts.sh`
+- `hardware/eda/tools/update_generated_element_list.py`
+- `hardware/eda/tools/update_generated_title_block.py`
+- `hardware/eda/tools/validate_generated_tables_match_master.py`
 - `tools/export_artifact_lint.py`
-- `tests/test_bstu_table_geometry.py`
-- `docs/bstu_table_geometry_report.md`
+- `tests/test_bstu_master_table_lock.py`
+- `docs/bstu_master_table_lock_report.md`
 - `docs/kicad_schematic_workflow.md`
+- deleted old generated-table rebuild files listed above
 
 ## Files Intentionally Not Changed
 - `hardware/eda/functiondiagramYUANLITU.drawio`
@@ -117,7 +107,6 @@ Reports:
 - `hardware/eda/net_equivalence_rules.yaml`
 - Confirmed refs and canonical net names
 - Schematic topology
-- BOM content
 - Unrelated dirty files
 
 ## ERC Status
@@ -127,21 +116,21 @@ KiCad CLI was available:
 `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli`
 
 ERC report:
-`build/reports/kicad_schematic_erc_table_geometry_rebuild.json`
+`build/reports/kicad_schematic_erc_master_table_lock.json`
 
 Summary:
 - Total ERC violations: `0`
 
 ## Remaining Risks / Human Review Points
-1. This checkpoint hard-validates generated/final table geometry against project rules, but it does not claim official ГОСТ per-cell coordinate proof beyond the locked BSTU frame/template style.
-2. The final PDF/PNG still needs reviewer visual inspection for thesis aesthetics.
-3. Electrical topology should remain frozen unless a reviewer identifies a specific confirmed mismatch.
+1. The table body is now locked to the master draw.io exactly; if a reviewer wants different row count or official GOST cell coordinates, that must be done in the master file first, not in generated/final.
+2. Because the master table has limited rows, several BOM items are merged in existing rows. This is intentional under the new “only text replacement” rule but should be reviewed visually for readability.
+3. The final PDF/PNG still needs reviewer visual inspection for thesis aesthetics.
 
 ## Open Questions For ChatGPT
-1. Does commit `9d028d87` satisfy the requested BSTU table geometry rebuild checkpoint?
-2. Are the List of Elements column widths, centered text, removed blank bottom row, and larger fonts acceptable for the thesis drawing?
-3. Is the Title Block structure acceptable as a generated final-table checkpoint, or should the next round focus on exact official GOST 2.104 cell coordinates?
-4. What should the next focused checkpoint be if this round passes: final visual crop QA, title block official-coordinate proof, or no further table changes?
+1. Does this correction properly satisfy the new user rule: master draw.io table body is the only standard and generated/final may only replace text?
+2. Is merging BOM items into existing master rows acceptable under a locked-table workflow, or should the master List of Elements itself be manually redesigned first?
+3. Are there any additional automated checks needed to prove no table geometry/font/alignment/line-width metadata changed?
+4. What should the next focused checkpoint be after this correction?
 
 ## Suggested Next Step
-Send commit `9d028d87` and this handoff to ChatGPT reviewer. If accepted, continue only with the next focused reviewer prompt; do not alter KiCad topology, refs, nets, or BOM without a specific confirmed issue.
+Send the new engineering commit and this handoff to ChatGPT reviewer. If accepted, continue only with the next focused reviewer prompt. Do not alter KiCad topology, refs, nets, or the master table body without a specific confirmed issue.
