@@ -269,14 +269,14 @@ def test_kicad_source_visible_refs_and_nets_are_canonical() -> None:
 def test_jlc_faithful_redraw_uses_local_wiring_between_related_nodes() -> None:
     schematic = text(KICAD_SCH)
     required_wire_segments = [
-        "(pts (xy 43.18 58.42) (xy 43.18 73.66))",
-        "(pts (xy 96.52 142.24) (xy 96.52 157.48))",
-        "(pts (xy 154.94 17.78) (xy 154.94 27.94))",
-        "(pts (xy 154.94 93.98) (xy 154.94 101.6))",
-        "(pts (xy 134.62 119.38) (xy 134.62 101.6))",
-        "(pts (xy 203.2 100.33) (xy 203.2 123.19))",
-        "(pts (xy 144.78 156.21) (xy 144.78 152.4))",
-        "(pts (xy 144.78 158.75) (xy 144.78 154.94))",
+        "(pts (xy 50.8 60.96) (xy 50.8 76.2))",
+        "(pts (xy 96.52 119.38) (xy 96.52 134.62))",
+        "(pts (xy 142.24 43.18) (xy 142.24 53.34))",
+        "(pts (xy 144.78 96.52) (xy 144.78 101.6))",
+        "(pts (xy 124.46 116.84) (xy 124.46 101.6))",
+        "(pts (xy 185.42 100.33) (xy 185.42 118.11))",
+        "(pts (xy 132.08 138.43) (xy 132.08 134.62))",
+        "(pts (xy 132.08 140.97) (xy 132.08 137.16))",
     ]
     for segment in required_wire_segments:
         assert segment in schematic

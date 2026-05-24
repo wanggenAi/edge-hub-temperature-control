@@ -469,7 +469,7 @@ def write_report(
         f"- Forbidden refs/stale nets absent: `{checks['forbidden_text_absent']}`",
         f"- Source frame diff clean: `{checks['source_frame_diff_clean']}`",
         f"- KiCad symbol/project diff clean: `{checks['kicad_symbol_project_diff_clean']}`",
-        "- KiCad schematic source changed only for reviewed Reference/Value property text coordinates.",
+        "- KiCad schematic source may change only for reviewed layout, wire-route, net-label, and property-text coordinates.",
         f"- Master table lock passed: `{checks['master_table_lock_passed']}`",
         f"- Master table lock report: `{repo_path(args.table_lock_report)}`",
         "",

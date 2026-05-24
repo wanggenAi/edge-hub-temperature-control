@@ -43,7 +43,7 @@
 | A1 | Reference | `A1` | inside_body | 3.1195 | 16.7519 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png` |
 | A1 | Value | `DC/DC 12 V to 3.3 V` | inside_body | 1.6581 | 7.7390 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png` |
 | DD1 | Reference | `DD1` | inside_body | 10.7395 | 18.7897 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png` |
-| DD1 | Value | `ESP32-WROOM-32` | inside_body | 6.2593 | 11.3393 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png` |
+| DD1 | Value | `ESP32-WROOM-32` | inside_body | 1.2398 | 6.6169 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png` |
 | HL1 | Reference | `HL1` | outside_body | 0.6905 | 8.3808 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png` |
 | HL1 | Value | `Red LED` | outside_body | 1.8495 | 5.8723 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png` |
 | VT1 | Reference | `VT1` | outside_body | 0.6905 | 6.2672 | PASS | `hardware/eda/exports/final/layout_audit_crops/text_spacing_VT1.png` |
@@ -61,7 +61,7 @@
 - Nets: `+3V3, GND, EN, LED, BOOT, GATE, DQ, RXD0, TXD0`
 - Symbol count: `1`
 - Wire count near block: `11`
-- Label count near block: `11`
+- Label count near block: `13`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_dd1_esp32_core_block.png`
 
@@ -90,8 +90,8 @@
 - Refs: `R3, HL1`
 - Nets: `+3V3, LED_A, LED`
 - Symbol count: `2`
-- Wire count near block: `5`
-- Label count near block: `4`
+- Wire count near block: `6`
+- Label count near block: `6`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_led_block.png`
 
@@ -100,8 +100,8 @@
 - Refs: `R2, XS1`
 - Nets: `DQ, +3V3, GND`
 - Symbol count: `2`
-- Wire count near block: `6`
-- Label count near block: `5`
+- Wire count near block: `7`
+- Label count near block: `7`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_ds18b20_sensor_block.png`
 
@@ -110,8 +110,8 @@
 - Refs: `XS4`
 - Nets: `RXD0, TXD0, +3V3, GND`
 - Symbol count: `1`
-- Wire count near block: `4`
-- Label count near block: `4`
+- Wire count near block: `5`
+- Label count near block: `6`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_uart_service_block.png`
 
@@ -131,7 +131,7 @@
 - Nets: `+12V, +3V3, GND`
 - Symbol count: `4`
 - Wire count near block: `16`
-- Label count near block: `10`
+- Label count near block: `11`
 - Local-wire continuity: `present`
 - Evidence crop: `hardware/eda/exports/final/layout_audit_crops/block_power_block.png`
 
@@ -142,4 +142,4 @@ No blocker or warning findings were generated.
 
 - PASS/WARN means the package can proceed to brief human visual approval.
 - FAIL means only the listed blockers should be fixed in the next round.
-- This checkpoint did not modify drawing, schematic, table, BOM, ref, net, or topology artifacts.
+- This checkpoint verifies layout/aesthetic geometry only; it does not claim human visual approval.

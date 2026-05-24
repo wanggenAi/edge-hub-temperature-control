@@ -6,10 +6,10 @@
       "name": "DD1 ESP32 core block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_dd1_esp32_core_block.png",
       "pixel_box": [
-        1041,
-        889,
-        2292,
-        1862
+        945,
+        671,
+        2401,
+        1892
       ]
     },
     {
@@ -17,10 +17,10 @@
       "name": "RESET/EN block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_reset_en_block.png",
       "pixel_box": [
-        108,
-        846,
-        775,
-        1567
+        62,
+        671,
+        840,
+        1576
       ]
     },
     {
@@ -28,10 +28,10 @@
       "name": "BOOT block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_boot_block.png",
       "pixel_box": [
-        1332,
-        2275,
-        2000,
-        2997
+        1284,
+        1921,
+        2061,
+        2827
       ]
     },
     {
@@ -39,10 +39,10 @@
       "name": "LED block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_led_block.png",
       "pixel_box": [
-        108,
-        1604,
-        1358,
-        2143
+        130,
+        1459,
+        2129,
+        2136
       ]
     },
     {
@@ -50,10 +50,10 @@
       "name": "DS18B20 sensor block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_ds18b20_sensor_block.png",
       "pixel_box": [
-        2557,
-        152,
-        3808,
-        822
+        2370,
+        291,
+        3826,
+        1130
       ]
     },
     {
@@ -61,10 +61,10 @@
       "name": "UART/service block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_uart_service_block.png",
       "pixel_box": [
-        2557,
-        781,
-        3225,
-        1363
+        2574,
+        753,
+        3351,
+        1484
       ]
     },
     {
@@ -72,10 +72,10 @@
       "name": "heater driver block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_heater_driver_block.png",
       "pixel_box": [
-        2557,
-        1452,
-        4799,
-        2447
+        2438,
+        1432,
+        4844,
+        2517
       ]
     },
     {
@@ -83,10 +83,10 @@
       "name": "power block",
       "path": "hardware/eda/exports/final/layout_audit_crops/block_power_block.png",
       "pixel_box": [
-        2557,
-        2405,
-        4158,
-        3443
+        2302,
+        2193,
+        4233,
+        3495
       ]
     },
     {
@@ -94,10 +94,10 @@
       "ref": "A1",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_A1.png",
       "pixel_box": [
-        3149,
-        2459,
-        3857,
-        2864
+        3072,
+        2278,
+        3880,
+        2777
       ]
     },
     {
@@ -105,10 +105,10 @@
       "ref": "DD1",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_DD1.png",
       "pixel_box": [
-        1420,
-        1101,
-        2230,
-        1758
+        1391,
+        939,
+        2315,
+        1749
       ]
     },
     {
@@ -116,10 +116,10 @@
       "ref": "HL1",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_HL1.png",
       "pixel_box": [
-        1064,
-        1711,
-        1417,
-        2010
+        1681,
+        1596,
+        2083,
+        1964
       ]
     },
     {
@@ -127,10 +127,10 @@
       "ref": "VT1",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_VT1.png",
       "pixel_box": [
-        3301,
-        1653,
-        3603,
-        1952
+        3304,
+        1619,
+        3648,
+        1988
       ]
     },
     {
@@ -138,10 +138,10 @@
       "ref": "XS1",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_XS1.png",
       "pixel_box": [
-        3250,
-        528,
-        3552,
-        827
+        3188,
+        711,
+        3532,
+        1079
       ]
     },
     {
@@ -149,10 +149,10 @@
       "ref": "XS4",
       "path": "hardware/eda/exports/final/layout_audit_crops/text_spacing_XS4.png",
       "pixel_box": [
-        2742,
+        2782,
         973,
-        3044,
-        1312
+        3126,
+        1390
       ]
     }
   ]

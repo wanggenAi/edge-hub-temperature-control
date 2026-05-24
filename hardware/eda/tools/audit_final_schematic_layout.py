@@ -1263,7 +1263,7 @@ def write_reports(
             "",
             "- PASS/WARN means the package can proceed to brief human visual approval.",
             "- FAIL means only the listed blockers should be fixed in the next round.",
-            "- This checkpoint did not modify drawing, schematic, table, BOM, ref, net, or topology artifacts.",
+            "- This checkpoint verifies layout/aesthetic geometry only; it does not claim human visual approval.",
         ]
     )
     args.md_report.write_text("\n".join(lines) + "\n", encoding="utf-8")
