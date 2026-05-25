@@ -1,13 +1,13 @@
 {
-  "created_at": "2026-05-25T11:47:38",
+  "created_at": "2026-05-25T13:38:31",
   "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
   "source_svg": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg",
-  "source_png_width_px": 6431,
+  "source_png_width_px": 6466,
   "source_png_height_px": 4654,
   "svg_viewbox": {
     "x": -0.5,
     "y": -0.5,
-    "width": 3215.0,
+    "width": 3232.0,
     "height": 2326.0
   },
   "kicad_embed_bbox": {
@@ -80,14 +80,14 @@
       "svg_box": {
         "x": -0.5,
         "y": -0.5,
-        "width": 3215.0,
+        "width": 3232.0,
         "height": 2326.0
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
         "x": 0,
         "y": 0,
-        "width": 6431,
+        "width": 6466,
         "height": 4654
       },
       "automated_status": "PASS",
@@ -261,7 +261,7 @@
       "pixel_box": {
         "x": 936,
         "y": 1452,
-        "width": 1882,
+        "width": 1883,
         "height": 1001
       },
       "automated_status": "PASS",
@@ -407,7 +407,7 @@
       "pixel_box": {
         "x": 2346,
         "y": 2677,
-        "width": 1925,
+        "width": 1926,
         "height": 857
       },
       "automated_status": "PASS",
@@ -437,9 +437,9 @@
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 4498,
+        "x": 4499,
         "y": 0,
-        "width": 1933,
+        "width": 1967,
         "height": 2567
       },
       "automated_status": "PASS",
@@ -482,9 +482,9 @@
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 4428,
+        "x": 4429,
         "y": 0,
-        "width": 2003,
+        "width": 2037,
         "height": 929
       },
       "automated_status": "PASS",
@@ -516,9 +516,9 @@
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 4428,
+        "x": 4429,
         "y": 805,
-        "width": 2003,
+        "width": 2037,
         "height": 955
       },
       "automated_status": "PASS",
@@ -548,9 +548,9 @@
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 4428,
+        "x": 4429,
         "y": 1635,
-        "width": 2003,
+        "width": 2037,
         "height": 932
       },
       "automated_status": "PASS",
@@ -575,9 +575,9 @@
       },
       "margin_svg_units": 0.0,
       "pixel_box": {
-        "x": 5042,
+        "x": 5043,
         "y": 4190,
-        "width": 1389,
+        "width": 1423,
         "height": 464
       },
       "automated_status": "PASS",

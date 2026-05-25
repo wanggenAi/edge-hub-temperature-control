@@ -61,7 +61,7 @@ def test_external_confirmations_fill_missing_mpn_and_manufacturer() -> None:
             "RC0603FR-0710KL RC0603FR-074K7L RC0603FR-07330RL RC0603FR-07100RL",
             "ESP32-WROOM-32 LED0603-RD_RED NMOS3400 TactswitchSMT6x6x7_5",
             "XH-3PA 2P-P3.81_KF2EDGV-3.81-2P Header45.08-4P KF301-2P",
-            "Murata Samsung Electro-Mechanics YAGEO Espressif JLCPCB Assembly ZHOURI",
+            "Murata Samsung Electro-Mechanics YAGEO Espressif ZHOURI NEEDS_CONFIRMATION",
         ]
     )
     findings, summary = module.audit(items, module.parse_model_refs(MODEL), table_text, confirmed_by_ref)
@@ -70,6 +70,7 @@ def test_external_confirmations_fill_missing_mpn_and_manufacturer() -> None:
     assert summary["unresolved_count"] == 0
     assert summary["externally_confirmed_count"] == len(items)
     assert "BOM_PACKAGE_OR_ORDERING_REVIEW_REQUIRED" in codes
+    assert "NOTE_USES_SUPPLIER_NOT_MANUFACTURER" not in codes
 
 
 def test_current_final_bom_audit_reports_confirmation_items(tmp_path: Path) -> None:
@@ -135,3 +136,16 @@ def test_bom_confirmation_package_lists_known_and_missing_fields(tmp_path: Path)
     assert by_ref["XS1"]["confirmation_status"] == "confirmed_from_source_bom"
     assert by_ref["R1"]["confirmation_status"] == "needs_human_confirmation"
     assert "User confirmed MPN" in md_output.read_text(encoding="utf-8")
+
+
+def test_current_final_rejects_supplier_and_net_text_in_element_list(tmp_path: Path) -> None:
+    module = load_module()
+    rows = module.parse_bom(BOM)
+    items = module.expand_bom_items(rows, module.load_ref_mapping())
+    confirmed_by_ref, _, _ = module.load_confirmed_items(CONFIRMED_BOM)
+    module.apply_confirmed_items(items, confirmed_by_ref)
+    bad_text = "JLCPCB Assembly\n+5V\nRC0603FR-0710KL YAGEO"
+    findings, _ = module.audit(items, module.parse_model_refs(MODEL), bad_text, confirmed_by_ref)
+    codes = {finding.code for finding in findings}
+    assert "NOTE_USES_SUPPLIER_NOT_MANUFACTURER" in codes
+    assert "BOM_POSITION_CONTAINS_NON_COMPONENT_NET" in codes

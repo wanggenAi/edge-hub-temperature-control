@@ -130,52 +130,68 @@ TABLE_ROW_BY_REFS = {
         "qty": "Evo6jcjRQjkPnHUFUJlg-15",
         "note": "Evo6jcjRQjkPnHUFUJlg-16",
     },
-    ("C2", "C3"): {
+    ("C2",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-18",
         "name": "Evo6jcjRQjkPnHUFUJlg-19",
         "qty": "Evo6jcjRQjkPnHUFUJlg-20",
         "note": "Evo6jcjRQjkPnHUFUJlg-21",
     },
-    ("R1", "R5", "R6"): {
+    ("C3",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-26",
         "name": "Evo6jcjRQjkPnHUFUJlg-25",
         "qty": "Evo6jcjRQjkPnHUFUJlg-28",
     },
-    ("R2", "R3", "R4"): {
+    ("R1", "R5", "R6"): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-30",
         "name": "Evo6jcjRQjkPnHUFUJlg-31",
         "qty": "Evo6jcjRQjkPnHUFUJlg-32",
     },
-    ("DD1", "HL1", "VT1"): {
+    ("R2",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-37",
         "name": "Evo6jcjRQjkPnHUFUJlg-38",
         "qty": "Evo6jcjRQjkPnHUFUJlg-39",
         "note": "Evo6jcjRQjkPnHUFUJlg-40",
     },
-    ("SB1", "SB2"): {
+    ("R3",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-42",
         "name": "Evo6jcjRQjkPnHUFUJlg-43",
         "qty": "Evo6jcjRQjkPnHUFUJlg-44",
         "note": "Evo6jcjRQjkPnHUFUJlg-45",
     },
-    ("XS1", "XS2", "XS3"): {
+    ("R4",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-50",
         "name": "Evo6jcjRQjkPnHUFUJlg-51",
         "qty": "Evo6jcjRQjkPnHUFUJlg-52",
         "note": "Evo6jcjRQjkPnHUFUJlg-53",
     },
-    ("XS4", "XS5"): {
+    ("DD1",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-54",
         "name": "Evo6jcjRQjkPnHUFUJlg-55",
         "qty": "Evo6jcjRQjkPnHUFUJlg-56",
         "note": "Evo6jcjRQjkPnHUFUJlg-57",
     },
-    ("A1",): {
+    ("HL1",): {
         "refs": "Evo6jcjRQjkPnHUFUJlg-60",
         "name": "Evo6jcjRQjkPnHUFUJlg-61",
         "qty": "Evo6jcjRQjkPnHUFUJlg-62",
     },
 }
+
+OVERLAY_ELEMENT_LIST_ROWS = [
+    ("VT1", "NMOS3400 N-channel MOSFET", "1", "NEEDS_CONFIRMATION"),
+    ("SB1, SB2", "TactswitchSMT6x6x7_5 tactile switch", "2", "NEEDS_CONFIRMATION"),
+    ("XS1", "XH-3PA 3-pin XH connector", "1", "ZHOURI"),
+    ("XS2, XS3", "2P-P3.81_KF2EDGV-3.81-2P terminal", "2", "NEEDS_CONFIRMATION"),
+    ("XS4", "Header45.08-4P service connector", "1", "NEEDS_CONFIRMATION"),
+    ("XS5", "KF301-2P terminal connector", "1", "NEEDS_CONFIRMATION"),
+    ("A1", "Header45.08-4P DC/DC interface", "1", "NEEDS_CONFIRMATION"),
+]
+
+OVERLAY_NOTE_CELLS = [
+    ("C3", 336.01, "Samsung Electro-Mechanics\nNEEDS_PURCHASE_CONFIRMATION"),
+    ("R1_R5_R6", 403.01, "YAGEO"),
+    ("HL1", 1070.01, "NEEDS_CONFIRMATION"),
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -287,6 +303,17 @@ def load_confirmed_bom_text() -> dict[str, str]:
             }
 
     values = dict(DEFAULT_ELEMENT_LIST_TEXT_BY_ID)
+    # Clear legacy mother-table cells that are not part of the ESP32 List of Elements.
+    for legacy_id in (
+        "cfE38QplHeOGj-dFLcIy-40",
+        "Evo6jcjRQjkPnHUFUJlg-40",
+        "Evo6jcjRQjkPnHUFUJlg-45",
+        "Evo6jcjRQjkPnHUFUJlg-53",
+        "Evo6jcjRQjkPnHUFUJlg-57",
+    ):
+        values[legacy_id] = ""
+    values["Evo6jcjRQjkPnHUFUJlg-27"] = "Resistors"
+    values["Evo6jcjRQjkPnHUFUJlg-35"] = "Semiconductor Devices"
     for refs, ids in TABLE_ROW_BY_REFS.items():
         entries = [by_ref[ref] for ref in refs if ref in by_ref]
         if len(entries) != len(refs):
@@ -294,20 +321,18 @@ def load_confirmed_bom_text() -> dict[str, str]:
             raise ValueError(f"{CONFIRMED_BOM_FILE} is missing confirmed BOM refs: {', '.join(missing)}")
         values[ids["refs"]] = "; ".join(refs) if refs in {("XS1", "XS2", "XS3")} else ", ".join(refs)
         values[ids["qty"]] = str(len(refs))
+        names = []
+        manufacturers = []
+        for entry in entries:
+            name = f"{entry['manufacturer_part']} {entry['description']}".strip()
+            maker = entry["manufacturer"]
+            if name and name not in names:
+                names.append(name)
+            if maker and maker not in manufacturers:
+                manufacturers.append(maker)
+        values[ids["name"]] = "\n".join(names)
         if note_id := ids.get("note"):
-            values[ids["name"]] = "\n".join(
-                f"{entry['manufacturer_part']} {entry['description']}".strip() for entry in entries
-            )
-            manufacturers = []
-            for entry in entries:
-                maker = entry["manufacturer"]
-                if maker and maker not in manufacturers:
-                    manufacturers.append(maker)
             values[note_id] = "\n".join(manufacturers)
-        else:
-            values[ids["name"]] = "\n".join(
-                f"{entry['manufacturer_part']} {entry['description']} ({entry['manufacturer']})".strip() for entry in entries
-            )
     return values
 
 
@@ -395,11 +420,91 @@ def replace_master_element_list_text(root_cell: ET.Element) -> None:
         cell.set("value", replacement_value_preserving_master_markup(cell.get("value", ""), value))
 
 
+def add_overlay_element_list_rows(root_cell: ET.Element) -> None:
+    """Add extra semantic BOM rows without changing the locked master table geometry."""
+    parent = "OTuqVLYWGNuakiADof2M-1"
+    x_ref, x_name, x_qty, x_note = 2315.01, 2445.01, 2954.01, 3005.01
+    w_ref, w_name, w_qty, w_note = 126.0, 506.0, 48.0, 166.0
+    row_h = 42.0
+    y0 = 1132.0
+    font_size = 13
+    for index, (refs, name, qty, note) in enumerate(OVERLAY_ELEMENT_LIST_ROWS):
+        y = y0 + index * row_h
+        add_text_cell(
+            root_cell,
+            cell_id=f"element_list.generated.semantic.{index}.refs",
+            parent=parent,
+            value=refs,
+            x=x_ref,
+            y=y,
+            width=w_ref,
+            height=row_h,
+            font_size=font_size,
+            role="generated_element_list_semantic_text",
+        )
+        add_text_cell(
+            root_cell,
+            cell_id=f"element_list.generated.semantic.{index}.name",
+            parent=parent,
+            value=name,
+            x=x_name,
+            y=y,
+            width=w_name,
+            height=row_h,
+            font_size=font_size,
+            role="generated_element_list_semantic_text",
+        )
+        add_text_cell(
+            root_cell,
+            cell_id=f"element_list.generated.semantic.{index}.qty",
+            parent=parent,
+            value=qty,
+            x=x_qty,
+            y=y,
+            width=w_qty,
+            height=row_h,
+            font_size=font_size,
+            role="generated_element_list_semantic_text",
+        )
+        add_text_cell(
+            root_cell,
+            cell_id=f"element_list.generated.semantic.{index}.note",
+            parent=parent,
+            value=note,
+            x=x_note,
+            y=y,
+            width=w_note,
+            height=row_h,
+            font_size=font_size,
+            role="generated_element_list_semantic_text",
+        )
+
+
+def add_overlay_note_cells(root_cell: ET.Element) -> None:
+    """Add Note-column text for locked master rows that have no original text cell."""
+    parent = "OTuqVLYWGNuakiADof2M-1"
+    for cell_key, y, note in OVERLAY_NOTE_CELLS:
+        add_text_cell(
+            root_cell,
+            cell_id=f"element_list.generated.note.{cell_key}",
+            parent=parent,
+            value=note,
+            x=3005.01,
+            y=y,
+            width=166.0,
+            height=60.0,
+            font_size=12,
+            role="generated_element_list_note_text",
+        )
+
+
 def update_element_list(tree: ET.ElementTree) -> None:
     validate_bom_refs()
     root_cell = find_root_cell(tree)
     remove_previous_generated_bom_cells(root_cell)
     replace_master_element_list_text(root_cell)
+    add_overlay_note_cells(root_cell)
+    add_overlay_element_list_rows(root_cell)
 
 
 def write_tree(tree: ET.ElementTree, output: Path) -> None:

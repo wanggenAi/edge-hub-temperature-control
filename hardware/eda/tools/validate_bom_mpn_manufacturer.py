@@ -93,6 +93,10 @@ def normalized_manufacturer(value: str) -> str:
     return clean(value)
 
 
+def manufacturer_requires_confirmation(value: str) -> bool:
+    return normalized_manufacturer(value).upper() in {"NEEDS_CONFIRMATION", "NEEDS_PURCHASE_CONFIRMATION"}
+
+
 def normalized_mpn_tokens(value: str) -> list[str]:
     value = clean(value)
     tokens = [value] if value else []
@@ -191,7 +195,8 @@ def list_of_elements_text(path: Path) -> str:
         return ""
     values = []
     for cell in root:
-        if cell.get("id", "").startswith(ELEMENT_PREFIX):
+        cell_id = cell.get("id", "")
+        if cell_id.startswith(ELEMENT_PREFIX) or cell_id.startswith("element_list.generated."):
             values.append(plain_text(cell.get("value", "")))
     return "\n".join(values)
 
@@ -258,7 +263,30 @@ def audit(
             add(findings, "BOM_MPN_NOT_VISIBLE_IN_LIST", "warning", item.school_ref, "Known Manufacturer Part is not visible in List of Elements", expected=item.manufacturer_part)
         maker = normalized_manufacturer(item.manufacturer)
         if maker and not token_present(maker, table_text):
-            add(findings, "BOM_MANUFACTURER_NOT_VISIBLE_IN_NOTE", "warning", item.school_ref, "Known Manufacturer is not visible in List of Elements Note text", expected=maker)
+            if manufacturer_requires_confirmation(maker):
+                add(findings, "BOM_MANUFACTURER_CONFIRMATION_MARKER_NOT_VISIBLE", "warning", item.school_ref, "Manufacturer is unknown and must be visibly marked NEEDS_CONFIRMATION in List of Elements", expected=maker)
+            else:
+                add(findings, "BOM_MANUFACTURER_NOT_VISIBLE_IN_NOTE", "warning", item.school_ref, "Known Manufacturer is not visible in List of Elements Note text", expected=maker)
+    if re.search(r"(?<![A-Za-z0-9])JLCPCB Assembly(?![A-Za-z0-9])", table_text, flags=re.I):
+        add(
+            findings,
+            "NOTE_USES_SUPPLIER_NOT_MANUFACTURER",
+            "error",
+            "element_list",
+            "List of Elements Note text contains JLCPCB Assembly, which is a supplier/assembly source rather than verified Manufacturer",
+            expected="Manufacturer or NEEDS_CONFIRMATION",
+            actual="JLCPCB Assembly",
+        )
+    if re.search(r"(?<![A-Za-z0-9])\+5V(?![A-Za-z0-9])", table_text):
+        add(
+            findings,
+            "BOM_POSITION_CONTAINS_NON_COMPONENT_NET",
+            "error",
+            "element_list",
+            "+5V appears in List of Elements text; net labels must not appear as component position rows",
+            expected="Only component refs in Position number column",
+            actual="+5V",
+        )
     if re.search(r"(?<![A-Za-z0-9])LCSC(?![A-Za-z0-9])", table_text):
         add(
             findings,

@@ -22,7 +22,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `+3V3, +12V, GND, EN, DQ, RXD0, TXD0, BOOT, GATE, GATE_R, HEAT+, HEAT-`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 0, 'y': 0, 'width': 6431, 'height': 4654}`
+- Pixel box: `{'x': 0, 'y': 0, 'width': 6466, 'height': 4654}`
 
 ### jlc_style_block
 
@@ -46,7 +46,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `+3V3, GND, EN, LED, BOOT, GATE, DQ, RXD0, TXD0`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 936, 'y': 1452, 'width': 1882, 'height': 1001}`
+- Pixel box: `{'x': 936, 'y': 1452, 'width': 1883, 'height': 1001}`
 
 ### reset_boot_led_area
 
@@ -94,7 +94,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `+12V, +3V3, GND`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 2346, 'y': 2677, 'width': 1925, 'height': 857}`
+- Pixel box: `{'x': 2346, 'y': 2677, 'width': 1926, 'height': 857}`
 
 ### element_list_full
 
@@ -106,7 +106,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: ``
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 4498, 'y': 0, 'width': 1933, 'height': 2567}`
+- Pixel box: `{'x': 4499, 'y': 0, 'width': 1967, 'height': 2567}`
 
 ### element_list_top
 
@@ -118,7 +118,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: ``
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 4428, 'y': 0, 'width': 2003, 'height': 929}`
+- Pixel box: `{'x': 4429, 'y': 0, 'width': 2037, 'height': 929}`
 
 ### element_list_middle
 
@@ -130,7 +130,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: ``
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 4428, 'y': 805, 'width': 2003, 'height': 955}`
+- Pixel box: `{'x': 4429, 'y': 805, 'width': 2037, 'height': 955}`
 
 ### element_list_bottom
 
@@ -142,7 +142,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: ``
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 4428, 'y': 1635, 'width': 2003, 'height': 932}`
+- Pixel box: `{'x': 4429, 'y': 1635, 'width': 2037, 'height': 932}`
 
 ### title_block_full
 
@@ -154,7 +154,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: ``
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 5042, 'y': 4190, 'width': 1389, 'height': 464}`
+- Pixel box: `{'x': 5043, 'y': 4190, 'width': 1423, 'height': 464}`
 
 ## Finding Crops
 

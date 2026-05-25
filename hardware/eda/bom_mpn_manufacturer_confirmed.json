@@ -208,12 +208,13 @@
         "D1"
       ],
       "manufacturer_part": "LED0603-RD_RED",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "red LED",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900005314"
-      ]
+      ],
+      "warning": "manufacturer not verified beyond JLCPCB Assembly supplier listing"
     },
     {
       "refs": [
@@ -223,12 +224,13 @@
         "Q1"
       ],
       "manufacturer_part": "NMOS3400",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "N-channel MOSFET",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900021947"
-      ]
+      ],
+      "warning": "manufacturer not verified beyond JLCPCB Assembly supplier listing"
     },
     {
       "refs": [
@@ -240,12 +242,13 @@
         "U4_boot"
       ],
       "manufacturer_part": "TactswitchSMT6x6x7_5",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "tactile switch",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900000320"
-      ]
+      ],
+      "warning": "manufacturer not verified beyond JLCPCB Assembly supplier listing"
     },
     {
       "refs": [
@@ -272,12 +275,13 @@
         "J_Power"
       ],
       "manufacturer_part": "2P-P3.81_KF2EDGV-3.81-2P",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "2-pin 3.81 mm terminal",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900017459"
-      ]
+      ],
+      "warning": "manufacturer not verified beyond JLCPCB Assembly supplier listing"
     },
     {
       "refs": [
@@ -287,12 +291,13 @@
         "U7"
       ],
       "manufacturer_part": "Header45.08-4P",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "4-pin 5.00 mm service connector",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900007553"
-      ]
+      ],
+      "warning": "manufacturer not verified beyond JLCPCB Assembly supplier listing"
     },
     {
       "refs": [
@@ -302,12 +307,13 @@
         "J_TS1"
       ],
       "manufacturer_part": "KF301-2P",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "2-pin 5.00 mm terminal",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900016950"
-      ]
+      ],
+      "warning": "manufacturer not verified beyond JLCPCB Assembly supplier listing"
     },
     {
       "refs": [
@@ -317,13 +323,13 @@
         "U3_buck"
       ],
       "manufacturer_part": "Header45.08-4P",
-      "manufacturer": "JLCPCB Assembly",
+      "manufacturer": "NEEDS_CONFIRMATION",
       "description": "DC/DC module interface",
-      "status": "external_source_confirmed",
+      "status": "needs_manufacturer_confirmation",
       "source_ids": [
         "jlc_c9900007553"
       ],
-      "warning": "This is the connector/interface used for the DC/DC module in the source BOM, not the DC/DC converter module manufacturer itself."
+      "warning": "This is the connector/interface used for the DC/DC module in the source BOM, not the DC/DC converter module manufacturer itself. DC/DC converter/module-interface manufacturer requires user purchase confirmation"
     }
   ]
 }
