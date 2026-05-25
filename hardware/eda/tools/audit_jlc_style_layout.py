@@ -118,6 +118,13 @@ KICAD_LEAK_MARKERS = [
     "kicad_block",
 ]
 
+SYMBOL_FIDELITY_BLOCKER_CODES = {
+    "JLC_SYMBOL_GEOMETRY_CHANGED",
+    "JLC_SYMBOL_PATH_COUNT_CHANGED",
+    "JLC_SYMBOL_STROKE_CHANGED",
+    "JLC_SYMBOL_INTERNAL_RATIO_CHANGED",
+}
+
 
 @dataclass
 class Finding:
@@ -262,6 +269,101 @@ def parse_viewbox(svg_text: str) -> dict[str, float]:
     }
 
 
+def parse_embedded_jlc_metadata(jlc_payload: str) -> dict[str, Any]:
+    try:
+        root = ET.fromstring(jlc_payload)
+    except ET.ParseError:
+        return {}
+    for element in root:
+        if element.tag.rsplit("}", 1)[-1] != "metadata":
+            continue
+        raw = "".join(element.itertext()).strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            return data
+    return {}
+
+
+def validate_symbol_fidelity(metadata: dict[str, Any], findings: list[Finding]) -> dict[str, Any]:
+    entries = metadata.get("symbol_fidelity", [])
+    if not isinstance(entries, list):
+        add_finding(findings, "JLC_SYMBOL_GEOMETRY_CHANGED", "blocker", "symbol_fidelity", "Embedded SVG metadata has no symbol_fidelity list")
+        return {"entries": [], "pass_count": 0, "fail_count": len(REQUIRED_REFS), "missing_refs": REQUIRED_REFS}
+
+    by_ref: dict[str, dict[str, Any]] = {
+        str(entry.get("ref")): entry
+        for entry in entries
+        if isinstance(entry, dict) and entry.get("ref")
+    }
+    missing = sorted(ref for ref in REQUIRED_REFS if ref not in by_ref)
+    for ref in missing:
+        add_finding(findings, "JLC_SYMBOL_GROUP_MISSING", "blocker", ref, "Missing exact JLC symbol fidelity entry", expected=ref)
+
+    fail_count = 0
+    for ref, entry in sorted(by_ref.items()):
+        geometry_ok = bool(entry.get("geometry_hash_match"))
+        stroke_ok = bool(entry.get("stroke_style_match"))
+        path_before = entry.get("path_count_before")
+        path_after = entry.get("path_count_after")
+        elements_before = entry.get("source_elements_count")
+        elements_after = entry.get("final_elements_count")
+        if not geometry_ok:
+            fail_count += 1
+            add_finding(
+                findings,
+                "JLC_SYMBOL_GEOMETRY_CHANGED",
+                "blocker",
+                ref,
+                "JLC symbol internal geometry hash changed",
+                expected=str(entry.get("source_geometry_hash", "")),
+                actual=str(entry.get("final_geometry_hash", "")),
+            )
+        if not stroke_ok:
+            fail_count += 1
+            add_finding(
+                findings,
+                "JLC_SYMBOL_STROKE_CHANGED",
+                "blocker",
+                ref,
+                "JLC symbol stroke/style hash changed",
+                expected=str(entry.get("source_style_hash", "")),
+                actual=str(entry.get("final_style_hash", "")),
+            )
+        if path_before != path_after:
+            fail_count += 1
+            add_finding(
+                findings,
+                "JLC_SYMBOL_PATH_COUNT_CHANGED",
+                "blocker",
+                ref,
+                "JLC symbol path count changed",
+                expected=str(path_before),
+                actual=str(path_after),
+            )
+        if elements_before != elements_after:
+            fail_count += 1
+            add_finding(
+                findings,
+                "JLC_SYMBOL_INTERNAL_RATIO_CHANGED",
+                "blocker",
+                ref,
+                "JLC symbol element count changed",
+                expected=str(elements_before),
+                actual=str(elements_after),
+            )
+    return {
+        "entries": entries,
+        "pass_count": sum(1 for entry in by_ref.values() if entry.get("verdict") == "PASS"),
+        "fail_count": fail_count + len(missing),
+        "missing_refs": missing,
+    }
+
+
 def find_final_svg_embed_bbox(svg_text: str) -> dict[str, float]:
     for match in re.finditer(r"<image\b[^>]+>", svg_text, flags=re.I):
         tag = match.group(0)
@@ -376,12 +478,16 @@ def validate_svg_geometry(svg_text: str, findings: list[Finding]) -> dict[str, A
                 diagonal += 1
     if diagonal:
         add_finding(findings, "WIRE_NOT_ORTHOGONAL", "blocker", "final_svg", "Embedded JLC SVG contains diagonal line primitives", expected="0", actual=str(diagonal))
+    metadata = parse_embedded_jlc_metadata(jlc_payload)
+    fidelity = validate_symbol_fidelity(metadata, findings)
     return {
         "payload_found": True,
         "payload_parseable": True,
         "payload_viewbox": parse_viewbox(jlc_payload),
         "final_embed_bbox": find_final_svg_embed_bbox(svg_text),
         "diagonal_line_count": diagonal,
+        "metadata": metadata,
+        "symbol_fidelity": fidelity,
     }
 
 
@@ -435,6 +541,7 @@ def write_reports(args: argparse.Namespace, report: dict[str, Any]) -> None:
         "",
         f"- JLC-style embedded block: `{report['checks'].get('jlc_payload_found')}`",
         f"- JLC symbol group metadata count: `{report['checks'].get('symbol_group_count')}`",
+        f"- Exact JLC symbol fidelity: `{report['checks'].get('exact_symbol_fidelity')}`",
         f"- Required refs visible: `{report['checks'].get('required_refs_visible')}`",
         f"- Required nets visible: `{report['checks'].get('required_nets_visible')}`",
         f"- Old refs absent: `{report['checks'].get('old_refs_absent')}`",
@@ -450,6 +557,27 @@ def write_reports(args: argparse.Namespace, report: dict[str, Any]) -> None:
             lines.append(f"- `{finding['severity']}` `{finding['code']}` `{finding['object_id']}`: {finding['message']}")
     else:
         lines.append("No blocker or warning findings.")
+    fidelity_entries = report.get("svg", {}).get("symbol_fidelity", {}).get("entries", [])
+    if fidelity_entries:
+        lines.extend(["", "## Exact JLC Symbol Fidelity", ""])
+        for entry in fidelity_entries:
+            lines.append(
+                "- `{ref}` verdict `{verdict}`; source `{source}` -> final `{final}`; "
+                "elements `{before}`/`{after}`; paths `{paths_before}`/`{paths_after}`; "
+                "geometry hash match `{geometry}`; stroke/style match `{stroke}`; transform `{transform}`".format(
+                    ref=entry.get("ref"),
+                    verdict=entry.get("verdict"),
+                    source=entry.get("source_group_id"),
+                    final=entry.get("final_group_id"),
+                    before=entry.get("source_elements_count"),
+                    after=entry.get("final_elements_count"),
+                    paths_before=entry.get("path_count_before"),
+                    paths_after=entry.get("path_count_after"),
+                    geometry=entry.get("geometry_hash_match"),
+                    stroke=entry.get("stroke_style_match"),
+                    transform=entry.get("allowed_transform"),
+                )
+            )
     lines.extend(
         [
             "",
@@ -485,6 +613,7 @@ def main() -> int:
     checks = {
         "jlc_payload_found": bool(svg_report.get("payload_found")),
         "symbol_group_count": symbol_report.get("group_count", 0),
+        "exact_symbol_fidelity": svg_report.get("symbol_fidelity", {}).get("fail_count", 1) == 0,
         "required_refs_visible": all(token_present(ref, combined_text) for ref in REQUIRED_REFS),
         "required_nets_visible": all(token_present(net, combined_text) for net in VISIBLE_REQUIRED_NETS),
         "old_refs_absent": not any(token_present(ref, combined_text) for ref in FORBIDDEN_REFS),

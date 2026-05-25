@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-25T16:18:44",
+  "created_at": "2026-05-25T17:55:25",
   "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
   "source_svg": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg",
   "source_png_width_px": 6431,
@@ -252,17 +252,17 @@
       "path": "hardware/eda/exports/final/review_crops/dd1_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 451.6,
-        "y": 625.5600000000001,
-        "width": 915.6,
-        "height": 519.84
+        "x": 604.1999999999999,
+        "y": 639.24,
+        "width": 741.2,
+        "height": 684.0
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 860,
-        "y": 1209,
-        "width": 1920,
-        "height": 1128
+        "x": 1166,
+        "y": 1236,
+        "width": 1570,
+        "height": 1457
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -288,16 +288,16 @@
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
         "x": 81.0,
-        "y": 830.76,
-        "width": 937.4,
-        "height": 684.0
+        "y": 858.1200000000001,
+        "width": 1264.3999999999999,
+        "height": 848.16
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
         "x": 119,
-        "y": 1619,
-        "width": 1963,
-        "height": 1457
+        "y": 1674,
+        "width": 2617,
+        "height": 1785
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -324,17 +324,17 @@
       "path": "hardware/eda/exports/final/review_crops/sensor_uart_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1018.4,
-        "y": 393.0,
+        "x": 1149.2,
+        "y": 447.72,
         "width": 828.4,
-        "height": 547.2
+        "height": 601.92
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 1994,
-        "y": 743,
+        "x": 2256,
+        "y": 853,
         "width": 1745,
-        "height": 1183
+        "height": 1292
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -357,17 +357,17 @@
       "path": "hardware/eda/exports/final/review_crops/heater_power_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1062.0,
-        "y": 858.1200000000001,
-        "width": 1199.0,
-        "height": 902.88
+        "x": 1301.8000000000002,
+        "y": 994.92,
+        "width": 915.6,
+        "height": 492.47999999999996
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2081,
-        "y": 1674,
-        "width": 2487,
-        "height": 1895
+        "x": 2561,
+        "y": 1948,
+        "width": 1919,
+        "height": 1073
       },
       "automated_status": "PASS",
       "related_refs": [
@@ -375,11 +375,7 @@
         "R5",
         "VT1",
         "XS2",
-        "XS5",
-        "XS3",
-        "A1",
-        "C3",
-        "C4"
+        "XS5"
       ],
       "related_nets": [
         "GATE",
@@ -387,28 +383,27 @@
         "HEAT+",
         "HEAT-",
         "+12V",
-        "+3V3",
         "GND"
       ],
-      "purpose": "Heater driver and power area review.",
-      "focus": "Check MOSFET gate network, heater connector, thermal switch, and power conversion wiring."
+      "purpose": "Heater driver and safety/output terminal review.",
+      "focus": "Check MOSFET gate network, pull-down, thermal switch, heater connector, and output labels."
     },
     {
       "name": "power_area",
       "path": "hardware/eda/exports/final/review_crops/power_area.png",
       "source_png": "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png",
       "svg_box": {
-        "x": 1171.0,
-        "y": 1323.2400000000002,
-        "width": 937.4,
-        "height": 437.76
+        "x": 1280.0,
+        "y": 1460.04,
+        "width": 872.0,
+        "height": 300.96
       },
       "margin_svg_units": 22.0,
       "pixel_box": {
-        "x": 2299,
-        "y": 2605,
-        "width": 1963,
-        "height": 964
+        "x": 2517,
+        "y": 2878,
+        "width": 1833,
+        "height": 691
       },
       "automated_status": "PASS",
       "related_refs": [

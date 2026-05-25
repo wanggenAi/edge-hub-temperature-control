@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import html
 import json
 import math
@@ -161,25 +162,25 @@ SOURCE_COMPONENT_BBOXES = {
 COMPOSITE_COMPONENT_POSITIONS = {
     "C1": (72.0, 50.0),
     "C2": (72.0, 105.0),
-    "C3": (765.0, 455.0),
-    "C4": (765.0, 510.0),
+    "C3": (770.0, 462.0),
+    "C4": (770.0, 512.0),
     "R1": (120.0, 245.0),
-    "R2": (595.0, 55.0),
-    "R3": (340.0, 430.0),
-    "R4": (555.0, 340.0),
-    "R5": (640.0, 430.0),
-    "R6": (510.0, 270.0),
-    "DD1": (285.0, 160.0),
-    "HL1": (485.0, 485.0),
-    "VT1": (660.0, 340.0),
+    "R2": (585.0, 66.0),
+    "R3": (255.0, 420.0),
+    "R4": (560.0, 300.0),
+    "R5": (620.0, 390.0),
+    "R6": (455.0, 320.0),
+    "DD1": (300.0, 165.0),
+    "HL1": (390.0, 448.0),
+    "VT1": (690.0, 310.0),
     "SB1": (95.0, 315.0),
-    "SB2": (525.0, 345.0),
-    "XS1": (780.0, 95.0),
-    "XS2": (835.0, 385.0),
-    "XS3": (585.0, 470.0),
-    "XS4": (585.0, 205.0),
-    "XS5": (780.0, 305.0),
-    "A1": (650.0, 455.0),
+    "SB2": (455.0, 360.0),
+    "XS1": (745.0, 115.0),
+    "XS2": (815.0, 390.0),
+    "XS3": (530.0, 486.0),
+    "XS4": (560.0, 205.0),
+    "XS5": (790.0, 292.0),
+    "A1": (650.0, 486.0),
 }
 
 COMPONENT_BBOXES = {
@@ -194,34 +195,33 @@ COMPONENT_BBOXES = {
 
 ADDED_NET_LABELS = {
     "EN": (248.0, 260.0),
-    "DQ": (700.0, 130.0),
-    "BOOT": (600.0, 327.0),
-    "RXD0": (542.0, 220.0),
-    "TXD0": (542.0, 235.0),
-    "LED": (462.0, 523.0),
-    "LED_A": (410.0, 455.0),
-    "GATE": (535.0, 354.0),
-    "GATE_R": (710.0, 384.0),
-    "HEAT+": (805.0, 325.0),
-    "HEAT-": (805.0, 430.0),
-    "+12V": (615.0, 462.0),
-    "+3V3": (170.0, 70.0),
-    "GND": (170.0, 140.0),
+    "DQ": (695.0, 150.0),
+    "BOOT": (505.0, 362.0),
+    "RXD0": (690.0, 222.0),
+    "TXD0": (690.0, 240.0),
+    "LED": (465.0, 484.0),
+    "LED_A": (325.0, 446.0),
+    "GATE": (532.0, 318.0),
+    "GATE_R": (746.0, 336.0),
+    "HEAT+": (835.0, 318.0),
+    "HEAT-": (852.0, 443.0),
+    "+3V3": (812.0, 482.0),
 }
 
 ADDED_REF_LABELS = {
     "C1": (112.0, 44.0),
     "C2": (112.0, 99.0),
-    "C3": (803.0, 449.0),
-    "C4": (803.0, 504.0),
-    "R4": (565.0, 334.0),
+    "C3": (808.0, 456.0),
+    "C4": (808.0, 506.0),
+    "R4": (570.0, 294.0),
     "SB1": (104.0, 308.0),
-    "SB2": (560.0, 382.0),
-    "VT1": (673.0, 333.0),
-    "XS2": (848.0, 379.0),
-    "XS3": (600.0, 463.0),
-    "XS4": (608.0, 199.0),
-    "A1": (695.0, 449.0),
+    "R5": (635.0, 384.0),
+    "SB2": (490.0, 397.0),
+    "VT1": (703.0, 303.0),
+    "XS2": (828.0, 384.0),
+    "XS3": (545.0, 480.0),
+    "XS4": (610.0, 199.0),
+    "A1": (690.0, 480.0),
 }
 
 DD1_PIN_LABELS = [
@@ -589,9 +589,7 @@ def canonical_symbol_ref(texts: list[str]) -> str | None:
 
 def source_symbol_groups(root: ET.Element) -> dict[str, ET.Element]:
     groups: dict[str, ET.Element] = {}
-    two_pin_connectors: list[ET.Element] = []
-    four_pin_connectors: list[ET.Element] = []
-    capacitor_01: list[ET.Element] = []
+    anonymous_groups: list[tuple[BBox, ET.Element]] = []
     for group in root.iter():
         if tag_name(group) != "g" or group.get("c_partid") != "part":
             continue
@@ -603,33 +601,110 @@ def source_symbol_groups(root: ET.Element) -> dict[str, ET.Element]:
         bbox = group_bbox(group)
         if bbox is None:
             continue
-        if "0.1uF" in texts:
-            capacitor_01.append(copy.deepcopy(group))
-        elif texts.count("1") >= 2 and texts.count("2") >= 2 and len(texts) == 4:
-            two_pin_connectors.append(copy.deepcopy(group))
-        elif "1" in texts and "2" in texts and "3" in texts and "4" in texts:
-            four_pin_connectors.append(copy.deepcopy(group))
+        anonymous_groups.append((bbox, copy.deepcopy(group)))
 
-    # Source JLC symbols without visible refs are assigned by their source
-    # location. Their internal geometry is still copied unchanged.
-    capacitor_01.sort(key=lambda node: group_bbox(node).y if group_bbox(node) else 0.0)
-    if capacitor_01:
-        groups["C2"] = capacitor_01[0]
-    if len(capacitor_01) > 1:
-        groups["C4"] = capacitor_01[-1]
-
-    two_pin_connectors.sort(key=lambda node: (group_bbox(node).x if group_bbox(node) else 0.0, group_bbox(node).y if group_bbox(node) else 0.0))
-    for ref, node in zip(["XS2", "XS3"], two_pin_connectors, strict=False):
-        groups.setdefault(ref, node)
-
-    four_pin_connectors.sort(key=lambda node: (group_bbox(node).x if group_bbox(node) else 0.0, group_bbox(node).y if group_bbox(node) else 0.0))
-    for ref, node in zip(["SB1", "XS4", "SB2", "A1"], four_pin_connectors, strict=False):
-        groups.setdefault(ref, node)
+    # Source JLC symbols without visible refs are assigned by exact source bbox.
+    # This avoids accidentally swapping visually similar switches/connectors.
+    for ref, expected in SOURCE_COMPONENT_BBOXES.items():
+        if ref in groups:
+            continue
+        ex, ey, ew, eh = expected
+        for bbox, node in anonymous_groups:
+            if (
+                abs(bbox.x - ex) <= 0.2
+                and abs(bbox.y - ey) <= 0.2
+                and abs(bbox.width - ew) <= 0.2
+                and abs(bbox.height - eh) <= 0.2
+            ):
+                groups[ref] = node
+                break
 
     missing = sorted(set(REQUIRED_REFS) - set(groups))
     if missing:
         raise ValueError(f"Unable to map JLC source symbol groups: {', '.join(missing)}")
     return groups
+
+
+def symbol_internal_items(symbol: ET.Element) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for element in symbol.iter():
+        if element is symbol:
+            continue
+        attrs = {key: value for key, value in sorted(element.attrib.items())}
+        if tag_name(element) == "text":
+            attrs.pop("id", None)
+        items.append(
+            {
+                "tag": tag_name(element),
+                "attrs": attrs,
+                "text": "" if tag_name(element) == "text" else "".join(element.itertext()).strip(),
+            }
+        )
+    return items
+
+
+def hash_json(value: Any) -> str:
+    payload = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def symbol_style_items(symbol: ET.Element) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for element in symbol.iter():
+        if element is symbol:
+            continue
+        if tag_name(element) == "text":
+            continue
+        items.append(
+            {
+                "tag": tag_name(element),
+                "style": element.get("style", ""),
+                "stroke": element.get("stroke", ""),
+                "stroke-width": element.get("stroke-width", ""),
+                "fill": element.get("fill", ""),
+                "class": element.get("class", ""),
+            }
+        )
+    return items
+
+
+def symbol_fidelity_entry(ref: str, source_symbol: ET.Element, final_symbol: ET.Element) -> dict[str, Any]:
+    source_items = symbol_internal_items(source_symbol)
+    final_items = symbol_internal_items(final_symbol)
+    source_styles = symbol_style_items(source_symbol)
+    final_styles = symbol_style_items(final_symbol)
+    source_tag_counts: dict[str, int] = {}
+    final_tag_counts: dict[str, int] = {}
+    for item in source_items:
+        source_tag_counts[item["tag"]] = source_tag_counts.get(item["tag"], 0) + 1
+    for item in final_items:
+        final_tag_counts[item["tag"]] = final_tag_counts.get(item["tag"], 0) + 1
+    source_geometry_hash = hash_json(source_items)
+    final_geometry_hash = hash_json(final_items)
+    source_style_hash = hash_json(source_styles)
+    final_style_hash = hash_json(final_styles)
+    geometry_match = source_geometry_hash == final_geometry_hash
+    style_match = source_style_hash == final_style_hash
+    tag_match = source_tag_counts == final_tag_counts
+    return {
+        "ref": ref,
+        "source_group_id": source_symbol.get("id", ""),
+        "final_group_id": final_symbol.get("id", ""),
+        "source_elements_count": len(source_items),
+        "final_elements_count": len(final_items),
+        "source_tag_counts": source_tag_counts,
+        "final_tag_counts": final_tag_counts,
+        "source_geometry_hash": source_geometry_hash,
+        "final_geometry_hash": final_geometry_hash,
+        "geometry_hash_match": geometry_match,
+        "source_style_hash": source_style_hash,
+        "final_style_hash": final_style_hash,
+        "stroke_style_match": style_match,
+        "path_count_before": source_tag_counts.get("path", 0),
+        "path_count_after": final_tag_counts.get("path", 0),
+        "allowed_transform": final_symbol.get("transform", ""),
+        "verdict": "PASS" if geometry_match and style_match and tag_match else "FAIL",
+    }
 
 
 def transform_symbol_to_position(symbol: ET.Element, source_bbox: tuple[float, float, float, float], target: tuple[float, float]) -> ET.Element:
@@ -653,10 +728,10 @@ def make_line(parent: ET.Element, points: list[tuple[float, float]], *, net: str
             "points": formatted,
             "fill": "none",
             "stroke": "#000000",
-            "stroke-width": "1.1",
+            "stroke-width": "1",
             "stroke-linecap": "square",
             "stroke-linejoin": "miter",
-            "vector-effect": "non-scaling-stroke",
+            "vector-effect": "unset",
             "data-role": role,
             "data-net": net,
         },
@@ -673,7 +748,7 @@ def make_dot(parent: ET.Element, x: float, y: float, *, net: str) -> None:
             "r": "2.3",
             "fill": "#000000",
             "stroke": "#000000",
-            "stroke-width": "0.8",
+            "stroke-width": "1.0",
             "data-role": "junction",
             "data-net": net,
         },
@@ -704,7 +779,7 @@ def add_composite_wires(root: ET.Element) -> None:
 
     # Decoupling power rail near DD1.
     make_pullup(group, 70, 40)
-    make_line(group, [(70, 56), (72, 56), (72, 154), (285, 154)], net="+3V3")
+    make_line(group, [(70, 56), (72, 56), (72, 154), (300, 154)], net="+3V3")
     make_line(group, [(72, 69), (72, 124), (142, 124)], net="+3V3")
     make_ground(group, 185, 165)
     make_line(group, [(142, 88), (185, 88), (185, 147)], net="GND")
@@ -713,63 +788,64 @@ def add_composite_wires(root: ET.Element) -> None:
 
     # Reset / EN block.
     make_pullup(group, 112, 220)
-    make_line(group, [(112, 236), (120, 266), (188, 266), (285, 266)], net="EN")
+    make_line(group, [(112, 236), (120, 266), (188, 266), (300, 266)], net="EN")
     make_line(group, [(95, 336), (188, 336), (188, 266)], net="EN")
     make_ground(group, 125, 390)
     make_line(group, [(95, 357), (125, 357), (125, 372)], net="GND")
     make_dot(group, 188, 266, net="EN")
 
-    # Sensor and UART to DD1 right side.
-    make_pullup(group, 585, 35)
-    make_line(group, [(585, 55), (595, 76), (780, 76)], net="+3V3")
-    make_line(group, [(595, 76), (595, 137), (780, 137)], net="DQ")
-    make_line(group, [(434, 226), (595, 226), (595, 137)], net="DQ")
-    make_ground(group, 760, 195)
-    make_line(group, [(780, 157), (760, 157), (760, 177)], net="GND")
-    make_line(group, [(434, 255), (585, 255), (585, 225)], net="RXD0")
-    make_line(group, [(434, 242), (585, 242), (585, 240)], net="TXD0")
-    make_line(group, [(625, 225), (708, 225)], net="RXD0")
-    make_line(group, [(625, 240), (708, 240)], net="TXD0")
-    make_pullup(group, 712, 192)
-    make_ground(group, 708, 280)
-    make_line(group, [(708, 245), (708, 262)], net="GND")
+    # Sensor and UART form a compact upper-right interface module.
+    make_pullup(group, 585, 46)
+    make_line(group, [(585, 66), (585, 87), (745, 87)], net="+3V3")
+    make_line(group, [(625, 87), (625, 154), (745, 154)], net="DQ")
+    make_line(group, [(449, 231), (535, 231), (535, 154), (625, 154)], net="DQ")
+    make_ground(group, 735, 200)
+    make_line(group, [(745, 174), (735, 174), (735, 182)], net="GND")
+    make_line(group, [(449, 260), (560, 260), (560, 225)], net="RXD0")
+    make_line(group, [(449, 247), (560, 247), (560, 240)], net="TXD0")
+    make_line(group, [(621, 225), (685, 225)], net="RXD0")
+    make_line(group, [(621, 240), (685, 240)], net="TXD0")
+    make_pullup(group, 670, 192)
+    make_ground(group, 680, 278)
+    make_line(group, [(685, 245), (680, 245), (680, 260)], net="GND")
+    make_dot(group, 625, 154, net="DQ")
 
     # Boot circuit.
-    make_pullup(group, 505, 245)
-    make_line(group, [(505, 270), (535, 270), (535, 310), (500, 310)], net="BOOT")
-    make_line(group, [(434, 268), (520, 268), (520, 365)], net="BOOT")
-    make_ground(group, 592, 405)
-    make_line(group, [(586, 370), (592, 370), (592, 387)], net="GND")
-    make_dot(group, 520, 365, net="BOOT")
+    make_pullup(group, 465, 295)
+    make_line(group, [(465, 320), (486, 320), (486, 350), (468, 350)], net="BOOT")
+    make_line(group, [(449, 273), (486, 273), (486, 350)], net="BOOT")
+    make_ground(group, 522, 422)
+    make_line(group, [(516, 385), (522, 385), (522, 404)], net="GND")
+    make_dot(group, 486, 350, net="BOOT")
 
-    # Heater driver.
-    make_line(group, [(434, 328), (555, 328), (555, 367)], net="GATE")
-    make_line(group, [(595, 367), (660, 367)], net="GATE_R")
-    make_line(group, [(680, 445), (705, 445), (705, 386)], net="GATE_R")
-    make_ground(group, 730, 475)
-    make_line(group, [(680, 451), (730, 451), (730, 457)], net="GND")
-    make_ground(group, 700, 430)
-    make_line(group, [(690, 382), (700, 382), (700, 412)], net="GND")
-    make_pullup(group, 780, 280, net="+12V")
-    make_line(group, [(780, 305), (825, 305)], net="HEAT+")
-    make_line(group, [(865, 405), (835, 405)], net="HEAT+")
-    make_line(group, [(865, 440), (760, 440), (760, 382), (697, 382)], net="HEAT-")
-    make_dot(group, 660, 372, net="GATE_R")
+    # Heater driver is a distinct right-middle output block.
+    make_line(group, [(449, 333), (560, 333), (560, 327)], net="GATE")
+    make_line(group, [(600, 327), (690, 327)], net="GATE_R")
+    make_line(group, [(660, 394), (742, 394), (742, 352)], net="GATE_R")
+    make_ground(group, 712, 442)
+    make_line(group, [(620, 394), (620, 412), (712, 412), (712, 424)], net="GND")
+    make_ground(group, 724, 405)
+    make_line(group, [(720, 352), (724, 352), (724, 387)], net="GND")
+    make_pullup(group, 790, 268, net="+12V")
+    make_line(group, [(790, 292), (832, 292)], net="HEAT+")
+    make_line(group, [(845, 410), (815, 410)], net="HEAT+")
+    make_line(group, [(845, 429), (760, 429), (760, 352), (727, 352)], net="HEAT-")
+    make_dot(group, 690, 327, net="GATE_R")
 
-    # Power block.
-    make_pullup(group, 585, 450, net="+12V")
-    make_line(group, [(585, 470), (650, 470)], net="+12V")
-    make_line(group, [(700, 465), (765, 465)], net="+3V3")
-    make_line(group, [(700, 490), (765, 490), (765, 520)], net="+3V3")
-    make_ground(group, 700, 545)
-    make_line(group, [(700, 518), (700, 527)], net="GND")
-    make_line(group, [(805, 480), (850, 480)], net="+3V3")
-    make_line(group, [(805, 535), (850, 535)], net="GND")
+    # Power input and DC/DC block are kept separate from heater output.
+    make_pullup(group, 530, 462, net="+12V")
+    make_line(group, [(530, 486), (650, 486)], net="+12V")
+    make_line(group, [(700, 496), (770, 496)], net="+3V3")
+    make_line(group, [(700, 515), (770, 515), (770, 522)], net="+3V3")
+    make_ground(group, 700, 543)
+    make_line(group, [(700, 523), (700, 525)], net="GND")
+    make_line(group, [(810, 486), (845, 486)], net="+3V3")
+    make_line(group, [(810, 541), (845, 541)], net="GND")
 
     # LED status.
-    make_pullup(group, 340, 405)
-    make_line(group, [(340, 451), (485, 451)], net="LED_A")
-    make_line(group, [(525, 501), (525, 528), (434, 528)], net="LED")
+    make_pullup(group, 255, 395)
+    make_line(group, [(255, 441), (390, 441)], net="LED_A")
+    make_line(group, [(430, 464), (470, 464), (470, 492), (449, 492)], net="LED")
 
 
 def add_composite_labels(root: ET.Element) -> None:
@@ -783,7 +859,6 @@ def add_composite_labels(root: ET.Element) -> None:
 def composite_jlc_svg(path: Path) -> str:
     tree = parse_svg(path)
     source_root = tree.getroot()
-    normalize_svg_style(source_root)
     symbols = source_symbol_groups(source_root)
     root = ET.Element(
         qname("svg"),
@@ -797,12 +872,13 @@ def composite_jlc_svg(path: Path) -> str:
         },
     )
     metadata = ET.SubElement(root, qname("metadata"))
+    symbol_fidelity: list[dict[str, Any]] = []
     metadata.text = json.dumps(
         {
             "source": "hardware/eda/jlc_schematic_original.svg",
             "workflow": "JLC-style faithful layout beautification",
             "layout": "JLC symbols reused per component; wires redrawn orthogonally in A1 functional zones",
-            "symbol_shape_policy": "source JLC symbol group geometry is copied unchanged, then translated only",
+            "symbol_shape_policy": "source JLC symbol group is deep-cloned unchanged, then translated only",
             "required_refs": REQUIRED_REFS,
             "required_nets": REQUIRED_NETS,
         },
@@ -815,7 +891,22 @@ def composite_jlc_svg(path: Path) -> str:
         symbol = transform_symbol_to_position(symbols[ref], SOURCE_COMPONENT_BBOXES[ref], COMPOSITE_COMPONENT_POSITIONS[ref])
         symbol.set("id", f"jlc-symbol-{ref}")
         symbol.set("data-ref", ref)
+        symbol.set("data-role", "jlc_symbol_exact_clone")
+        symbol.set("data-source-bbox", ",".join(f"{value:g}" for value in SOURCE_COMPONENT_BBOXES[ref]))
+        symbol_fidelity.append(symbol_fidelity_entry(ref, symbols[ref], symbol))
         symbol_layer.append(symbol)
+    metadata.text = json.dumps(
+        {
+            "source": "hardware/eda/jlc_schematic_original.svg",
+            "workflow": "JLC exact-symbol faithful layout refinement",
+            "layout": "JLC symbols cloned per component; wires redrawn orthogonally in A1 functional zones",
+            "symbol_shape_policy": "source JLC symbol group is deep-cloned unchanged, then translated only",
+            "required_refs": REQUIRED_REFS,
+            "required_nets": REQUIRED_NETS,
+            "symbol_fidelity": symbol_fidelity,
+        },
+        ensure_ascii=False,
+    )
     add_composite_wires(root)
     add_composite_labels(root)
     xml = ET.tostring(root, encoding="unicode")

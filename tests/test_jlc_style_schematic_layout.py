@@ -151,6 +151,21 @@ def test_generator_embeds_jlc_source_style_not_kicad(tmp_path: Path) -> None:
     assert root is not None
     groups = {cell.get("data-ref") for cell in root if cell.get("data-role") == "jlc_symbol_group"}
     assert REQUIRED_REFS <= groups
+    embedded_svg = next(re.finditer(r"data:image/svg\+xml,([^\"'&<> ]+)", text(output))).group(1).rstrip(";")
+    embedded_root = ET.fromstring(urllib.parse.unquote(embedded_svg))
+    metadata_node = next(element for element in embedded_root.iter() if element.tag.rsplit("}", 1)[-1] == "metadata")
+    metadata = json.loads(metadata_node.text or "{}")
+    assert metadata["workflow"] == "JLC exact-symbol faithful layout refinement"
+    fidelity = {entry["ref"]: entry for entry in metadata["symbol_fidelity"]}
+    assert REQUIRED_REFS <= set(fidelity)
+    for ref in REQUIRED_REFS:
+        entry = fidelity[ref]
+        assert entry["verdict"] == "PASS", ref
+        assert entry["geometry_hash_match"] is True, ref
+        assert entry["stroke_style_match"] is True, ref
+        assert entry["path_count_before"] == entry["path_count_after"], ref
+        assert entry["allowed_transform"].startswith("translate("), ref
+    assert 'data-role="jlc_symbol_exact_clone"' in payload
 
 
 def test_generated_tables_still_match_master_after_jlc_style_generation(tmp_path: Path) -> None:

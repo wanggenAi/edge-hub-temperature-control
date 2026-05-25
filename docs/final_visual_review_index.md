@@ -46,7 +46,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `+3V3, GND, EN, LED, BOOT, GATE, DQ, RXD0, TXD0`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 860, 'y': 1209, 'width': 1920, 'height': 1128}`
+- Pixel box: `{'x': 1166, 'y': 1236, 'width': 1570, 'height': 1457}`
 
 ### reset_boot_led_area
 
@@ -58,7 +58,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `+3V3, GND, EN, BOOT, LED, LED_A`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 119, 'y': 1619, 'width': 1963, 'height': 1457}`
+- Pixel box: `{'x': 119, 'y': 1674, 'width': 2617, 'height': 1785}`
 
 ### sensor_uart_area
 
@@ -70,19 +70,19 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `DQ, +3V3, GND, RXD0, TXD0`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 1994, 'y': 743, 'width': 1745, 'height': 1183}`
+- Pixel box: `{'x': 2256, 'y': 853, 'width': 1745, 'height': 1292}`
 
 ### heater_power_area
 
 ![heater_power_area](../hardware/eda/exports/final/review_crops/heater_power_area.png)
 
-- Review purpose: Heater driver and power area review.
-- Focus: Check MOSFET gate network, heater connector, thermal switch, and power conversion wiring.
-- Related refs: `R4, R5, VT1, XS2, XS5, XS3, A1, C3, C4`
-- Related nets: `GATE, GATE_R, HEAT+, HEAT-, +12V, +3V3, GND`
+- Review purpose: Heater driver and safety/output terminal review.
+- Focus: Check MOSFET gate network, pull-down, thermal switch, heater connector, and output labels.
+- Related refs: `R4, R5, VT1, XS2, XS5`
+- Related nets: `GATE, GATE_R, HEAT+, HEAT-, +12V, GND`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 2081, 'y': 1674, 'width': 2487, 'height': 1895}`
+- Pixel box: `{'x': 2561, 'y': 1948, 'width': 1919, 'height': 1073}`
 
 ### power_area
 
@@ -94,7 +94,7 @@ This index is for ChatGPT/user visual inspection. It does not claim human visual
 - Related nets: `+12V, +3V3, GND`
 - Current automated status: `PASS`
 - Source PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- Pixel box: `{'x': 2299, 'y': 2605, 'width': 1963, 'height': 964}`
+- Pixel box: `{'x': 2517, 'y': 2878, 'width': 1833, 'height': 691}`
 
 ### element_list_full
 
