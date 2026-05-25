@@ -2,12 +2,12 @@
 
 ## Optimizer Checkpoint
 
-- Created at: `2026-05-24T23:12:15`
-- Status: `UNCHANGED_CURRENT_BEST`
-- Previous score: `71.344`
-- New score: `71.344`
-- Adopted candidate: `False`
-- Reason: Current JLC-style placement remained the lowest-score candidate; generated draw.io was not moved.
+- Created at: `2026-05-25T08:35:45`
+- Status: `IMPROVED`
+- Previous score: `77.261`
+- New score: `74.564`
+- Adopted candidate: `True`
+- Reason: Best candidate improves the quantified score and was regenerated.
 
 ## Score Items
 
@@ -19,8 +19,8 @@
 - `text_symbol_overlap_count`: `0.000`
 - `symbol_overlap_count`: `0.000`
 - `label_floating_count`: `0.000`
-- `block_sparsity_penalty`: `0.181`
-- `main_area_balance_penalty`: `0.104`
+- `block_sparsity_penalty`: `3.018`
+- `main_area_balance_penalty`: `0.487`
 - `right_table_overlap_penalty`: `0.000`
 - `title_block_overlap_penalty`: `0.000`
 - `DQ_long_vertical_penalty`: `9.600`
@@ -28,7 +28,7 @@
 - `A1_C3_C4_distance_penalty`: `16.800`
 - `R4_GATE_R_VT1_crowding_penalty`: `2.029`
 - `SB1_DD1_distance_penalty`: `0.000`
-- `total`: `71.344`
+- `total`: `74.564`
 
 ## Constraints
 

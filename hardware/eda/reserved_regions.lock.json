@@ -27,9 +27,9 @@
       "name": "element_list",
       "root_cell_id": "Evo6jcjRQjkPnHUFUJlg-1",
       "bbox": {
-        "x": 2558.18,
+        "x": 2428.18,
         "y": 10.43,
-        "width": 730.0,
+        "width": 860.0,
         "height": 1260.0,
         "right": 3288.18,
         "bottom": 1270.43
@@ -39,9 +39,9 @@
       ],
       "cell_count": 1,
       "style_hash": "54e183280a79296a9ec5105d799d60f19d77f2e31a76244bbe669e73ce52524e",
-      "geometry_hash": "2aa0a5b9519df4c8b167a1076912949ba4dfadb34c5b641a46daee30d9bd89fe",
+      "geometry_hash": "7ab85568d522bd29c721af6d5a8e26b774a5b70ab17718467739785f876e4ae9",
       "value_hash": "208c2dc5940e2a6be5683c753bfa5fc7292c948ab721ee9aa81b5d1d16adfef1",
-      "combined_hash": "7f7d30c689d8282a40b161b72a30c88ff08e7929680f9f57ee7484e55f248962"
+      "combined_hash": "079937f486854b77b6a62089bd475f913f6955569941b9d87c5339fcf6302d09"
     },
     "title_block": {
       "name": "title_block",

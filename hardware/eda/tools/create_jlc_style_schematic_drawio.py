@@ -29,9 +29,9 @@ JLC_SVG = ROOT / "hardware/eda/jlc_schematic_original.svg"
 OUTPUT_DRAWIO = ROOT / "hardware/eda/functiondiagramYUANLITU.generated.drawio"
 
 DEFAULT_X = 205.0
-DEFAULT_Y = 520.0
-DEFAULT_WIDTH = 2260.0
-DEFAULT_HEIGHT = 1270.0
+DEFAULT_Y = 550.0
+DEFAULT_WIDTH = 2136.4
+DEFAULT_HEIGHT = 1200.5
 
 # Source SVG coordinate crop.  It removes the JLC page frame/title block while
 # keeping the complete schematic body and the source symbol geometry.

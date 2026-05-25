@@ -17,6 +17,7 @@ UPDATE_ELEMENT_LIST_SCRIPT = ROOT / "hardware/eda/tools/update_generated_element
 UPDATE_TITLE_BLOCK_SCRIPT = ROOT / "hardware/eda/tools/update_generated_title_block.py"
 VALIDATOR = ROOT / "hardware/eda/tools/validate_generated_tables_match_master.py"
 EXPORT_LINT = ROOT / "tools/export_artifact_lint.py"
+ELEMENT_PREFIX = "Evo6jcjRQjkPnHUFUJlg-"
 
 
 def load_validator():
@@ -26,6 +27,25 @@ def load_validator():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def element_cell_geometry(root: ET.Element, suffix: str) -> tuple[float, float, float, float]:
+    cell = root.find(f".//mxCell[@id='{ELEMENT_PREFIX}{suffix}']/mxGeometry")
+    assert cell is not None
+    return (
+        float(cell.get("x", "0") or 0),
+        float(cell.get("y", "0") or 0),
+        float(cell.get("width", "0") or 0),
+        float(cell.get("height", "0") or 0),
+    )
+
+
+def element_line_x(root: ET.Element, suffix: str) -> float:
+    geometry = root.find(f".//mxCell[@id='{ELEMENT_PREFIX}{suffix}']/mxGeometry")
+    assert geometry is not None
+    point = geometry.find("mxPoint[@as='sourcePoint']")
+    assert point is not None
+    return float(point.get("x", "0") or 0)
 
 
 def build_text_replaced_generated(tmp_path: Path) -> Path:
@@ -57,6 +77,27 @@ def test_text_replacement_keeps_master_table_geometry(tmp_path: Path) -> None:
     assert summary["cell_ids_match"] is True
     assert summary["geometry_matches_master"] is True
     assert summary["value_changed_cell_count"] > 0
+
+
+def test_master_element_list_has_mpn_readability_geometry() -> None:
+    root = ET.parse(FRAME).find(".//root")
+    assert root is not None
+    table_x, _table_y, table_width, _table_height = element_cell_geometry(root, "1")
+    first_grid = element_line_x(root, "3")
+    second_grid = element_line_x(root, "4")
+    third_grid = element_line_x(root, "5")
+    assert table_width >= 850.0
+    assert abs((table_x + table_width) - 3173.01) < 0.01
+    assert first_grid - table_x >= 125.0
+    assert second_grid - first_grid >= 500.0
+    assert third_grid - second_grid >= 48.0
+    assert table_x + table_width - third_grid >= 165.0
+    name_x, _name_y, name_width, _name_height = element_cell_geometry(root, "14")
+    note_x, _note_y, note_width, _note_height = element_cell_geometry(root, "16")
+    assert name_x >= first_grid
+    assert name_width >= 500.0
+    assert note_x >= third_grid
+    assert note_width >= 160.0
 
 
 def test_validator_rejects_generated_table_geometry_change(tmp_path: Path) -> None:

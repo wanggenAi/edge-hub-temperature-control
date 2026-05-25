@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-05-24T23:12:15",
-  "status": "UNCHANGED_CURRENT_BEST",
+  "created_at": "2026-05-25T08:35:45",
+  "status": "IMPROVED",
   "constraints": "hardware/eda/layout_constraints.yaml",
   "input_svg": "hardware/eda/jlc_schematic_original.svg",
   "input_drawio": "hardware/eda/functiondiagramYUANLITU.generated.drawio",
@@ -8,2178 +8,2178 @@
   "previous_box": {
     "x": 205.0,
     "y": 520.0,
-    "width": 2260.0,
-    "height": 1270.0
+    "width": 2180.0,
+    "height": 1225.0
   },
   "best_box": {
     "x": 205.0,
-    "y": 520.0,
-    "width": 2260.0,
-    "height": 1270.0
+    "y": 550.0,
+    "width": 2136.4,
+    "height": 1200.5
   },
   "previous_layout_score": {
     "wire_crossing_count": 0.0,
-    "wire_total_length": 36.830299633550396,
+    "wire_total_length": 36.8302996335504,
     "wire_bend_count": 0.0,
     "wire_through_symbol_body_count": 0.0,
     "text_wire_overlap_count": 0.0,
     "text_symbol_overlap_count": 0.0,
     "symbol_overlap_count": 0.0,
     "label_floating_count": 0.0,
-    "block_sparsity_penalty": 0.1808857256549401,
-    "main_area_balance_penalty": 0.10432310488123049,
+    "block_sparsity_penalty": 3.5868200238045214,
+    "main_area_balance_penalty": 2.6152563386334466,
     "right_table_overlap_penalty": 0.0,
     "title_block_overlap_penalty": 0.0,
-    "DQ_long_vertical_penalty": 9.600000000000005,
-    "HEAT_output_floating_penalty": 5.8,
+    "DQ_long_vertical_penalty": 9.600000000000003,
+    "HEAT_output_floating_penalty": 5.8000000000000025,
     "A1_C3_C4_distance_penalty": 16.8,
-    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+    "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
     "SB1_DD1_distance_penalty": 0.0,
-    "total": 71.34449236815229
+    "total": 77.2613599000541
   },
   "new_layout_score": {
     "wire_crossing_count": 0.0,
-    "wire_total_length": 36.830299633550396,
+    "wire_total_length": 36.8302996335504,
     "wire_bend_count": 0.0,
     "wire_through_symbol_body_count": 0.0,
     "text_wire_overlap_count": 0.0,
     "text_symbol_overlap_count": 0.0,
     "symbol_overlap_count": 0.0,
     "label_floating_count": 0.0,
-    "block_sparsity_penalty": 0.1808857256549401,
-    "main_area_balance_penalty": 0.10432310488123049,
+    "block_sparsity_penalty": 3.018233986974094,
+    "main_area_balance_penalty": 0.4868850930621752,
     "right_table_overlap_penalty": 0.0,
     "title_block_overlap_penalty": 0.0,
-    "DQ_long_vertical_penalty": 9.600000000000005,
-    "HEAT_output_floating_penalty": 5.8,
-    "A1_C3_C4_distance_penalty": 16.8,
-    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+    "DQ_long_vertical_penalty": 9.599999999999998,
+    "HEAT_output_floating_penalty": 5.800000000000002,
+    "A1_C3_C4_distance_penalty": 16.799999999999997,
+    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
     "SB1_DD1_distance_penalty": 0.0,
-    "total": 71.34449236815229
+    "total": 74.5644026176524
   },
   "best_layout_score": {
     "wire_crossing_count": 0.0,
-    "wire_total_length": 36.830299633550396,
+    "wire_total_length": 36.8302996335504,
     "wire_bend_count": 0.0,
     "wire_through_symbol_body_count": 0.0,
     "text_wire_overlap_count": 0.0,
     "text_symbol_overlap_count": 0.0,
     "symbol_overlap_count": 0.0,
     "label_floating_count": 0.0,
-    "block_sparsity_penalty": 0.1808857256549401,
-    "main_area_balance_penalty": 0.10432310488123049,
+    "block_sparsity_penalty": 3.018233986974094,
+    "main_area_balance_penalty": 0.4868850930621752,
     "right_table_overlap_penalty": 0.0,
     "title_block_overlap_penalty": 0.0,
-    "DQ_long_vertical_penalty": 9.600000000000005,
-    "HEAT_output_floating_penalty": 5.8,
-    "A1_C3_C4_distance_penalty": 16.8,
-    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+    "DQ_long_vertical_penalty": 9.599999999999998,
+    "HEAT_output_floating_penalty": 5.800000000000002,
+    "A1_C3_C4_distance_penalty": 16.799999999999997,
+    "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
     "SB1_DD1_distance_penalty": 0.0,
-    "total": 71.34449236815229
+    "total": 74.5644026176524
   },
-  "adopted_candidate": false,
+  "adopted_candidate": true,
   "candidate_count": 75,
   "candidate_scores": [
     {
       "box": {
         "x": 165.0,
         "y": 490.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 5.366987577660122,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 5.43364763023014,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 79.00174462665208
+        "total": 79.51116515482039
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 505.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 4.509714088366516,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 4.576374140936535,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 78.14447113735848
+        "total": 78.65389166552677
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 520.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 3.6524405990729094,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 3.7191006516429272,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.28719764806488
+        "total": 77.79661817623315
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 535.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 3.1534754234270723,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 2.8618271623493206,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.78823247241904
+        "total": 76.93934468693956
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 550.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 4.010748912720679,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 2.0045536730557143,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.64550596171264
+        "total": 76.08207119764594
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 490.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 4.398636518122672,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 4.4116926303153035,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 78.03339356711463
+        "total": 78.48921015490555
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 505.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 3.541363028829065,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 3.5544191410216968,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.17612007782103
+        "total": 77.63193666561193
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 520.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 2.6840895395354587,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 2.6971456517280905,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.31884658852742
+        "total": 76.77466317631834
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 535.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 2.1851243638896216,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 1.8398721624344836,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.81988141288159
+        "total": 75.91738968702472
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 550.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 3.042397853183228,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 0.9825986731408771,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.67715490217519
+        "total": 75.0601161977311
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 490.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 3.430285458585221,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 3.9159790502366008,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.06504250757718
+        "total": 77.99349657482685
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 505.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 2.5730119692916142,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 3.058705560942995,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.20776901828357
+        "total": 77.13622308553323
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 520.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.7157384799980075,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 2.2014320716493883,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.35049552898997
+        "total": 76.27894959623961
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 535.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.2167733043521707,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 1.3441585823557816,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.85153035334413
+        "total": 75.42167610694602
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 550.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 2.074046793645777,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 0.4868850930621752,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.70880384263774
+        "total": 74.5644026176524
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 490.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 2.46193439904777,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 4.937934050151439,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.09669144803973
+        "total": 79.01545157474169
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 505.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.6046609097541629,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 4.080660560857832,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.23941795874613
+        "total": 78.15817808544807
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 520.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 0.7473874204605564,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 3.2233870715642254,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.38214446945251
+        "total": 77.30090459615445
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 535.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 0.2484222448147197,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 2.3661135822706187,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.88317929380668
+        "total": 76.44363110686086
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 550.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.1056957341083262,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 1.5088400929770123,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.74045278310028
+        "total": 75.58635761756724
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 490.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 3.2917492826035506,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 5.959889050066276,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065696,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.9265063315955
+        "total": 80.0374065746565
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 505.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 2.4344757933099443,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 5.102615560772668,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657385,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.0692328423019
+        "total": 79.18013308536291
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 520.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.5772023040163377,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 4.245342071479063,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.2119593530083
+        "total": 78.32285959606929
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 535.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.078237128370501,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 3.3880685821854555,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.71299417736246
+        "total": 77.4655861067757
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 550.0,
-        "width": 2214.8,
-        "height": 1244.6
+        "width": 2136.4,
+        "height": 1200.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.575473511375872,
-        "main_area_balance_penalty": 1.9355106176641075,
+        "block_sparsity_penalty": 3.018233986974094,
+        "main_area_balance_penalty": 2.5307950928918497,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.599999999999996,
-        "HEAT_output_floating_penalty": 5.799999999999998,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657,
+        "DQ_long_vertical_penalty": 9.599999999999998,
+        "HEAT_output_floating_penalty": 5.800000000000002,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657425,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.57026766665606
+        "total": 76.60831261748208
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 490.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 3.5469259927808845,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 3.619609997399858,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.78709525605194
+        "total": 78.26571355882051
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 505.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.689652503487278,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 2.7623365081062516,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.92982176675834
+        "total": 77.4084400695269
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 520.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.9277901244580735,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 1.905063018812645,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.16795938772913
+        "total": 76.5511665802333
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 535.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.78506361375168,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 1.0477895295190387,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.02523287702275
+        "total": 75.6938930909397
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 550.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 3.6423371030452865,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 1.1432006397834409,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.88250636631635
+        "total": 75.7893042012041
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 490.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.5785749332434333,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 3.307848317305822,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.81874419651449
+        "total": 77.95395187872647
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 505.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.721301443949827,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 2.4505748280122157,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 72.96147070722088
+        "total": 77.09667838943287
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 520.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 0.9594390649206228,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 1.5933013387186092,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 72.19960832819169
+        "total": 76.23940490013926
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 535.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.8167125542142293,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 0.7360278494250027,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.05688181748529
+        "total": 75.38213141084566
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 550.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.6739860435078358,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 0.831438959689405,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.9141553067789
+        "total": 75.47754252111007
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 490.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.7234589732040413,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 4.32980331722066,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 72.9636282364751
+        "total": 78.97590687864131
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 505.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 0.8661854839104347,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 3.472529827927053,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 72.1063547471815
+        "total": 78.1186333893477
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 520.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 0.10432310488123049,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 2.6152563386334466,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 71.34449236815229
+        "total": 77.2613599000541
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 535.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 0.961596594174837,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 1.7579828493398397,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 72.20176585744589
+        "total": 76.4040864107605
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 550.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.8188700834684435,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 1.8533939596042421,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.05903934673951
+        "total": 76.49949752102489
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 490.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.691810032741492,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 5.351758317135496,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.93197929601256
+        "total": 79.99786187855615
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 505.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.8345365434478857,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 4.49448482784189,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.07470580671895
+        "total": 79.14058838926255
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 520.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.0726741644186815,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 3.6372113385482834,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 72.31284342768974
+        "total": 78.28331489996894
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 535.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 1.9299476537122877,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 2.7799378492546767,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.17011691698335
+        "total": 77.42604141067534
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 550.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.7872211430058944,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 2.875348959519079,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.02739040627695
+        "total": 77.52145252093973
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 490.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 3.660161092278943,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 6.373713317050333,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.90033035555
+        "total": 81.01981687847099
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 505.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.802887602985337,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 5.516439827756727,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.04305686625639
+        "total": 80.16254338917739
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 520.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.0410252239561326,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 4.65916633846312,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 73.2811944872272
+        "total": 79.30526989988377
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 535.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 2.8982987132497393,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 3.8018928491695143,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.1384679765208
+        "total": 78.44799641059016
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 550.0,
-        "width": 2260.0,
-        "height": 1270.0
+        "width": 2180.0,
+        "height": 1225.0
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.830299633550396,
+        "wire_total_length": 36.8302996335504,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 0.1808857256549401,
-        "main_area_balance_penalty": 3.755572202543345,
+        "block_sparsity_penalty": 3.5868200238045214,
+        "main_area_balance_penalty": 3.8973039594339163,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000005,
-        "HEAT_output_floating_penalty": 5.8,
+        "DQ_long_vertical_penalty": 9.600000000000003,
+        "HEAT_output_floating_penalty": 5.8000000000000025,
         "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657256,
+        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065721,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.9957414658144
+        "total": 78.54340752085457
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 490.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 1.7268644079016464,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 2.699717584375043,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657127,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.6708591887796
+        "total": 77.96655754627176
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 505.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 0.8695909186080399,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 1.842444095081437,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.813585699486
+        "total": 77.10928405697814
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 520.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 1.5593783147826812,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 0.9851706057878303,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.50337309566065
+        "total": 76.25201056768454
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 535.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 2.416651804076288,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 0.7662481033112435,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.36064658495425
+        "total": 76.03308806520795
       }
     },
     {
       "box": {
         "x": 165.0,
         "y": 550.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 3.273925293369894,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 1.62352159260485,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.21792007424786
+        "total": 76.89036155450157
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 490.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 1.1235197233419827,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 3.7216725842898803,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657127,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.06751450421994
+        "total": 78.98851254618658
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 505.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 0.2662462340483762,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 2.864399094996274,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.21024101492634
+        "total": 78.13123905689298
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 520.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 0.9560336302230175,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 2.007125605702668,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 74.90002841110098
+        "total": 77.27396556759938
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 535.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 1.813307119516624,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 1.7882031032260806,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.75730190039458
+        "total": 77.05504306512279
       }
     },
     {
       "box": {
         "x": 185.0,
         "y": 550.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 2.6705806088102304,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 2.645476592519687,
         "right_table_overlap_penalty": 0.0,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.6145753896882
+        "total": 77.91231655441639
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 490.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 2.091870782879434,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 4.7436275842047175,
+        "right_table_overlap_penalty": 65.55612000001136,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657127,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.0358655637574
+        "total": 145.5665875461128
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 505.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 1.2345972935858271,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 3.886354094911111,
+        "right_table_overlap_penalty": 64.29612000001114,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.1785920744638
+        "total": 143.44931405681896
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 520.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 1.9243846897604686,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 3.029080605617504,
+        "right_table_overlap_penalty": 63.03612000001093,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 75.86837947063843
+        "total": 141.33204056752513
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 535.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 2.781658179054075,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 2.810158103140918,
+        "right_table_overlap_penalty": 61.776120000010714,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.72565295993203
+        "total": 139.85311806504833
       }
     },
     {
       "box": {
         "x": 205.0,
         "y": 550.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 3.6389316683476816,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 3.667431592434524,
+        "right_table_overlap_penalty": 60.516120000010496,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.58292644922564
+        "total": 139.45039155434173
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 490.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 3.060221842416884,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 5.765582584119554,
+        "right_table_overlap_penalty": 3187.276120000012,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657127,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.00421662329485
+        "total": 3268.308542546028
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 505.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 2.2029483531232783,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 4.908309094825948,
+        "right_table_overlap_penalty": 3126.0161200000116,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.14694313400123
+        "total": 3206.1912690567347
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 520.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 2.8927357492979193,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 4.051035605532342,
+        "right_table_overlap_penalty": 3064.7561200000114,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 76.83673053017588
+        "total": 3144.0739955674408
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 535.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 3.750009238591526,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 3.8321131030557547,
+        "right_table_overlap_penalty": 3003.496120000011,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.69400401946949
+        "total": 3082.595073064964
       }
     },
     {
       "box": {
         "x": 225.0,
         "y": 550.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 4.607282727885132,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 4.689386592349361,
+        "right_table_overlap_penalty": 2942.236120000011,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 78.55127750876309
+        "total": 3022.1923465542573
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 490.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 4.028572901954336,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 6.787537584034392,
+        "right_table_overlap_penalty": 6308.996120000012,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
-        "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
+        "R4_GATE_R_VT1_crowding_penalty": 2.0289839040657127,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.97256768283229
+        "total": 6391.0504975459435
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 505.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 3.1712994126607295,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 5.930264094740785,
+        "right_table_overlap_penalty": 6187.736120000011,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.11529419353869
+        "total": 6268.93322405665
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 520.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 3.8610868088353705,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 5.0729906054471785,
+        "right_table_overlap_penalty": 6066.476120000011,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 77.80508158971332
+        "total": 6146.815950567357
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 535.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 4.718360298128977,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 4.854068102970592,
+        "right_table_overlap_penalty": 5945.216120000011,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 78.66235507900694
+        "total": 6025.33702806488
       }
     },
     {
       "box": {
         "x": 245.0,
         "y": 550.0,
-        "width": 2305.2,
-        "height": 1295.4
+        "width": 2223.6,
+        "height": 1249.5
       },
       "score": {
         "wire_crossing_count": 0.0,
-        "wire_total_length": 36.83029963355041,
+        "wire_total_length": 36.830299633550396,
         "wire_bend_count": 0.0,
         "wire_through_symbol_body_count": 0.0,
         "text_wire_overlap_count": 0.0,
         "text_symbol_overlap_count": 0.0,
         "symbol_overlap_count": 0.0,
         "label_floating_count": 0.0,
-        "block_sparsity_penalty": 2.884711243261835,
-        "main_area_balance_penalty": 5.575633787422583,
-        "right_table_overlap_penalty": 0.0,
+        "block_sparsity_penalty": 4.2075564242806145,
+        "main_area_balance_penalty": 5.711341592264199,
+        "right_table_overlap_penalty": 5823.956120000011,
         "title_block_overlap_penalty": 0.0,
-        "DQ_long_vertical_penalty": 9.600000000000001,
-        "HEAT_output_floating_penalty": 5.800000000000003,
-        "A1_C3_C4_distance_penalty": 16.8,
+        "DQ_long_vertical_penalty": 9.599999999999996,
+        "HEAT_output_floating_penalty": 5.8,
+        "A1_C3_C4_distance_penalty": 16.799999999999997,
         "R4_GATE_R_VT1_crowding_penalty": 2.028983904065717,
         "SB1_DD1_distance_penalty": 0.0,
-        "total": 79.51962856830055
+        "total": 5904.934301554173
       }
     }
   ],
-  "changed_layout_summary": "Current JLC-style placement remained the lowest-score candidate; generated draw.io was not moved."
+  "changed_layout_summary": "Best candidate improves the quantified score and was regenerated."
 }

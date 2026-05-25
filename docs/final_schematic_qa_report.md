@@ -8,7 +8,7 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - SVG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg`
 - PDF: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.pdf`
 - PNG: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png`
-- PNG resolution: `6433 x 4654 px`
+- PNG resolution: `6431 x 4654 px`
 
 ## Automated Checks
 
@@ -16,7 +16,7 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - KiCad ERC report: `build/reports/kicad_schematic_erc_layout_audit.json`
 - Pytest: `33 passed in focused schematic/table/audit suite`
 - Export lint errors: `0`
-- Export lint report: `build/reports/final-jlc-style-layout-export/export_artifact_lint.json`
+- Export lint report: `build/reports/final-master-table-edit-export/export_artifact_lint.json`
 - Required school refs present: `True`
 - Canonical nets present: `True`
 - Forbidden refs/stale nets absent: `True`
@@ -24,15 +24,15 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - KiCad symbol/project diff clean: `True`
 - KiCad schematic source is unchanged in this JLC-style workflow and is used only for topology verification.
 - Master table lock passed: `True`
-- Master table lock report: `build/reports/bstu_master_table_lock_jlc_style_layout.json`
+- Master table lock report: `build/reports/bstu_master_table_lock_master_table_edit.json`
 
 ## JLC-Style Schematic Block Placement
 
-- Embed bbox: `{'x': 126.0, 'y': 513.0, 'width': 2260.0, 'height': 1270.0}`
-- Main width share: `0.912`
-- Main height share: `0.605`
-- Gap to List of Elements: `172.18` SVG units
-- Gap to Title Block: `324.42` SVG units
+- Embed bbox: `{'x': 126.0, 'y': 543.0, 'width': 2136.4, 'height': 1200.5}`
+- Main width share: `0.910`
+- Main height share: `0.572`
+- Gap to List of Elements: `165.78` SVG units
+- Gap to Title Block: `363.92` SVG units
 
 ## List Of Elements
 
@@ -47,9 +47,9 @@ This is a thesis insertion candidate package, not a final human-approved drawing
 - Status: `PASS`
 - Errors: `0`
 - Master cell count: `101`
-- Master geometry hash: `34ef44b8ced36aa76933db11fa585bb5d57ca868ab93e5d2f95193670983edf0`
-- `hardware/eda/functiondiagramYUANLITU.generated.drawio`: geometry matches master `True`, value-only changed cells `39`
-- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`: geometry matches master `True`, value-only changed cells `39`
+- Master geometry hash: `5e2df315aec3896a6b27fbd8e0094982b46b7f5941ad044462ae744a4b3bd71c`
+- `hardware/eda/functiondiagramYUANLITU.generated.drawio`: geometry matches master `True`, value-only changed cells `38`
+- `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`: geometry matches master `True`, value-only changed cells `38`
 
 The review crops include `element_list_full`, `element_list_top`,
 `element_list_middle`, and `element_list_bottom` so reviewers can inspect
