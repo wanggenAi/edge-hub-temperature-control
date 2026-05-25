@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-40ab0dc6
+1bf017d2
 
 ## Current Branch
 main
@@ -10,31 +10,27 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active schematic workflow is JLC-style faithful layout beautification: the middle schematic keeps original JLC symbol shapes, while the BSTU draw.io frame owns the outer frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Workflow Status
-- Web ChatGPT reviewer rechecked the right-top List of Elements after the C3 Note shortening.
-- Reviewer result: `VISUAL_REVIEW_PASS_FOR_THIS_CHECKPOINT`.
-- Scope of pass: right-top List of Elements visual checkpoint after BOM semantics and C3 Note readability fixes.
-- This does not claim final thesis approval for the whole project; it records the reviewer checkpoint pass for the table issue.
+- Previous Web ChatGPT full-sheet review result: `NEEDS_MIDDLE_SCHEMATIC_REFINEMENT`.
+- Reviewer accepted the right-top List of Elements and right-bottom Title Block for this checkpoint.
+- Reviewer rejected the middle schematic because it still looked like a screenshot block and did not read as a rebuilt engineering drawing.
+- This round converts the middle schematic generation from a single embedded JLC SVG block into a module-rebuilt JLC-style layout: each visible component symbol group is copied from the original JLC SVG and translated into functional A1 zones, with orthogonal wiring and canonical school labels overlaid.
+- Visual Review Result is still `PENDING_REVIEW` until the new screenshot pack is inspected by Web ChatGPT/user.
 
 ## Automated Check Result
-- JLC/KiCad topology equivalence: `PASS` (`build/reports/jlc_kicad_netlist_equivalence_c3_note_short.json`).
-- Master table lock: `PASS` (`build/reports/bstu_master_table_lock_c3_note_short.json`).
-- Export lint: `PASS`, `0` errors (`build/reports/final-c3-note-short-export/export_artifact_lint.json`).
-- JLC-style layout audit: `PASS`, `0` blockers, `0` warnings (`build/reports/jlc_style_layout_audit_c3_note_short.json`).
-- BOM MPN/Manufacturer audit: `WARN`, `0` errors, `10` package/order confirmation warnings (`build/reports/bom_mpn_manufacturer_audit.json`).
+- JLC/KiCad topology equivalence: `PASS` (`build/reports/jlc_kicad_netlist_equivalence_middle_refinement.json`).
+- Master table lock: `PASS` (`build/reports/bstu_master_table_lock_middle_refinement.json`).
+- Export lint: `PASS`, `0` errors (`build/reports/final-middle-refinement-export/export_artifact_lint.json`).
+- JLC-style layout audit: `PASS`, `0` blockers, `0` warnings (`build/reports/jlc_style_layout_audit_middle_refinement.json`).
 - Pytest: `23 passed` for BOM, table lock, JLC-style layout, and JLC/KiCad equivalence tests.
 - PNG size: `6431 x 4654 px`.
-- Visual Review Pack manifest: `PASS`, `13` crop entries and every crop path exists.
-- Protected-file diff guards: `PASS` for KiCad schematic/symbol/project, JLC netlist/SVG/BOM, ref mapping, schematic model, and net equivalence rules.
+- Visual Review Pack manifest: regenerated at `hardware/eda/exports/final/review_crops/manifest.json`.
+- Protected-file diff guards: `PASS` for mother draw.io, KiCad schematic/symbol/project, JLC netlist/SVG, ref mapping, schematic model, and net equivalence rules.
 
 ## Visual Review Result
-`VISUAL_REVIEW_PASS_FOR_THIS_CHECKPOINT`
+`PENDING_REVIEW`
 
 ## Human Approval Status
-`CHECKPOINT_APPROVED_BY_CHATGPT_REVIEWER`
-
-## Reviewer Evidence
-- Reviewer feedback note: `docs/final_visual_reviewer_feedback.md`
-- Reviewer screenshot: `hardware/eda/exports/final/reviewer_feedback/visual_review_pass_2026-05-25_c3_note.png`
+`NOT_APPROVED_YET`
 
 ## Final Artifacts
 - Final draw.io: `hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio`
@@ -60,26 +56,15 @@ This project is `edge-hub-temperature-control`, used for graduation thesis and d
 - Right-top List of Elements bottom: `hardware/eda/exports/final/review_crops/element_list_bottom.png`
 - Right-bottom Title Block: `hardware/eda/exports/final/review_crops/title_block_full.png`
 
-## BOM MPN / Manufacturer Status
-Visible C3 row now uses:
-- Name: `CL31A107MQHNNNE 100 uF, 1206`
-- Note: `Samsung E-M`
-
-The full C3 warning remains in reports:
-- Source JLC BOM footprint says C0603.
-- Confirmed/common purchasable 100 uF MLCC source is 1206, so package/voltage/order details need human purchase confirmation.
-
-Items intentionally marked `NEEDS_CONFIRMATION` because public/JLC source data did not verify a true Manufacturer beyond supplier/assembly listing:
-- `HL1` LED0603-RD_RED red LED.
-- `VT1` NMOS3400 N-channel MOSFET.
-- `SB1, SB2` TactswitchSMT6x6x7_5 tactile switch.
-- `XS2, XS3` 2P-P3.81_KF2EDGV-3.81-2P terminal.
-- `XS4` Header45.08-4P service connector.
-- `XS5` KF301-2P terminal connector.
-- `A1` Header45.08-4P DC/DC interface.
+## What Changed This Round
+- `hardware/eda/tools/create_jlc_style_schematic_drawio.py` now extracts/reuses JLC component symbol groups and lays them out in functional A1 zones instead of embedding one whole-sheet JLC screenshot-style block.
+- Rebuilt middle-circuit wires are orthogonal and carry role/net metadata inside the embedded SVG payload.
+- The school frame/List of Elements/Title Block are still cloned from the mother draw.io and table lock remains PASS.
+- Final draw.io/SVG/PDF/PNG and review crops were regenerated.
 
 ## Strict No-Change Statement
 This round did not modify:
+- `hardware/eda/functiondiagramYUANLITU.drawio`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro`
@@ -89,7 +74,7 @@ This round did not modify:
 - `hardware/eda/ref_mapping.yaml`
 - `hardware/eda/schematic_model.yaml`
 - `hardware/eda/net_equivalence_rules.yaml`
-- topology, confirmed refs, canonical net names, JLC symbol shapes, right-bottom Title Block geometry, document code, or BOM quantities.
+- topology, confirmed refs, canonical net names, BOM quantities, mother table geometry, title block geometry, or document code.
 
-## Next Step
-For the next drawing/layout task, regenerate the Visual Review Pack again and send screenshots to Web ChatGPT reviewer before claiming any new visual pass.
+## Reviewer Instruction
+Upload the Visual Review Pack screenshots to Web ChatGPT reviewer. Ask specifically whether the middle schematic refinement resolves the previous `NEEDS_MIDDLE_SCHEMATIC_REFINEMENT` findings: screenshot-block appearance, HEAT+/HEAT-/XS2/XS3 floating, C3/C4/A1 power cohesion, sensor/UART crop correctness, and DD1-area crowding. Do not claim Visual Review PASS until reviewer inspects the new images.
