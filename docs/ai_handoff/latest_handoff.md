@@ -1,90 +1,59 @@
 # AI Handoff
 
 ## Current Commit
-de957b5f
+1830e895
 
 ## Current Branch
 main
 
 ## Project Goal
-This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active drawing workflow is JLC-style faithful layout beautification: the middle schematic keeps the original JLC symbol shapes, while the BSTU draw.io frame owns the locked outer frame, right-top List of Elements, and right-bottom Title Block.
+This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active drawing workflow is JLC-style faithful layout beautification: the middle schematic keeps original JLC symbol shapes, while the BSTU draw.io frame owns the locked outer frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Workflow Status
-- Previous KiCad-style visual polish remains rejected for final visual output because the user requires original JLC schematic symbol shapes.
-- KiCad source remains unchanged and is used only for topology/equivalence verification.
-- The generated middle schematic still comes from `hardware/eda/jlc_schematic_original.svg` through the JLC-style draw.io workflow.
-- The mother draw.io frame/List/Title remains locked to `hardware/eda/functiondiagramYUANLITU.drawio`.
-- Web ChatGPT accepted the current Visual Review Pack as `VISUAL_PASS_FOR_CHECKPOINT`.
-- This round added a BOM MPN/Manufacturer confirmation package. It does not modify the drawing or claim final university/teacher approval.
+- User asked Codex to search online and fill Manufacturer/MPN fields instead of waiting for manual BOM confirmation.
+- This round updates only the right-top List of Elements text values and BOM validation logic/data.
+- Mother draw.io table geometry/style/cell IDs remain locked to `hardware/eda/functiondiagramYUANLITU.drawio`.
+- No topology, refs, nets, JLC symbols, KiCad sources, source BOM, or netlist were modified.
+- Visual Review Result remains `PENDING_REVIEW` for this BOM-text update because the right-top table changed and should be shown to Web ChatGPT/user.
 
 ## What Was Done In This Round
-- Added `hardware/eda/tools/create_bom_confirmation_package.py`.
-- Added `docs/bom_mpn_manufacturer_confirmation_package.md`.
-- Extended `tests/test_bom_mpn_manufacturer.py` to require known source BOM fields and missing-field confirmation output.
-- Generated `build/reports/bom_confirmation_package.json` locally; it is ignored under `build/` and reproducible from the script.
-- Did not modify generated/final drawings, mother draw.io, topology, refs, nets, or BOM source.
-
-## Layout Optimizer Result
-- Previous layout score: `71.34449236815229`
-- New layout score: `71.34449236815229`
-- Status: `UNCHANGED_CURRENT_BEST`
-- Adopted candidate: `false`
-- Reason: current JLC-style placement remained the lowest-score candidate, so the optimizer did not move the already visually reviewed layout.
+- Added `hardware/eda/bom_mpn_manufacturer_confirmed.json` with external-source-backed MPN/model and manufacturer entries.
+- Updated `hardware/eda/tools/update_generated_element_list.py` so generated/final List of Elements is filled from the confirmed BOM source file instead of hardcoded `Mfr TBD` strings.
+- Updated `hardware/eda/tools/validate_bom_mpn_manufacturer.py` so externally confirmed MPN/manufacturer entries are auditable and warnings distinguish unresolved fields from package/order review risks.
+- Updated export/review lint expectations to require the real MPN/manufacturer table text.
+- Regenerated final draw.io/SVG/PDF/PNG and the Visual Review Pack from the current final PNG.
 
 ## BOM MPN / Manufacturer Audit
 - Status: `WARN`
 - Errors: `0`
-- Warnings: `19`
-- Unresolved items: `19`
-- Required code present: `NEEDS_BOM_MPN_CONFIRMATION`
-- Meaning: the source JLC BOM lacks true Manufacturer Part and/or Manufacturer for many refs. I did not invent any manufacturer/MPN values.
-- Known MPN/model rows from the source BOM are visible in the List of Elements where available.
-- `LCSC` was removed from generated Note text because it is a supplier, not a Manufacturer.
+- Warnings: `2`
+- Unresolved MPN/Manufacturer items: `0`
+- External confirmations used: `21 / 21` refs
+- Remaining warnings:
+  - `C3`: source JLC BOM says `C0603` for `100uF`, but the externally sourced purchasable part recorded is `CL31A107MQHNNNE` by Samsung Electro-Mechanics in 1206 package. Package/voltage must be reviewed before ordering.
+  - `A1`: source BOM item is `Header45.08-4P`, so the table records the DC/DC module interface connector, not the DC/DC converter module manufacturer itself.
+- `LCSC` is not used as Manufacturer in generated Note text.
 
-## BOM Confirmation Package
-- Markdown: `docs/bom_mpn_manufacturer_confirmation_package.md`
-- Reproducible JSON: `build/reports/bom_confirmation_package.json`
-- Source BOM encoding: UTF-16, tab-separated.
-- Total school refs: `21`
-- Confirmed from source BOM: `2`
-- Needs human confirmation: `19`
-- Source-confirmed refs: `DD1`, `XS1`
-- Next action: user must provide true MPN/model and Manufacturer values for the remaining refs before the right-top List of Elements text can be updated.
-
-## Web ChatGPT BOM Confirmation Review
-- Reviewer: Web ChatGPT, conversation `电路原理图规范化`
-- Review time: `2026-05-25 00:30 +03`
-- Result: `BOM_CONFIRMATION_PACKAGE_ACCEPTED`
-- Reviewer summary: the package correctly avoids inventing MPN/Manufacturer values and should stop automatic drawing edits.
-- Reviewer instruction: wait for the user to confirm real MPN/Manufacturer values; then update only List of Elements cell values. If text becomes unreadable, edit the mother draw.io table first.
-
-## NEEDS_BOM_MPN_CONFIRMATION
-Refs requiring user/source confirmation:
-`C1`, `C4`, `C2`, `C3`, `HL1`, `XS2`, `XS3`, `XS5`, `VT1`, `R1`, `R5`, `R6`, `R2`, `R3`, `R4`, `A1`, `XS4`, `SB1`, `SB2`.
+## External BOM Sources Used
+- Murata `GRM188R71H104KA93D` for C1/C4 0.1 uF.
+- Murata `GRM188R61A106KAALD` for C2 10 uF.
+- Samsung Electro-Mechanics `CL31A107MQHNNNE` for C3 100 uF, with package/order review warning.
+- YAGEO `RC0603FR-*` family MPNs for R1-R6.
+- Espressif `ESP32-WROOM-32` for DD1.
+- JLCPCB Assembly source pages for HL1, VT1, SB1/SB2, XS2/XS3, XS4/XS5, and A1 interface.
+- Source BOM-confirmed `ZHOURI` `XH-3PA` for XS1.
 
 ## Automated Check Result
-- Pytest focused BOM confirmation test: `4 passed`
+- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`: `21 passed`
 - Py compile focused scripts/tests: `PASS`
-- Previous full drawing checkpoint retained: Pytest `19 passed`, JLC/KiCad topology equivalence `PASS`, BSTU master table lock `PASS`, JLC-style layout audit `PASS`, export lint `0` errors.
-- JLC/KiCad topology equivalence: `PASS`
 - BSTU master table lock: `PASS`
-- JLC-style layout audit: `PASS`, `0` blockers, `0` warnings
-- Export lint: `0` errors
-- BOM MPN/Manufacturer audit: `WARN`, `0` errors, `19` warnings
+- Export lint for `final-bom-mpn-manufacturer`: `0` errors
+- BOM MPN/Manufacturer audit: `WARN`, `0` errors, `2` warnings
 - PNG size: `6433 x 4654 px`
 - Protected-file diff guards: `PASS`
 
 ## Visual Review Result
-`VISUAL_PASS_FOR_CHECKPOINT`
-
-## Web ChatGPT Visual Review
-- Reviewer: Web ChatGPT, conversation `电路原理图规范化`
-- Review time: `2026-05-25 00:12 +03`
-- Reviewed pack: `/tmp/jlc_layout_optimizer_review_contact_sheet.png`, generated from the current final PNG crops.
-- Result: `VISUAL_PASS_FOR_CHECKPOINT`
-- Reviewer summary: the JLC-style middle schematic is acceptable as an engineering drawing checkpoint; do not keep moving the middle circuit merely to make it prettier because further movement may make it messier.
-- Important caveat: this is not final thesis/teacher approval.
-- Remaining issue identified by reviewer: the real blocker is not drawing layout anymore, but the right-top List of Elements true purchasable MPN/model and Manufacturer information.
+`PENDING_REVIEW`
 
 ## Human Approval Status
 `FINAL_TEACHER_APPROVAL_NOT_CLAIMED`
@@ -100,7 +69,6 @@ Refs requiring user/source confirmation:
 - Manifest: `hardware/eda/exports/final/review_crops/manifest.json`
 - Overview: `hardware/eda/exports/final/review_crops/overview.png`
 - JLC-style block: `hardware/eda/exports/final/review_crops/jlc_style_block.png`
-- Legacy middle-block crop: `hardware/eda/exports/final/review_crops/kicad_block.png`
 - DD1 area: `hardware/eda/exports/final/review_crops/dd1_area.png`
 - Reset/boot/LED area: `hardware/eda/exports/final/review_crops/reset_boot_led_area.png`
 - Sensor/UART area: `hardware/eda/exports/final/review_crops/sensor_uart_area.png`
@@ -111,33 +79,15 @@ Refs requiring user/source confirmation:
 - Right-top List middle: `hardware/eda/exports/final/review_crops/element_list_middle.png`
 - Right-top List bottom: `hardware/eda/exports/final/review_crops/element_list_bottom.png`
 - Right-bottom Title Block: `hardware/eda/exports/final/review_crops/title_block_full.png`
-- Finding crops: none from JLC-style layout audit.
 
 ## Validation Performed
-- `python3 hardware/eda/tools/create_bom_confirmation_package.py --bom hardware/eda/jlc_schematic_bom.csv --ref-mapping hardware/eda/ref_mapping.yaml --audit-json build/reports/bom_mpn_manufacturer_audit.json --json-output build/reports/bom_confirmation_package.json --md-output docs/bom_mpn_manufacturer_confirmation_package.md`
-  - Result: `21` items, `2` confirmed, `19` need confirmation
-- `python3 -m pytest tests/test_bom_mpn_manufacturer.py -q`
-  - Result: `4 passed`
-- `python3 -m py_compile hardware/eda/tools/create_bom_confirmation_package.py tests/test_bom_mpn_manufacturer.py`
-  - Result: `PASS`
-- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`
-  - Result: `19 passed`
-- `python3 -m py_compile hardware/eda/tools/optimize_jlc_style_layout.py hardware/eda/tools/create_jlc_style_schematic_drawio.py hardware/eda/tools/audit_jlc_style_layout.py hardware/eda/tools/validate_bom_mpn_manufacturer.py hardware/eda/tools/validate_generated_tables_match_master.py hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py tools/export_artifact_lint.py tests/test_jlc_style_schematic_layout.py tests/test_bom_mpn_manufacturer.py`
-  - Result: `PASS`
-- `python3 hardware/eda/tools/check_jlc_kicad_netlist_equivalence.py --jlc-netlist hardware/eda/jlc_netlist_altium.tel --kicad-schematic hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch --ref-mapping hardware/eda/ref_mapping.yaml --model hardware/eda/schematic_model.yaml --rules hardware/eda/net_equivalence_rules.yaml --json-report build/reports/jlc_kicad_netlist_equivalence_layout_optimizer.json --md-report docs/jlc_kicad_netlist_equivalence_report.md`
-  - Result: `PASS`
-- `python3 hardware/eda/tools/validate_generated_tables_match_master.py --master hardware/eda/functiondiagramYUANLITU.drawio --candidate hardware/eda/functiondiagramYUANLITU.generated.drawio --final-candidate hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --report docs/bstu_master_table_lock_report.md --json-report build/reports/bstu_master_table_lock_layout_optimizer.json`
-  - Result: `PASS`
-- `python3 hardware/eda/tools/optimize_jlc_style_layout.py --constraints hardware/eda/layout_constraints.yaml --input-svg hardware/eda/jlc_schematic_original.svg --input-drawio hardware/eda/functiondiagramYUANLITU.generated.drawio --output-drawio hardware/eda/functiondiagramYUANLITU.generated.drawio --score-json hardware/eda/jlc_style_layout_score.json --report docs/jlc_style_layout_workflow.md`
-  - Result: `UNCHANGED_CURRENT_BEST`
-- `python3 hardware/eda/tools/audit_jlc_style_layout.py --jlc-source hardware/eda/jlc_schematic_original.svg --final-drawio hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --final-svg hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.svg --final-png hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.png --json-report build/reports/jlc_style_layout_audit_optimizer.json --md-report docs/jlc_style_layout_audit_report.md --crops-dir hardware/eda/exports/final/layout_audit_crops`
-  - Result: `PASS`
-- `python3 hardware/eda/tools/validate_bom_mpn_manufacturer.py --bom hardware/eda/jlc_schematic_bom.csv --model hardware/eda/schematic_model.yaml --final-drawio hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --json-report build/reports/bom_mpn_manufacturer_audit.json --md-report docs/bom_mpn_manufacturer_audit_report.md`
-  - Result: `WARN`, `0` errors, `19` warnings
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-jlc-style-layout --reports-dir build/reports/final-layout-optimizer-export`
-  - Result: `0` errors
-- Protected-file diff guards:
-  - Result: `PASS`
+- `bash hardware/eda/tools/export_final_artifacts.sh`: `PASS`
+- `python3 hardware/eda/tools/create_final_schematic_review_package.py`: `PASS`
+- `python3 hardware/eda/tools/validate_bom_mpn_manufacturer.py --bom hardware/eda/jlc_schematic_bom.csv --model hardware/eda/schematic_model.yaml --confirmed-bom hardware/eda/bom_mpn_manufacturer_confirmed.json --final-drawio hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --json-report build/reports/bom_mpn_manufacturer_audit.json --md-report docs/bom_mpn_manufacturer_audit_report.md`: `WARN`, `0` errors, `2` warnings
+- `python3 hardware/eda/tools/validate_generated_tables_match_master.py --master hardware/eda/functiondiagramYUANLITU.drawio --candidate hardware/eda/functiondiagramYUANLITU.generated.drawio --final-candidate hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --report docs/bstu_master_table_lock_report.md --json-report build/reports/bstu_master_table_lock_bom_sources.json`: `PASS`
+- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-bom-mpn-manufacturer --reports-dir build/reports/final-bom-mpn-manufacturer-export`: `0` errors
+- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`: `21 passed`
+- Protected-file diff guards: `PASS`
 
 ## Strict No-Change Statement
 This round did not modify:
@@ -154,7 +104,7 @@ This round did not modify:
 - topology, confirmed refs, canonical net names, JLC symbol shapes, mother table geometry/style/cell IDs, document code.
 
 ## Reviewer Instruction
-The refreshed Visual Review Pack was uploaded to Web ChatGPT and received `VISUAL_PASS_FOR_CHECKPOINT`. Do not claim final university/teacher approval. Next work should focus on resolving `NEEDS_BOM_MPN_CONFIRMATION` with real source data, not on visually rearranging the middle schematic.
+Upload the refreshed `overview.png`, `element_list_full.png`, `element_list_top.png`, `element_list_middle.png`, `element_list_bottom.png`, and `title_block_full.png` to Web ChatGPT reviewer. Ask specifically whether the real MPN/manufacturer text is readable enough within the locked mother List of Elements geometry. Do not claim final university/teacher approval.
 
 ## Next Human Input Needed
-Fill `docs/bom_mpn_manufacturer_confirmation_package.md` grouped rows with true `User confirmed MPN` and `User confirmed Manufacturer` values, or provide an updated BOM source containing those fields. After that, update only the right-top List of Elements cell values and preserve the locked mother table geometry.
+Review the two remaining BOM warnings: C3 package/voltage/orderability and A1 whether the thesis table should list the DC/DC converter module itself instead of only the source-BOM `Header45.08-4P` interface.
