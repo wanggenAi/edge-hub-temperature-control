@@ -1,56 +1,65 @@
 # AI Handoff
 
 ## Current Commit
-1830e895
+d6ac4ff9
 
 ## Current Branch
 main
 
 ## Project Goal
-This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active drawing workflow is JLC-style faithful layout beautification: the middle schematic keeps original JLC symbol shapes, while the BSTU draw.io frame owns the locked outer frame, right-top List of Elements, and right-bottom Title Block.
+This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active schematic workflow is JLC-style faithful layout beautification: the middle schematic keeps original JLC symbol shapes, while the BSTU draw.io frame owns the outer frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Workflow Status
-- User asked Codex to search online and fill Manufacturer/MPN fields instead of waiting for manual BOM confirmation.
-- This round updates only the right-top List of Elements text values and BOM validation logic/data.
-- Mother draw.io table geometry/style/cell IDs remain locked to `hardware/eda/functiondiagramYUANLITU.drawio`.
-- No topology, refs, nets, JLC symbols, KiCad sources, source BOM, or netlist were modified.
-- Visual Review Result remains `PENDING_REVIEW` for this BOM-text update because the right-top table changed and should be shown to Web ChatGPT/user.
+- Web ChatGPT reviewer inspected the previous BOM/MPN screenshot pack and returned `NEEDS_MASTER_TABLE_EDIT`.
+- This round intentionally edits only the right-top List of Elements mother table geometry to improve real MPN/Manufacturer readability.
+- Right-bottom Title Block geometry/content remains unchanged.
+- JLC-style middle schematic still preserves JLC symbol shapes and uses school refs/canonical nets.
+- No topology, refs, nets, KiCad sources, JLC source SVG, source BOM, source netlist, or equivalence rules were modified.
+- Visual Review Result remains `PENDING_REVIEW`; this round must be sent back to Web ChatGPT/user with updated screenshots.
 
 ## What Was Done In This Round
-- Added `hardware/eda/bom_mpn_manufacturer_confirmed.json` with external-source-backed MPN/model and manufacturer entries.
-- Updated `hardware/eda/tools/update_generated_element_list.py` so generated/final List of Elements is filled from the confirmed BOM source file instead of hardcoded `Mfr TBD` strings.
-- Updated `hardware/eda/tools/validate_bom_mpn_manufacturer.py` so externally confirmed MPN/manufacturer entries are auditable and warnings distinguish unresolved fields from package/order review risks.
-- Updated export/review lint expectations to require the real MPN/manufacturer table text.
-- Regenerated final draw.io/SVG/PDF/PNG and the Visual Review Pack from the current final PNG.
+- Widened the mother draw.io right-top List of Elements table from `730` to `860` draw.io page units while keeping the right edge aligned to the existing border.
+- Rebalanced List of Elements columns for MPN readability:
+  - Position column: about `130` units.
+  - Name column: about `510` units.
+  - Qty column: about `50` units.
+  - Note column: about `170` units.
+- Normalized the header from `Number` to `Qty`.
+- Updated `hardware/eda/reserved_regions.lock.json` for the new element-list bbox/hash.
+- Added a regression test that requires the master element-list Name column to stay at least `500` units wide and Note at least `160` units wide.
+- Regenerated generated/final draw.io, SVG, PDF, PNG, layout audit crops, and review crops.
+- Ran the JLC-style layout optimizer after the table change; it improved the score and adopted a slightly lower/cleaner middle-block placement.
+
+## Layout Optimizer Result
+- Previous layout score: `77.261`
+- New layout score: `74.564`
+- Status: `IMPROVED`
+- Adopted JLC embed box: `x=205`, `y=550`, `width=2136.4`, `height=1200.5`
+- JLC-style layout audit metrics:
+  - Width ratio: `0.9097`
+  - Height ratio: `0.5718`
+  - Gap to List of Elements: `86.78` SVG units
+  - Gap to Title Block: `356.92` SVG units
+
+## Automated Check Result
+- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`: `22 passed`
+- Focused `py_compile`: `PASS`
+- JLC/KiCad equivalence: `PASS`
+- BSTU master table lock: `PASS`
+- JLC-style layout audit: `PASS`, `0` blockers, `0` warnings
+- Export lint: `0` errors
+- BOM MPN/Manufacturer audit: `WARN`, `0` errors, `2` package/order review warnings
+- Final PNG size: `6431 x 4654 px`
+- Protected-file diff guards for KiCad/JLC source/netlist/BOM/ref/model/net rules: `PASS`
 
 ## BOM MPN / Manufacturer Audit
 - Status: `WARN`
 - Errors: `0`
 - Warnings: `2`
 - Unresolved MPN/Manufacturer items: `0`
-- External confirmations used: `21 / 21` refs
-- Remaining warnings:
-  - `C3`: source JLC BOM says `C0603` for `100uF`, but the externally sourced purchasable part recorded is `CL31A107MQHNNNE` by Samsung Electro-Mechanics in 1206 package. Package/voltage must be reviewed before ordering.
+- Remaining human-order warnings:
+  - `C3`: JLC BOM footprint says `C0603`; externally sourced `CL31A107MQHNNNE` is a 1206 100 uF MLCC, so package/voltage/orderability needs review.
   - `A1`: source BOM item is `Header45.08-4P`, so the table records the DC/DC module interface connector, not the DC/DC converter module manufacturer itself.
-- `LCSC` is not used as Manufacturer in generated Note text.
-
-## External BOM Sources Used
-- Murata `GRM188R71H104KA93D` for C1/C4 0.1 uF.
-- Murata `GRM188R61A106KAALD` for C2 10 uF.
-- Samsung Electro-Mechanics `CL31A107MQHNNNE` for C3 100 uF, with package/order review warning.
-- YAGEO `RC0603FR-*` family MPNs for R1-R6.
-- Espressif `ESP32-WROOM-32` for DD1.
-- JLCPCB Assembly source pages for HL1, VT1, SB1/SB2, XS2/XS3, XS4/XS5, and A1 interface.
-- Source BOM-confirmed `ZHOURI` `XH-3PA` for XS1.
-
-## Automated Check Result
-- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`: `21 passed`
-- Py compile focused scripts/tests: `PASS`
-- BSTU master table lock: `PASS`
-- Export lint for `final-bom-mpn-manufacturer`: `0` errors
-- BOM MPN/Manufacturer audit: `WARN`, `0` errors, `2` warnings
-- PNG size: `6433 x 4654 px`
-- Protected-file diff guards: `PASS`
 
 ## Visual Review Result
 `PENDING_REVIEW`
@@ -82,16 +91,15 @@ This project is `edge-hub-temperature-control`, used for graduation thesis and d
 
 ## Validation Performed
 - `bash hardware/eda/tools/export_final_artifacts.sh`: `PASS`
-- `python3 hardware/eda/tools/create_final_schematic_review_package.py`: `PASS`
-- `python3 hardware/eda/tools/validate_bom_mpn_manufacturer.py --bom hardware/eda/jlc_schematic_bom.csv --model hardware/eda/schematic_model.yaml --confirmed-bom hardware/eda/bom_mpn_manufacturer_confirmed.json --final-drawio hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --json-report build/reports/bom_mpn_manufacturer_audit.json --md-report docs/bom_mpn_manufacturer_audit_report.md`: `WARN`, `0` errors, `2` warnings
-- `python3 hardware/eda/tools/validate_generated_tables_match_master.py --master hardware/eda/functiondiagramYUANLITU.drawio --candidate hardware/eda/functiondiagramYUANLITU.generated.drawio --final-candidate hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio --report docs/bstu_master_table_lock_report.md --json-report build/reports/bstu_master_table_lock_bom_sources.json`: `PASS`
-- `python3 tools/export_artifact_lint.py --export-dir hardware/eda/exports/final --basename esp32_temperature_control_unit_electrical_schematic --label final-bom-mpn-manufacturer --reports-dir build/reports/final-bom-mpn-manufacturer-export`: `0` errors
-- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`: `21 passed`
-- Protected-file diff guards: `PASS`
+- `python3 hardware/eda/tools/audit_jlc_style_layout.py ... --json-report build/reports/jlc_style_layout_audit_master_table_edit.json`: `PASS`
+- `python3 tools/export_artifact_lint.py ... --label final-bom-mpn-manufacturer --reports-dir build/reports/final-master-table-edit-export`: `0` errors
+- `python3 hardware/eda/tools/validate_generated_tables_match_master.py ... --json-report build/reports/bstu_master_table_lock_master_table_edit.json`: `PASS`
+- `python3 hardware/eda/tools/validate_bom_mpn_manufacturer.py ... --json-report build/reports/bom_mpn_manufacturer_audit_master_table_edit.json`: `WARN`, `0` errors, `2` warnings
+- `python3 hardware/eda/tools/create_final_schematic_review_package.py --lint-report build/reports/final-master-table-edit-export/export_artifact_lint.json --table-lock-report build/reports/bstu_master_table_lock_master_table_edit.json --layout-audit-report build/reports/jlc_style_layout_audit_master_table_edit.json`: `PASS`
+- `python3 -m pytest tests/test_jlc_style_schematic_layout.py tests/test_jlc_kicad_netlist_equivalence.py tests/test_bstu_master_table_lock.py tests/test_bom_mpn_manufacturer.py -q`: `22 passed`
 
 ## Strict No-Change Statement
 This round did not modify:
-- `hardware/eda/functiondiagramYUANLITU.drawio`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sym`
 - `hardware/kicad_schematic/esp32_temperature_control_unit.kicad_pro`
@@ -101,10 +109,10 @@ This round did not modify:
 - `hardware/eda/ref_mapping.yaml`
 - `hardware/eda/schematic_model.yaml`
 - `hardware/eda/net_equivalence_rules.yaml`
-- topology, confirmed refs, canonical net names, JLC symbol shapes, mother table geometry/style/cell IDs, document code.
+- topology, confirmed refs, canonical net names, JLC symbol shapes, right-bottom Title Block, document code, or BOM quantities.
 
 ## Reviewer Instruction
-Upload the refreshed `overview.png`, `element_list_full.png`, `element_list_top.png`, `element_list_middle.png`, `element_list_bottom.png`, and `title_block_full.png` to Web ChatGPT reviewer. Ask specifically whether the real MPN/manufacturer text is readable enough within the locked mother List of Elements geometry. Do not claim final university/teacher approval.
+Upload the refreshed `overview.png`, `element_list_full.png`, `element_list_top.png`, `element_list_middle.png`, `element_list_bottom.png`, `title_block_full.png`, and `jlc_style_block.png` to Web ChatGPT reviewer. Ask whether the widened mother List of Elements now resolves the previous `NEEDS_MASTER_TABLE_EDIT` readability issue and whether any remaining visual defects should drive the next Codex prompt. Do not claim final teacher approval.
 
 ## Next Human Input Needed
-Review the two remaining BOM warnings: C3 package/voltage/orderability and A1 whether the thesis table should list the DC/DC converter module itself instead of only the source-BOM `Header45.08-4P` interface.
+Review the two BOM package/order warnings for `C3` and `A1`. Visual approval must come from Web ChatGPT/user after seeing the updated crops.
