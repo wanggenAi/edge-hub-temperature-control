@@ -1,6 +1,6 @@
 # Visual Defect Register
 
-This register tracks human-style visual review defects that are outside automated topology/lint checks. The current JLC-style round has a Web ChatGPT visual checkpoint pass, but final university/teacher approval is not claimed here.
+This register tracks human-style visual review defects that are outside automated topology/lint checks. The current exact JLC symbol round has a Web ChatGPT visual checkpoint pass and is marked as a thesis insertion candidate package, but final university/teacher approval is not claimed here.
 
 | ID | Status | Reviewer Finding | Repair Action / Constraint |
 | --- | --- | --- | --- |
@@ -39,3 +39,4 @@ This register tracks human-style visual review defects that are outside automate
 | MIDDLE_REFINEMENT_DD1_CROWDING | Pending Web GPT review | Reviewer called out DD1 surrounding wiring as crowded/cropped. | DD1 remains central-left with preserved JLC symbol shape; surrounding reset, UART, boot, gate, LED, and power subareas were separated more clearly. |
 | EXACT_JLC_SYMBOL_FIDELITY | Checkpoint passed | User clarified the requirement is exact JLC symbol reuse, not an approximate JLC-style redraw. | The generator now deep-clones each component group from `jlc_schematic_original.svg`; every symbol fidelity entry records source/final element counts, path counts, geometry hash, stroke hash, and allowed translate-only transform. Audit result: 21/21 PASS, 0 blockers. |
 | EXACT_REVIEW_CROP_ALIGNMENT | Checkpoint passed | Previous crops mixed module content, especially sensor/UART, heater/power, and power-only areas. | Review crop boxes were tightened so `sensor_uart_area` focuses on R2/XS1/XS4, `heater_power_area` focuses on R4/R5/VT1/XS2/XS5, and `power_area` focuses on XS3/A1/C3/C4. |
+| FINAL_THESIS_CANDIDATE_PACKAGE | Accepted by Web ChatGPT reviewer | Web ChatGPT reviewed the exact-symbol Visual Review Pack continuation and returned `Human Approval Status: READY_FOR_FINAL_THESIS_CANDIDATE_PACKAGE`. | Stop moving the middle schematic. Preserve final artifacts, visual review pack, automated evidence, and final package notes. Final university/teacher approval is still not claimed. |
