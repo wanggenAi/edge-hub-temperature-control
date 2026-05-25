@@ -1,7 +1,7 @@
 # AI Handoff
 
 ## Current Commit
-c37b1427
+40ab0dc6
 
 ## Current Branch
 main
@@ -10,35 +10,32 @@ main
 This project is `edge-hub-temperature-control`, used for graduation thesis and defense materials. The active schematic workflow is JLC-style faithful layout beautification: the middle schematic keeps original JLC symbol shapes, while the BSTU draw.io frame owns the outer frame, right-top List of Elements, and right-bottom Title Block.
 
 ## Workflow Status
-- This round responds to Web ChatGPT reviewer feedback: `NEEDS_MASTER_TABLE_EDIT_AGAIN` focused on the right-top List of Elements semantics.
+- This round responds to Web ChatGPT reviewer feedback after commit `9c84d702`: reviewer returned `NEEDS_MASTER_TABLE_EDIT_AGAIN` only because the C3 Note cell used a too-long `NEEDS_PURCHASE_CONFIRMATION` marker and visibly crowded the table.
+- C3 Note text in the drawing was shortened to `Samsung E-M` for table readability.
+- The C3 package/order risk is preserved in `docs/bom_mpn_manufacturer_audit_report.md` and this handoff, not forced into the visible table cell.
 - Middle JLC-style schematic placement, wiring, topology, refs, nets, and the right-bottom Title Block were not intentionally changed.
-- Right-top List of Elements content was regenerated so Name contains purchasable model/MPN plus spec, and Note contains Manufacturer or `NEEDS_CONFIRMATION`.
-- `JLCPCB Assembly` is no longer used as a manufacturer in the List of Elements.
-- The invalid `+5V` row/text is absent from the List of Elements.
-- Automated checks and visual review status remain separated. No Visual Review PASS is claimed until Web ChatGPT/user inspects the screenshots.
+- `JLCPCB Assembly` and invalid `+5V` remain absent from the List of Elements.
+- Automated checks and visual review status remain separated. No Visual Review PASS is claimed until Web ChatGPT/user inspects the updated screenshots.
 
 ## Automated Check Result
-- JLC/KiCad topology equivalence: `PASS` (`build/reports/jlc_kicad_netlist_equivalence_bom_semantics_fix.json`).
-- Master table lock: `PASS` (`build/reports/bstu_master_table_lock_bom_semantics_fix.json`).
-- Export lint: `PASS`, `0` errors (`build/reports/final-bom-semantics-fix-export/export_artifact_lint.json`).
-- JLC-style layout audit: `PASS`, `0` blockers, `0` warnings (`build/reports/jlc_style_layout_audit_bom_semantics_fix.json`).
+- JLC/KiCad topology equivalence: `PASS` (`build/reports/jlc_kicad_netlist_equivalence_c3_note_short.json`).
+- Master table lock: `PASS` (`build/reports/bstu_master_table_lock_c3_note_short.json`).
+- Export lint: `PASS`, `0` errors (`build/reports/final-c3-note-short-export/export_artifact_lint.json`).
+- JLC-style layout audit: `PASS`, `0` blockers, `0` warnings (`build/reports/jlc_style_layout_audit_c3_note_short.json`).
 - BOM MPN/Manufacturer audit: `WARN`, `0` errors, `10` package/order confirmation warnings (`build/reports/bom_mpn_manufacturer_audit.json`).
 - Pytest: `23 passed` for BOM, table lock, JLC-style layout, and JLC/KiCad equivalence tests.
-- PNG size: `6466 x 4654 px`.
+- PNG size: `6431 x 4654 px`.
 - Visual Review Pack manifest: `PASS`, `13` crop entries and every crop path exists.
 - Protected-file diff guards: `PASS` for KiCad schematic/symbol/project, JLC netlist/SVG/BOM, ref mapping, schematic model, and net equivalence rules.
 
 ## BOM MPN / Manufacturer Status
-Confirmed/used manufacturer fields:
-- `C1, C4`: `GRM188R71H104KA93D 0.1 uF, C0603`; Note `Murata`.
-- `C2`: `GRM188R61A106KAALD 10 uF, C0603`; Note `Murata`.
-- `C3`: `CL31A107MQHNNNE 100 uF, 1206`; Note `Samsung Electro-Mechanics`, plus `NEEDS_PURCHASE_CONFIRMATION` because the source JLC footprint says C0603.
-- `R1, R5, R6`: `RC0603FR-0710KL 10 kOhm, R0603`; Note `YAGEO`.
-- `R2`: `RC0603FR-074K7L 4.7 kOhm, R0603`; Note `YAGEO`.
-- `R3`: `RC0603FR-073330RL/RC0603FR-07330RL` family text in generated table uses `RC0603FR-07330RL 330 Ohm, R0603`; Note `YAGEO`.
-- `R4`: `RC0603FR-07100RL 100 Ohm, R0603`; Note `YAGEO`.
-- `DD1`: `ESP32-WROOM-32 Wi-Fi/BT module`; Note `Espressif`.
-- `XS1`: `XH-3PA 3-pin XH connector`; Note `ZHOURI`.
+Visible C3 row now uses:
+- Name: `CL31A107MQHNNNE 100 uF, 1206`
+- Note: `Samsung E-M`
+
+The full C3 warning remains in reports:
+- Source JLC BOM footprint says C0603.
+- Confirmed/common purchasable 100 uF MLCC source is 1206, so package/voltage/order details need human purchase confirmation.
 
 Items intentionally marked `NEEDS_CONFIRMATION` because public/JLC source data did not verify a true Manufacturer beyond supplier/assembly listing:
 - `HL1` LED0603-RD_RED red LED.
@@ -81,15 +78,7 @@ Items intentionally marked `NEEDS_CONFIRMATION` because public/JLC source data d
 - Finding crops: none for this run; JLC-style layout audit reported `0` findings.
 
 ## Reviewer Instruction
-Upload the updated right-top List of Elements crops to ChatGPT reviewer. Ask whether the previous `NEEDS_MASTER_TABLE_EDIT_AGAIN` finding is resolved.
-
-Recommended screenshot set for reviewer:
-- `hardware/eda/exports/final/review_crops/element_list_full.png`
-- `hardware/eda/exports/final/review_crops/element_list_top.png`
-- `hardware/eda/exports/final/review_crops/element_list_middle.png`
-- `hardware/eda/exports/final/review_crops/element_list_bottom.png`
-- `hardware/eda/exports/final/review_crops/overview.png`
-- `hardware/eda/exports/final/review_crops/title_block_full.png`
+Upload the updated right-top List of Elements crops to ChatGPT reviewer. Ask whether the previous C3 Note-cell crowding finding is resolved.
 
 Reviewer should return one of:
 - `VISUAL_REVIEW_PASS_FOR_THIS_CHECKPOINT`
