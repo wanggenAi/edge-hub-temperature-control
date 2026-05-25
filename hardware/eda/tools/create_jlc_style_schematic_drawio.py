@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Create a BSTU-framed draw.io schematic using the original JLC SVG style.
 
-The middle schematic is not redrawn with KiCad symbols here.  The script crops
-the reusable JLC schematic body, normalizes visible refs/nets, and embeds that
-source-faithful vector block into the locked school frame.
+The middle schematic is not redrawn with KiCad symbols here.  The script reuses
+the source JLC symbol artwork for every component, normalizes visible refs/nets,
+and lays those symbols out as a cleaner A1 engineering schematic inside the
+locked school frame.
 """
 
 from __future__ import annotations
@@ -28,10 +29,10 @@ FRAME_DRAWIO = ROOT / "hardware/eda/functiondiagramYUANLITU.drawio"
 JLC_SVG = ROOT / "hardware/eda/jlc_schematic_original.svg"
 OUTPUT_DRAWIO = ROOT / "hardware/eda/functiondiagramYUANLITU.generated.drawio"
 
-DEFAULT_X = 205.0
-DEFAULT_Y = 550.0
-DEFAULT_WIDTH = 2136.4
-DEFAULT_HEIGHT = 1200.5
+DEFAULT_X = 160.0
+DEFAULT_Y = 400.0
+DEFAULT_WIDTH = 2180.0
+DEFAULT_HEIGHT = 1368.0
 
 # Source SVG coordinate crop.  It removes the JLC page frame/title block while
 # keeping the complete schematic body and the source symbol geometry.
@@ -40,6 +41,16 @@ JLC_CROP = {
     "y": -735.0,
     "width": 780.0,
     "height": 420.0,
+}
+
+# Internal coordinate system for the rebuilt middle schematic SVG.  The
+# component artwork is still cropped from the JLC source; only its placement and
+# the connecting wires are rebuilt.
+COMPOSITE_VIEWBOX = {
+    "x": 0.0,
+    "y": 0.0,
+    "width": 900.0,
+    "height": 545.0,
 }
 
 GENERATED_PREFIXES = (
@@ -122,62 +133,95 @@ REQUIRED_NETS = [
     "HEAT-",
 ]
 
-# Normalized source coordinates for invisible component-management metadata in
-# the generated draw.io file.  The visible source symbol is the embedded JLC SVG.
-COMPONENT_BBOXES = {
-    "C1": (225, -720, 70, 38),
-    "C2": (225, -690, 70, 38),
-    "C3": (795, -430, 90, 50),
-    "C4": (795, -380, 90, 50),
-    "R1": (255, -607, 65, 35),
-    "R2": (570, -695, 80, 55),
-    "R3": (600, -445, 95, 55),
-    "R4": (515, -540, 95, 35),
-    "R5": (575, -590, 95, 45),
-    "R6": (515, -640, 95, 45),
-    "DD1": (350, -625, 160, 230),
-    "HL1": (500, -420, 90, 55),
-    "VT1": (595, -560, 70, 95),
-    "SB1": (215, -570, 115, 75),
-    "SB2": (505, -670, 135, 80),
-    "XS1": (720, -675, 85, 90),
-    "XS2": (870, -545, 95, 80),
-    "XS3": (900, -455, 95, 80),
-    "XS4": (510, -495, 100, 75),
-    "XS5": (725, -545, 95, 75),
-    "A1": (755, -650, 170, 120),
+# Source coordinates for the JLC component artwork crops.
+SOURCE_COMPONENT_BBOXES = {
+    "C1": (225, -733, 40, 34),
+    "C2": (225, -698, 40, 34),
+    "C3": (805, -443, 40, 34),
+    "C4": (805, -393, 40, 34),
+    "R1": (265, -611, 40, 42),
+    "R2": (580, -696, 40, 42),
+    "R3": (600, -446, 40, 42),
+    "R4": (520, -544, 40, 25),
+    "R5": (585, -594, 40, 25),
+    "R6": (510, -521, 40, 42),
+    "DD1": (354, -644.1, 149.3, 240.1),
+    "HL1": (515, -401, 40, 33),
+    "VT1": (595, -561.1, 37, 41.1),
+    "SB1": (209, -560.1, 61, 42),
+    "SB2": (515, -645.1, 44.5, 37),
+    "XS1": (720, -681, 30, 57.9),
+    "XS2": (655, -525.1, 30, 37),
+    "XS3": (765, -515.1, 30, 37),
+    "XS4": (530, -495.1, 61, 42),
+    "XS5": (725, -556, 39, 47.9),
+    "A1": (795, -600.1, 44.5, 37),
 }
 
-# Missing canonical net labels are added as ordinary schematic labels, not as a
-# separate note, so export checks can confirm the school net names are visible.
+COMPOSITE_COMPONENT_POSITIONS = {
+    "C1": (72.0, 50.0),
+    "C2": (72.0, 105.0),
+    "C3": (765.0, 455.0),
+    "C4": (765.0, 510.0),
+    "R1": (120.0, 245.0),
+    "R2": (595.0, 55.0),
+    "R3": (340.0, 430.0),
+    "R4": (555.0, 340.0),
+    "R5": (640.0, 430.0),
+    "R6": (510.0, 270.0),
+    "DD1": (285.0, 160.0),
+    "HL1": (485.0, 485.0),
+    "VT1": (660.0, 340.0),
+    "SB1": (95.0, 315.0),
+    "SB2": (525.0, 345.0),
+    "XS1": (780.0, 95.0),
+    "XS2": (835.0, 385.0),
+    "XS3": (585.0, 470.0),
+    "XS4": (585.0, 205.0),
+    "XS5": (780.0, 305.0),
+    "A1": (650.0, 455.0),
+}
+
+COMPONENT_BBOXES = {
+    ref: (
+        COMPOSITE_COMPONENT_POSITIONS[ref][0],
+        COMPOSITE_COMPONENT_POSITIONS[ref][1],
+        SOURCE_COMPONENT_BBOXES[ref][2],
+        SOURCE_COMPONENT_BBOXES[ref][3],
+    )
+    for ref in SOURCE_COMPONENT_BBOXES
+}
+
 ADDED_NET_LABELS = {
-    "DQ": (680, -650),
-    "BOOT": (620, -625),
-    "LED": (565, -395),
-    "LED_A": (670, -420),
-    "GATE": (548, -535),
-    "GATE_R": (650, -558),
-    "HEAT+": (880, -520),
-    "HEAT-": (870, -445),
+    "EN": (248.0, 260.0),
+    "DQ": (700.0, 130.0),
+    "BOOT": (600.0, 327.0),
+    "RXD0": (542.0, 220.0),
+    "TXD0": (542.0, 235.0),
+    "LED": (462.0, 523.0),
+    "LED_A": (410.0, 455.0),
+    "GATE": (535.0, 354.0),
+    "GATE_R": (710.0, 384.0),
+    "HEAT+": (805.0, 325.0),
+    "HEAT-": (805.0, 430.0),
+    "+12V": (615.0, 462.0),
+    "+3V3": (170.0, 70.0),
+    "GND": (170.0, 140.0),
 }
 
 ADDED_REF_LABELS = {
-    "DD1": (420, -525),
-    "C1": (270, -705),
-    "C2": (270, -670),
-    "C3": (830, -415),
-    "C4": (830, -365),
-    "R4": (520, -565),
-    "R5": (595, -595),
-    "SB1": (225, -565),
-    "SB2": (560, -670),
-    "HL1": (535, -385),
-    "VT1": (603, -578),
-    "XS2": (895, -550),
-    "XS3": (930, -460),
-    "XS4": (545, -500),
-    "XS5": (742, -545),
-    "A1": (825, -595),
+    "C1": (112.0, 44.0),
+    "C2": (112.0, 99.0),
+    "C3": (803.0, 449.0),
+    "C4": (803.0, 504.0),
+    "R4": (565.0, 334.0),
+    "SB1": (104.0, 308.0),
+    "SB2": (560.0, 382.0),
+    "VT1": (673.0, 333.0),
+    "XS2": (848.0, 379.0),
+    "XS3": (600.0, 463.0),
+    "XS4": (608.0, 199.0),
+    "A1": (695.0, 449.0),
 }
 
 DD1_PIN_LABELS = [
@@ -370,10 +414,12 @@ def prune_to_crop(parent: ET.Element, crop: BBox) -> None:
 def normalize_svg_style(root: ET.Element) -> None:
     for element in root.iter():
         tag = tag_name(element)
+        element.attrib.pop("filter", None)
         if tag == "text":
             element.set("fill", "#000000")
             element.set("font-family", "Arial")
-            element.set("font-size", element.get("font-size", "12"))
+            if element.get("font-size") is None:
+                element.set("font-size", "10")
         stroke = element.get("stroke")
         if stroke and stroke.lower() not in {"none", "#fff", "#ffffff", "white"}:
             element.set("stroke", "#000000")
@@ -386,6 +432,9 @@ def normalize_svg_style(root: ET.Element) -> None:
             style = re.sub(r"stroke:\s*(?!none|#fff(?:fff)?|white)[^;]+", "stroke:#000000", style, flags=re.I)
             if tag == "text":
                 style = re.sub(r"fill:\s*[^;]+", "fill:#000000", style, flags=re.I)
+            style = re.sub(r"opacity:\s*0(?:\.0+)?;?", "", style, flags=re.I)
+            style = re.sub(r"fill-opacity:\s*0(?:\.0+)?;?", "", style, flags=re.I)
+            style = re.sub(r"stroke-opacity:\s*0(?:\.0+)?;?", "", style, flags=re.I)
             element.set("style", style)
 
 
@@ -480,6 +529,301 @@ def add_text(
     text = ET.SubElement(parent, qname("text"), attrs)
     text.text = value
     return text
+
+
+def group_bbox(group: ET.Element) -> BBox | None:
+    boxes = [bbox_from_element(child) for child in group.iter() if child is not group]
+    boxes = [box for box in boxes if box is not None]
+    if not boxes:
+        return None
+    left = min(box.x for box in boxes)
+    top = min(box.y for box in boxes)
+    right = max(box.right for box in boxes)
+    bottom = max(box.bottom for box in boxes)
+    return BBox(left, top, right - left, bottom - top)
+
+
+def canonical_symbol_ref(texts: list[str]) -> str | None:
+    joined = " ".join(texts)
+    exact_map = {
+        "U1": "DD1",
+        "DD1": "DD1",
+        "D1": "HL1",
+        "HL1": "HL1",
+        "CN1": "XS1",
+        "XS1": "XS1",
+        "J_TS1": "XS5",
+        "XS5": "XS5",
+    }
+    for source, target in exact_map.items():
+        if source in texts:
+            return target
+    if "R6" in texts and "10K" in texts:
+        return "R6"
+    if "R1" in texts and "10K" in texts:
+        return "R1"
+    if "R2" in texts:
+        return "R2"
+    if "R3" in texts:
+        return "R3"
+    if "100R" in texts:
+        return "R4"
+    if "10K" in texts and "R6" not in texts and "R1" not in texts:
+        return "R5"
+    if {"S", "G", "D"}.issubset(set(texts)):
+        return "VT1"
+    if texts.count("1") >= 2 and texts.count("2") >= 2 and len(texts) == 4:
+        return None
+    if "0.1uF" in texts:
+        return None
+    if "10uF" in texts:
+        return "C1"
+    if "100uF" in texts:
+        return "C3"
+    if "1" in texts and "2" in texts and "3" in texts and "4" in texts:
+        if "12V to 3V3 Buck Module" in joined:
+            return "A1"
+        return None
+    return None
+
+
+def source_symbol_groups(root: ET.Element) -> dict[str, ET.Element]:
+    groups: dict[str, ET.Element] = {}
+    two_pin_connectors: list[ET.Element] = []
+    four_pin_connectors: list[ET.Element] = []
+    capacitor_01: list[ET.Element] = []
+    for group in root.iter():
+        if tag_name(group) != "g" or group.get("c_partid") != "part":
+            continue
+        texts = ["".join(element.itertext()).strip() for element in group.iter() if tag_name(element) == "text" and "".join(element.itertext()).strip()]
+        ref = canonical_symbol_ref(texts)
+        if ref:
+            groups[ref] = copy.deepcopy(group)
+            continue
+        bbox = group_bbox(group)
+        if bbox is None:
+            continue
+        if "0.1uF" in texts:
+            capacitor_01.append(copy.deepcopy(group))
+        elif texts.count("1") >= 2 and texts.count("2") >= 2 and len(texts) == 4:
+            two_pin_connectors.append(copy.deepcopy(group))
+        elif "1" in texts and "2" in texts and "3" in texts and "4" in texts:
+            four_pin_connectors.append(copy.deepcopy(group))
+
+    # Source JLC symbols without visible refs are assigned by their source
+    # location. Their internal geometry is still copied unchanged.
+    capacitor_01.sort(key=lambda node: group_bbox(node).y if group_bbox(node) else 0.0)
+    if capacitor_01:
+        groups["C2"] = capacitor_01[0]
+    if len(capacitor_01) > 1:
+        groups["C4"] = capacitor_01[-1]
+
+    two_pin_connectors.sort(key=lambda node: (group_bbox(node).x if group_bbox(node) else 0.0, group_bbox(node).y if group_bbox(node) else 0.0))
+    for ref, node in zip(["XS2", "XS3"], two_pin_connectors, strict=False):
+        groups.setdefault(ref, node)
+
+    four_pin_connectors.sort(key=lambda node: (group_bbox(node).x if group_bbox(node) else 0.0, group_bbox(node).y if group_bbox(node) else 0.0))
+    for ref, node in zip(["SB1", "XS4", "SB2", "A1"], four_pin_connectors, strict=False):
+        groups.setdefault(ref, node)
+
+    missing = sorted(set(REQUIRED_REFS) - set(groups))
+    if missing:
+        raise ValueError(f"Unable to map JLC source symbol groups: {', '.join(missing)}")
+    return groups
+
+
+def transform_symbol_to_position(symbol: ET.Element, source_bbox: tuple[float, float, float, float], target: tuple[float, float]) -> ET.Element:
+    node = copy.deepcopy(symbol)
+    source_x, source_y, _, _ = source_bbox
+    dx = target[0] - source_x
+    dy = target[1] - source_y
+    existing = node.get("transform", "")
+    transform = f"translate({dx:.3f},{dy:.3f})"
+    node.set("transform", f"{existing} {transform}".strip())
+    node.set("data-role", "jlc_symbol_source_group")
+    return node
+
+
+def make_line(parent: ET.Element, points: list[tuple[float, float]], *, net: str, role: str = "wire") -> None:
+    formatted = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+    ET.SubElement(
+        parent,
+        qname("polyline"),
+        {
+            "points": formatted,
+            "fill": "none",
+            "stroke": "#000000",
+            "stroke-width": "1.1",
+            "stroke-linecap": "square",
+            "stroke-linejoin": "miter",
+            "vector-effect": "non-scaling-stroke",
+            "data-role": role,
+            "data-net": net,
+        },
+    )
+
+
+def make_dot(parent: ET.Element, x: float, y: float, *, net: str) -> None:
+    ET.SubElement(
+        parent,
+        qname("circle"),
+        {
+            "cx": f"{x:.1f}",
+            "cy": f"{y:.1f}",
+            "r": "2.3",
+            "fill": "#000000",
+            "stroke": "#000000",
+            "stroke-width": "0.8",
+            "data-role": "junction",
+            "data-net": net,
+        },
+    )
+
+
+def make_power(parent: ET.Element, x: float, y: float, label: str, *, net: str) -> None:
+    make_line(parent, [(x, y), (x, y - 20)], net=net, role="power_symbol")
+    add_text(parent, value=label, x=x, y=y - 24, font_size=11.0, anchor="middle", role="net_label", extra={"data-net": net})
+
+
+def make_ground(parent: ET.Element, x: float, y: float, *, net: str = "GND") -> None:
+    make_line(parent, [(x, y - 18), (x, y - 8)], net=net, role="gnd_symbol")
+    make_line(parent, [(x - 12, y - 8), (x + 12, y - 8)], net=net, role="gnd_symbol")
+    make_line(parent, [(x - 8, y - 3), (x + 8, y - 3)], net=net, role="gnd_symbol")
+    make_line(parent, [(x - 4, y + 2), (x + 4, y + 2)], net=net, role="gnd_symbol")
+    add_text(parent, value="GND", x=x + 18, y=y - 3, font_size=9.0, anchor="start", role="net_label", extra={"data-net": net})
+
+
+def make_pullup(parent: ET.Element, x: float, y: float, *, net: str = "+3V3") -> None:
+    make_line(parent, [(x - 8, y), (x + 8, y)], net=net, role="power_symbol")
+    make_line(parent, [(x, y), (x, y + 16)], net=net, role="power_symbol")
+    add_text(parent, value=net, x=x, y=y - 6, font_size=10.5, anchor="middle", role="net_label", extra={"data-net": net})
+
+
+def add_composite_wires(root: ET.Element) -> None:
+    group = ET.SubElement(root, qname("g"), {"id": "codex-jlc-style-rebuilt-wires", "data-role": "rebuilt_jlc_style_wiring"})
+
+    # Decoupling power rail near DD1.
+    make_pullup(group, 70, 40)
+    make_line(group, [(70, 56), (72, 56), (72, 154), (285, 154)], net="+3V3")
+    make_line(group, [(72, 69), (72, 124), (142, 124)], net="+3V3")
+    make_ground(group, 185, 165)
+    make_line(group, [(142, 88), (185, 88), (185, 147)], net="GND")
+    make_line(group, [(142, 143), (185, 143)], net="GND")
+    make_dot(group, 72, 124, net="+3V3")
+
+    # Reset / EN block.
+    make_pullup(group, 112, 220)
+    make_line(group, [(112, 236), (120, 266), (188, 266), (285, 266)], net="EN")
+    make_line(group, [(95, 336), (188, 336), (188, 266)], net="EN")
+    make_ground(group, 125, 390)
+    make_line(group, [(95, 357), (125, 357), (125, 372)], net="GND")
+    make_dot(group, 188, 266, net="EN")
+
+    # Sensor and UART to DD1 right side.
+    make_pullup(group, 585, 35)
+    make_line(group, [(585, 55), (595, 76), (780, 76)], net="+3V3")
+    make_line(group, [(595, 76), (595, 137), (780, 137)], net="DQ")
+    make_line(group, [(434, 226), (595, 226), (595, 137)], net="DQ")
+    make_ground(group, 760, 195)
+    make_line(group, [(780, 157), (760, 157), (760, 177)], net="GND")
+    make_line(group, [(434, 255), (585, 255), (585, 225)], net="RXD0")
+    make_line(group, [(434, 242), (585, 242), (585, 240)], net="TXD0")
+    make_line(group, [(625, 225), (708, 225)], net="RXD0")
+    make_line(group, [(625, 240), (708, 240)], net="TXD0")
+    make_pullup(group, 712, 192)
+    make_ground(group, 708, 280)
+    make_line(group, [(708, 245), (708, 262)], net="GND")
+
+    # Boot circuit.
+    make_pullup(group, 505, 245)
+    make_line(group, [(505, 270), (535, 270), (535, 310), (500, 310)], net="BOOT")
+    make_line(group, [(434, 268), (520, 268), (520, 365)], net="BOOT")
+    make_ground(group, 592, 405)
+    make_line(group, [(586, 370), (592, 370), (592, 387)], net="GND")
+    make_dot(group, 520, 365, net="BOOT")
+
+    # Heater driver.
+    make_line(group, [(434, 328), (555, 328), (555, 367)], net="GATE")
+    make_line(group, [(595, 367), (660, 367)], net="GATE_R")
+    make_line(group, [(680, 445), (705, 445), (705, 386)], net="GATE_R")
+    make_ground(group, 730, 475)
+    make_line(group, [(680, 451), (730, 451), (730, 457)], net="GND")
+    make_ground(group, 700, 430)
+    make_line(group, [(690, 382), (700, 382), (700, 412)], net="GND")
+    make_pullup(group, 780, 280, net="+12V")
+    make_line(group, [(780, 305), (825, 305)], net="HEAT+")
+    make_line(group, [(865, 405), (835, 405)], net="HEAT+")
+    make_line(group, [(865, 440), (760, 440), (760, 382), (697, 382)], net="HEAT-")
+    make_dot(group, 660, 372, net="GATE_R")
+
+    # Power block.
+    make_pullup(group, 585, 450, net="+12V")
+    make_line(group, [(585, 470), (650, 470)], net="+12V")
+    make_line(group, [(700, 465), (765, 465)], net="+3V3")
+    make_line(group, [(700, 490), (765, 490), (765, 520)], net="+3V3")
+    make_ground(group, 700, 545)
+    make_line(group, [(700, 518), (700, 527)], net="GND")
+    make_line(group, [(805, 480), (850, 480)], net="+3V3")
+    make_line(group, [(805, 535), (850, 535)], net="GND")
+
+    # LED status.
+    make_pullup(group, 340, 405)
+    make_line(group, [(340, 451), (485, 451)], net="LED_A")
+    make_line(group, [(525, 501), (525, 528), (434, 528)], net="LED")
+
+
+def add_composite_labels(root: ET.Element) -> None:
+    label_group = ET.SubElement(root, qname("g"), {"id": "codex-jlc-style-rebuilt-labels", "data-role": "rebuilt_jlc_style_labels"})
+    for ref, (x, y) in ADDED_REF_LABELS.items():
+        add_text(label_group, value=ref, x=x, y=y, font_size=11.0 if ref != "DD1" else 14.0, anchor="middle", role="component_ref", extra={"data-ref": ref})
+    for net, (x, y) in ADDED_NET_LABELS.items():
+        add_text(label_group, value=net, x=x, y=y, font_size=10.5, anchor="start", role="net_label", extra={"data-net": net})
+
+
+def composite_jlc_svg(path: Path) -> str:
+    tree = parse_svg(path)
+    source_root = tree.getroot()
+    normalize_svg_style(source_root)
+    symbols = source_symbol_groups(source_root)
+    root = ET.Element(
+        qname("svg"),
+        {
+            "xmlns": SVG_NS,
+            "width": f"{COMPOSITE_VIEWBOX['width']:.3f}mm",
+            "height": f"{COMPOSITE_VIEWBOX['height']:.3f}mm",
+            "viewBox": f"{COMPOSITE_VIEWBOX['x']:.3f} {COMPOSITE_VIEWBOX['y']:.3f} {COMPOSITE_VIEWBOX['width']:.3f} {COMPOSITE_VIEWBOX['height']:.3f}",
+            "data-role": "jlc_style_schematic_source",
+            "data-layout": "module_rebuilt_from_jlc_symbols",
+        },
+    )
+    metadata = ET.SubElement(root, qname("metadata"))
+    metadata.text = json.dumps(
+        {
+            "source": "hardware/eda/jlc_schematic_original.svg",
+            "workflow": "JLC-style faithful layout beautification",
+            "layout": "JLC symbols reused per component; wires redrawn orthogonally in A1 functional zones",
+            "symbol_shape_policy": "source JLC symbol group geometry is copied unchanged, then translated only",
+            "required_refs": REQUIRED_REFS,
+            "required_nets": REQUIRED_NETS,
+        },
+        ensure_ascii=False,
+    )
+    background = ET.SubElement(root, qname("rect"), {"x": "0", "y": "0", "width": f"{COMPOSITE_VIEWBOX['width']:.1f}", "height": f"{COMPOSITE_VIEWBOX['height']:.1f}", "fill": "#ffffff", "stroke": "none"})
+    background.set("data-role", "schematic_background")
+    symbol_layer = ET.SubElement(root, qname("g"), {"id": "codex-reused-jlc-symbols", "data-role": "reused_jlc_symbol_layer"})
+    for ref in REQUIRED_REFS:
+        symbol = transform_symbol_to_position(symbols[ref], SOURCE_COMPONENT_BBOXES[ref], COMPOSITE_COMPONENT_POSITIONS[ref])
+        symbol.set("id", f"jlc-symbol-{ref}")
+        symbol.set("data-ref", ref)
+        symbol_layer.append(symbol)
+    add_composite_wires(root)
+    add_composite_labels(root)
+    xml = ET.tostring(root, encoding="unicode")
+    xml = token_replace(xml)
+    forbidden = [token for token in list(REF_REPLACEMENTS) + ["J1_12V", "3V3"] if token_present(token, html.unescape(xml))]
+    if forbidden:
+        raise ValueError(f"Composite JLC SVG still contains forbidden source tokens: {', '.join(sorted(set(forbidden)))}")
+    return xml
 
 
 def add_dd1_pin_labels(root: ET.Element) -> None:
@@ -739,13 +1083,13 @@ def add_svg_image(root_cell: ET.Element, svg: str, x: float, y: float, width: fl
 
 def map_jlc_bbox_to_drawio(raw: tuple[float, float, float, float], x: float, y: float, width: float, height: float) -> tuple[float, float, float, float]:
     source_x, source_y, source_w, source_h = raw
-    scale = min(width / JLC_CROP["width"], height / JLC_CROP["height"])
-    image_w = JLC_CROP["width"] * scale
-    image_h = JLC_CROP["height"] * scale
+    scale = min(width / COMPOSITE_VIEWBOX["width"], height / COMPOSITE_VIEWBOX["height"])
+    image_w = COMPOSITE_VIEWBOX["width"] * scale
+    image_h = COMPOSITE_VIEWBOX["height"] * scale
     offset_x = x + (width - image_w) / 2
     offset_y = y + (height - image_h) / 2
-    mapped_x = offset_x + (source_x - JLC_CROP["x"]) * scale
-    mapped_y = offset_y + (source_y - JLC_CROP["y"]) * scale
+    mapped_x = offset_x + (source_x - COMPOSITE_VIEWBOX["x"]) * scale
+    mapped_y = offset_y + (source_y - COMPOSITE_VIEWBOX["y"]) * scale
     return (mapped_x, mapped_y, source_w * scale, source_h * scale)
 
 
@@ -791,7 +1135,7 @@ def assert_locked_template_text_unchanged(tree: ET.ElementTree) -> None:
 
 
 def create_drawio(frame: Path, jlc_svg: Path, output: Path, x: float, y: float, width: float, height: float) -> None:
-    svg = cleaned_jlc_svg(jlc_svg)
+    svg = composite_jlc_svg(jlc_svg)
     tree = parse_drawio(frame)
     root_cell = root_with_locked_regions_only(tree)
     remove_previous_generated_cells(root_cell)

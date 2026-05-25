@@ -17,7 +17,7 @@
 - Old refs absent: `True`
 - Old nets absent: `True`
 - KiCad-style markers absent: `True`
-- Layout metrics: `{'main_width': 2348.44, 'main_height': 2099.6800000000003, 'width_ratio': 0.9097102757575242, 'height_ratio': 0.5717537910538748, 'gap_to_element_list': 86.77999999999975, 'gap_to_title_block': 356.9200000000001}`
+- Layout metrics: `{'main_width': 2348.44, 'main_height': 2099.6800000000003, 'width_ratio': 0.9282757915893103, 'height_ratio': 0.651527851863141, 'gap_to_element_list': 88.17999999999984, 'gap_to_title_block': 339.4200000000001}`
 
 ## Findings
 

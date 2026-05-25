@@ -32,3 +32,7 @@ This register tracks human-style visual review defects that are outside automate
 - Automated result is not human visual approval.
 - Visual Review Result: `VISUAL_PASS_FOR_CHECKPOINT`.
 - Human Approval Status: `FINAL_TEACHER_APPROVAL_NOT_CLAIMED`.
+
+| MIDDLE_REFINEMENT_SCREENSHOT_BLOCK | Pending Web GPT review | Web ChatGPT reviewer returned `NEEDS_MIDDLE_SCHEMATIC_REFINEMENT`: the middle schematic looked like a screenshot block, not a mature engineering drawing. | Reworked `create_jlc_style_schematic_drawio.py` to reuse individual JLC component symbol groups and lay them out into A1 functional zones with orthogonal wiring. Visual Review Result remains `PENDING_REVIEW` until the new screenshot pack is reviewed. |
+| MIDDLE_REFINEMENT_POWER_FLOATING | Pending Web GPT review | Reviewer called out HEAT+/HEAT-/XS2/XS3 and C3/C4/A1 as floating/weakly grouped. | Moved heater/power symbols into clearer right-side and lower-right zones; regenerated `heater_power_area.png` and `power_area.png` crops for review. |
+| MIDDLE_REFINEMENT_DD1_CROWDING | Pending Web GPT review | Reviewer called out DD1 surrounding wiring as crowded/cropped. | DD1 remains central-left with preserved JLC symbol shape; surrounding reset, UART, boot, gate, LED, and power subareas were separated more clearly. |
