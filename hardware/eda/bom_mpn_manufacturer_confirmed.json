@@ -115,6 +115,7 @@
       "manufacturer_part": "CL31A107MQHNNNE",
       "manufacturer": "Samsung Electro-Mechanics",
       "description": "100 uF, 1206",
+      "list_note": "Samsung E-M",
       "status": "external_source_confirmed_with_package_review",
       "source_ids": [
         "samsung_cl31a107mqhnnne"

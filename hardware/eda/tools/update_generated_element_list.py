@@ -188,7 +188,7 @@ OVERLAY_ELEMENT_LIST_ROWS = [
 ]
 
 OVERLAY_NOTE_CELLS = [
-    ("C3", 336.01, "Samsung Electro-Mechanics\nNEEDS_PURCHASE_CONFIRMATION"),
+    ("C3", 336.01, "Samsung E-M"),
     ("R1_R5_R6", 403.01, "YAGEO"),
     ("HL1", 1070.01, "NEEDS_CONFIRMATION"),
 ]
@@ -299,6 +299,7 @@ def load_confirmed_bom_text() -> dict[str, str]:
             by_ref[str(ref)] = {
                 "manufacturer_part": str(item.get("manufacturer_part", "")).strip(),
                 "manufacturer": str(item.get("manufacturer", "")).strip(),
+                "list_note": str(item.get("list_note", "")).strip(),
                 "description": str(item.get("description", "")).strip(),
             }
 
@@ -325,7 +326,7 @@ def load_confirmed_bom_text() -> dict[str, str]:
         manufacturers = []
         for entry in entries:
             name = f"{entry['manufacturer_part']} {entry['description']}".strip()
-            maker = entry["manufacturer"]
+            maker = entry.get("list_note") or entry["manufacturer"]
             if name and name not in names:
                 names.append(name)
             if maker and maker not in manufacturers:

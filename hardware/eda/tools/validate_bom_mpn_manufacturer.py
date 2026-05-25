@@ -174,6 +174,11 @@ def apply_confirmed_items(items: list[BomItem], confirmed_by_ref: dict[str, dict
             item.manufacturer = clean(confirmed.get("manufacturer", ""))
 
 
+def expected_manufacturer_note(item: BomItem, confirmed_by_ref: dict[str, dict[str, Any]]) -> str:
+    confirmed = confirmed_by_ref.get(item.school_ref, {})
+    return normalized_manufacturer(clean(confirmed.get("list_note", "")) or item.manufacturer)
+
+
 def parse_model_refs(path: Path) -> set[str]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -261,7 +266,7 @@ def audit(
             )
         if item.manufacturer_part and not any(token_present(token, table_text) for token in normalized_mpn_tokens(item.manufacturer_part)):
             add(findings, "BOM_MPN_NOT_VISIBLE_IN_LIST", "warning", item.school_ref, "Known Manufacturer Part is not visible in List of Elements", expected=item.manufacturer_part)
-        maker = normalized_manufacturer(item.manufacturer)
+        maker = expected_manufacturer_note(item, confirmed_by_ref)
         if maker and not token_present(maker, table_text):
             if manufacturer_requires_confirmation(maker):
                 add(findings, "BOM_MANUFACTURER_CONFIRMATION_MARKER_NOT_VISIBLE", "warning", item.school_ref, "Manufacturer is unknown and must be visibly marked NEEDS_CONFIRMATION in List of Elements", expected=maker)

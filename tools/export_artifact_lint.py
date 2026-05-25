@@ -66,7 +66,7 @@ ESP32_BOM_REQUIRED_TEXT = [
     "KF301-2P",
     "A1",
     "Murata",
-    "Samsung Electro-Mechanics",
+    "Samsung E-M",
     "YAGEO",
     "Espressif",
     "ZHOURI",
