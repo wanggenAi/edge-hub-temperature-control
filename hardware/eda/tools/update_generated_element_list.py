@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 LOCK_FILE = ROOT / "hardware/eda/reserved_regions.lock.json"
 MODEL_FILE = ROOT / "hardware/eda/schematic_model.yaml"
 KICAD_SCH = ROOT / "hardware/kicad_schematic/esp32_temperature_control_unit.kicad_sch"
+CONFIRMED_BOM_FILE = ROOT / "hardware/eda/bom_mpn_manufacturer_confirmed.json"
 ELEMENT_PREFIX = "Evo6jcjRQjkPnHUFUJlg-"
 
 HEADER_TEXT = {"Position number", "Name", "Number", "Qty", "Note"}
@@ -78,7 +79,7 @@ ELEMENT_LIST_ROWS = [
     BomRow("item", "A1", "DC/DC converter 12 V to 3.3 V", "1", "LCSC"),
 ]
 
-ELEMENT_LIST_TEXT_BY_ID = {
+DEFAULT_ELEMENT_LIST_TEXT_BY_ID = {
     "Evo6jcjRQjkPnHUFUJlg-6": "Position number",
     "Evo6jcjRQjkPnHUFUJlg-7": "Name",
     "Evo6jcjRQjkPnHUFUJlg-8": "Qty",
@@ -119,6 +120,61 @@ ELEMENT_LIST_TEXT_BY_ID = {
     "Evo6jcjRQjkPnHUFUJlg-60": "A1",
     "Evo6jcjRQjkPnHUFUJlg-61": "Header45.08-4P DC/DC module interface",
     "Evo6jcjRQjkPnHUFUJlg-62": "1",
+}
+
+
+TABLE_ROW_BY_REFS = {
+    ("C1", "C4"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-13",
+        "name": "Evo6jcjRQjkPnHUFUJlg-14",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-15",
+        "note": "Evo6jcjRQjkPnHUFUJlg-16",
+    },
+    ("C2", "C3"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-18",
+        "name": "Evo6jcjRQjkPnHUFUJlg-19",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-20",
+        "note": "Evo6jcjRQjkPnHUFUJlg-21",
+    },
+    ("R1", "R5", "R6"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-26",
+        "name": "Evo6jcjRQjkPnHUFUJlg-25",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-28",
+    },
+    ("R2", "R3", "R4"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-30",
+        "name": "Evo6jcjRQjkPnHUFUJlg-31",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-32",
+    },
+    ("DD1", "HL1", "VT1"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-37",
+        "name": "Evo6jcjRQjkPnHUFUJlg-38",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-39",
+        "note": "Evo6jcjRQjkPnHUFUJlg-40",
+    },
+    ("SB1", "SB2"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-42",
+        "name": "Evo6jcjRQjkPnHUFUJlg-43",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-44",
+        "note": "Evo6jcjRQjkPnHUFUJlg-45",
+    },
+    ("XS1", "XS2", "XS3"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-50",
+        "name": "Evo6jcjRQjkPnHUFUJlg-51",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-52",
+        "note": "Evo6jcjRQjkPnHUFUJlg-53",
+    },
+    ("XS4", "XS5"): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-54",
+        "name": "Evo6jcjRQjkPnHUFUJlg-55",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-56",
+        "note": "Evo6jcjRQjkPnHUFUJlg-57",
+    },
+    ("A1",): {
+        "refs": "Evo6jcjRQjkPnHUFUJlg-60",
+        "name": "Evo6jcjRQjkPnHUFUJlg-61",
+        "qty": "Evo6jcjRQjkPnHUFUJlg-62",
+    },
 }
 
 
@@ -217,6 +273,44 @@ def validate_bom_refs() -> None:
         raise ValueError(f"KiCad schematic is missing refs required by generated element list: {', '.join(missing_from_kicad)}")
 
 
+def load_confirmed_bom_text() -> dict[str, str]:
+    if not CONFIRMED_BOM_FILE.exists():
+        return dict(DEFAULT_ELEMENT_LIST_TEXT_BY_ID)
+    data = json.loads(CONFIRMED_BOM_FILE.read_text(encoding="utf-8"))
+    by_ref: dict[str, dict[str, str]] = {}
+    for item in data.get("items", []):
+        for ref in item.get("refs", []):
+            by_ref[str(ref)] = {
+                "manufacturer_part": str(item.get("manufacturer_part", "")).strip(),
+                "manufacturer": str(item.get("manufacturer", "")).strip(),
+                "description": str(item.get("description", "")).strip(),
+            }
+
+    values = dict(DEFAULT_ELEMENT_LIST_TEXT_BY_ID)
+    for refs, ids in TABLE_ROW_BY_REFS.items():
+        entries = [by_ref[ref] for ref in refs if ref in by_ref]
+        if len(entries) != len(refs):
+            missing = [ref for ref in refs if ref not in by_ref]
+            raise ValueError(f"{CONFIRMED_BOM_FILE} is missing confirmed BOM refs: {', '.join(missing)}")
+        values[ids["refs"]] = "; ".join(refs) if refs in {("XS1", "XS2", "XS3")} else ", ".join(refs)
+        values[ids["qty"]] = str(len(refs))
+        if note_id := ids.get("note"):
+            values[ids["name"]] = "\n".join(
+                f"{entry['manufacturer_part']} {entry['description']}".strip() for entry in entries
+            )
+            manufacturers = []
+            for entry in entries:
+                maker = entry["manufacturer"]
+                if maker and maker not in manufacturers:
+                    manufacturers.append(maker)
+            values[note_id] = "\n".join(manufacturers)
+        else:
+            values[ids["name"]] = "\n".join(
+                f"{entry['manufacturer_part']} {entry['description']} ({entry['manufacturer']})".strip() for entry in entries
+            )
+    return values
+
+
 def html_value(text: str, font_size: int, bold: bool = False) -> str:
     escaped = html.escape(text).replace("\n", "<br>")
     if bold:
@@ -292,10 +386,11 @@ def remove_previous_generated_bom_cells(root_cell: ET.Element) -> None:
 
 def replace_master_element_list_text(root_cell: ET.Element) -> None:
     cells = {cell.get("id", ""): cell for cell in root_cell if cell.get("id")}
-    missing = sorted(set(ELEMENT_LIST_TEXT_BY_ID) - set(cells))
+    text_by_id = load_confirmed_bom_text()
+    missing = sorted(set(text_by_id) - set(cells))
     if missing:
         raise ValueError(f"Could not locate master element-list text cells: {', '.join(missing)}")
-    for cell_id, value in ELEMENT_LIST_TEXT_BY_ID.items():
+    for cell_id, value in text_by_id.items():
         cell = cells[cell_id]
         cell.set("value", replacement_value_preserving_master_markup(cell.get("value", ""), value))
 

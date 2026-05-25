@@ -13,6 +13,7 @@ CONFIRM_SCRIPT = ROOT / "hardware/eda/tools/create_bom_confirmation_package.py"
 BOM = ROOT / "hardware/eda/jlc_schematic_bom.csv"
 MODEL = ROOT / "hardware/eda/schematic_model.yaml"
 FINAL_DRAWIO = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio"
+CONFIRMED_BOM = ROOT / "hardware/eda/bom_mpn_manufacturer_confirmed.json"
 
 
 def load_module():
@@ -46,6 +47,31 @@ def test_missing_mpn_or_manufacturer_requires_confirmation() -> None:
     assert summary["unresolved_count"] > 0
 
 
+def test_external_confirmations_fill_missing_mpn_and_manufacturer() -> None:
+    module = load_module()
+    rows = module.parse_bom(BOM)
+    items = module.expand_bom_items(rows, module.load_ref_mapping())
+    confirmed_by_ref, confirmed_items, confirmed_sources = module.load_confirmed_items(CONFIRMED_BOM)
+    module.apply_confirmed_items(items, confirmed_by_ref)
+    assert confirmed_items
+    assert confirmed_sources
+    table_text = "\n".join(
+        [
+            "GRM188R71H104KA93D GRM188R61A106KAALD CL31A107MQHNNNE",
+            "RC0603FR-0710KL RC0603FR-074K7L RC0603FR-07330RL RC0603FR-07100RL",
+            "ESP32-WROOM-32 LED0603-RD_RED NMOS3400 TactswitchSMT6x6x7_5",
+            "XH-3PA 2P-P3.81_KF2EDGV-3.81-2P Header45.08-4P KF301-2P",
+            "Murata Samsung Electro-Mechanics YAGEO Espressif JLCPCB Assembly ZHOURI",
+        ]
+    )
+    findings, summary = module.audit(items, module.parse_model_refs(MODEL), table_text, confirmed_by_ref)
+    codes = {finding.code for finding in findings}
+    assert "NEEDS_BOM_MPN_CONFIRMATION" not in codes
+    assert summary["unresolved_count"] == 0
+    assert summary["externally_confirmed_count"] == len(items)
+    assert "BOM_PACKAGE_OR_ORDERING_REVIEW_REQUIRED" in codes
+
+
 def test_current_final_bom_audit_reports_confirmation_items(tmp_path: Path) -> None:
     if not FINAL_DRAWIO.exists():
         return
@@ -59,6 +85,8 @@ def test_current_final_bom_audit_reports_confirmation_items(tmp_path: Path) -> N
             str(BOM),
             "--model",
             str(MODEL),
+            "--confirmed-bom",
+            str(CONFIRMED_BOM),
             "--final-drawio",
             str(FINAL_DRAWIO),
             "--json-report",
@@ -73,8 +101,9 @@ def test_current_final_bom_audit_reports_confirmation_items(tmp_path: Path) -> N
     data = json.loads(json_report.read_text(encoding="utf-8"))
     assert data["status"] in {"PASS", "WARN"}
     assert data["summary"]["error_count"] == 0
-    assert data["bom_summary"]["unresolved_count"] > 0
-    assert any(item["code"] == "NEEDS_BOM_MPN_CONFIRMATION" for item in data["findings"])
+    assert data["bom_summary"]["unresolved_count"] == 0
+    assert data["bom_summary"]["externally_confirmed_count"] == data["bom_summary"]["bom_item_count"]
+    assert not any(item["code"] == "NEEDS_BOM_MPN_CONFIRMATION" for item in data["findings"])
 
 
 def test_bom_confirmation_package_lists_known_and_missing_fields(tmp_path: Path) -> None:

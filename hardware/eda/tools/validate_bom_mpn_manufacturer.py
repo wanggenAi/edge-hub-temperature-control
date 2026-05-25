@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_BOM = ROOT / "hardware/eda/jlc_schematic_bom.csv"
 DEFAULT_MODEL = ROOT / "hardware/eda/schematic_model.yaml"
 DEFAULT_MAPPING = ROOT / "hardware/eda/ref_mapping.yaml"
+DEFAULT_CONFIRMED = ROOT / "hardware/eda/bom_mpn_manufacturer_confirmed.json"
 DEFAULT_FINAL_DRAWIO = ROOT / "hardware/eda/exports/final/esp32_temperature_control_unit_electrical_schematic.drawio"
 DEFAULT_JSON_REPORT = ROOT / "build/reports/bom_mpn_manufacturer_audit.json"
 DEFAULT_MD_REPORT = ROOT / "docs/bom_mpn_manufacturer_audit_report.md"
@@ -67,6 +68,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate BOM MPN and Manufacturer semantics in the final List of Elements.")
     parser.add_argument("--bom", type=Path, default=DEFAULT_BOM)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
+    parser.add_argument("--confirmed-bom", type=Path, default=DEFAULT_CONFIRMED)
     parser.add_argument("--final-drawio", type=Path, default=DEFAULT_FINAL_DRAWIO)
     parser.add_argument("--json-report", type=Path, default=DEFAULT_JSON_REPORT)
     parser.add_argument("--md-report", type=Path, default=DEFAULT_MD_REPORT)
@@ -146,6 +148,28 @@ def expand_bom_items(rows: list[dict[str, str]], mapping: dict[str, str]) -> lis
     return items
 
 
+def load_confirmed_items(path: Path) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    if not path.exists():
+        return {}, [], []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    by_ref: dict[str, dict[str, Any]] = {}
+    for item in data.get("items", []):
+        for ref in item.get("refs", []):
+            by_ref[str(ref)] = item
+    return by_ref, data.get("items", []), data.get("sources", [])
+
+
+def apply_confirmed_items(items: list[BomItem], confirmed_by_ref: dict[str, dict[str, Any]]) -> None:
+    for item in items:
+        confirmed = confirmed_by_ref.get(item.school_ref)
+        if not confirmed:
+            continue
+        if not item.manufacturer_part:
+            item.manufacturer_part = clean(confirmed.get("manufacturer_part", ""))
+        if not item.manufacturer:
+            item.manufacturer = clean(confirmed.get("manufacturer", ""))
+
+
 def parse_model_refs(path: Path) -> set[str]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -182,12 +206,38 @@ def add(finding_list: list[Finding], code: str, severity: str, object_id: str, m
     finding_list.append(Finding(code, severity, object_id, message, expected, actual))
 
 
-def audit(items: list[BomItem], model_refs: set[str], table_text: str) -> tuple[list[Finding], dict[str, Any]]:
+def audit(
+    items: list[BomItem],
+    model_refs: set[str],
+    table_text: str,
+    confirmed_by_ref: dict[str, dict[str, Any]] | None = None,
+) -> tuple[list[Finding], dict[str, Any]]:
+    confirmed_by_ref = confirmed_by_ref or {}
     findings: list[Finding] = []
     unresolved: list[dict[str, Any]] = []
+    package_review_items: list[dict[str, str]] = []
     for item in items:
         if model_refs and item.school_ref not in model_refs:
             add(findings, "BOM_REF_NOT_IN_MODEL", "error", item.school_ref, "BOM ref is not present in schematic_model.yaml", expected=item.school_ref)
+        confirmed = confirmed_by_ref.get(item.school_ref, {})
+        if confirmed.get("warning"):
+            package_review_items.append(
+                {
+                    "ref": item.school_ref,
+                    "manufacturer_part": clean(confirmed.get("manufacturer_part", "")),
+                    "manufacturer": clean(confirmed.get("manufacturer", "")),
+                    "warning": clean(confirmed.get("warning", "")),
+                }
+            )
+            add(
+                findings,
+                "BOM_PACKAGE_OR_ORDERING_REVIEW_REQUIRED",
+                "warning",
+                item.school_ref,
+                "External BOM source is usable for the table, but package/ordering details need review before purchasing",
+                expected="Human order review",
+                actual=clean(confirmed.get("warning", "")),
+            )
         if not item.manufacturer_part or not item.manufacturer:
             missing = []
             if not item.manufacturer_part:
@@ -200,7 +250,7 @@ def audit(items: list[BomItem], model_refs: set[str], table_text: str) -> tuple[
                 "NEEDS_BOM_MPN_CONFIRMATION",
                 "warning",
                 item.school_ref,
-                "Source BOM lacks true MPN and/or Manufacturer; do not invent values for List of Elements",
+                "Source BOM and external confirmation data lack true MPN and/or Manufacturer; do not invent values for List of Elements",
                 expected=", ".join(missing),
                 actual=f"MPN={item.manufacturer_part or '<missing>'}, Manufacturer={item.manufacturer or '<missing>'}",
             )
@@ -226,6 +276,9 @@ def audit(items: list[BomItem], model_refs: set[str], table_text: str) -> tuple[
         "unresolved_items": unresolved,
         "known_mpn_count": sum(1 for item in items if item.manufacturer_part),
         "known_manufacturer_count": sum(1 for item in items if item.manufacturer),
+        "externally_confirmed_count": sum(1 for item in items if item.school_ref in confirmed_by_ref),
+        "package_review_count": len(package_review_items),
+        "package_review_items": package_review_items,
     }
     return findings, summary
 
@@ -241,8 +294,11 @@ def write_reports(args: argparse.Namespace, report: dict[str, Any]) -> None:
         f"- Warnings: `{report['summary']['warning_count']}`",
         f"- Errors: `{report['summary']['error_count']}`",
         f"- Source BOM: `{repo_path(args.bom)}`",
+        f"- External confirmation file: `{repo_path(args.confirmed_bom)}`",
         f"- Final draw.io: `{repo_path(args.final_drawio)}`",
         f"- Unresolved MPN/Manufacturer items: `{report['bom_summary']['unresolved_count']}`",
+        f"- External confirmations used: `{report['bom_summary']['externally_confirmed_count']}`",
+        f"- Package/order review warnings: `{report['bom_summary']['package_review_count']}`",
         "",
         "## Policy",
         "",
@@ -257,6 +313,12 @@ def write_reports(args: argparse.Namespace, report: dict[str, Any]) -> None:
         lines.append(f"- `{item['ref']}` from `{item['source_ref']}`: missing `{', '.join(item['missing'])}`; supplier PN `{item.get('supplier_part', '')}` supplier `{item.get('supplier', '')}`")
     if not report["bom_summary"]["unresolved_items"]:
         lines.append("No unresolved MPN/Manufacturer items.")
+    lines.extend(["", "## Package / Ordering Review Items", ""])
+    if report["bom_summary"]["package_review_items"]:
+        for item in report["bom_summary"]["package_review_items"]:
+            lines.append(f"- `{item['ref']}` `{item['manufacturer_part']}` `{item['manufacturer']}`: {item['warning']}")
+    else:
+        lines.append("No package/order review warnings.")
     lines.extend(["", "## Findings", ""])
     if report["findings"]:
         for finding in report["findings"]:
@@ -274,9 +336,11 @@ def main() -> int:
     mapping = load_ref_mapping()
     rows = parse_bom(args.bom)
     items = expand_bom_items(rows, mapping)
+    confirmed_by_ref, confirmed_items, confirmed_sources = load_confirmed_items(args.confirmed_bom)
+    apply_confirmed_items(items, confirmed_by_ref)
     model_refs = parse_model_refs(args.model)
     table_text = list_of_elements_text(args.final_drawio)
-    findings, bom_summary = audit(items, model_refs, table_text)
+    findings, bom_summary = audit(items, model_refs, table_text, confirmed_by_ref)
     error_count = sum(1 for item in findings if item.severity == "error")
     warning_count = sum(1 for item in findings if item.severity == "warning")
     status = "PASS" if not findings else ("WARN" if error_count == 0 else "FAIL")
@@ -285,6 +349,7 @@ def main() -> int:
         "status": status,
         "inputs": {
             "bom": repo_path(args.bom),
+            "confirmed_bom": repo_path(args.confirmed_bom),
             "model": repo_path(args.model),
             "final_drawio": repo_path(args.final_drawio),
         },
@@ -294,6 +359,8 @@ def main() -> int:
             "finding_count": len(findings),
         },
         "bom_summary": bom_summary,
+        "external_confirmed_items": confirmed_items,
+        "external_sources": confirmed_sources,
         "items": [asdict(item) for item in items],
         "findings": [asdict(item) for item in findings],
     }

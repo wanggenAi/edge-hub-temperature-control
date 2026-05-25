@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "created_for": "ESP32 Temperature Control Unit List of Elements",
+  "policy": {
+    "name_column": "Use purchasable manufacturer part number or model plus concise electrical/package description.",
+    "note_column": "Use manufacturer name, not supplier name.",
+    "supplier_not_manufacturer": [
+      "LCSC"
+    ],
+    "do_not_change_bom_quantity": true,
+    "preserve_master_table_geometry": true
+  },
+  "sources": [
+    {
+      "id": "murata_grm188r71h104ka93d",
+      "title": "Murata GRM188R71H104KA93D product/distributor listing",
+      "url": "https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/702547"
+    },
+    {
+      "id": "murata_grm188r61a106kaald",
+      "title": "Murata GRM188R61A106KAALD product/distributor listing",
+      "url": "https://www.digikey.com/en/products/detail/murata-electronics/GRM188R61A106KAALD/702626"
+    },
+    {
+      "id": "samsung_cl31a107mqhnnne",
+      "title": "Samsung Electro-Mechanics CL31A107MQHNNNE product/distributor listing",
+      "url": "https://www.digikey.com/en/products/detail/samsung-electro-mechanics/CL31A107MQHNNNE/3886941"
+    },
+    {
+      "id": "yageo_rc0603fr",
+      "title": "YAGEO RC0603FR thick-film 0603 resistor family listings",
+      "url": "https://www.digikey.com/en/products/filter/chip-resistor-surface-mount/52?s=N4IgTCBcDaIIICUDKAGAllAFgAgHQnQBEQBdAXyA"
+    },
+    {
+      "id": "espressif_esp32_wroom_32",
+      "title": "Espressif ESP32-WROOM-32 product page",
+      "url": "https://www.espressif.com/en/products/modules/esp32"
+    },
+    {
+      "id": "jlc_c9900005314",
+      "title": "JLCPCB part detail C9900005314 LED0603-RD_RED",
+      "url": "https://jlcpcb.com/partdetail/JLCPCBAssembly-LED0603RD_RED/C9900005314"
+    },
+    {
+      "id": "jlc_c9900021947",
+      "title": "JLCPCB part detail C9900021947 NMOS3400",
+      "url": "https://jlcpcb.com/partdetail/JLCPCBAssembly-NMOS3400/C9900021947"
+    },
+    {
+      "id": "jlc_c9900000320",
+      "title": "JLCPCB part detail C9900000320 TactswitchSMT6x6x7_5",
+      "url": "https://jlcpcb.com/partdetail/3152564-TactswitchSMT6x6x7_5/C9900000320"
+    },
+    {
+      "id": "jlc_c9900017459",
+      "title": "JLCPCB part detail C9900017459 KF2EDGV-3.81-2P",
+      "url": "https://jlcpcb.com/partdetail/JLCPCBAssembly-2P_P3_81_KF2EDGV_3_81_2P/C9900017459"
+    },
+    {
+      "id": "jlc_c9900016950",
+      "title": "JLCPCB part detail C9900016950 KF301-2P",
+      "url": "https://jlcpcb.com/partdetail/JLCPCBAssembly-KF301_2P/C9900016950"
+    },
+    {
+      "id": "jlc_c9900007553",
+      "title": "JLCPCB part detail C9900007553 Header45.08-4P",
+      "url": "https://jlcpcb.com/partdetail/JLCPCBAssembly-Header45_08_4P/C9900007553"
+    },
+    {
+      "id": "jlc_c5258884",
+      "title": "JLCPCB/LCSC source BOM supplier part C5258884 for XH-3PA, Manufacturer ZHOURI",
+      "url": "https://jlcpcb.com/partdetail/ZHOURI-XH3PA/C5258884"
+    }
+  ],
+  "items": [
+    {
+      "refs": [
+        "C1",
+        "C4"
+      ],
+      "source_refs": [
+        "C1",
+        "C4"
+      ],
+      "manufacturer_part": "GRM188R71H104KA93D",
+      "manufacturer": "Murata",
+      "description": "0.1 uF, C0603",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "murata_grm188r71h104ka93d"
+      ]
+    },
+    {
+      "refs": [
+        "C2"
+      ],
+      "source_refs": [
+        "C2"
+      ],
+      "manufacturer_part": "GRM188R61A106KAALD",
+      "manufacturer": "Murata",
+      "description": "10 uF, C0603",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "murata_grm188r61a106kaald"
+      ]
+    },
+    {
+      "refs": [
+        "C3"
+      ],
+      "source_refs": [
+        "C3"
+      ],
+      "manufacturer_part": "CL31A107MQHNNNE",
+      "manufacturer": "Samsung Electro-Mechanics",
+      "description": "100 uF, 1206",
+      "status": "external_source_confirmed_with_package_review",
+      "source_ids": [
+        "samsung_cl31a107mqhnnne"
+      ],
+      "warning": "The JLC BOM footprint says C0603. A common purchasable 100 uF MLCC found in distributor data is 1206, so package/voltage must be reviewed before ordering."
+    },
+    {
+      "refs": [
+        "R1",
+        "R5",
+        "R6"
+      ],
+      "source_refs": [
+        "R1",
+        "R5",
+        "R6"
+      ],
+      "manufacturer_part": "RC0603FR-0710KL",
+      "manufacturer": "YAGEO",
+      "description": "10 kOhm, R0603",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "yageo_rc0603fr"
+      ]
+    },
+    {
+      "refs": [
+        "R2"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "manufacturer_part": "RC0603FR-074K7L",
+      "manufacturer": "YAGEO",
+      "description": "4.7 kOhm, R0603",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "yageo_rc0603fr"
+      ]
+    },
+    {
+      "refs": [
+        "R3"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "manufacturer_part": "RC0603FR-07330RL",
+      "manufacturer": "YAGEO",
+      "description": "330 Ohm, R0603",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "yageo_rc0603fr"
+      ]
+    },
+    {
+      "refs": [
+        "R4"
+      ],
+      "source_refs": [
+        "R4"
+      ],
+      "manufacturer_part": "RC0603FR-07100RL",
+      "manufacturer": "YAGEO",
+      "description": "100 Ohm, R0603",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "yageo_rc0603fr"
+      ]
+    },
+    {
+      "refs": [
+        "DD1"
+      ],
+      "source_refs": [
+        "U1"
+      ],
+      "manufacturer_part": "ESP32-WROOM-32",
+      "manufacturer": "Espressif",
+      "description": "Wi-Fi/BT module",
+      "status": "source_bom_confirmed",
+      "source_ids": [
+        "espressif_esp32_wroom_32"
+      ]
+    },
+    {
+      "refs": [
+        "HL1"
+      ],
+      "source_refs": [
+        "D1"
+      ],
+      "manufacturer_part": "LED0603-RD_RED",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "red LED",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900005314"
+      ]
+    },
+    {
+      "refs": [
+        "VT1"
+      ],
+      "source_refs": [
+        "Q1"
+      ],
+      "manufacturer_part": "NMOS3400",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "N-channel MOSFET",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900021947"
+      ]
+    },
+    {
+      "refs": [
+        "SB1",
+        "SB2"
+      ],
+      "source_refs": [
+        "U3_reset",
+        "U4_boot"
+      ],
+      "manufacturer_part": "TactswitchSMT6x6x7_5",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "tactile switch",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900000320"
+      ]
+    },
+    {
+      "refs": [
+        "XS1"
+      ],
+      "source_refs": [
+        "CN1"
+      ],
+      "manufacturer_part": "XH-3PA",
+      "manufacturer": "ZHOURI",
+      "description": "3-pin XH connector",
+      "status": "source_bom_confirmed",
+      "source_ids": [
+        "jlc_c5258884"
+      ]
+    },
+    {
+      "refs": [
+        "XS2",
+        "XS3"
+      ],
+      "source_refs": [
+        "J2_heater",
+        "J_Power"
+      ],
+      "manufacturer_part": "2P-P3.81_KF2EDGV-3.81-2P",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "2-pin 3.81 mm terminal",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900017459"
+      ]
+    },
+    {
+      "refs": [
+        "XS4"
+      ],
+      "source_refs": [
+        "U7"
+      ],
+      "manufacturer_part": "Header45.08-4P",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "4-pin 5.00 mm service connector",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900007553"
+      ]
+    },
+    {
+      "refs": [
+        "XS5"
+      ],
+      "source_refs": [
+        "J_TS1"
+      ],
+      "manufacturer_part": "KF301-2P",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "2-pin 5.00 mm terminal",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900016950"
+      ]
+    },
+    {
+      "refs": [
+        "A1"
+      ],
+      "source_refs": [
+        "U3_buck"
+      ],
+      "manufacturer_part": "Header45.08-4P",
+      "manufacturer": "JLCPCB Assembly",
+      "description": "DC/DC module interface",
+      "status": "external_source_confirmed",
+      "source_ids": [
+        "jlc_c9900007553"
+      ],
+      "warning": "This is the connector/interface used for the DC/DC module in the source BOM, not the DC/DC converter module manufacturer itself."
+    }
+  ]
+}

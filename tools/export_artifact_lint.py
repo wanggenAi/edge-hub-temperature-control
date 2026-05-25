@@ -35,37 +35,37 @@ KICAD_EMBED_MIN_GAP_TO_ELEMENT_LIST = 30.0
 KICAD_EMBED_MIN_GAP_TO_TITLE_BLOCK = 40.0
 ESP32_BOM_REQUIRED_TEXT = [
     "C1, C4",
-    "Capacitor 0.1 uF",
-    "C2",
-    "Capacitor 10 uF",
-    "C3",
-    "Capacitor 100 uF",
+    "GRM188R71H104KA93D",
+    "C2, C3",
+    "GRM188R61A106KAALD",
+    "CL31A107MQHNNNE",
     "R1, R5, R6",
-    "Resistor 10 kOhm",
-    "R2",
-    "Resistor 4.7 kOhm",
-    "R3",
-    "Resistor 330 Ohm",
-    "R4",
-    "Resistor 100 Ohm",
+    "RC0603FR-0710KL",
+    "R2, R3, R4",
+    "RC0603FR-074K7L",
+    "RC0603FR-07330RL",
+    "RC0603FR-07100RL",
     "DD1",
-    "ESP32-WROOM-32 Wi-Fi module",
-    "HL1",
-    "LED0603-RD red LED",
-    "VT1",
-    "NMOS3400 MOSFET",
+    "ESP32-WROOM-32",
+    "LED0603-RD_RED",
+    "NMOS3400",
     "SB1, SB2",
-    "TactswitchSMT6x6x7_5 tactile switch",
+    "TactswitchSMT6x6x7_5",
     "XS1",
-    "XH-3PA 3-pin connector",
-    "XS2, XS3",
-    "2P-P3.81_KF2EDGV-3.81-2P terminal",
-    "XS4",
-    "Header45.08-4P service connector",
-    "XS5",
-    "KF301-2P terminal",
+    "XH-3PA",
+    "XS2",
+    "XS3",
+    "2P-P3.81_KF2EDGV-3.81-2P",
+    "XS4, XS5",
+    "Header45.08-4P",
+    "KF301-2P",
     "A1",
-    "Header45.08-4P DC/DC module interface",
+    "Murata",
+    "Samsung Electro-Mechanics",
+    "YAGEO",
+    "Espressif",
+    "JLCPCB Assembly",
+    "ZHOURI",
 ]
 LEGACY_BOM_FORBIDDEN_TEXT = [
     "Microcontroller AT89C52",
@@ -119,18 +119,19 @@ def is_final_schematic_embed_label(label: str) -> bool:
             "jlc-style-layout",
             "jlc_style_layout",
             "jlc-style",
+            "bom-mpn-manufacturer",
         )
     )
 
 
 def requires_esp32_bom_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry", "jlc-style-layout", "jlc-style"))
+    return any(marker in label_lower for marker in ("element-list-esp32-bom", "title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry", "jlc-style-layout", "jlc-style", "bom-mpn-manufacturer"))
 
 
 def requires_esp32_title_block_check(label: str) -> bool:
     label_lower = label.lower()
-    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry", "jlc-style-layout", "jlc-style"))
+    return any(marker in label_lower for marker in ("title-block-esp32", "thesis-candidate", "jlc-faithful-kicad-redraw", "bstu-table-geometry", "jlc-style-layout", "jlc-style", "bom-mpn-manufacturer"))
 
 
 def requires_bstu_table_geometry_check(label: str) -> bool:
@@ -320,7 +321,7 @@ def validate_esp32_title_block_visible_text(visible_text: str, findings: list[Fi
 
 def is_jlc_style_label(label: str) -> bool:
     label_lower = label.lower()
-    return "jlc-style-layout" in label_lower or "jlc_style_layout" in label_lower or "jlc-style" in label_lower
+    return "jlc-style-layout" in label_lower or "jlc_style_layout" in label_lower or "jlc-style" in label_lower or "bom-mpn-manufacturer" in label_lower
 
 
 def validate_schematic_embed_geometry(
