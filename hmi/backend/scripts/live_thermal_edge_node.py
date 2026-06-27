@@ -31,6 +31,10 @@ from app.db.session import SessionLocal  # noqa: E402
 from app.models.entities import Device, DeviceParameter, User, UserDevice  # noqa: E402
 
 
+def calc_error_c(target_temp_c: float, sensor_temp_c: float) -> float:
+    return float(target_temp_c) - float(sensor_temp_c)
+
+
 @dataclass(frozen=True)
 class ThermalEnvironment:
     key: str
@@ -59,17 +63,17 @@ ENVIRONMENTS: dict[str, ThermalEnvironment] = {
         default_start_temp=34.8,
         default_target_temp=37.0,
         ambient_temp=25.0,
-        heater_gain_c_per_s=0.155,
-        heat_loss_per_s=0.0064,
-        max_pwm=92.0,
-        sensor_alpha=0.22,
-        sensor_noise_std=0.018,
+        heater_gain_c_per_s=0.130,
+        heat_loss_per_s=0.0054,
+        max_pwm=82.0,
+        sensor_alpha=0.16,
+        sensor_noise_std=0.008,
         dead_time_steps=2,
-        feedforward_pwm=58.0,
-        controller_gain=3.0,
-        disturbance_std_c_per_s=0.0007,
-        periodic_disturbance_c_per_s=0.0011,
-        ambient_drift_c=0.35,
+        feedforward_pwm=50.0,
+        controller_gain=1.2,
+        disturbance_std_c_per_s=0.00025,
+        periodic_disturbance_c_per_s=0.00025,
+        ambient_drift_c=0.1,
     ),
     "balanced_cell": ThermalEnvironment(
         key="balanced_cell",
@@ -416,7 +420,7 @@ def step_thermal_model(state: EdgeNodeState, now: float, rng: random.Random) -> 
             "sim_temp_c": round(state.true_temp_c, 4),
             "sensor_temp_c": round(state.sensor_temp_c, 4),
             "sensor_status": "ok" if sensor_valid else "invalid",
-            "error_c": round(state.sensor_temp_c - state.target_temp_c, 4),
+            "error_c": round(calc_error_c(state.target_temp_c, state.sensor_temp_c), 4),
             "integral_error": round(state.integral_error, 5),
             "derivative_error": round(derivative, 6),
             "d_term": round(d_term, 6),

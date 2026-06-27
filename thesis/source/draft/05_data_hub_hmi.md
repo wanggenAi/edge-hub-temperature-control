@@ -1,6 +1,6 @@
-# 5 IMPLEMENTATION OF THE DATA HUB AND HMI LAYERS
+# 4 IMPLEMENTATION OF THE DATA HUB AND HMI LAYERS
 
-## 5.1 MQTT ingestion pipeline
+## 4.1 MQTT ingestion pipeline
 
 The Data Hub layer is the central processing part of the developed temperature-control and monitoring system. Its role is to receive messages from the edge control layer, transform them into stable engineering records, maintain device state, and provide stored data for the HMI layer and auxiliary decision-support mechanism. In the implemented system, the Data Hub is developed as a Java Spring Boot application [5]. This choice separates the continuous message-ingestion workload from the HMI user interface and makes the Data Hub responsible for the technical path between MQTT communication and persistent storage.
 
@@ -8,13 +8,13 @@ The ingestion pipeline subscribes to the device-scoped MQTT topics used by the e
 
 The pipeline is implemented as a bounded asynchronous processing flow. MQTT messages are accepted by the source component, converted into internal envelopes, and passed to a Reactor-based pipeline [6]. The pipeline uses buffering, configurable prefetching, and device-based lane partitioning. This is important because telemetry is periodic and may arrive continuously, while parameter commands and acknowledgements are event-like and must not be lost or hidden by a large telemetry stream. The bounded queue design also prevents uncontrolled memory growth when message production temporarily exceeds processing capacity.
 
-The central part of this implementation is shown in Figure 5.1. The fragment demonstrates the bounded buffer, configured overflow behavior, parallel scheduler, and fixed device-lane partitioning used to process MQTT messages without relying on an uncontrolled queue.
+The central part of this implementation is shown in Figure 4.1. The fragment demonstrates the bounded buffer, configured overflow behavior, parallel scheduler, and fixed device-lane partitioning used to process MQTT messages without relying on an uncontrolled queue.
 
 The message-processing sequence includes parsing, application of persistence policy, writing to the selected storage backend, and acknowledgement of the MQTT message after processing. When parsing or persistence fails, the error is recorded in metrics and logs. The implemented behavior is intentionally observable: accepted messages, dropped messages, parse failures, persistence failures, telemetry skips, stored parameter commands, stored acknowledgements, device-status events, and summary records are counted by the Data Hub metrics. This makes the ingestion layer suitable for engineering debugging rather than only for demonstration.
 
-The Data Hub does not directly generate control actions and does not replace the HMI or the operator. Its responsibility is to maintain a reliable data path and to preserve the facts needed for later supervision. The relationship between the main Data Hub processing functions and their engineering purpose is summarized in Table 5.1.
+The Data Hub does not directly generate control actions and does not replace the HMI or the operator. Its responsibility is to maintain a reliable data path and to preserve the facts needed for later supervision. The relationship between the main Data Hub processing functions and their engineering purpose is summarized in Table 4.1.
 
-Table 5.1 – Main Data Hub processing responsibilities
+Table 4.1 – Main Data Hub processing responsibilities
 
 | Function | Implemented mechanism | Engineering purpose |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ Table 5.1 – Main Data Hub processing responsibilities
 | Device state tracking | Online/offline state updates based on received messages and timeouts | HMI visibility of device availability |
 | Operational metrics | Counters for received, parsed, skipped, persisted, and failed messages | Runtime observability and troubleshooting |
 
-## 5.2 Message parsing and topic model
+## 4.2 Message parsing and topic model
 
 The implemented message parser uses both the MQTT topic and the JSON payload. The topic identifies the device and the message class, while the payload contains the data fields. This separation is important because a topic alone cannot describe the control state, and a payload alone is not sufficient to route the message correctly. The Data Hub therefore treats every received MQTT message as an envelope that contains the raw topic, the received timestamp, and the payload body.
 
@@ -37,7 +37,7 @@ Parameter-acknowledgement messages are also parsed as a separate message class. 
 
 The parser is tolerant of unknown JSON fields. This is useful in the project because telemetry evolves during development: additional diagnostic fields can be added by the edge node without immediately breaking Data Hub ingestion. At the same time, the fields used for engineering logic remain explicit. The result is a stable but extensible interface between the edge control layer and the Data Hub layer.
 
-## 5.3 Telemetry filtering, aggregation, and storage
+## 4.3 Telemetry filtering, aggregation, and storage
 
 Persistent storage is required because a temperature-control system cannot be evaluated only from the current screen value. The relevant engineering questions depend on history: how quickly the temperature approached the setpoint, whether overshoot occurred, whether the output saturated, which parameter version was active, and whether the behavior changed after a configuration command. For this reason, the Data Hub stores telemetry, parameter commands, acknowledgements, summaries, alarm facts, and device-status records.
 
@@ -49,7 +49,7 @@ Filtering and aggregation are used to reduce unnecessary storage noise when the 
 
 The summary data supports later analysis. A summary window stores values such as average temperature, average error, maximum absolute error, PWM range, controller parameters, control period, and flush reason. These fields are useful for HMI history views and for auxiliary decision-support preparation. The storage design therefore supports both immediate monitoring and later evaluation of control quality.
 
-## 5.4 Alarm and rule processing
+## 4.4 Alarm and rule processing
 
 The Data Hub includes rule-related processing for abnormal conditions and device state. The purpose of this mechanism is not to make autonomous control decisions, but to make abnormal situations visible and traceable. Examples of relevant conditions include sensor invalidity, fault-latched state, safety-output-forced-off state, high temperature, missing telemetry, or an offline device.
 
@@ -59,7 +59,7 @@ Device-status tracking is based on message activity and timeout rules. When mess
 
 The alarm and status records are stored together with telemetry and command history. This provides context for later review. For example, if a parameter command is sent but no acknowledgement is received, the stored status events can show whether the device became unavailable. If a fault is reported after a command, the alarm history and telemetry history can be compared to understand the sequence of events. This traceability is part of the closed engineering workflow implemented by the project.
 
-## 5.5 HMI backend and frontend
+## 4.5 HMI backend and frontend
 
 The HMI layer provides the operator-facing part of the system. It is implemented with a FastAPI backend and a React frontend [8], [9]. The backend exposes REST endpoints for devices, telemetry history, parameters, alarms, storage rules, users, and operational views. It also connects to TDengine for telemetry and event history and to PostgreSQL for relational control-plane data. The frontend presents this data as monitoring and configuration screens.
 
@@ -67,21 +67,21 @@ The backend is not a passive relay. It enforces authentication and role-based ac
 
 The React frontend includes device overview, device detail, history, alarms, storage-rules, user-management, and operations pages. The device detail page is especially important for the thesis because it connects monitoring and control. It displays current temperature, target temperature, PWM output, alarms, historical chart data, control evaluation, runtime parameters, and command feedback. The operator can observe whether the device is close to the setpoint, whether the actuator is saturated, whether the control behavior is stable, and whether the device has recently acknowledged a parameter update.
 
-The operator-facing monitoring and configuration screen is shown in Figure 5.2. It combines process history, target band visualization, current parameters, editable PID fields, and acknowledgement-related feedback in one view, which supports the closed-loop interpretation of operator actions.
+The operator-facing monitoring and configuration screen is shown in Figure 4.2. It combines process history, target band visualization, current parameters, editable PID fields, and acknowledgement-related feedback in one view, which supports the closed-loop interpretation of operator actions.
 
 History views are used to examine behavior over a selected time range. They support the engineering interpretation of the control process: the operator can compare temperature, setpoint, error, PWM duty, and alarm events before and after a configuration change. This is necessary because a single current value cannot prove that control quality is acceptable. A system may have the correct current temperature but still show overshoot, long settling time, or actuator saturation in the recent history.
 
 The HMI also includes an operations view for runtime observability. This view can show Data Hub-related metrics, backend status, model/runtime status, and log-derived indicators. In the scope of the diploma project, this is useful because the system is not a single embedded program; it is a layered platform where MQTT ingestion, storage, backend APIs, and frontend screens must work together. Operational visibility helps verify whether a failure is located in the edge node, MQTT path, Data Hub, storage layer, backend, or browser interface.
 
-The operations console shown in Figure 5.3 is used for Data Hub and ingestion monitoring. This screen is not an operator control screen; it is an engineering view that helps inspect MQTT ingress rate, processing rate, queue depth, and runtime status during development and validation.
+The operations console shown in Figure 4.3 is used for Data Hub and ingestion monitoring. This screen is not an operator control screen; it is an engineering view that helps inspect MQTT ingress rate, processing rate, queue depth, and runtime status during development and validation.
 
-## 5.6 Device monitoring and parameter configuration
+## 4.6 Device monitoring and parameter configuration
 
 The parameter-configuration path is the most important HMI function for the closed-loop workflow. The operator edits the target temperature or controller parameters in the HMI. The HMI frontend sends the request to the backend API. The backend then publishes the corresponding params/set message through the configured MQTT command path. This distinction is important: the frontend is the operator interface, but it is not treated as a direct MQTT client in the implemented architecture.
 
 The backend MQTT publisher constructs a JSON payload with the selected runtime parameters, control mode, control period, apply_immediately flag, source information, and request timestamp. It publishes this payload to the device-specific parameter-set topic. The edge node then parses and validates the message. If the payload is valid, the device applies or stages the new parameters and publishes a parameter acknowledgement. If the payload is invalid, the device publishes a failure acknowledgement or reports the reason for rejection.
 
-The command-publishing fragment is shown in Figure 5.4. It demonstrates that the HMI backend constructs a structured parameter payload, removes fields that were not changed by the operator, marks the source as HMI, and publishes the result through the device-specific MQTT command path.
+The command-publishing fragment is shown in Figure 4.4. It demonstrates that the HMI backend constructs a structured parameter payload, removes fields that were not changed by the operator, marks the source as HMI, and publishes the result through the device-specific MQTT command path.
 
 The HMI backend supports acknowledgement-aware confirmation. After publishing a parameter command, it can query the latest params_ack records from TDengine and compare the acknowledgement timestamp and parameter values with the requested values. A strict path waits for an acknowledgement after the command time. A bounded relaxed path can also accept a recent matching acknowledgement when there is small clock skew between producer and consumer timestamps. This design is more reliable than simply reporting success after the MQTT publish operation returns.
 

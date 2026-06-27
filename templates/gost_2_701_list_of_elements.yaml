@@ -1,0 +1,224 @@
+{
+  "standard": "GOST 2.701",
+  "table": "List of Elements",
+  "unit": "mm",
+  "origin": "top-left",
+  "overall": {
+    "width": 185,
+    "x": 651,
+    "y": 20,
+    "right": 836
+  },
+  "element_list": {
+    "x": 651,
+    "y": 20,
+    "width": 185,
+    "right": 836,
+    "max_bottom_y_mm": 497,
+    "min_gap_to_title_block_mm": 12,
+    "title_height_mm": 6,
+    "header_height_mm": 8,
+    "group_row_height_mm": 8,
+    "item_row_height_mm": 8,
+    "min_row_height_mm": 8,
+    "line_width_major_mm": 0.6,
+    "line_width_minor_mm": 0.25,
+    "line_width_tolerance_mm": 0.03,
+    "min_font_height_mm": 2.5,
+    "title_font_height_mm": 3.0,
+    "header_font_height_mm": 2.5
+  },
+  "columns": [
+    {
+      "id": "ref_designator",
+      "title": "Ref. designator",
+      "x": 0,
+      "width": 20
+    },
+    {
+      "id": "description",
+      "title": "Description",
+      "x": 20,
+      "width": 110
+    },
+    {
+      "id": "qty",
+      "title": "Qty.",
+      "x": 130,
+      "width": 10
+    },
+    {
+      "id": "note",
+      "title": "Note",
+      "x": 140,
+      "width": 45
+    }
+  ],
+  "column_x": [
+    0,
+    20,
+    130,
+    140,
+    185
+  ],
+  "rows": {
+    "title_height_mm": 6,
+    "header_height_mm": 8,
+    "group_row_height_mm": 8,
+    "item_row_height_mm": 8,
+    "min_row_height_mm": 8
+  },
+  "line_widths": {
+    "outer_border_mm": 0.6,
+    "major_separator_mm": 0.6,
+    "minor_grid_mm": 0.25,
+    "tolerance_mm": 0.03
+  },
+  "text": {
+    "title_height_mm": 3.0,
+    "header_height_mm": 2.5,
+    "body_height_mm": 2.5,
+    "min_text_to_line_clearance_mm": 0.4,
+    "allowed_angles_deg": [
+      0
+    ]
+  },
+  "placement": {
+    "align_right_to_frame": true,
+    "frame_right_mm": 836,
+    "min_gap_to_title_block_mm": 12,
+    "must_be_above_title_block": true
+  },
+  "title": {
+    "text": "List of Elements",
+    "height": 6,
+    "font_height_mm": 3.0
+  },
+  "header": {
+    "height": 8,
+    "font_height_mm": 2.5
+  },
+  "row_height_mm": 8,
+  "groups": [
+    {
+      "name": "Capacitors",
+      "items": [
+        {
+          "refs": "C1",
+          "description": "Capacitor 10 uF, 0603",
+          "qty": 1,
+          "note": ""
+        },
+        {
+          "refs": "C2, C4",
+          "description": "Capacitor 0.1 uF, 0603",
+          "qty": 2,
+          "note": ""
+        },
+        {
+          "refs": "C3",
+          "description": "Capacitor 100 uF, 0603",
+          "qty": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "name": "Resistors",
+      "items": [
+        {
+          "refs": "R1, R5, R6",
+          "description": "Resistor 10 kOhm, 0603",
+          "qty": 3,
+          "note": ""
+        },
+        {
+          "refs": "R2",
+          "description": "Resistor 4.7 kOhm, 0603",
+          "qty": 1,
+          "note": "Sensor pull-up"
+        },
+        {
+          "refs": "R3",
+          "description": "Resistor 330 Ohm, 0603",
+          "qty": 1,
+          "note": ""
+        },
+        {
+          "refs": "R4",
+          "description": "Resistor 100 Ohm, 0603",
+          "qty": 1,
+          "note": "VT1 gate resistor"
+        }
+      ]
+    },
+    {
+      "name": "Semiconductor Devices",
+      "items": [
+        {
+          "refs": "DD1",
+          "description": "ESP32-WROOM-32 module",
+          "qty": 1,
+          "note": ""
+        },
+        {
+          "refs": "HL1",
+          "description": "Red LED, 0603",
+          "qty": 1,
+          "note": "Status indicator"
+        },
+        {
+          "refs": "VT1",
+          "description": "N-channel MOSFET, SOT-23",
+          "qty": 1,
+          "note": "Heater switch"
+        }
+      ]
+    },
+    {
+      "name": "Switching Components",
+      "items": [
+        {
+          "refs": "SB1, SB2",
+          "description": "Tactile button 6x6x7.5",
+          "qty": 2,
+          "note": "RESET, BOOT"
+        }
+      ]
+    },
+    {
+      "name": "Connectors",
+      "items": [
+        {
+          "refs": "XS1",
+          "description": "3-pin connector for DS18B20 sensor",
+          "qty": 1,
+          "note": ""
+        },
+        {
+          "refs": "XS2, XS3",
+          "description": "2-pin connector, KF2EDGV-3.81-2P",
+          "qty": 2,
+          "note": "Heater, power input"
+        },
+        {
+          "refs": "XS4",
+          "description": "4-pin service connector, 5.00 mm pitch",
+          "qty": 1,
+          "note": "UART service port"
+        }
+      ]
+    },
+    {
+      "name": "Power Modules",
+      "items": [
+        {
+          "refs": "A1",
+          "description": "DC/DC converter 12 V / 3.3 V",
+          "qty": 1,
+          "note": ""
+        }
+      ]
+    }
+  ]
+}

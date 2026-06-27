@@ -6,5 +6,6 @@ export function OverviewPage() {
   if (loading) return <p className="text-sm text-mute">Loading devices...</p>;
   if (error) return <p className="text-sm text-danger">{error}</p>;
   if (devices.length === 0) return <p className="text-sm text-mute">No devices available.</p>;
-  return <Navigate to={`/devices/${devices[0].id}`} replace />;
+  const liveDemoDevice = devices.find((device) => device.code === "edge-node-001");
+  return <Navigate to={`/devices/${(liveDemoDevice ?? devices[0]).id}`} replace />;
 }

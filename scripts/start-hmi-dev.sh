@@ -8,6 +8,7 @@ PID_DIR="$ROOT_DIR/runtime/pids"
 LOG_DIR="$ROOT_DIR/runtime/logs/dev"
 DAEMONIZE="$ROOT_DIR/scripts/daemonize.py"
 TDENGINE_CFG_FILE="$ROOT_DIR/runtime/tdengine/taos.cfg"
+PYTHON_BIN="${HMI_PYTHON:-}"
 
 AI_PID_FILE="$PID_DIR/ai-runtime.pid"
 BACKEND_PID_FILE="$PID_DIR/hmi-backend.pid"
@@ -21,6 +22,9 @@ SKIP_INSTALL=0
 WITH_AI=1
 RESTART=0
 STATUS_ONLY=0
+KEEP_DATAHUB=0
+KEEP_LIVE_EDGE=0
+BACKEND_VENV_RECREATED=0
 
 usage() {
   cat <<'EOF'
@@ -32,6 +36,9 @@ Options:
   --skip-install  Skip pip/npm install steps.
   --without-ai    Do not start standalone AI runtime service.
   --restart       Stop old processes then start fresh.
+  --keep-datahub  With --restart, keep a manually started DataHub process running.
+  --keep-live-edge
+                  With --restart, keep the local live edge fallback process running.
   --status        Show status only, do not start.
 EOF
 }
@@ -39,6 +46,44 @@ EOF
 is_pid_alive() {
   local pid="$1"
   kill -0 "$pid" >/dev/null 2>&1
+}
+
+detect_python() {
+  if [[ -n "$PYTHON_BIN" ]]; then
+    if [[ -x "$PYTHON_BIN" ]]; then
+      return
+    fi
+    echo "[error] HMI_PYTHON is not executable: $PYTHON_BIN"
+    exit 1
+  fi
+
+  local candidate
+  local candidates=(
+    python3.12
+    "$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3.12"
+    /opt/homebrew/bin/python3.12
+    /usr/local/bin/python3.12
+    python3.11
+    /opt/homebrew/bin/python3.11
+    /usr/local/bin/python3.11
+    python3.10
+    /opt/homebrew/bin/python3.10
+    /usr/local/bin/python3.10
+    python3
+  )
+  for candidate in "${candidates[@]}"; do
+    if [[ "$candidate" = */* && -x "$candidate" ]]; then
+      PYTHON_BIN="$candidate"
+      return
+    fi
+    if [[ "$candidate" != */* ]] && command -v "$candidate" >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v "$candidate")"
+      return
+    fi
+  done
+
+  echo "[error] no python3 executable found"
+  exit 1
 }
 
 cleanup_stale_pid_file() {
@@ -115,6 +160,29 @@ EOF
   fi
 }
 
+ensure_backend_venv() {
+  detect_python
+  local python_bin="$BACKEND_DIR/.venv/bin/python"
+  local expected_prefix
+  local venv_prefix
+  expected_prefix="$("$PYTHON_BIN" -c 'import sys; print(sys.base_prefix)')"
+  if [[ -d "$BACKEND_DIR/.venv" ]] && ! "$python_bin" -c 'import sys' >/dev/null 2>&1; then
+    echo "[warn] backend virtualenv is broken; recreating $BACKEND_DIR/.venv"
+    rm -rf "$BACKEND_DIR/.venv"
+  fi
+  if [[ -d "$BACKEND_DIR/.venv" ]]; then
+    venv_prefix="$("$python_bin" -c 'import sys; print(sys.base_prefix)')"
+    if [[ "$venv_prefix" != "$expected_prefix" ]]; then
+      echo "[warn] backend virtualenv uses $venv_prefix; recreating with $expected_prefix"
+      rm -rf "$BACKEND_DIR/.venv"
+    fi
+  fi
+  if [[ ! -d "$BACKEND_DIR/.venv" ]]; then
+    "$PYTHON_BIN" -m venv "$BACKEND_DIR/.venv"
+    BACKEND_VENV_RECREATED=1
+  fi
+}
+
 print_status() {
   cleanup_stale_pid_file "$AI_PID_FILE"
   cleanup_stale_pid_file "$BACKEND_PID_FILE"
@@ -162,6 +230,8 @@ for arg in "$@"; do
     --skip-install) SKIP_INSTALL=1 ;;
     --without-ai) WITH_AI=0 ;;
     --restart) RESTART=1 ;;
+    --keep-datahub) KEEP_DATAHUB=1 ;;
+    --keep-live-edge) KEEP_LIVE_EDGE=1 ;;
     --status) STATUS_ONLY=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg"; usage; exit 1 ;;
@@ -176,7 +246,18 @@ if [[ "$STATUS_ONLY" -eq 1 ]]; then
 fi
 
 if [[ "$RESTART" -eq 1 ]]; then
-  "$ROOT_DIR/scripts/stop-hmi-dev.sh"
+  STOP_ARGS=()
+  if [[ "$KEEP_DATAHUB" -eq 1 ]]; then
+    STOP_ARGS+=(--keep-datahub)
+  fi
+  if [[ "$KEEP_LIVE_EDGE" -eq 1 ]]; then
+    STOP_ARGS+=(--keep-live-edge)
+  fi
+  if [[ "${#STOP_ARGS[@]}" -gt 0 ]]; then
+    "$ROOT_DIR/scripts/stop-hmi-dev.sh" "${STOP_ARGS[@]}"
+  else
+    "$ROOT_DIR/scripts/stop-hmi-dev.sh"
+  fi
 fi
 
 if [[ "$WITH_DOCKER" -eq 1 ]]; then
@@ -192,13 +273,11 @@ if [[ "$WITH_AI" -eq 1 ]]; then
   cleanup_stale_pid_file "$AI_PID_FILE"
   if [[ ! -f "$AI_PID_FILE" ]]; then
     echo "[start] starting ai runtime..."
-    if [[ ! -d "$BACKEND_DIR/.venv" ]]; then
-      python3 -m venv "$BACKEND_DIR/.venv"
-    fi
-    if [[ "$SKIP_INSTALL" -eq 0 ]]; then
+    ensure_backend_venv
+    if [[ "$SKIP_INSTALL" -eq 0 || "$BACKEND_VENV_RECREATED" -eq 1 ]]; then
       "$BACKEND_DIR/.venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt" >/dev/null
     fi
-    python3 "$DAEMONIZE" \
+    "$PYTHON_BIN" "$DAEMONIZE" \
       --cwd "$BACKEND_DIR/ai/scripts" \
       --pid-file "$AI_PID_FILE" \
       --log-file "$AI_LOG_FILE" \
@@ -211,15 +290,13 @@ fi
 cleanup_stale_pid_file "$BACKEND_PID_FILE"
 if [[ ! -f "$BACKEND_PID_FILE" ]]; then
   echo "[start] starting backend..."
-  if [[ ! -d "$BACKEND_DIR/.venv" ]]; then
-    python3 -m venv "$BACKEND_DIR/.venv"
-  fi
-  if [[ "$SKIP_INSTALL" -eq 0 ]]; then
+  ensure_backend_venv
+  if [[ "$SKIP_INSTALL" -eq 0 || "$BACKEND_VENV_RECREATED" -eq 1 ]]; then
     "$BACKEND_DIR/.venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt" >/dev/null
   fi
   "$BACKEND_DIR/.venv/bin/python" "$BACKEND_DIR/scripts/db_migrate.py"
   "$BACKEND_DIR/.venv/bin/python" "$BACKEND_DIR/scripts/db_seed.py" --rules
-  python3 "$DAEMONIZE" \
+  "$PYTHON_BIN" "$DAEMONIZE" \
     --cwd "$BACKEND_DIR" \
     --pid-file "$BACKEND_PID_FILE" \
     --log-file "$BACKEND_LOG_FILE" \
@@ -242,7 +319,8 @@ if [[ ! -f "$FRONTEND_PID_FILE" ]]; then
   if [[ "$SKIP_INSTALL" -eq 0 ]]; then
     (cd "$FRONTEND_DIR" && npm install >/dev/null)
   fi
-  python3 "$DAEMONIZE" \
+  detect_python
+  "$PYTHON_BIN" "$DAEMONIZE" \
     --cwd "$FRONTEND_DIR" \
     --pid-file "$FRONTEND_PID_FILE" \
     --log-file "$FRONTEND_LOG_FILE" \

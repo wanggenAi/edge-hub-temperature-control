@@ -56,6 +56,16 @@ Goal:
 
 ### Demo And Defense Data Tools
 
+- `prepare-defense-demo.sh`
+  - One-command preparation for defense day.
+  - Checks active ranking artifacts, resets/seeds `DEF-%` demo devices, prints
+    the defense report, and runs preflight.
+  - Recommended command:
+
+```bash
+./scripts/prepare-defense-demo.sh
+```
+
 - `tdengine_live_feed.py`
   - Synthetic telemetry feeder for live HMI and TDengine visibility demos.
   - Useful for keeping charts moving during a presentation.

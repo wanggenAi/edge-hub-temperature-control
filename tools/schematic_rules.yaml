@@ -1,0 +1,162 @@
+{
+  "source": {
+    "require_editable_source": true,
+    "allowed_source_extensions": [".kicad_sch", ".kicad_pro", ".svg", ".drawio"],
+    "forbid_png_only": true,
+    "forbid_pdf_only": true
+  },
+  "page": {
+    "format": "A1",
+    "orientation": "landscape",
+    "width_mm": 841,
+    "height_mm": 594,
+    "unit": "mm",
+    "coordinate_origin": "top-left",
+    "tolerance_mm": 0.2
+  },
+  "frame": {
+    "drawing_frame": {
+      "x": 20,
+      "y": 5,
+      "width": 816,
+      "height": 584,
+      "right": 836,
+      "bottom": 589,
+      "line_width_mm": 1.0
+    },
+    "require_plain_rectangular_border": true,
+    "require_closed_rectangle": true,
+    "forbid_segmented_border": true,
+    "forbid_border_ticks": true,
+    "forbid_zone_grid_labels": true,
+    "forbidden_zone_labels": ["A", "B", "C", "D", "1", "2", "3", "4", "5", "6"]
+  },
+  "title_block": {
+    "template_file": "templates/gost_2_104_form1_title_block.yaml",
+    "require": true,
+    "x": 648.996,
+    "width": 187.004,
+    "align_right_to_frame": true,
+    "frame_right_mm": 836,
+    "frame_bottom_mm": 589,
+    "position_tolerance_mm": 0.2,
+    "cell_tolerance_mm": 0.2,
+    "line_width_tolerance_mm": 0.03,
+    "min_font_height_mm": 3.2,
+    "min_text_to_line_clearance_mm": 0.4,
+    "required_text": [
+      "BSTU.241297.005 Э3",
+      "Microcontroller-based I/O Device",
+      "Wang Gen",
+      "Разумейчик B.C.",
+      "Page",
+      "Pages 1",
+      "Department of Computer and System"
+    ],
+    "allow_cyrillic_only": ["Э3", "Разумейчик B.C."],
+    "fail_if_template_mismatch": true,
+    "fail_if_cell_size_invalid": true,
+    "fail_if_line_width_invalid": true,
+    "fail_if_text_touches_line": true,
+    "fail_if_font_too_small": true
+  },
+  "element_list": {
+    "template_file": "templates/gost_2_701_element_list.yaml",
+    "require": true,
+    "x": 651,
+    "y": 5,
+    "width": 185,
+    "right": 836,
+    "columns_mm": [38, 86, 17, 44],
+    "max_bottom_y_mm": 522,
+    "min_gap_to_title_block_mm": 12,
+    "min_font_height_mm": 4.3,
+    "text_center_tolerance_mm": 0.5,
+    "min_row_height_mm": 16,
+    "line_width_tolerance_mm": 0.03,
+    "require_ref_match_schematic": true,
+    "require_quantity_match": true,
+    "fail_if_column_width_invalid": true,
+    "fail_if_line_width_invalid": true,
+    "fail_if_text_touches_line": true,
+    "fail_if_text_out_of_cell": true
+  },
+  "connectivity": {
+    "model": "hardware/gost-schematic/schematic_model.yaml",
+    "connection_tolerance_mm": 0.2,
+    "require_wire_endpoint_connection": true,
+    "forbid_floating_wire_end": true,
+    "require_same_net_connected": true,
+    "forbid_different_net_short": true,
+    "require_junction_dot_for_three_way_connection": true,
+    "forbid_wire_gap_to_pin": true,
+    "forbid_diagonal_wire": true
+  },
+  "pin_labels": {
+    "require_bound_to_pin": true,
+    "label_position": "above_pin_line",
+    "center_x_tolerance_mm": 0.5,
+    "vertical_offset_min_mm": 1.0,
+    "vertical_offset_max_mm": 3.5,
+    "min_font_height_mm": 2.0,
+    "allowed_angles_deg": [0],
+    "fail_if_misaligned": true,
+    "fail_if_too_far": true,
+    "fail_if_overlaps_wire": true,
+    "fail_if_unbound": true
+  },
+  "component_symbols": {
+    "pin_table_common_width_mm": 56,
+    "pin_table_width_tolerance_mm": 0.2,
+    "require_pin_table_for_symbols": ["mcu", "module", "connector_left", "connector_right"]
+  },
+  "text": {
+    "allowed_angles_deg": [0],
+    "forbid_unknown_text": true,
+    "forbid_cyrillic_except": ["Э3", "Разумейчик B.C."],
+    "min_font_heights": {
+      "component_ref": 2.5,
+      "component_value": 2.0,
+      "pin_label": 2.0,
+      "net_label": 2.0,
+      "table_body": 2.5,
+      "title_block_body": 2.5
+    },
+    "min_text_to_wire_clearance_mm": 0.5,
+    "min_text_to_symbol_clearance_mm": 0.5,
+    "fail_if_text_overlaps_wire": true,
+    "fail_if_text_overlaps_symbol": true
+  },
+  "table_lines": {
+    "allowed_widths_mm": [1.2, 1.0, 0.5],
+    "tolerance_mm": 0.03,
+    "color": "#000000",
+    "fail_if_inconsistent": true,
+    "fail_if_unknown_width": true,
+    "fail_if_not_black": true,
+    "fail_if_non_orthogonal": true
+  },
+  "bom": {
+    "require_all_refs_in_element_list": true,
+    "require_no_extra_refs_in_element_list": true,
+    "require_quantity_match": true
+  },
+  "nets": {
+    "canonical_power_nets": ["+3V3", "+12V", "GND"],
+    "forbidden_net_labels": ["+3,3 В", "+3.3 В", "+3,3B", "+3.3B", "+12 В", "+12B", "+3,3V", "+3.3V"],
+    "fail_on_forbidden_net_labels": true
+  },
+  "exports": {
+    "require_svg": true,
+    "require_png": true,
+    "require_pdf": true,
+    "min_png_width_px": 3000,
+    "require_black_white": true,
+    "forbid_selection_artifacts": true
+  },
+  "strict": {
+    "fail_on_warning": true,
+    "fail_on_unclassified_object": true,
+    "fail_on_missing_role_metadata": true
+  }
+}

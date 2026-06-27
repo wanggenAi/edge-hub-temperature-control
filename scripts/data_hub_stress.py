@@ -103,6 +103,10 @@ def make_device_codes(prefix: str, count: int, start_index: int) -> list[str]:
     return [f"{prefix}{i:0{width}d}" for i in range(start_index, start_index + count)]
 
 
+def calc_error_c(target_temp_c: float, sensor_temp_c: float) -> float:
+    return float(target_temp_c) - float(sensor_temp_c)
+
+
 def build_telemetry_payload(device_id: str, seq: int, now_ms: int) -> dict:
     phase = (hash(device_id) % 360) / 180.0 * math.pi
     wave = math.sin(seq / 12.0 + phase) * 0.8
@@ -110,8 +114,8 @@ def build_telemetry_payload(device_id: str, seq: int, now_ms: int) -> dict:
     target_temp = 36.0 + (hash(device_id) % 8) * 0.4
     sensor_temp = target_temp + wave + drift
     sim_temp = sensor_temp + math.sin(seq / 7.0) * 0.03
-    error_c = sensor_temp - target_temp
-    pwm_duty = max(10, min(99, int(50 + error_c * 12 + wave * 15)))
+    error_c = calc_error_c(target_temp, sensor_temp)
+    pwm_duty = max(10, min(99, int(50 + max(0.0, error_c) * 12 + abs(wave) * 8)))
     payload = {
         "device_id": device_id,
         "uptime_ms": now_ms,

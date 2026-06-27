@@ -1,6 +1,6 @@
-# 6 AUXILIARY DECISION-SUPPORT AND SYSTEM VALIDATION
+# 5 AUXILIARY DECISION-SUPPORT AND SYSTEM VALIDATION
 
-## 6.1 Purpose of decision support
+## 5.1 Purpose of decision support
 
 The purpose of the auxiliary decision-support mechanism is to help the operator interpret stored control behavior and prepare reviewable parameter recommendations. It is not the main controller of the developed system. Local measurement, control calculation, and actuator output remain in the edge control layer, while the Data Hub and HMI provide the supervisory and data-processing environment around this local loop.
 
@@ -8,15 +8,15 @@ In the developed system, decision support is connected to historical telemetry, 
 
 This boundary is important for safety and explainability. The mechanism can identify possible slow response, steady-state error, overshoot, oscillation, or saturation-limited behavior, but it does not directly write to the actuator and does not bypass acknowledgement. The operator remains responsible for applying the change and checking subsequent measurements. The auxiliary mechanism therefore supports the layered closed-loop workflow instead of replacing it.
 
-## 6.2 Data preparation and feature extraction
+## 5.2 Data preparation and feature extraction
 
 The decision-support mechanism requires prepared data rather than raw messages alone. Telemetry records are first collected by the edge node, delivered through MQTT, parsed by the Data Hub, and stored with timestamps, setpoints, measured or simulated temperature values, controller output, PWM duty, saturation state, controller parameters, and device status. This stored history makes it possible to calculate behavior indicators over a defined observation window.
 
-The main extracted indicators are selected to match control-engineering meaning. Mean error and mean absolute error describe the deviation from the setpoint. Error standard deviation and temperature swing describe oscillation or unstable behavior. In-band ratio describes how much of the observation window remains inside the accepted target band. Overshoot describes how far the process exceeds the target. Settling time describes how long the response takes to remain inside the target band. Saturation ratio describes how often the actuator output reaches the configured limit. The indicators used in the developed mechanism are summarized in Table 6.1.
+The main extracted indicators are selected to match control-engineering meaning. Mean error and mean absolute error describe the deviation from the setpoint. Error standard deviation and temperature swing describe oscillation or unstable behavior. In-band ratio describes how much of the observation window remains inside the accepted target band. Overshoot describes how far the process exceeds the target. Settling time describes how long the response takes to remain inside the target band. Saturation ratio describes how often the actuator output reaches the configured limit. The indicators used in the developed mechanism are summarized in Table 5.1.
 
-The feature-extraction implementation is shown in Figure 6.1. It calculates the indicators from a telemetry window and returns them as a structured feature set. This design keeps the recommendation mechanism explainable: each later decision can be traced to measurable control-behavior features rather than to an opaque screen action.
+The feature-extraction implementation is shown in Figure 5.1. It calculates the indicators from a telemetry window and returns them as a structured feature set. This design keeps the recommendation mechanism explainable: each later decision can be traced to measurable control-behavior features rather than to an opaque screen action.
 
-Table 6.1 – Main control-behavior indicators used for decision support
+Table 5.1 – Main control-behavior indicators used for decision support
 
 | Indicator | Calculation basis | Engineering meaning |
 | --- | --- | --- |
@@ -27,25 +27,25 @@ Table 6.1 – Main control-behavior indicators used for decision support
 | Temperature swing | Difference between maximum and minimum temperature in the window | Oscillation or instability |
 | Saturation ratio | Share of samples at or above the PWM saturation threshold | Limited actuator headroom |
 
-## 6.3 Recommendation and feedback mechanism
+## 5.3 Recommendation and feedback mechanism
 
 The recommendation logic uses the extracted indicators to classify the observed behavior and select a limited parameter change. This is intentionally conservative. The mechanism should not produce large uncontrolled jumps in controller coefficients, because the physical temperature process has inertia and a delayed response. A recommendation must therefore be small enough to review and test through post-apply observation.
 
 The classification step uses rule thresholds for behavior patterns. For example, frequent zero crossings together with high error spread indicate oscillation, high overshoot indicates an excessive transient response, and high saturation ratio indicates that the actuator has limited remaining authority. Slow response is detected when the mean absolute error remains high and the response does not settle within the expected time. These rules are simple, but they are transparent and can be checked against stored data.
 
-The rule-based recommendation fragment is shown in Figure 6.2. It changes PID coefficients according to the detected problem type and limits the change step. For slow response it increases proportional and integral influence moderately. For steady-state error it mainly increases the integral term. For overshoot or oscillation it reduces aggressive terms and can increase derivative damping. For saturation-limited behavior it treats the recommendation as higher risk. In all non-normal cases, explicit operator confirmation is required.
+The rule-based recommendation fragment is shown in Figure 5.2. It changes PID coefficients according to the detected problem type and limits the change step. For slow response it increases proportional and integral influence moderately. For steady-state error it mainly increases the integral term. For overshoot or oscillation it reduces aggressive terms and can increase derivative damping. For saturation-limited behavior it treats the recommendation as higher risk. In all non-normal cases, explicit operator confirmation is required.
 
 The feedback mechanism closes the recommendation path. After a recommendation is applied through the HMI, the edge device must acknowledge the parameter update. Later telemetry is then compared with the pre-apply behavior and with the predicted preview. This prevents the system from treating a recommendation as successful merely because a message was published.
 
-## 6.4 Experimental setup
+## 5.4 Experimental setup
 
 The validation was organized as a staged engineering check of the implemented closed-loop platform. The purpose was not to claim final industrial hardware certification, but to verify that the implemented layers work together: edge telemetry generation, MQTT exchange, Data Hub ingestion, storage, HMI monitoring, parameter command publication, device acknowledgement, decision-support preparation, and post-apply observation [2].
 
 The main test environment used the ESP32-oriented edge firmware structure with the Wokwi/simulator profile, the Data Hub ingestion service, persistent storage, and the HMI frontend [11]. The simulator profile was used because the physical PCB and enclosure have been designed but not yet electrically and thermally tested as assembled hardware. This boundary is important: the validation confirms the software and system workflow, while final physical circuit validation must later be performed with instruments such as an oscilloscope, multimeter, external thermometer, and controlled load.
 
-The validation scenarios are summarized in Table 6.2. They cover the main system behavior expected from a layered closed-loop temperature-control and monitoring system.
+The validation scenarios are summarized in Table 5.2. They cover the main system behavior expected from a layered closed-loop temperature-control and monitoring system.
 
-Table 6.2 – Validation scenarios for the developed system
+Table 5.2 – Validation scenarios for the developed system
 
 | Scenario | Checked path | Expected result |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ Table 6.2 – Validation scenarios for the developed system
 | Decision support | Stored history → feature extraction → recommendation generation | Recommendation is explainable and requires review |
 | Post-apply verification | Applied parameters → later telemetry → before/after comparison | Actual behavior is compared with baseline and preview |
 
-## 6.5 Closed-loop tests
+## 5.5 Closed-loop tests
 
 Closed-loop testing focused on whether the system preserves the engineering meaning of each action. A temperature sample should not disappear as an isolated screen value; it should become a stored telemetry fact. A parameter command should not be treated as successful until the device acknowledges it. A recommendation should not be treated as final until later behavior is observed.
 
@@ -64,17 +64,17 @@ The first group of tests verified telemetry continuity. The edge node generated 
 
 The second group of tests verified parameter command handling. A new setpoint or controller parameter set was submitted through the HMI. The backend published the command through the configured MQTT path, and the edge device parsed and validated the payload. If the payload was accepted, the device returned an acknowledgement with the active runtime parameters. If the payload was invalid, the acknowledgement contained a failure result and a reason. This confirmed that the operator action was not reduced to a simple frontend event.
 
-The third group of tests verified post-apply observation. After a parameter update, later telemetry was compared with the pre-apply baseline. The HMI validation view shown in Figure 6.3 presents the baseline, preview, and actual behavior around the application moment. This screenshot demonstrates the intended interpretation of decision support: the recommendation is useful only if the actual response after application can be observed and compared.
+The third group of tests verified post-apply observation. After a parameter update, later telemetry was compared with the pre-apply baseline. The HMI validation view shown in Figure 5.3 presents the baseline, preview, and actual behavior around the application moment. This screenshot demonstrates the intended interpretation of decision support: the recommendation is useful only if the actual response after application can be observed and compared.
 
-## 6.6 Telemetry and HMI validation
+## 5.6 Telemetry and HMI validation
 
 The HMI validation screen provides visual evidence of the post-apply verification workflow. In the shown validation case, the HMI compares the baseline behavior before the recommendation, the preview behavior prepared before application, and the actual behavior after application. The visualization also displays summary indicators such as in-band ratio, overshoot, settling time, mean absolute error, saturation ratio, and temperature swing.
 
-The post-apply evaluator implementation is shown in Figure 6.4. It calculates actual metrics from observed telemetry points and compares them with a reference. The comparison is direction-aware: a higher in-band ratio is treated as improvement, while lower overshoot, lower mean absolute error, lower saturation ratio, lower temperature swing, and shorter settling time are treated as improvement. This makes the validation result more meaningful than a simple statement that the command was applied.
+The post-apply evaluator implementation is shown in Figure 5.4. It calculates actual metrics from observed telemetry points and compares them with a reference. The comparison is direction-aware: a higher in-band ratio is treated as improvement, while lower overshoot, lower mean absolute error, lower saturation ratio, lower temperature swing, and shorter settling time are treated as improvement. This makes the validation result more meaningful than a simple statement that the command was applied.
 
-The main result values visible in the HMI validation scenario are summarized in Table 6.3. These values are used as demonstration evidence for the software workflow and should be interpreted as simulated or seeded validation data, not as final measurements of the untested physical PCB.
+The main result values visible in the HMI validation scenario are summarized in Table 5.3. These values are used as demonstration evidence for the software workflow and should be interpreted as simulated or seeded validation data, not as final measurements of the untested physical PCB.
 
-Table 6.3 – Example post-apply validation result from the HMI scenario
+Table 5.3 – Example post-apply validation result from the HMI scenario
 
 | Indicator | Before application | After application | Result |
 | --- | --- | --- | --- |
@@ -87,7 +87,7 @@ Table 6.3 – Example post-apply validation result from the HMI scenario
 
 The result shows that the tested validation scenario successfully demonstrates the post-apply comparison path. The most important conclusion is not that the chosen parameters are universally optimal, but that the system can preserve enough information to evaluate whether a parameter change improved the observed behavior.
 
-## 6.7 Results analysis
+## 5.7 Results analysis
 
 The validation confirms that the developed system implements the intended layered closed-loop workflow. The edge layer produces control-related telemetry and acknowledgements. The Data Hub parses and stores the records. The HMI provides monitoring, parameter configuration, command feedback, and post-apply observation. The auxiliary decision-support mechanism uses stored behavior to prepare reviewable recommendations and keeps the operator in the loop.
 

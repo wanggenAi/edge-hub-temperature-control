@@ -1,6 +1,6 @@
 services:
   tdengine:
-    image: tdengine/tsdb-ee:latest
+    image: tdengine/tdengine:latest
     container_name: edgehub-tdengine
     restart: unless-stopped
     ports:

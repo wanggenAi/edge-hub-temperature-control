@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Link2, Search } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ type DecisionCandidate = {
 };
 
 export function AIPage() {
+  const [searchParams] = useSearchParams();
   const { devices } = useDevices();
   const [historyData, setHistoryData] = useState<AIRecommendationHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,7 @@ export function AIPage() {
   const [timePreset, setTimePreset] = useState<TimePreset>("30m");
   const [customStart, setCustomStart] = useState(() => toDatetimeLocalValue(new Date(Date.now() - 60 * 60 * 1000)));
   const [customEnd, setCustomEnd] = useState(() => toDatetimeLocalValue(new Date()));
+  const [rangeRefreshNonce, setRangeRefreshNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [insufficientDataByRecommendation, setInsufficientDataByRecommendation] = useState<Record<number, true>>({});
   const [telemetryComparison, setTelemetryComparison] = useState<AITelemetryComparison | null>(null);
@@ -50,7 +52,10 @@ export function AIPage() {
   const [telemetryError, setTelemetryError] = useState<string | null>(null);
   const devicePickerRef = useRef<HTMLDivElement>(null);
 
-  const timeRange = useMemo(() => buildTimeRange(timePreset, customStart, customEnd), [timePreset, customStart, customEnd]);
+  const timeRange = useMemo(
+    () => buildTimeRange(timePreset, customStart, customEnd),
+    [timePreset, customStart, customEnd, rangeRefreshNonce]
+  );
 
   async function load() {
     setLoading(true);
@@ -65,20 +70,37 @@ export function AIPage() {
     }
   }
 
+  async function handleRefresh() {
+    setRangeRefreshNonce((value) => value + 1);
+    await load();
+  }
+
   useEffect(() => {
     void load();
   }, []);
 
-  const latestAppliedGlobally = useMemo(() => {
+  const preferredAppliedGlobally = useMemo(() => {
     const source = historyData?.items ?? [];
+    const requestedDeviceCode = String(searchParams.get("device") ?? "").trim().toUpperCase();
+    if (requestedDeviceCode) {
+      const requested = source.find(
+        (item) => item.device_code.toUpperCase() === requestedDeviceCode && normalizeHistoryState(item) === "applied"
+      );
+      if (requested) return requested;
+    }
+    const defenseMain = source.find(
+      (item) => item.device_code === "DEF-105" && normalizeHistoryState(item) === "applied"
+    );
+    if (defenseMain) return defenseMain;
     return source.find((item) => item.history_state === "applied") ?? source[0] ?? null;
-  }, [historyData?.items]);
+  }, [historyData?.items, searchParams]);
 
   useEffect(() => {
-    if (selectedDeviceId != null) return;
-    if (!latestAppliedGlobally) return;
-    setSelectedDeviceId(latestAppliedGlobally.device_id);
-  }, [latestAppliedGlobally, selectedDeviceId]);
+    if (!preferredAppliedGlobally) return;
+    const requestedDeviceCode = String(searchParams.get("device") ?? "").trim().toUpperCase();
+    if (!requestedDeviceCode && selectedDeviceId != null) return;
+    setSelectedDeviceId(preferredAppliedGlobally.device_id);
+  }, [preferredAppliedGlobally, searchParams, selectedDeviceId]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -121,10 +143,11 @@ export function AIPage() {
   const appliedOutsideWindow = useMemo(() => {
     if (!currentRecord?.applied_at) return false;
     if (typeof timeRange.startMs !== "number") return false;
-    const appliedMs = new Date(currentRecord.applied_at).getTime();
-    if (Number.isNaN(appliedMs)) return false;
-    return appliedMs < timeRange.startMs;
-  }, [currentRecord?.applied_at, timeRange.startMs]);
+    const appliedMs = parseApiUtcMs(currentRecord.applied_at);
+    if (appliedMs == null) return false;
+    const selectedEnd = typeof timeRange.endMs === "number" ? timeRange.endMs : Date.now();
+    return timeRange.startMs > appliedMs || selectedEnd < appliedMs;
+  }, [currentRecord?.applied_at, timeRange.endMs, timeRange.startMs]);
 
   const selectedDevice = useMemo(() => {
     if (selectedDeviceId == null) return null;
@@ -154,7 +177,8 @@ export function AIPage() {
       setTelemetryError(null);
       try {
         const observationMinutes = toObservationWindowMinutes(timeRange);
-        const appliedMs = currentRecord.applied_at ? new Date(currentRecord.applied_at).getTime() : Number.NaN;
+        const parsedAppliedMs = parseApiUtcMs(currentRecord.applied_at);
+        const appliedMs = parsedAppliedMs ?? Number.NaN;
         const selectedStart = typeof timeRange.startMs === "number" ? timeRange.startMs : undefined;
         const selectedEnd = typeof timeRange.endMs === "number" ? timeRange.endMs : Date.now();
         const selectedMissesAppliedWindow =
@@ -238,7 +262,7 @@ export function AIPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-2 rounded-xl border border-line/70 bg-panel2/60 p-2 xl:grid-cols-[260px_minmax(0,1fr)_auto]">
+          <div className="grid gap-2 rounded-xl border border-line/70 bg-panel2/60 p-2 xl:grid-cols-[minmax(260px,1fr)_auto] 2xl:grid-cols-[260px_minmax(720px,1fr)_auto]">
             <DeviceSearchSelect
               containerRef={devicePickerRef}
               open={devicePickerOpen}
@@ -249,16 +273,27 @@ export function AIPage() {
               items={searchableDevices}
               onSelect={selectDevice}
             />
-            <RangePicker
-              timePreset={timePreset}
-              onPresetChange={setTimePreset}
-              customStart={customStart}
-              customEnd={customEnd}
-              onCustomStartChange={setCustomStart}
-              onCustomEndChange={setCustomEnd}
-            />
-            <div className="flex justify-start xl:justify-end">
-              <Button variant="ghost" className="h-12 w-full xl:w-auto" onClick={load}>Refresh</Button>
+            <div className="flex justify-start 2xl:justify-end">
+              <Button
+                variant="ghost"
+                className="h-12 w-full xl:w-[120px] 2xl:w-auto"
+                onClick={() => void handleRefresh()}
+                disabled={loading || telemetryLoading}
+              >
+                {loading || telemetryLoading ? "Refreshing..." : "Refresh"}
+              </Button>
+            </div>
+            <div className="xl:col-span-2 2xl:col-span-1 2xl:col-start-2 2xl:row-start-1">
+              <RangePicker
+                timePreset={timePreset}
+                onPresetChange={setTimePreset}
+                customStart={customStart}
+                customEnd={customEnd}
+                activeStart={typeof timeRange.startMs === "number" ? toDatetimeLocalValue(new Date(timeRange.startMs)) : customStart}
+                activeEnd={typeof timeRange.endMs === "number" ? toDatetimeLocalValue(new Date(timeRange.endMs)) : customEnd}
+                onCustomStartChange={setCustomStart}
+                onCustomEndChange={setCustomEnd}
+              />
             </div>
           </div>
           <div className="text-xs text-mute/90">
@@ -266,7 +301,7 @@ export function AIPage() {
           </div>
           {appliedOutsideWindow && (
             <div className="text-xs text-accent">
-              The selected time window may not fully cover the initial post-apply observation period.
+              Showing the initial post-apply observation window for this recommendation.
             </div>
           )}
 
@@ -286,7 +321,7 @@ export function AIPage() {
                       ["Selected Candidate", decisionTrace?.selectedCandidateId || "rule_center"],
                       ["Expected Effect", currentRecord.expected_effect ? formatLabel(currentRecord.expected_effect) : "-"],
                       ["Risk", currentRecord.risk_level ?? "-"],
-                      ["Applied At", formatDateTime(currentRecord.applied_at ?? currentRecord.generated_at)],
+                      ["Applied At", formatApiUtcDateTime(currentRecord.applied_at ?? currentRecord.generated_at)],
                       ["Evaluation Status", evaluationStatus],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded border border-line/60 bg-panel2/70 px-2 py-1">
@@ -437,6 +472,8 @@ function RangePicker({
   onPresetChange,
   customStart,
   customEnd,
+  activeStart,
+  activeEnd,
   onCustomStartChange,
   onCustomEndChange,
 }: {
@@ -444,6 +481,8 @@ function RangePicker({
   onPresetChange: (value: TimePreset) => void;
   customStart: string;
   customEnd: string;
+  activeStart: string;
+  activeEnd: string;
   onCustomStartChange: (value: string) => void;
   onCustomEndChange: (value: string) => void;
 }) {
@@ -461,7 +500,7 @@ function RangePicker({
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 sm:h-12 sm:flex-nowrap sm:py-0">
       <span className="shrink-0 whitespace-nowrap text-xs uppercase tracking-wide text-mute">Window</span>
       <Select value={timePreset} onValueChange={(value) => onPresetChange(value as TimePreset)}>
-        <SelectTrigger className="h-9 w-[220px] border-line bg-panel2 text-sm">
+        <SelectTrigger className="h-9 w-[240px] shrink-0 border-line bg-panel2 text-sm [&>span]:whitespace-nowrap">
           <SelectValue placeholder="Select time range" />
         </SelectTrigger>
         <SelectContent>
@@ -476,18 +515,20 @@ function RangePicker({
         Start
         <input
           type="datetime-local"
-          className="h-9 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60"
-          value={customStart}
+          className="h-9 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60 disabled:opacity-80"
+          value={timePreset === "custom" ? customStart : activeStart}
           onChange={(event) => onCustomStartChange(event.target.value)}
+          disabled={timePreset !== "custom"}
         />
       </label>
       <label className="flex items-center gap-1 text-xs text-mute">
         End
         <input
           type="datetime-local"
-          className="h-9 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60"
-          value={customEnd}
+          className="h-9 rounded-md border border-line bg-panel2 px-2 text-xs text-text outline-none focus:border-neon/60 disabled:opacity-80"
+          value={timePreset === "custom" ? customEnd : activeEnd}
           onChange={(event) => onCustomEndChange(event.target.value)}
+          disabled={timePreset !== "custom"}
         />
       </label>
     </div>
@@ -982,11 +1023,11 @@ function TelemetryComparisonBlock({
                   strokeDasharray="4 3"
                   label={{ value: "Applied", position: "insideTopRight", fill: "rgba(42,212,160,0.82)", fontSize: 10 }}
                 />
-                <Line type="monotone" dataKey="baseline" connectNulls={false} stroke="#f9c74f" strokeWidth={2.1} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="baseline" connectNulls stroke="#f9c74f" strokeWidth={2.1} dot={false} isAnimationActive={false} />
                 <Line
                   type="monotone"
                   dataKey="preview"
-                  connectNulls={false}
+                  connectNulls
                   stroke="#ff9e66"
                   strokeWidth={2.4}
                   strokeDasharray="5 3"
@@ -994,7 +1035,7 @@ function TelemetryComparisonBlock({
                   dot={false}
                   isAnimationActive={false}
                 />
-                <Line type="monotone" dataKey="actual" connectNulls={false} stroke="#29f0ff" strokeWidth={2.8} strokeOpacity={0.98} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="actual" connectNulls stroke="#29f0ff" strokeWidth={2.8} strokeOpacity={0.98} dot={false} isAnimationActive={false} />
                 <Line
                   type="monotone"
                   dataKey="target"
@@ -1103,6 +1144,23 @@ function formatDateTime(value?: string | null): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString();
+}
+
+function parseApiUtcMs(value?: string | null): number | null {
+  if (!value) return null;
+  const text = value.trim();
+  if (!text) return null;
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(text);
+  const normalized = hasTimezone ? text : `${text}Z`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.getTime();
+}
+
+function formatApiUtcDateTime(value?: string | null): string {
+  const parsedMs = parseApiUtcMs(value);
+  if (parsedMs == null) return formatDateTime(value);
+  return new Date(parsedMs).toLocaleString();
 }
 
 function normalizeHistoryState(record: AIRecommendationHistoryItem | null): RecommendationState {

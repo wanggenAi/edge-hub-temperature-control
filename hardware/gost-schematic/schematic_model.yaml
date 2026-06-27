@@ -1,0 +1,2727 @@
+{
+  "model_version": 1,
+  "source_role": "logical_schematic_model",
+  "page": {
+    "format": "A1",
+    "orientation": "landscape",
+    "width_mm": 841,
+    "height_mm": 594,
+    "coordinate_origin": "top-left"
+  },
+  "drawing_frame": {
+    "x": 20,
+    "y": 5,
+    "width": 816,
+    "height": 584,
+    "right": 836,
+    "bottom": 589,
+    "line_width_mm": 1.0
+  },
+  "main_schematic_area": {
+    "x_min": 45,
+    "x_max": 620,
+    "y_min": 45,
+    "y_max": 500
+  },
+  "functional_zones": {
+    "decoupling": {
+      "x_min": 60,
+      "x_max": 170,
+      "y_min": 60,
+      "y_max": 130,
+      "refs": [
+        "C1",
+        "C2"
+      ]
+    },
+    "reset_en": {
+      "x_min": 80,
+      "x_max": 210,
+      "y_min": 170,
+      "y_max": 250,
+      "refs": [
+        "R1",
+        "SB1"
+      ]
+    },
+    "led_status": {
+      "x_min": 80,
+      "x_max": 220,
+      "y_min": 330,
+      "y_max": 430,
+      "refs": [
+        "R3",
+        "HL1"
+      ]
+    },
+    "mcu": {
+      "x_min": 240,
+      "x_max": 380,
+      "y_min": 160,
+      "y_max": 310,
+      "refs": [
+        "DD1"
+      ]
+    },
+    "boot": {
+      "x_min": 390,
+      "x_max": 500,
+      "y_min": 340,
+      "y_max": 440,
+      "refs": [
+        "R6",
+        "SB2"
+      ]
+    },
+    "uart_service": {
+      "x_min": 410,
+      "x_max": 540,
+      "y_min": 120,
+      "y_max": 200,
+      "refs": [
+        "XS4"
+      ]
+    },
+    "sensor": {
+      "x_min": 500,
+      "x_max": 630,
+      "y_min": 60,
+      "y_max": 160,
+      "refs": [
+        "R2",
+        "XS1"
+      ]
+    },
+    "heater_driver": {
+      "x_min": 480,
+      "x_max": 630,
+      "y_min": 210,
+      "y_max": 320,
+      "refs": [
+        "R4",
+        "R5",
+        "VT1",
+        "XS2"
+      ]
+    },
+    "power": {
+      "x_min": 480,
+      "x_max": 630,
+      "y_min": 370,
+      "y_max": 500,
+      "refs": [
+        "A1",
+        "XS3",
+        "C3",
+        "C4"
+      ]
+    }
+  },
+  "title_fields": {
+    "document_code": "BSTU.241297.006 Э3",
+    "product_name": "ESP32 Temperature Control Unit",
+    "document_name": "Electrical Schematic Diagram",
+    "organization": "Brest State Technical University",
+    "format": "A1",
+    "sheet": "1",
+    "sheets": "1",
+    "scale": "N/A",
+    "mass": "N/A",
+    "name": "Wang Gen",
+    "date": "2026-05-20"
+  },
+  "components": [
+    {
+      "ref": "C1",
+      "type": "Capacitor 10 uF, 0603",
+      "symbol": "capacitor_vertical",
+      "zone": "decoupling",
+      "bbox_mm": {
+        "x": 85,
+        "y": 72,
+        "width": 26,
+        "height": 42
+      },
+      "ref_text_bbox_mm": {
+        "x": 88,
+        "y": 64,
+        "width": 20,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 112,
+        "y": 88,
+        "width": 26,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 98,
+          "y": 72,
+          "side": "top",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 100,
+            "y": 66,
+            "width": 18,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "x": 98,
+          "y": 114,
+          "side": "bottom",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 86,
+            "y": 118,
+            "width": 20,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "C2",
+      "type": "Capacitor 0.1 uF, 0603",
+      "symbol": "capacitor_vertical",
+      "zone": "decoupling",
+      "bbox_mm": {
+        "x": 125,
+        "y": 72,
+        "width": 26,
+        "height": 42
+      },
+      "ref_text_bbox_mm": {
+        "x": 128,
+        "y": 64,
+        "width": 20,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 152,
+        "y": 88,
+        "width": 28,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 138,
+          "y": 72,
+          "side": "top",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 140,
+            "y": 66,
+            "width": 18,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "x": 138,
+          "y": 114,
+          "side": "bottom",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 140,
+            "y": 112,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "type": "Resistor 10 kOhm, 0603",
+      "symbol": "resistor_horizontal",
+      "zone": "reset_en",
+      "bbox_mm": {
+        "x": 92,
+        "y": 183,
+        "width": 34,
+        "height": 18
+      },
+      "ref_text_bbox_mm": {
+        "x": 103,
+        "y": 174,
+        "width": 14,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 94,
+        "y": 202,
+        "width": 30,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 92,
+          "y": 192,
+          "side": "left",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 66,
+            "y": 189.5,
+            "width": 20,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "EN",
+          "x": 126,
+          "y": 192,
+          "side": "right",
+          "net": "EN",
+          "label_bbox_mm": {
+            "x": 130,
+            "y": 189.5,
+            "width": 14,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "SB1",
+      "type": "Tactile button 6x6x7.5",
+      "symbol": "button_vertical",
+      "zone": "reset_en",
+      "bbox_mm": {
+        "x": 145,
+        "y": 185,
+        "width": 28,
+        "height": 50
+      },
+      "ref_text_bbox_mm": {
+        "x": 170,
+        "y": 236,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 174,
+        "y": 226,
+        "width": 24,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "EN",
+          "x": 159,
+          "y": 192,
+          "side": "top",
+          "net": "EN",
+          "label_bbox_mm": {
+            "x": 150,
+            "y": 182,
+            "width": 18,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "x": 159,
+          "y": 235,
+          "side": "bottom",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 164,
+            "y": 232.5,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "R3",
+      "type": "Resistor 330 Ohm, 0603",
+      "symbol": "resistor_vertical",
+      "zone": "led_status",
+      "bbox_mm": {
+        "x": 105,
+        "y": 348,
+        "width": 28,
+        "height": 46
+      },
+      "ref_text_bbox_mm": {
+        "x": 82,
+        "y": 366,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 136,
+        "y": 368,
+        "width": 34,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 119,
+          "y": 348,
+          "side": "top",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 123,
+            "y": 342,
+            "width": 20,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "LED_A",
+          "x": 119,
+          "y": 394,
+          "side": "bottom",
+          "net": "LED_A",
+          "label_bbox_mm": {
+            "x": 123,
+            "y": 391.5,
+            "width": 22,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "HL1",
+      "type": "Red LED, 0603",
+      "symbol": "led_horizontal",
+      "zone": "led_status",
+      "bbox_mm": {
+        "x": 135,
+        "y": 396,
+        "width": 50,
+        "height": 28
+      },
+      "ref_text_bbox_mm": {
+        "x": 150,
+        "y": 425,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 150,
+        "y": 386,
+        "width": 22,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "A",
+          "name": "LED_A",
+          "x": 135,
+          "y": 410,
+          "side": "left",
+          "net": "LED_A",
+          "label_bbox_mm": {
+            "x": 112,
+            "y": 407.5,
+            "width": 18,
+            "height": 5
+          }
+        },
+        {
+          "number": "K",
+          "name": "LED",
+          "x": 185,
+          "y": 410,
+          "side": "right",
+          "net": "LED",
+          "label_bbox_mm": {
+            "x": 190,
+            "y": 407.5,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "DD1",
+      "type": "ESP32-WROOM-32 module",
+      "symbol": "mcu",
+      "zone": "mcu",
+      "bbox_mm": {
+        "x": 245,
+        "y": 165,
+        "width": 125,
+        "height": 145
+      },
+      "ref_text_bbox_mm": {
+        "x": 292,
+        "y": 170,
+        "width": 32,
+        "height": 6
+      },
+      "value_text_bbox_mm": {
+        "x": 274,
+        "y": 292,
+        "width": 66,
+        "height": 7
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "GND",
+          "x": 235,
+          "y": 185,
+          "side": "left",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 249,
+            "y": 182.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "+3V3",
+          "x": 235,
+          "y": 205,
+          "side": "left",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 249,
+            "y": 202.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "3",
+          "name": "EN",
+          "x": 235,
+          "y": 225,
+          "side": "left",
+          "net": "EN",
+          "label_bbox_mm": {
+            "x": 249,
+            "y": 222.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "4",
+          "name": "DQ",
+          "x": 235,
+          "y": 245,
+          "side": "left",
+          "net": "DQ",
+          "label_bbox_mm": {
+            "x": 249,
+            "y": 242.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "5",
+          "name": "LED",
+          "x": 235,
+          "y": 265,
+          "side": "left",
+          "net": "LED",
+          "label_bbox_mm": {
+            "x": 249,
+            "y": 262.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "6",
+          "name": "BOOT",
+          "x": 235,
+          "y": 285,
+          "side": "left",
+          "net": "BOOT",
+          "label_bbox_mm": {
+            "x": 249,
+            "y": 282.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "37",
+          "name": "IO23",
+          "x": 380,
+          "y": 185,
+          "side": "right",
+          "net": "IO23",
+          "label_bbox_mm": {
+            "x": 331,
+            "y": 182.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "35",
+          "name": "TXD0",
+          "x": 380,
+          "y": 205,
+          "side": "right",
+          "net": "TXD0",
+          "label_bbox_mm": {
+            "x": 331,
+            "y": 202.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "34",
+          "name": "RXD0",
+          "x": 380,
+          "y": 225,
+          "side": "right",
+          "net": "RXD0",
+          "label_bbox_mm": {
+            "x": 331,
+            "y": 222.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "30",
+          "name": "GATE",
+          "x": 380,
+          "y": 265,
+          "side": "right",
+          "net": "GATE",
+          "label_bbox_mm": {
+            "x": 331,
+            "y": 262.5,
+            "width": 34,
+            "height": 5
+          }
+        },
+        {
+          "number": "38",
+          "name": "GND",
+          "x": 380,
+          "y": 285,
+          "side": "right",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 331,
+            "y": 282.5,
+            "width": 34,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "XS4",
+      "type": "4-pin service connector, 5.00 mm pitch",
+      "symbol": "connector_left",
+      "zone": "uart_service",
+      "bbox_mm": {
+        "x": 440,
+        "y": 130,
+        "width": 48,
+        "height": 48
+      },
+      "ref_text_bbox_mm": {
+        "x": 455,
+        "y": 121,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 444,
+        "y": 180,
+        "width": 42,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 440,
+          "y": 136,
+          "side": "left",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 444,
+            "y": 133.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "TXD0",
+          "x": 440,
+          "y": 148,
+          "side": "left",
+          "net": "TXD0",
+          "label_bbox_mm": {
+            "x": 444,
+            "y": 145.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "3",
+          "name": "RXD0",
+          "x": 440,
+          "y": 160,
+          "side": "left",
+          "net": "RXD0",
+          "label_bbox_mm": {
+            "x": 444,
+            "y": 157.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "4",
+          "name": "IO23",
+          "x": 440,
+          "y": 172,
+          "side": "left",
+          "net": "IO23",
+          "label_bbox_mm": {
+            "x": 444,
+            "y": 169.5,
+            "width": 24,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "R2",
+      "type": "Resistor 4.7 kOhm, 0603",
+      "symbol": "resistor_vertical",
+      "zone": "sensor",
+      "bbox_mm": {
+        "x": 508,
+        "y": 75,
+        "width": 28,
+        "height": 46
+      },
+      "ref_text_bbox_mm": {
+        "x": 486,
+        "y": 92,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 540,
+        "y": 132,
+        "width": 34,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 522,
+          "y": 75,
+          "side": "top",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 526,
+            "y": 69,
+            "width": 20,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "DQ",
+          "x": 522,
+          "y": 121,
+          "side": "bottom",
+          "net": "DQ",
+          "label_bbox_mm": {
+            "x": 500,
+            "y": 126,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "XS1",
+      "type": "3-pin connector for DS18B20 sensor",
+      "symbol": "connector_left",
+      "zone": "sensor",
+      "bbox_mm": {
+        "x": 574,
+        "y": 88,
+        "width": 44,
+        "height": 36
+      },
+      "ref_text_bbox_mm": {
+        "x": 587,
+        "y": 80,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 579,
+        "y": 126,
+        "width": 36,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "GND",
+          "x": 574,
+          "y": 94,
+          "side": "left",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 578,
+            "y": 91.5,
+            "width": 22,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "DQ",
+          "x": 574,
+          "y": 106,
+          "side": "left",
+          "net": "DQ",
+          "label_bbox_mm": {
+            "x": 578,
+            "y": 103.5,
+            "width": 22,
+            "height": 5
+          }
+        },
+        {
+          "number": "3",
+          "name": "+3V3",
+          "x": 574,
+          "y": 118,
+          "side": "left",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 578,
+            "y": 115.5,
+            "width": 22,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "R4",
+      "type": "Resistor 100 Ohm, 0603",
+      "symbol": "resistor_horizontal",
+      "zone": "heater_driver",
+      "bbox_mm": {
+        "x": 485,
+        "y": 240,
+        "width": 36,
+        "height": 18
+      },
+      "ref_text_bbox_mm": {
+        "x": 496,
+        "y": 231,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 486,
+        "y": 260,
+        "width": 34,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "GATE",
+          "x": 485,
+          "y": 249,
+          "side": "left",
+          "net": "GATE",
+          "label_bbox_mm": {
+            "x": 453,
+            "y": 246.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GATE_R",
+          "x": 521,
+          "y": 249,
+          "side": "right",
+          "net": "GATE_R",
+          "label_bbox_mm": {
+            "x": 526,
+            "y": 246.5,
+            "width": 28,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "R5",
+      "type": "Resistor 10 kOhm, 0603",
+      "symbol": "resistor_vertical",
+      "zone": "heater_driver",
+      "bbox_mm": {
+        "x": 516,
+        "y": 268,
+        "width": 28,
+        "height": 46
+      },
+      "ref_text_bbox_mm": {
+        "x": 494,
+        "y": 286,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 580,
+        "y": 292,
+        "width": 30,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "GATE_R",
+          "x": 530,
+          "y": 268,
+          "side": "top",
+          "net": "GATE_R",
+          "label_bbox_mm": {
+            "x": 534,
+            "y": 262,
+            "width": 28,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "x": 530,
+          "y": 314,
+          "side": "bottom",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 534,
+            "y": 311.5,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "VT1",
+      "type": "N-channel MOSFET, SOT-23",
+      "symbol": "mosfet",
+      "zone": "heater_driver",
+      "bbox_mm": {
+        "x": 540,
+        "y": 226,
+        "width": 35,
+        "height": 58
+      },
+      "ref_text_bbox_mm": {
+        "x": 548,
+        "y": 216,
+        "width": 20,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 578,
+        "y": 259,
+        "width": 36,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "G",
+          "name": "GATE_R",
+          "x": 540,
+          "y": 255,
+          "side": "left",
+          "net": "GATE_R",
+          "label_bbox_mm": {
+            "x": 522,
+            "y": 240,
+            "width": 22,
+            "height": 5
+          }
+        },
+        {
+          "number": "D",
+          "name": "HEAT-",
+          "x": 557,
+          "y": 226,
+          "side": "top",
+          "net": "HEAT-",
+          "label_bbox_mm": {
+            "x": 560,
+            "y": 219,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "S",
+          "name": "GND",
+          "x": 557,
+          "y": 284,
+          "side": "bottom",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 560,
+            "y": 281.5,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "XS2",
+      "type": "2-pin connector, KF2EDGV-3.81-2P",
+      "symbol": "connector_left",
+      "zone": "heater_driver",
+      "bbox_mm": {
+        "x": 590,
+        "y": 236,
+        "width": 38,
+        "height": 24
+      },
+      "ref_text_bbox_mm": {
+        "x": 600,
+        "y": 218,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 592,
+        "y": 262,
+        "width": 34,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+12V",
+          "x": 590,
+          "y": 242,
+          "side": "left",
+          "net": "+12V",
+          "label_bbox_mm": {
+            "x": 582,
+            "y": 230,
+            "width": 22,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "HEAT-",
+          "x": 590,
+          "y": 254,
+          "side": "left",
+          "net": "HEAT-",
+          "label_bbox_mm": {
+            "x": 592,
+            "y": 246,
+            "width": 24,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "R6",
+      "type": "Resistor 10 kOhm, 0603",
+      "symbol": "resistor_horizontal",
+      "zone": "boot",
+      "bbox_mm": {
+        "x": 398,
+        "y": 366,
+        "width": 34,
+        "height": 18
+      },
+      "ref_text_bbox_mm": {
+        "x": 409,
+        "y": 357,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 398,
+        "y": 386,
+        "width": 30,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "x": 398,
+          "y": 375,
+          "side": "left",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 370,
+            "y": 372.5,
+            "width": 22,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "BOOT",
+          "x": 432,
+          "y": 375,
+          "side": "right",
+          "net": "BOOT",
+          "label_bbox_mm": {
+            "x": 436,
+            "y": 372.5,
+            "width": 22,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "SB2",
+      "type": "Tactile button 6x6x7.5",
+      "symbol": "button_vertical",
+      "zone": "boot",
+      "bbox_mm": {
+        "x": 442,
+        "y": 384,
+        "width": 28,
+        "height": 50
+      },
+      "ref_text_bbox_mm": {
+        "x": 470,
+        "y": 437,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 472,
+        "y": 407,
+        "width": 24,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "BOOT",
+          "x": 456,
+          "y": 375,
+          "side": "top",
+          "net": "BOOT",
+          "label_bbox_mm": {
+            "x": 462,
+            "y": 372.5,
+            "width": 22,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "x": 456,
+          "y": 434,
+          "side": "bottom",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 462,
+            "y": 431.5,
+            "width": 18,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "XS3",
+      "type": "2-pin connector, KF2EDGV-3.81-2P",
+      "symbol": "connector_right",
+      "zone": "power",
+      "bbox_mm": {
+        "x": 488,
+        "y": 392,
+        "width": 38,
+        "height": 24
+      },
+      "ref_text_bbox_mm": {
+        "x": 498,
+        "y": 383,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 486,
+        "y": 418,
+        "width": 40,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "+12V",
+          "x": 526,
+          "y": 398,
+          "side": "right",
+          "net": "+12V",
+          "label_bbox_mm": {
+            "x": 492,
+            "y": 395.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "x": 526,
+          "y": 410,
+          "side": "right",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 492,
+            "y": 407.5,
+            "width": 24,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "A1",
+      "type": "DC/DC converter 12 V / 3.3 V",
+      "symbol": "module",
+      "zone": "power",
+      "bbox_mm": {
+        "x": 550,
+        "y": 386,
+        "width": 56,
+        "height": 48
+      },
+      "ref_text_bbox_mm": {
+        "x": 572,
+        "y": 390,
+        "width": 14,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 555,
+        "y": 412,
+        "width": 46,
+        "height": 12
+      },
+      "pins": [
+        {
+          "number": "IN+",
+          "name": "+12V",
+          "x": 550,
+          "y": 398,
+          "side": "left",
+          "net": "+12V",
+          "label_bbox_mm": {
+            "x": 555,
+            "y": 395.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "IN-",
+          "name": "GND",
+          "x": 550,
+          "y": 410,
+          "side": "left",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 555,
+            "y": 407.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "OUT+",
+          "name": "+3V3",
+          "x": 606,
+          "y": 398,
+          "side": "right",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 574,
+            "y": 395.5,
+            "width": 24,
+            "height": 5
+          }
+        },
+        {
+          "number": "OUT-",
+          "name": "GND",
+          "x": 606,
+          "y": 422,
+          "side": "right",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 574,
+            "y": 419.5,
+            "width": 24,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "C3",
+      "type": "Capacitor 100 uF, 0603",
+      "symbol": "capacitor_horizontal",
+      "zone": "power",
+      "bbox_mm": {
+        "x": 528,
+        "y": 452,
+        "width": 50,
+        "height": 26
+      },
+      "ref_text_bbox_mm": {
+        "x": 544,
+        "y": 443,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 583,
+        "y": 452,
+        "width": 30,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "GND",
+          "x": 528,
+          "y": 465,
+          "side": "left",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 500,
+            "y": 462.5,
+            "width": 20,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "+3V3",
+          "x": 578,
+          "y": 465,
+          "side": "right",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 584,
+            "y": 462.5,
+            "width": 22,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "ref": "C4",
+      "type": "Capacitor 0.1 uF, 0603",
+      "symbol": "capacitor_horizontal",
+      "zone": "power",
+      "bbox_mm": {
+        "x": 528,
+        "y": 485,
+        "width": 50,
+        "height": 14
+      },
+      "ref_text_bbox_mm": {
+        "x": 544,
+        "y": 477,
+        "width": 18,
+        "height": 5
+      },
+      "value_text_bbox_mm": {
+        "x": 583,
+        "y": 481,
+        "width": 30,
+        "height": 5
+      },
+      "pins": [
+        {
+          "number": "1",
+          "name": "GND",
+          "x": 528,
+          "y": 492,
+          "side": "left",
+          "net": "GND",
+          "label_bbox_mm": {
+            "x": 500,
+            "y": 489.5,
+            "width": 20,
+            "height": 5
+          }
+        },
+        {
+          "number": "2",
+          "name": "+3V3",
+          "x": 578,
+          "y": 492,
+          "side": "right",
+          "net": "+3V3",
+          "label_bbox_mm": {
+            "x": 584,
+            "y": 489.5,
+            "width": 22,
+            "height": 5
+          }
+        }
+      ]
+    }
+  ],
+  "junctions": [
+    {
+      "id": "EN.001",
+      "net": "EN",
+      "x": 159,
+      "y": 192
+    },
+    {
+      "id": "DQ.001",
+      "net": "DQ",
+      "x": 552,
+      "y": 121
+    },
+    {
+      "id": "DQ.002",
+      "net": "DQ",
+      "x": 552,
+      "y": 106
+    },
+    {
+      "id": "GND.driver.001",
+      "net": "GND",
+      "x": 557,
+      "y": 302
+    },
+    {
+      "id": "GND.power.001",
+      "net": "GND",
+      "x": 526,
+      "y": 410
+    },
+    {
+      "id": "GND.power.002",
+      "net": "GND",
+      "x": 535,
+      "y": 410
+    },
+    {
+      "id": "GND.power.003",
+      "net": "GND",
+      "x": 540,
+      "y": 410
+    },
+    {
+      "id": "BOOT.001",
+      "net": "BOOT",
+      "x": 456,
+      "y": 375
+    },
+    {
+      "id": "GATE_R.001",
+      "net": "GATE_R",
+      "x": 525,
+      "y": 249
+    },
+    {
+      "id": "GATE_R.002",
+      "net": "GATE_R",
+      "x": 525,
+      "y": 255
+    }
+  ],
+  "net_labels": [
+    {
+      "id": "+3V3.decoupling",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 70,
+        "y": 72
+      },
+      "bbox_mm": {
+        "x": 58,
+        "y": 62,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.decoupling",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 118,
+        "y": 114
+      },
+      "bbox_mm": {
+        "x": 108,
+        "y": 119,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.reset",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 82,
+        "y": 192
+      },
+      "bbox_mm": {
+        "x": 58,
+        "y": 189,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.reset",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 159,
+        "y": 244
+      },
+      "bbox_mm": {
+        "x": 149,
+        "y": 248,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "EN.dd1",
+      "net": "EN",
+      "text": "EN",
+      "anchor": {
+        "x": 220,
+        "y": 225
+      },
+      "bbox_mm": {
+        "x": 204,
+        "y": 214,
+        "width": 14,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.dd1",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 220,
+        "y": 205
+      },
+      "bbox_mm": {
+        "x": 194,
+        "y": 202,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.dd1.left",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 220,
+        "y": 185
+      },
+      "bbox_mm": {
+        "x": 196,
+        "y": 182,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.dd1.right",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 395,
+        "y": 285
+      },
+      "bbox_mm": {
+        "x": 397,
+        "y": 282,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "DQ.dd1",
+      "net": "DQ",
+      "text": "DQ",
+      "anchor": {
+        "x": 220,
+        "y": 245
+      },
+      "bbox_mm": {
+        "x": 204,
+        "y": 242,
+        "width": 14,
+        "height": 6
+      }
+    },
+    {
+      "id": "LED.dd1",
+      "net": "LED",
+      "text": "LED",
+      "anchor": {
+        "x": 220,
+        "y": 265
+      },
+      "bbox_mm": {
+        "x": 198,
+        "y": 262,
+        "width": 20,
+        "height": 6
+      }
+    },
+    {
+      "id": "BOOT.dd1",
+      "net": "BOOT",
+      "text": "BOOT",
+      "anchor": {
+        "x": 220,
+        "y": 285
+      },
+      "bbox_mm": {
+        "x": 194,
+        "y": 282,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "IO23.dd1",
+      "net": "IO23",
+      "text": "IO23",
+      "anchor": {
+        "x": 395,
+        "y": 185
+      },
+      "bbox_mm": {
+        "x": 397,
+        "y": 182,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "TXD0.dd1",
+      "net": "TXD0",
+      "text": "TXD0",
+      "anchor": {
+        "x": 395,
+        "y": 205
+      },
+      "bbox_mm": {
+        "x": 397,
+        "y": 202,
+        "width": 26,
+        "height": 6
+      }
+    },
+    {
+      "id": "RXD0.dd1",
+      "net": "RXD0",
+      "text": "RXD0",
+      "anchor": {
+        "x": 395,
+        "y": 225
+      },
+      "bbox_mm": {
+        "x": 397,
+        "y": 222,
+        "width": 26,
+        "height": 6
+      }
+    },
+    {
+      "id": "GATE.dd1",
+      "net": "GATE",
+      "text": "GATE",
+      "anchor": {
+        "x": 395,
+        "y": 265
+      },
+      "bbox_mm": {
+        "x": 397,
+        "y": 262,
+        "width": 26,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.xs4",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 424,
+        "y": 136
+      },
+      "bbox_mm": {
+        "x": 398,
+        "y": 133,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "TXD0.xs4",
+      "net": "TXD0",
+      "text": "TXD0",
+      "anchor": {
+        "x": 424,
+        "y": 148
+      },
+      "bbox_mm": {
+        "x": 398,
+        "y": 145,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "RXD0.xs4",
+      "net": "RXD0",
+      "text": "RXD0",
+      "anchor": {
+        "x": 424,
+        "y": 160
+      },
+      "bbox_mm": {
+        "x": 398,
+        "y": 157,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "IO23.xs4",
+      "net": "IO23",
+      "text": "IO23",
+      "anchor": {
+        "x": 424,
+        "y": 172
+      },
+      "bbox_mm": {
+        "x": 398,
+        "y": 169,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.sensor",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 522,
+        "y": 64
+      },
+      "bbox_mm": {
+        "x": 510,
+        "y": 54,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.sensor",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 556,
+        "y": 94
+      },
+      "bbox_mm": {
+        "x": 532,
+        "y": 91,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "DQ.sensor",
+      "net": "DQ",
+      "text": "DQ",
+      "anchor": {
+        "x": 552,
+        "y": 106
+      },
+      "bbox_mm": {
+        "x": 532,
+        "y": 97,
+        "width": 14,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.xs1",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 552,
+        "y": 118
+      },
+      "bbox_mm": {
+        "x": 556,
+        "y": 122,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "GATE.driver",
+      "net": "GATE",
+      "text": "GATE",
+      "anchor": {
+        "x": 470,
+        "y": 249
+      },
+      "bbox_mm": {
+        "x": 444,
+        "y": 246,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "+12V.heater",
+      "net": "+12V",
+      "text": "+12V",
+      "anchor": {
+        "x": 580,
+        "y": 242
+      },
+      "bbox_mm": {
+        "x": 558,
+        "y": 232,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.driver",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 557,
+        "y": 302
+      },
+      "bbox_mm": {
+        "x": 570,
+        "y": 306,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.boot",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 386,
+        "y": 375
+      },
+      "bbox_mm": {
+        "x": 362,
+        "y": 372,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.boot",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 456,
+        "y": 443
+      },
+      "bbox_mm": {
+        "x": 446,
+        "y": 447,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.led",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 119,
+        "y": 336
+      },
+      "bbox_mm": {
+        "x": 107,
+        "y": 326,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "LED.out",
+      "net": "LED",
+      "text": "LED",
+      "anchor": {
+        "x": 200,
+        "y": 410
+      },
+      "bbox_mm": {
+        "x": 204,
+        "y": 407,
+        "width": 20,
+        "height": 6
+      }
+    },
+    {
+      "id": "+12V.power",
+      "net": "+12V",
+      "text": "+12V",
+      "anchor": {
+        "x": 535,
+        "y": 398
+      },
+      "bbox_mm": {
+        "x": 532,
+        "y": 386,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.power",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 535,
+        "y": 410
+      },
+      "bbox_mm": {
+        "x": 500,
+        "y": 420,
+        "width": 22,
+        "height": 6
+      }
+    },
+    {
+      "id": "+3V3.power",
+      "net": "+3V3",
+      "text": "+3V3",
+      "anchor": {
+        "x": 620,
+        "y": 398
+      },
+      "bbox_mm": {
+        "x": 616,
+        "y": 386,
+        "width": 24,
+        "height": 6
+      }
+    },
+    {
+      "id": "GND.power.out",
+      "net": "GND",
+      "text": "GND",
+      "anchor": {
+        "x": 634,
+        "y": 422
+      },
+      "bbox_mm": {
+        "x": 612,
+        "y": 426,
+        "width": 22,
+        "height": 6
+      }
+    }
+  ],
+  "wires": [
+    {
+      "id": "+3V3.decoupling.001",
+      "net": "+3V3",
+      "points": [
+        [
+          70,
+          72
+        ],
+        [
+          98,
+          72
+        ],
+        [
+          138,
+          72
+        ]
+      ]
+    },
+    {
+      "id": "GND.decoupling.001",
+      "net": "GND",
+      "points": [
+        [
+          98,
+          114
+        ],
+        [
+          118,
+          114
+        ],
+        [
+          138,
+          114
+        ]
+      ]
+    },
+    {
+      "id": "+3V3.reset.001",
+      "net": "+3V3",
+      "points": [
+        [
+          82,
+          192
+        ],
+        [
+          92,
+          192
+        ]
+      ]
+    },
+    {
+      "id": "EN.reset.001",
+      "net": "EN",
+      "points": [
+        [
+          126,
+          192
+        ],
+        [
+          159,
+          192
+        ]
+      ]
+    },
+    {
+      "id": "EN.reset.002",
+      "net": "EN",
+      "points": [
+        [
+          159,
+          192
+        ],
+        [
+          190,
+          192
+        ],
+        [
+          190,
+          225
+        ],
+        [
+          220,
+          225
+        ],
+        [
+          235,
+          225
+        ]
+      ]
+    },
+    {
+      "id": "GND.reset.001",
+      "net": "GND",
+      "points": [
+        [
+          159,
+          235
+        ],
+        [
+          159,
+          244
+        ]
+      ]
+    },
+    {
+      "id": "+3V3.dd1.001",
+      "net": "+3V3",
+      "points": [
+        [
+          220,
+          205
+        ],
+        [
+          235,
+          205
+        ]
+      ]
+    },
+    {
+      "id": "GND.dd1.001",
+      "net": "GND",
+      "points": [
+        [
+          220,
+          185
+        ],
+        [
+          235,
+          185
+        ]
+      ]
+    },
+    {
+      "id": "DQ.dd1.001",
+      "net": "DQ",
+      "points": [
+        [
+          220,
+          245
+        ],
+        [
+          235,
+          245
+        ]
+      ]
+    },
+    {
+      "id": "LED.dd1.001",
+      "net": "LED",
+      "points": [
+        [
+          220,
+          265
+        ],
+        [
+          235,
+          265
+        ]
+      ]
+    },
+    {
+      "id": "BOOT.dd1.001",
+      "net": "BOOT",
+      "points": [
+        [
+          220,
+          285
+        ],
+        [
+          235,
+          285
+        ]
+      ]
+    },
+    {
+      "id": "IO23.dd1.001",
+      "net": "IO23",
+      "points": [
+        [
+          380,
+          185
+        ],
+        [
+          395,
+          185
+        ]
+      ]
+    },
+    {
+      "id": "TXD0.dd1.001",
+      "net": "TXD0",
+      "points": [
+        [
+          380,
+          205
+        ],
+        [
+          395,
+          205
+        ]
+      ]
+    },
+    {
+      "id": "RXD0.dd1.001",
+      "net": "RXD0",
+      "points": [
+        [
+          380,
+          225
+        ],
+        [
+          395,
+          225
+        ]
+      ]
+    },
+    {
+      "id": "GATE.dd1.001",
+      "net": "GATE",
+      "points": [
+        [
+          380,
+          265
+        ],
+        [
+          395,
+          265
+        ]
+      ]
+    },
+    {
+      "id": "GND.dd1.right.001",
+      "net": "GND",
+      "points": [
+        [
+          380,
+          285
+        ],
+        [
+          395,
+          285
+        ]
+      ]
+    },
+    {
+      "id": "XS4.+3V3.001",
+      "net": "+3V3",
+      "points": [
+        [
+          440,
+          136
+        ],
+        [
+          424,
+          136
+        ]
+      ]
+    },
+    {
+      "id": "XS4.TXD0.001",
+      "net": "TXD0",
+      "points": [
+        [
+          440,
+          148
+        ],
+        [
+          424,
+          148
+        ]
+      ]
+    },
+    {
+      "id": "XS4.RXD0.001",
+      "net": "RXD0",
+      "points": [
+        [
+          440,
+          160
+        ],
+        [
+          424,
+          160
+        ]
+      ]
+    },
+    {
+      "id": "XS4.IO23.001",
+      "net": "IO23",
+      "points": [
+        [
+          440,
+          172
+        ],
+        [
+          424,
+          172
+        ]
+      ]
+    },
+    {
+      "id": "+3V3.sensor.001",
+      "net": "+3V3",
+      "points": [
+        [
+          522,
+          64
+        ],
+        [
+          522,
+          75
+        ]
+      ]
+    },
+    {
+      "id": "DQ.sensor.001",
+      "net": "DQ",
+      "points": [
+        [
+          522,
+          121
+        ],
+        [
+          548,
+          121
+        ],
+        [
+          548,
+          106
+        ],
+        [
+          574,
+          106
+        ]
+      ]
+    },
+    {
+      "id": "+3V3.sensor.002",
+      "net": "+3V3",
+      "points": [
+        [
+          552,
+          118
+        ],
+        [
+          574,
+          118
+        ]
+      ]
+    },
+    {
+      "id": "GND.sensor.001",
+      "net": "GND",
+      "points": [
+        [
+          556,
+          94
+        ],
+        [
+          574,
+          94
+        ]
+      ]
+    },
+    {
+      "id": "GATE.driver.001",
+      "net": "GATE",
+      "points": [
+        [
+          470,
+          249
+        ],
+        [
+          485,
+          249
+        ]
+      ]
+    },
+    {
+      "id": "GATE_R.driver.001",
+      "net": "GATE_R",
+      "points": [
+        [
+          521,
+          249
+        ],
+        [
+          525,
+          249
+        ],
+        [
+          525,
+          255
+        ],
+        [
+          540,
+          255
+        ]
+      ]
+    },
+    {
+      "id": "GATE_R.driver.002",
+      "net": "GATE_R",
+      "points": [
+        [
+          525,
+          249
+        ],
+        [
+          525,
+          268
+        ],
+        [
+          530,
+          268
+        ]
+      ]
+    },
+    {
+      "id": "GND.driver.001",
+      "net": "GND",
+      "points": [
+        [
+          530,
+          314
+        ],
+        [
+          530,
+          322
+        ],
+        [
+          557,
+          322
+        ],
+        [
+          557,
+          284
+        ]
+      ]
+    },
+    {
+      "id": "GND.driver.002",
+      "net": "GND",
+      "points": [
+        [
+          557,
+          302
+        ],
+        [
+          557,
+          302
+        ]
+      ]
+    },
+    {
+      "id": "HEAT.driver.001",
+      "net": "HEAT-",
+      "points": [
+        [
+          557,
+          226
+        ],
+        [
+          584,
+          226
+        ],
+        [
+          584,
+          230
+        ],
+        [
+          612,
+          230
+        ],
+        [
+          612,
+          254
+        ],
+        [
+          590,
+          254
+        ]
+      ]
+    },
+    {
+      "id": "+12V.heater.001",
+      "net": "+12V",
+      "points": [
+        [
+          580,
+          242
+        ],
+        [
+          590,
+          242
+        ]
+      ]
+    },
+    {
+      "id": "+3V3.boot.001",
+      "net": "+3V3",
+      "points": [
+        [
+          386,
+          375
+        ],
+        [
+          398,
+          375
+        ]
+      ]
+    },
+    {
+      "id": "BOOT.boot.001",
+      "net": "BOOT",
+      "points": [
+        [
+          432,
+          375
+        ],
+        [
+          456,
+          375
+        ]
+      ]
+    },
+    {
+      "id": "GND.boot.001",
+      "net": "GND",
+      "points": [
+        [
+          456,
+          434
+        ],
+        [
+          456,
+          443
+        ]
+      ]
+    },
+    {
+      "id": "+3V3.led.001",
+      "net": "+3V3",
+      "points": [
+        [
+          119,
+          336
+        ],
+        [
+          119,
+          348
+        ]
+      ]
+    },
+    {
+      "id": "LED_A.001",
+      "net": "LED_A",
+      "points": [
+        [
+          119,
+          394
+        ],
+        [
+          119,
+          410
+        ],
+        [
+          135,
+          410
+        ]
+      ]
+    },
+    {
+      "id": "LED.001",
+      "net": "LED",
+      "points": [
+        [
+          185,
+          410
+        ],
+        [
+          200,
+          410
+        ]
+      ]
+    },
+    {
+      "id": "POWER.+12V.001",
+      "net": "+12V",
+      "points": [
+        [
+          526,
+          398
+        ],
+        [
+          535,
+          398
+        ],
+        [
+          550,
+          398
+        ]
+      ]
+    },
+    {
+      "id": "POWER.GND.001",
+      "net": "GND",
+      "points": [
+        [
+          526,
+          410
+        ],
+        [
+          550,
+          410
+        ]
+      ]
+    },
+    {
+      "id": "POWER.+3V3.001",
+      "net": "+3V3",
+      "points": [
+        [
+          606,
+          398
+        ],
+        [
+          620,
+          398
+        ]
+      ]
+    },
+    {
+      "id": "POWER.GNDOUT.001",
+      "net": "GND",
+      "points": [
+        [
+          606,
+          422
+        ],
+        [
+          634,
+          422
+        ]
+      ]
+    },
+    {
+      "id": "C3.GND.001",
+      "net": "GND",
+      "points": [
+        [
+          528,
+          465
+        ],
+        [
+          540,
+          465
+        ],
+        [
+          540,
+          410
+        ],
+        [
+          535,
+          410
+        ]
+      ]
+    },
+    {
+      "id": "C3.+3V3.001",
+      "net": "+3V3",
+      "points": [
+        [
+          578,
+          465
+        ],
+        [
+          650,
+          465
+        ],
+        [
+          650,
+          398
+        ],
+        [
+          620,
+          398
+        ]
+      ]
+    },
+    {
+      "id": "C4.GND.001",
+      "net": "GND",
+      "points": [
+        [
+          528,
+          492
+        ],
+        [
+          540,
+          492
+        ],
+        [
+          540,
+          465
+        ]
+      ]
+    },
+    {
+      "id": "C4.+3V3.001",
+      "net": "+3V3",
+      "points": [
+        [
+          578,
+          492
+        ],
+        [
+          650,
+          492
+        ],
+        [
+          650,
+          465
+        ]
+      ]
+    }
+  ]
+}

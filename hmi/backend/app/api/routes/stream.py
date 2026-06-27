@@ -18,6 +18,57 @@ from app.services.tdengine_client import TdengineClient
 router = APIRouter(prefix="/stream", tags=["stream"])
 tdengine = TdengineClient()
 log = logging.getLogger(__name__)
+LIVE_SNAPSHOT_FRESH_MS = 2 * 60 * 1000
+
+
+def _utc_ms_now() -> int:
+    return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+
+
+def _td_ts_value_to_ms(value) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            return int(value)
+        return int(tdengine.to_datetime(value).timestamp() * 1000)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _is_fresh_td_timestamp(value, *, max_age_ms: int = LIVE_SNAPSHOT_FRESH_MS) -> bool:
+    ts_ms = _td_ts_value_to_ms(value)
+    if ts_ms is None:
+        return False
+    age_ms = _utc_ms_now() - ts_ms
+    return 0 <= age_ms <= max_age_ms
+
+
+def _td_pwm_percent(row: dict, *, duty_key: str = "pwm_duty", norm_key: str = "pwm_norm") -> float:
+    norm = row.get(norm_key)
+    if norm is not None:
+        try:
+            norm_value = float(norm)
+        except (TypeError, ValueError):
+            norm_value = None
+        if norm_value is not None and norm_value == norm_value:
+            if 0.0 <= norm_value <= 1.5:
+                return max(0.0, min(100.0, norm_value * 100.0))
+            if 1.5 < norm_value <= 100.0:
+                return max(0.0, min(100.0, norm_value))
+
+    duty = row.get(duty_key)
+    if duty is None:
+        return 0.0
+    try:
+        duty_value = float(duty)
+    except (TypeError, ValueError):
+        return 0.0
+    if duty_value != duty_value:
+        return 0.0
+    if duty_value > 100.0:
+        return max(0.0, min(100.0, duty_value / 255.0 * 100.0))
+    return max(0.0, min(100.0, duty_value))
 
 
 def _decode_username(token: str) -> str:
@@ -49,7 +100,7 @@ def _latest_snapshots_by_code() -> dict[str, dict]:
         return {}
     db_name = settings.tdengine_database
     sql = (
-        f"SELECT ts, device_id, sensor_temp_c, target_temp_c, pwm_duty, fault_latched "
+        f"SELECT ts, device_id, sensor_temp_c, target_temp_c, pwm_duty, pwm_norm, fault_latched "
         f"FROM {db_name}.telemetry ORDER BY ts DESC LIMIT 5000"
     )
     result = tdengine.query(sql)
@@ -101,13 +152,20 @@ def _serialize_devices(devices: list[Device]) -> list[dict]:
         is_alarm = bool(device.is_alarm)
         is_online = bool(device.is_online)
         status = latest_status.get(device.code)
-        if status and status.get("online") is not None:
+        status_is_fresh = bool(status and _is_fresh_td_timestamp(status.get("ts")))
+        if status and status.get("online") is not None and status_is_fresh:
             is_online = bool(status.get("online"))
         if snap:
             current_temp = float(snap.get("sensor_temp_c") or 0.0)
-            pwm_output = float(snap.get("pwm_duty") or 0.0)
+            target_temp = float(snap.get("target_temp_c") or target_temp)
+            pwm_output = _td_pwm_percent(snap)
             is_alarm = bool(snap.get("fault_latched") or False)
-            snapshot_ts = tdengine.to_datetime(snap.get("ts")).isoformat()
+            if _is_fresh_td_timestamp(snap.get("ts")):
+                snapshot_ts = tdengine.to_datetime(snap.get("ts")).isoformat()
+                if not status:
+                    is_online = True
+            elif not status_is_fresh:
+                is_online = False
         payload.append(
             {
                 "id": device.id,

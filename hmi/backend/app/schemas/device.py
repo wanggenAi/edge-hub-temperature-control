@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class DeviceBase(BaseModel):
@@ -13,6 +13,14 @@ class DeviceBase(BaseModel):
     location: str
     status: str = "active"
     target_temp: float = 37.0
+
+    @field_validator("code", "name", "line", "location", "status")
+    @classmethod
+    def non_blank_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("must not be blank")
+        return text
 
 
 class DeviceCreate(DeviceBase):
@@ -32,6 +40,16 @@ class DeviceUpdate(BaseModel):
     pwm_output: Optional[float] = None
     is_alarm: Optional[bool] = None
     is_online: Optional[bool] = None
+
+    @field_validator("name", "line", "location", "status")
+    @classmethod
+    def optional_non_blank_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        text = value.strip()
+        if not text:
+            raise ValueError("must not be blank")
+        return text
 
 
 class DeviceOut(DeviceBase):

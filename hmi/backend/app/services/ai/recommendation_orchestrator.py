@@ -10,7 +10,7 @@ from app.services.ai.schemas import PIDParams, RecommendationGenerateInput, Reco
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    return Path(__file__).resolve().parents[5]
 
 
 @dataclass

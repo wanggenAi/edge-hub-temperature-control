@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -86,11 +87,16 @@ LIVE_PAGE_FIELD_Y_TWIPS = 15880
 LIVE_PAGE_FIELD_WIDTH_TWIPS = 540
 LIVE_PAGE_FIELD_HEIGHT_TWIPS = 500
 LIVE_PAGE_FIELD_RUN_POSITION_HALF_POINTS = 0
-BODY_TITLE_BLOCK_CODE = "BSTU.YOUR_NUMBER- 12 81 00"
+BODY_TITLE_BLOCK_CODE = "БрГТУ.241297 - 05 81 00"
+BODY_TITLE_BLOCK_PAGE_START = 5
+BODY_TITLE_BLOCK_TOTAL_PAGES = 62
 FORMULA_SYMBOL_TAB_MM = 16.0
 FORMULA_SYMBOL_TAB_TWIPS = mm_to_twips(FORMULA_SYMBOL_TAB_MM)
 FORMULA_SYMBOL_RE = r"[A-Za-z][A-Za-z0-9_]*(?:\([^)]*\))?"
 CONTENTS_FIRST_PAGE_ENTRY_LIMIT = 27
+FLOAT_SPACING_MIN_PT = 12.0
+FLOAT_SPACING_MAX_PT = 15.0
+NUMBERED_REFERENCE_WORDS_RE = r"(?:Figure|Table|formula|equation|expression|equality|transfer function)"
 
 
 RULE_MARGIN_TWIPS = {
@@ -299,6 +305,17 @@ def _effective_line_spacing(paragraph: etree._Element, styles: dict[str, etree._
     return None
 
 
+def _effective_exact_line_spacing_pt(paragraph: etree._Element, styles: dict[str, etree._Element]) -> float | None:
+    for ppr in reversed(_paragraph_props(paragraph, styles)):
+        spacing = ppr.find("w:spacing", namespaces=NS)
+        if spacing is not None and spacing.get(qn("w:line")):
+            line_rule = spacing.get(qn("w:lineRule"))
+            if line_rule not in {"exact", "atLeast"}:
+                continue
+            return int(spacing.get(qn("w:line"))) / 20
+    return None
+
+
 def _effective_first_line_indent_mm(
     paragraph: etree._Element, styles: dict[str, etree._Element]
 ) -> float | None:
@@ -338,6 +355,52 @@ def _has_literal_tab_before_symbol(paragraph: etree._Element, *, first_where_lin
     return False
 
 
+def _is_empty_body_paragraph(element: etree._Element | None) -> bool:
+    if element is None or element.tag != qn("w:p"):
+        return False
+    if _paragraph_has_page_break(element):
+        return False
+    if _clean(text_of(element)):
+        return False
+    return not element.xpath(".//a:blip|.//w:drawing|.//w:pict|.//v:shape|.//wps:wsp", namespaces=NS)
+
+
+def _paragraph_has_page_break(element: etree._Element | None) -> bool:
+    if element is None or element.tag != qn("w:p"):
+        return False
+    return bool(element.xpath(".//w:br[@w:type='page']", namespaces=NS))
+
+
+def _is_empty_spacing_paragraph(element: etree._Element | None) -> bool:
+    return _is_empty_body_paragraph(element) and not _paragraph_has_page_break(element)
+
+
+def _is_float_spacing_paragraph(element: etree._Element | None, styles: dict[str, etree._Element]) -> bool:
+    if not _is_empty_spacing_paragraph(element):
+        return False
+    spacing_pt = _effective_exact_line_spacing_pt(element, styles)
+    return spacing_pt is not None and FLOAT_SPACING_MIN_PT <= spacing_pt <= FLOAT_SPACING_MAX_PT
+
+
+def _has_formula_trailing_comma(paragraph: etree._Element) -> bool:
+    seen_math = False
+    for child_el in paragraph:
+        if child_el.tag in {qn("m:oMath"), qn("m:oMathPara")}:
+            seen_math = True
+            continue
+        if not seen_math or child_el.tag != qn("w:r"):
+            continue
+        if child_el.find("w:tab", namespaces=NS) is not None:
+            return False
+        if "".join(child_el.xpath("./w:t/text()", namespaces=NS)) == ",":
+            return True
+    return False
+
+
+def _has_formula_comma_inside_math(paragraph: etree._Element) -> bool:
+    return any("," in text for text in paragraph.xpath(".//m:oMath//m:t/text()|.//m:oMathPara//m:t/text()", namespaces=NS))
+
+
 def _has_page_break_before(paragraph: etree._Element, styles: dict[str, etree._Element]) -> bool:
     for ppr in reversed(_paragraph_props(paragraph, styles)):
         page_break = ppr.find("w:pageBreakBefore", namespaces=NS)
@@ -352,7 +415,17 @@ def _is_template_paragraph(paragraph: etree._Element) -> bool:
         ".//a:blip", namespaces=NS
     ):
         return True
-    return any(key in text for key in ["BSTU.YOUR_NUMBER", "Sign", "Supervisor", "Author", "Computer&Systems"])
+    return any(
+        key in text
+        for key in [
+            "BSTU.YOUR_NUMBER",
+            "БрГТУ.241297",
+            "Sign",
+            "Supervisor",
+            "Author",
+            "Computer&Systems",
+        ]
+    )
 
 
 def _is_body_candidate(paragraph: etree._Element, styles: dict[str, etree._Element]) -> bool:
@@ -794,6 +867,44 @@ def _shape_has_field(shape: etree._Element, instr: str) -> bool:
     )
 
 
+def _field_display_values(element: etree._Element, instr: str) -> list[str]:
+    pattern = re.compile(rf"\b{re.escape(instr)}\b")
+    values: list[str] = []
+    in_field = False
+    after_separate = False
+    for node in element.iter():
+        if node.tag == qn("w:instrText") and node.text and pattern.search(node.text):
+            in_field = True
+            after_separate = False
+        elif in_field and node.tag == qn("w:fldChar"):
+            fld_type = node.get(qn("w:fldCharType"))
+            if fld_type == "separate":
+                after_separate = True
+            elif fld_type == "end":
+                in_field = False
+                after_separate = False
+        elif in_field and after_separate and node.tag == qn("w:t") and node.text:
+            values.append(_clean(node.text))
+    return values
+
+
+def _text_outside_fields(element: etree._Element) -> list[str]:
+    values: list[str] = []
+    field_depth = 0
+    for node in element.iter():
+        if node.tag == qn("w:fldChar"):
+            fld_type = node.get(qn("w:fldCharType"))
+            if fld_type == "begin":
+                field_depth += 1
+            elif fld_type == "end" and field_depth:
+                field_depth -= 1
+        elif node.tag == qn("w:t") and node.text and field_depth == 0:
+            text = _clean(node.text)
+            if text:
+                values.append(text)
+    return values
+
+
 def _has_standard_page_field(element: etree._Element) -> bool:
     paragraphs = []
     if element.tag == qn("w:p") and element.xpath(".//w:instrText[contains(., 'PAGE')]", namespaces=NS):
@@ -867,6 +978,46 @@ def _style_color(style_el: etree._Element | None) -> tuple[str | None, dict[str,
     if color is None:
         return None, {}
     return color.get(qn("w:val")), {etree.QName(k).localname: v for k, v in color.attrib.items()}
+
+
+def _is_black_or_default_black(color: str | None, attrs: dict[str, str]) -> bool:
+    if any(k in attrs for k in ["themeColor", "themeShade", "themeTint"]):
+        return False
+    return color in {None, "000000", "auto"}
+
+
+def _contents_entry_tab_segments(paragraph: etree._Element) -> list[str]:
+    segments = [""]
+    for run in paragraph.xpath("./w:r", namespaces=NS):
+        for child_el in run:
+            if child_el.tag == qn("w:t"):
+                segments[-1] += child_el.text or ""
+            elif child_el.tag == qn("w:tab"):
+                segments.append("")
+    return [_clean(segment) for segment in segments]
+
+
+STALE_TEMPLATE_FALLBACK_MARKERS = [
+    "BSTU.YOUR_NUMBER",
+    "YOUR_NUMBER",
+    "Your_name",
+    "Designing a universal microcomputer",
+    "Explanotary note",
+    "Nikalayuk",
+    "Rtsishchava",
+    "Luo Zhenkun",
+    "8051",
+]
+
+
+def _stale_template_fallback_texts(parts: list[etree._Element]) -> list[str]:
+    stale = []
+    for part in parts:
+        for fallback in part.xpath(".//mc:Fallback", namespaces=NS):
+            text = _clean(text_of(fallback))
+            if any(marker in text for marker in STALE_TEMPLATE_FALLBACK_MARKERS):
+                stale.append(text[:180] if text else "(empty fallback)")
+    return stale
 
 
 def check_page_setup(root: etree._Element, reporter: Reporter) -> None:
@@ -995,7 +1146,10 @@ def check_headings(root: etree._Element, styles: dict[str, etree._Element], repo
                 reporter.error(f"heading1.{idx}.referencesUnderline", "REFERENCES must not be underlined")
             continue
         numbered_title = re.sub(r"^\d+\s+", "", text)
-        if re.match(r"^\d+\s+\S", text):
+        if text in {"INTRODUCTION", "CONCLUSION"}:
+            reporter.pass_(f"heading1.{idx}.number", f"{text} is correctly unnumbered")
+            numbered_title = text
+        elif re.match(r"^\d+\s+\S", text):
             reporter.pass_(f"heading1.{idx}.number", f"Heading 1 number format is valid: {text}")
         else:
             reporter.error(f"heading1.{idx}.number", f"Heading 1 must start with Arabic section number: {text}")
@@ -1039,8 +1193,8 @@ def check_headings(root: etree._Element, styles: dict[str, etree._Element], repo
         else:
             reporter.error(f"heading1.{idx}.underline", f"Heading 1 must not be underlined: {text}")
         color, attrs = _color_value(paragraph, styles)
-        if color == "000000" and not any(k in attrs for k in ["themeColor", "themeShade", "themeTint"]):
-            reporter.pass_(f"heading1.{idx}.color", "Heading 1 is explicitly black")
+        if _is_black_or_default_black(color, attrs):
+            reporter.pass_(f"heading1.{idx}.color", "Heading 1 is black/default black")
         else:
             reporter.error(f"heading1.{idx}.color", f"Heading 1 must be black, not {attrs}: {text}")
     if not h2s:
@@ -1084,8 +1238,8 @@ def check_headings(root: etree._Element, styles: dict[str, etree._Element], repo
         else:
             reporter.error(f"heading2.{idx}.underline", f"Heading 2 must not be underlined: {text}")
         color, attrs = _color_value(paragraph, styles)
-        if color == "000000" and not any(k in attrs for k in ["themeColor", "themeShade", "themeTint"]):
-            reporter.pass_(f"heading2.{idx}.color", "Heading 2 is explicitly black")
+        if _is_black_or_default_black(color, attrs):
+            reporter.pass_(f"heading2.{idx}.color", "Heading 2 is black/default black")
         else:
             reporter.error(f"heading2.{idx}.color", f"Heading 2 must be black, not {attrs}: {text}")
 
@@ -1093,10 +1247,80 @@ def check_headings(root: etree._Element, styles: dict[str, etree._Element], repo
     for idx, paragraph in enumerate(h3s, start=1):
         text = _clean(text_of(paragraph))
         color, attrs = _color_value(paragraph, styles)
-        if color == "000000" and not any(k in attrs for k in ["themeColor", "themeShade", "themeTint"]):
-            reporter.pass_(f"heading3.{idx}.color", "Heading 3 is explicitly black")
+        if _is_black_or_default_black(color, attrs):
+            reporter.pass_(f"heading3.{idx}.color", "Heading 3 is black/default black")
         else:
             reporter.error(f"heading3.{idx}.color", f"Heading 3 must be black, not {attrs}: {text}")
+
+
+def check_thesis_section_structure(root: etree._Element, styles: dict[str, etree._Element], reporter: Reporter) -> None:
+    body_paragraphs = _body_section_paragraphs(root)
+    heading_events: list[tuple[str, str]] = []
+    for paragraph in body_paragraphs:
+        text = _clean(text_of(paragraph))
+        if not text:
+            continue
+        if _is_paragraph_style(paragraph, styles, "Heading 1"):
+            heading_events.append(("h1", text))
+        elif _is_paragraph_style(paragraph, styles, "Heading 2"):
+            heading_events.append(("h2", text))
+
+    h1_texts = [text for kind, text in heading_events if kind == "h1"]
+    if h1_texts and h1_texts[0] == "INTRODUCTION":
+        reporter.pass_("section.introduction.position", "INTRODUCTION is the first body section and is unnumbered")
+    else:
+        reporter.error(
+            "section.introduction.position",
+            f"INTRODUCTION must be the first unnumbered body section; found {h1_texts[:3]}",
+        )
+
+    if "CONCLUSION" in h1_texts:
+        reporter.pass_("section.conclusion.unnumbered", "CONCLUSION is present as an unnumbered Heading 1")
+    else:
+        numbered_conclusions = [text for text in h1_texts if re.search(r"\bCONCLUSION\b", text)]
+        reporter.error(
+            "section.conclusion.unnumbered",
+            "CONCLUSION must be present without a leading number"
+            + (f"; found {numbered_conclusions}" if numbered_conclusions else ""),
+        )
+
+    numbered_h1s = [
+        (int(match.group(1)), text)
+        for text in h1_texts
+        if (match := re.match(r"^(\d+)\s+\S", text))
+    ]
+    numbers = [number for number, _ in numbered_h1s]
+    expected = [1, 2, 3, 4, 5]
+    if numbers == expected:
+        reporter.pass_("section.numberedSequence", f"Numbered thesis sections are consecutive and start at 1: {numbers}")
+    else:
+        reporter.error("section.numberedSequence", f"Numbered thesis sections must be {expected}; found {numbers}")
+
+    forbidden_numbered = [text for text in h1_texts if re.match(r"^\d+\s+(?:INTRODUCTION|CONCLUSION)\b", text)]
+    if forbidden_numbered:
+        reporter.error(
+            "section.boundaryNumbering",
+            "INTRODUCTION and CONCLUSION must not have section numbers: " + "; ".join(forbidden_numbered),
+        )
+    else:
+        reporter.pass_("section.boundaryNumbering", "INTRODUCTION and CONCLUSION have no leading numbers")
+
+    current_h1 = ""
+    boundary_h2s: dict[str, list[str]] = {"INTRODUCTION": [], "CONCLUSION": []}
+    for kind, text in heading_events:
+        if kind == "h1":
+            current_h1 = text
+            continue
+        if kind == "h2" and current_h1 in boundary_h2s:
+            boundary_h2s[current_h1].append(text)
+    for section, subsections in boundary_h2s.items():
+        if subsections:
+            reporter.error(
+                f"section.{section.lower()}.subsections",
+                f"{section} must be continuous text without subsection headings: " + "; ".join(subsections[:6]),
+            )
+        else:
+            reporter.pass_(f"section.{section.lower()}.subsections", f"{section} has no subsection headings")
 
 
 def check_style_colors(styles: dict[str, etree._Element], reporter: Reporter) -> None:
@@ -1119,9 +1343,12 @@ def check_style_colors(styles: dict[str, etree._Element], reporter: Reporter) ->
             ),
             None,
         )
+        if style_el is None:
+            reporter.error(f"stylecolor.{wanted}", f"{wanted} style is missing")
+            continue
         color, attrs = _style_color(style_el)
-        if color == "000000" and not any(k in attrs for k in ["themeColor", "themeShade", "themeTint"]):
-            reporter.pass_(f"stylecolor.{wanted}", f"{wanted} style is explicitly black")
+        if _is_black_or_default_black(color, attrs):
+            reporter.pass_(f"stylecolor.{wanted}", f"{wanted} style is black/default black")
         else:
             reporter.error(f"stylecolor.{wanted}", f"{wanted} style color must be black without theme color; found {attrs}")
 
@@ -1168,8 +1395,28 @@ def check_contents(root: etree._Element, styles: dict[str, etree._Element], repo
     content_entries = [
         p
         for p in all_contents_paragraphs
-        if p is not title and _clean(text_of(p)) and re.search(r"\d+$", _clean(text_of(p)))
+        if (
+            p is not title
+            and _is_paragraph_style(p, styles, "Contents Entry")
+            and _clean(text_of(p))
+            and re.search(r"\d+$", _clean(text_of(p)))
+        )
     ]
+    malformed_entries = []
+    for entry in content_entries:
+        segments = _contents_entry_tab_segments(entry)
+        before_tab = _clean(" ".join(segments[:-1]))
+        page_segment = segments[-1] if segments else ""
+        if len(segments) < 2 or not re.fullmatch(r"\d+", page_segment) or re.search(r"\d+$", before_tab):
+            malformed_entries.append(_clean(text_of(entry)))
+    if malformed_entries:
+        reporter.error(
+            "contents.entryPageTabOrder",
+            "Contents entries must be title + dot-leader tab + page number; malformed entries: "
+            + "; ".join(malformed_entries[:10]),
+        )
+    else:
+        reporter.pass_("contents.entryPageTabOrder", "Contents page numbers are separated after the dot-leader tab")
     if len(content_entries) > CONTENTS_FIRST_PAGE_ENTRY_LIMIT:
         if body_leading_contents:
             reporter.pass_(
@@ -1221,12 +1468,25 @@ def check_page_numbers(package: dict[str, bytes], root: etree._Element, reporter
     if len(sections) < 3:
         reporter.error("pagenum.sections", "Cannot check page numbers without 3 sections")
         return
+    unexpected_restarts: list[str] = []
     for idx, sect in enumerate(sections[1:], start=2):
         pg_num = sect.find("w:pgNumType", namespaces=NS)
-        if pg_num is not None and pg_num.get(qn("w:start")):
-            reporter.error("pagenum.continuity", f"Section {idx} restarts numbering at {pg_num.get(qn('w:start'))}")
-            return
-    reporter.pass_("pagenum.continuity", "No section restarts page numbering")
+        start_value = pg_num.get(qn("w:start")) if pg_num is not None else None
+        if idx == 3:
+            if start_value != str(BODY_TITLE_BLOCK_PAGE_START):
+                reporter.error(
+                    "pagenum.bodyStart",
+                    f"Body/title-block section must start visible page numbering at {BODY_TITLE_BLOCK_PAGE_START}, found {start_value or '<none>'}",
+                )
+                return
+            continue
+        if start_value:
+            unexpected_restarts.append(f"section {idx}: {start_value}")
+    if unexpected_restarts:
+        reporter.error("pagenum.continuity", "Unexpected page-number restart(s): " + "; ".join(unexpected_restarts))
+        return
+    reporter.pass_("pagenum.bodyStart", f"Body/title-block section starts visible page numbering at {BODY_TITLE_BLOCK_PAGE_START}")
+    reporter.pass_("pagenum.continuity", "No unexpected section page-number restarts")
 
     cover_targets = section_ref_targets(package, sections[0])
     cover_has_visible_page = False
@@ -1346,7 +1606,7 @@ def check_page_numbers(package: dict[str, bytes], root: etree._Element, reporter
                         reporter.pass_("pagenum.body.framePr", f"`{target}` live PAGE framePr is calibrated to the Text Box 83 Page cell")
                     positions = _page_field_run_position_values(live_paragraphs[0])
                     expected_position = str(LIVE_PAGE_FIELD_RUN_POSITION_HALF_POINTS)
-                    if positions and all(value == expected_position for value in positions):
+                    if positions and all(value in {expected_position, None} for value in positions):
                         reporter.pass_("pagenum.body.runPosition", f"`{target}` live PAGE runs are vertically centered in the Page cell")
                     else:
                         reporter.error(
@@ -1390,6 +1650,70 @@ def _caption_before(paragraphs: list[etree._Element], index: int, prefix: str, w
     return None
 
 
+def _check_numbered_caption_sequence(
+    captions: list[etree._Element],
+    prefix: str,
+    reporter: Reporter,
+    code_prefix: str,
+) -> set[str]:
+    previous_by_chapter: dict[int, int] = {}
+    seen: set[str] = set()
+    numbers: set[str] = set()
+    checked = 0
+    for caption in captions:
+        caption_text = _clean(text_of(caption))
+        match = re.match(rf"^{prefix}\s+(\d+)\.(\d+)\s+\u2013\s+", caption_text)
+        if not match:
+            continue
+        checked += 1
+        chapter = int(match.group(1))
+        sequence = int(match.group(2))
+        number = f"{chapter}.{sequence}"
+        label = f"{prefix} {number}"
+        if number in seen:
+            reporter.error(f"{code_prefix}.{checked}.unique", f"{label} is duplicated")
+        else:
+            reporter.pass_(f"{code_prefix}.{checked}.unique", f"{label} is unique")
+        expected = previous_by_chapter.get(chapter, 0) + 1
+        if sequence == expected:
+            reporter.pass_(
+                f"{code_prefix}.{checked}.sequence",
+                f"{prefix} numbering is consecutive in chapter {chapter}: {label}",
+            )
+        else:
+            reporter.error(
+                f"{code_prefix}.{checked}.sequence",
+                f"{prefix} numbering must be consecutive within chapter {chapter}; "
+                f"expected {prefix} {chapter}.{expected}, found {label}",
+            )
+        previous_by_chapter[chapter] = sequence
+        seen.add(number)
+        numbers.add(number)
+    if checked:
+        reporter.pass_(f"{code_prefix}.exists", f"Checked {checked} {prefix.lower()} caption number(s)")
+    else:
+        reporter.warn(f"{code_prefix}.exists", f"No {prefix.lower()} captions were available for sequence checking")
+    return numbers
+
+
+def _check_numbered_references_exist(
+    prefix: str,
+    known_numbers: set[str],
+    document_text: str,
+    reporter: Reporter,
+    code: str,
+) -> None:
+    mentioned_numbers = sorted(set(re.findall(rf"\b{prefix}\s+(\d+\.\d+)\b", document_text)))
+    unknown_numbers = [number for number in mentioned_numbers if number not in known_numbers]
+    if unknown_numbers:
+        reporter.error(
+            code,
+            f"{prefix} reference(s) point to missing caption number(s): " + ", ".join(unknown_numbers),
+        )
+    else:
+        reporter.pass_(code, f"All {prefix.lower()} references point to existing caption numbers")
+
+
 def check_figures(root: etree._Element, styles: dict[str, etree._Element], reporter: Reporter) -> None:
     paragraphs = _body_section_paragraphs(root)
     image_paragraphs = [
@@ -1401,7 +1725,7 @@ def check_figures(root: etree._Element, styles: dict[str, etree._Element], repor
         reporter.warn("figure.exists", "No embedded figure image found")
     page_text_width_emu = (RULES["page_width_mm"] - RULES["left_margin_mm"] - RULES["right_margin_mm"]) * EMU_PER_MM
     captions = []
-    code_figure_numbers = {"4.5", "4.6", "5.3", "5.4", "6.2", "6.3", "6.4"}
+    code_figure_numbers = {"3.5", "3.6", "4.3", "4.4", "5.2", "5.3", "5.4"}
     for idx, paragraph in image_paragraphs:
         caption = _caption_after(paragraphs, idx, "Figure")
         if caption is None:
@@ -1418,6 +1742,29 @@ def check_figures(root: etree._Element, styles: dict[str, etree._Element], repor
             reporter.pass_("figure.caption.align", "Figure caption is centered")
         else:
             reporter.error("figure.caption.align", f"Figure caption must be centered: {cap_text}")
+        previous_paragraph = paragraphs[idx - 1] if idx > 0 else None
+        second_previous = paragraphs[idx - 2] if idx > 1 else None
+        if _is_float_spacing_paragraph(previous_paragraph, styles) and not _is_empty_body_paragraph(second_previous):
+            reporter.pass_("figure.spacing.before", f"One blank line before {figure_number.group(0) if figure_number else 'figure'}")
+        elif _is_empty_body_paragraph(previous_paragraph):
+            reporter.error(
+                "figure.spacing.before",
+                f"Figure block must have one visible 13 pt blank line before it: {cap_text}",
+            )
+        else:
+            reporter.error("figure.spacing.before", f"Figure block must have a blank line before it: {cap_text}")
+        caption_index = paragraphs.index(caption)
+        following_paragraph = paragraphs[caption_index + 1] if caption_index + 1 < len(paragraphs) else None
+        second_following = paragraphs[caption_index + 2] if caption_index + 2 < len(paragraphs) else None
+        if _is_float_spacing_paragraph(following_paragraph, styles) and not _is_empty_body_paragraph(second_following):
+            reporter.pass_("figure.spacing.after", f"One blank line after {figure_number.group(0) if figure_number else 'figure'} caption")
+        elif _is_empty_body_paragraph(following_paragraph):
+            reporter.error(
+                "figure.spacing.after",
+                f"Figure caption must be followed by one visible 13 pt blank line before body text: {cap_text}",
+            )
+        else:
+            reporter.error("figure.spacing.after", f"Figure caption must be followed by a blank line before body text: {cap_text}")
         for extent in paragraph.xpath(".//wp:extent", namespaces=NS):
             cx = int(extent.get("cx", "0"))
             if cx <= page_text_width_emu:
@@ -1439,6 +1786,8 @@ def check_figures(root: etree._Element, styles: dict[str, etree._Element], repor
                         f"{expected_mm:.1f} mm, found {width_mm:.1f} mm",
                     )
     document_text = _clean(text_of(root))
+    figure_numbers = _check_numbered_caption_sequence(captions, "Figure", reporter, "figure.numbering")
+    _check_numbered_references_exist("Figure", figure_numbers, document_text, reporter, "figure.referenceNumber")
     for caption in captions:
         cap_text = _clean(text_of(caption))
         number = re.search(r"Figure\s+(\d+(?:\.\d+)?)", cap_text)
@@ -1461,11 +1810,53 @@ def check_tables(root: etree._Element, styles: dict[str, etree._Element], report
         reporter.warn("table.exists", "No Word table found")
         return
     paragraphs = [child_el for child_el in children if child_el.tag == qn("w:p")]
+    continuation_paragraphs = [
+        _clean(text_of(paragraph))
+        for paragraph in paragraphs
+        if _clean(text_of(paragraph)).startswith("Continue of the Table")
+    ]
+    malformed_continuations = [
+        text for text in continuation_paragraphs if not re.fullmatch(r"Continue of the Table \d+\.\d+", text)
+    ]
+    if malformed_continuations:
+        reporter.error(
+            "table.continuation.format",
+            "Continuation labels must be written as `Continue of the Table xx.xx`: "
+            + " | ".join(malformed_continuations[:3]),
+        )
+    elif continuation_paragraphs:
+        reporter.pass_("table.continuation.format", "Table continuation labels use the required wording")
+    else:
+        reporter.pass_("table.continuation.format", "No manual table continuation labels are present")
+    if continuation_paragraphs:
+        reporter.pass_("table.continuation.required", "Manual continuation labels are present where the document generator split tables")
+    else:
+        reporter.pass_("table.continuation.required", "No manual table continuation labels are required by the document structure")
+    table_caption_paragraphs = [
+        paragraph for paragraph in paragraphs if re.match(RULES["table_caption_re"], _clean(text_of(paragraph)))
+    ]
+    document_text = _clean(text_of(root))
+    table_numbers = _check_numbered_caption_sequence(table_caption_paragraphs, "Table", reporter, "table.numbering")
+    _check_numbered_references_exist("Table", table_numbers, document_text, reporter, "table.referenceNumber")
     for table_index, table in tables:
         previous_paragraphs = [child_el for child_el in children[:table_index] if child_el.tag == qn("w:p")]
         caption = previous_paragraphs[-1] if previous_paragraphs else None
         cap_text = _clean(text_of(caption)) if caption is not None else ""
-        if cap_text.startswith("Table"):
+        continuation_text = ""
+        if cap_text.startswith("Continue of the Table"):
+            continuation_text = cap_text
+            earlier_table_captions = [
+                _clean(text_of(child_el))
+                for child_el in previous_paragraphs[:-1]
+                if _clean(text_of(child_el)).startswith("Table")
+            ]
+            cap_text = earlier_table_captions[-1] if earlier_table_captions else ""
+            if cap_text:
+                reporter.pass_("table.caption.position", f"Continued table follows {continuation_text}")
+            else:
+                reporter.error("table.caption.position", f"Continuation label has no preceding Table caption: {continuation_text}")
+                continue
+        elif cap_text.startswith("Table"):
             reporter.pass_("table.caption.position", f"Table caption is above table: {cap_text}")
         else:
             reporter.error("table.caption.position", "Each table must have a Table caption immediately above it")
@@ -1478,6 +1869,47 @@ def check_tables(root: etree._Element, styles: dict[str, etree._Element], report
             reporter.pass_("table.caption.align", "Table caption starts at left/table boundary")
         else:
             reporter.error("table.caption.align", f"Table caption must be left aligned: {cap_text}")
+        try:
+            caption_index = children.index(caption)
+        except ValueError:
+            caption_index = -1
+        if continuation_text:
+            page_break_paragraph = children[table_index - 2] if table_index >= 2 else None
+            if _paragraph_has_page_break(page_break_paragraph) or _has_page_break_before(caption, styles):
+                reporter.pass_("table.continuation.pageBreak", f"{continuation_text} starts on a new page")
+            else:
+                reporter.error("table.continuation.pageBreak", f"{continuation_text} must start on a new page")
+        before_caption = children[caption_index - 1] if caption_index > 0 else None
+        second_before_caption = children[caption_index - 2] if caption_index > 1 else None
+        if continuation_text:
+            reporter.pass_("table.spacing.before", f"{continuation_text} is placed directly above the continued table")
+        elif _paragraph_has_page_break(before_caption):
+            reporter.pass_("table.spacing.before", f"{cap_text} starts at the top of a new page")
+        elif _is_float_spacing_paragraph(before_caption, styles) and not _is_empty_body_paragraph(second_before_caption):
+            reporter.pass_("table.spacing.before", f"One blank line before {cap_text}")
+        elif _is_empty_body_paragraph(before_caption):
+            reporter.error(
+                "table.spacing.before",
+                f"Table caption must have one visible 13 pt blank line before it: {cap_text}",
+            )
+        else:
+            reporter.error("table.spacing.before", f"Table caption must have a blank line before it: {cap_text}")
+        after_table = children[table_index + 1] if table_index + 1 < len(children) else None
+        second_after_table = children[table_index + 2] if table_index + 2 < len(children) else None
+        after_table_text = _clean(text_of(after_table)) if after_table is not None and after_table.tag == qn("w:p") else ""
+        if after_table_text.startswith("Continue of the Table") and _has_page_break_before(after_table, styles):
+            reporter.pass_("table.spacing.after", f"{cap_text} continues on the next page")
+        elif _paragraph_has_page_break(after_table):
+            reporter.pass_("table.spacing.after", f"{cap_text} continues on the next page")
+        elif _is_float_spacing_paragraph(after_table, styles) and not _is_empty_body_paragraph(second_after_table):
+            reporter.pass_("table.spacing.after", f"One blank line after {cap_text}")
+        elif _is_empty_body_paragraph(after_table):
+            reporter.error(
+                "table.spacing.after",
+                f"Table must be followed by one visible 13 pt blank line before body text: {cap_text}",
+            )
+        else:
+            reporter.error("table.spacing.after", f"Table must be followed by a blank line before body text: {cap_text}")
         blank_cells = []
         for cell in table.xpath(".//w:tc", namespaces=NS):
             if not _clean(text_of(cell)):
@@ -1504,6 +1936,16 @@ def check_tables(root: etree._Element, styles: dict[str, etree._Element], report
             reporter.pass_("table.headerRepeat", "Table header row is marked to repeat after a page break")
         else:
             reporter.warn("table.headerRepeat", "Table header row should be marked for repetition if the table continues on the next page")
+        row_count = len(table.xpath("./w:tr", namespaces=NS))
+        number = re.search(r"Table\s+(\d+(?:\.\d+)?)", cap_text)
+        if row_count > 9 and number and f"Continue of the Table {number.group(1)}" not in continuation_paragraphs:
+            reporter.warn(
+                "table.continuation.marker",
+                f"Table {number.group(1)} has {row_count} rows; if Word splits it across pages, "
+                f"the continued page must start with `Continue of the Table {number.group(1)}`.",
+            )
+        elif row_count > 9 and number:
+            reporter.pass_("table.continuation.marker", f"Continuation wording is present for long Table {number.group(1)}")
         tbl_w = table.find("w:tblPr/w:tblW", namespaces=NS)
         if tbl_w is not None and tbl_w.get(qn("w:type")) == "dxa" and tbl_w.get(qn("w:w")):
             width_mm = twips_to_mm(tbl_w.get(qn("w:w")))
@@ -1516,9 +1958,7 @@ def check_tables(root: etree._Element, styles: dict[str, etree._Element], report
                 reporter.error("table.width", f"Table width {width_mm:.1f} mm exceeds text area {max_width:.1f} mm")
         else:
             reporter.warn("table.width", "Table width is not explicit in OOXML; manually confirm it fits text width")
-        number = re.search(r"Table\s+(\d+(?:\.\d+)?)", cap_text)
         if number:
-            document_text = _clean(text_of(root))
             references = re.findall(rf"Table\s+{re.escape(number.group(1))}\b", document_text)
             if len(references) >= 2:
                 reporter.pass_("table.reference", f"Table {number.group(1)} is referenced in body text")
@@ -1553,6 +1993,7 @@ def check_formulas(
     else:
         reporter.error("formula.omml.exists", "Document contains no m:oMath or m:oMathPara objects")
     previous_formula_seq_by_chapter: dict[int, int] = {}
+    formula_numbers: set[str] = set()
     for idx, paragraph in enumerate(formula_paragraphs, start=1):
         text = _clean(text_of(paragraph))
         formula_number = re.search(r"\((\d+)\.(\d+)\)", text)
@@ -1586,7 +2027,7 @@ def check_formulas(
             reporter.pass_(f"formula.{idx}.numberalign", f"Formula number appears aligned by a right tab: {text}")
         else:
             reporter.error(f"formula.{idx}.numberalign", f"Formula number must be aligned by a right tab: {text}")
-        if _effective_alignment(paragraph, styles) == "left":
+        if _effective_alignment(paragraph, styles) in {None, "left"}:
             reporter.pass_(f"formula.{idx}.align", "Formula paragraph uses left paragraph alignment with center/right tab stops")
         else:
             reporter.error(f"formula.{idx}.align", f"Formula paragraph must use tab-stop alignment, not paragraph centering: {text}")
@@ -1602,6 +2043,7 @@ def check_formulas(
         if formula_number:
             chapter = int(formula_number.group(1))
             seq = int(formula_number.group(2))
+            formula_numbers.add(f"{chapter}.{seq}")
             expected = previous_formula_seq_by_chapter.get(chapter, 0) + 1
             if seq == expected:
                 reporter.pass_(f"formula.{idx}.sequence", f"Formula numbering is consecutive in chapter {chapter}: ({chapter}.{seq})")
@@ -1620,6 +2062,14 @@ def check_formulas(
             following_text = _clean(text_of(following))
             if following_text.startswith("where "):
                 reporter.pass_(f"formula.{idx}.where", f"Formula is followed by a where explanation: {text}")
+                if _has_formula_trailing_comma(paragraph):
+                    reporter.pass_(f"formula.{idx}.commaBeforeWhere", "Formula line followed by `where` ends with a comma outside the OMML formula")
+                else:
+                    reporter.error(f"formula.{idx}.commaBeforeWhere", f"Formula followed by `where` must end with a comma outside the OMML formula: {text}")
+                if _has_formula_comma_inside_math(paragraph):
+                    reporter.error(f"formula.{idx}.commaOutsideOmml", f"Formula punctuation must not be inside the OMML math object: {text}")
+                else:
+                    reporter.pass_(f"formula.{idx}.commaOutsideOmml", "Formula comma is stored as ordinary text outside the OMML math object")
                 first_indent = _effective_first_line_indent_mm(following, styles)
                 if first_indent is None or abs(first_indent) < 0.2:
                     reporter.pass_(f"formula.{idx}.whereIndent", "`where` explanation has no paragraph indent")
@@ -1645,15 +2095,23 @@ def check_formulas(
                 break
         if explanation_items:
             explanation_lines = [line for _, line in explanation_items]
-            bad = [line for line in explanation_lines if not line.endswith(";")]
-            if bad:
-                reporter.error(f"formula.{idx}.wherePunctuation", "Formula symbol explanations must end with semicolons: " + " | ".join(bad[:3]))
+            bad_middle = [line for line in explanation_lines[:-1] if not line.endswith(";")]
+            bad_last = explanation_lines[-1] if not explanation_lines[-1].endswith(".") else ""
+            if bad_middle or bad_last:
+                details = bad_middle[:2]
+                if bad_last:
+                    details.append(bad_last)
+                reporter.error(
+                    f"formula.{idx}.wherePunctuation",
+                    "Formula symbol explanations must use semicolons for intermediate lines and an English full stop on the last line: "
+                    + " | ".join(details),
+                )
             else:
-                reporter.pass_(f"formula.{idx}.wherePunctuation", "Formula symbol explanations end with semicolons")
+                reporter.pass_(f"formula.{idx}.wherePunctuation", "Formula symbol explanations use semicolons and final full stop")
             malformed = [
                 line
                 for line in explanation_lines
-                if not re.match(rf"^(?:where\s+)?{FORMULA_SYMBOL_RE}\s+\u2013\s+.+;$", line)
+                if not re.match(rf"^(?:where\s+)?{FORMULA_SYMBOL_RE}\s+\u2013\s+.+[.;]$", line)
             ]
             if malformed:
                 reporter.error(
@@ -1681,6 +2139,23 @@ def check_formulas(
             else:
                 reporter.pass_(f"formula.{idx}.whereSymbolAlign", "Formula explanations are aligned by symbol tab stops")
     document_text = _clean(text_of(root))
+    referenced_formula_numbers = sorted(
+        set(
+            re.findall(
+                r"\b(?:formula|equation|expression|equality|transfer function)\s+\((\d+\.\d+)\)",
+                document_text,
+                flags=re.I,
+            )
+        )
+    )
+    unknown_formula_numbers = [number for number in referenced_formula_numbers if number not in formula_numbers]
+    if unknown_formula_numbers:
+        reporter.error(
+            "formula.referenceNumber",
+            "Formula reference(s) point to missing formula number(s): " + ", ".join(unknown_formula_numbers),
+        )
+    else:
+        reporter.pass_("formula.referenceNumber", "All formula references point to existing formula numbers")
     for number in sorted(set(re.findall(RULES["formula_number_re"], document_text))):
         refs = re.findall(rf"\b(?:formula|equation|expression|equality|transfer function)\s+{re.escape(number)}", document_text, flags=re.I)
         if refs:
@@ -1747,6 +2222,40 @@ def check_rules_text_presentation(root: etree._Element, styles: dict[str, etree.
         reporter.pass_("rules.text.formulaRefs", "Formula references use explicit formula/equation/expression wording")
     else:
         reporter.warn("rules.text.formulaRefs", "No formula references were found")
+
+    breakable_float_refs = []
+    breakable_formula_refs = []
+    for paragraph in body_paragraphs:
+        if (
+            _is_paragraph_style(paragraph, styles, "Heading 1")
+            or _is_paragraph_style(paragraph, styles, "Heading 2")
+            or _is_paragraph_style(paragraph, styles, "Contents Entry")
+            or _is_paragraph_style(paragraph, styles, "Contents Title")
+            or _is_paragraph_style(paragraph, styles, "Figure Caption")
+            or _is_paragraph_style(paragraph, styles, "Table Caption")
+        ):
+            continue
+        raw_value = text_of(paragraph)
+        if re.search(r"\b(?:Figure|Table) \d+\.\d+\b", raw_value):
+            breakable_float_refs.append(_clean(raw_value)[:120])
+        if re.search(rf"\b(?:formula|equation|expression|equality|transfer function) \(\d+\.\d+\)", raw_value, flags=re.I):
+            breakable_formula_refs.append(_clean(raw_value)[:120])
+    if breakable_float_refs:
+        reporter.error(
+            "rules.text.floatReferenceNoBreak",
+            "Figure/Table references must use a nonbreaking space so the number stays on the same line: "
+            + " | ".join(breakable_float_refs[:5]),
+        )
+    else:
+        reporter.pass_("rules.text.floatReferenceNoBreak", "Figure/Table references use nonbreaking spaces in running text")
+    if breakable_formula_refs:
+        reporter.error(
+            "rules.text.formulaReferenceNoBreak",
+            "Formula references must use a nonbreaking space so the number stays on the same line: "
+            + " | ".join(breakable_formula_refs[:5]),
+        )
+    else:
+        reporter.pass_("rules.text.formulaReferenceNoBreak", "Formula references use nonbreaking spaces in running text")
 
     comparison_signs = []
     for paragraph in body_paragraphs:
@@ -1999,25 +2508,64 @@ def check_templates(package: dict[str, bytes], root: etree._Element, reporter: R
     expected_body_outer_frame = _contents_aligned_body_outer_frame_signature()
     if ranges:
         cover_range = ranges[0]
-        cover_text = _clean("".join(text_of(element) for element in cover_range))
-        cover_bad = [
+        cover_text = _clean(" ".join(_visible_text(element) for element in cover_range))
+        required_cover_text = [
+            "Министерство образования Республики Беларусь",
+            "Учреждение образования",
+            "«Брестский государственный технический университет»",
+            "Кафедра «ЭВМ и систем»",
+            "К защите допускаю",
+            "EdgeHub-Based Closed-Loop Temperature Control System",
+            "ПОЯСНИТЕЛЬНАЯ ЗАПИСКА К ДИПЛОМНОМУ ПРОЕКТУ",
+            "БрГТУ.241297 - 05 81 00",
+            f"Листов {BODY_TITLE_BLOCK_TOTAL_PAGES}",
+            "V.S. Razumeichik",
+            "Wang Gen",
+            "2026",
+        ]
+        missing_cover_text = [key for key in required_cover_text if key not in cover_text]
+        forbidden_cover_text = [
             key
-            for key in ["Sign", "Date", "Page", "Author", "Supervisor", "Computer&Systems", "BSTU.YOUR_NUMBER"]
+            for key in [
+                "Sign",
+                "Date",
+                "Page",
+                "Author",
+                "Computer&Systems",
+                "BSTU.YOUR_NUMBER",
+                "YOUR TASK",
+                "Your name",
+                "Luo Zhenkun",
+                "Design of EdgeHub",
+                "Design of the EdgeHub",
+            ]
             if key in cover_text
         ]
+        cover_tables = sum(
+            (1 if element.tag == qn("w:tbl") else 0) + len(element.xpath(".//w:tbl", namespaces=NS))
+            for element in cover_range
+        )
         cover_drawings = sum(
-            len(element.xpath(".//w:drawing|.//w:pict|.//v:shape|.//wps:wsp|.//w:tbl", namespaces=NS))
+            len(element.xpath(".//w:drawing|.//w:pict|.//v:shape|.//wps:wsp", namespaces=NS))
             for element in cover_range
         )
         cover_borders = sum(len(element.xpath(".//w:pgBorders", namespaces=NS)) for element in cover_range)
-        if cover_bad:
-            reporter.error("template.cover.clean", f"Cover contains forbidden template text: {cover_bad}")
+        if missing_cover_text:
+            reporter.error("template.cover.requiredText", "Cover is missing required text: " + "; ".join(missing_cover_text))
+        else:
+            reporter.pass_("template.cover.requiredText", "Cover contains all required school, project, author, sheet-count, and year text")
+        if forbidden_cover_text:
+            reporter.error("template.cover.clean", f"Cover contains forbidden template text: {forbidden_cover_text}")
         elif cover_drawings:
-            reporter.error("template.cover.clean", f"Cover contains {cover_drawings} body frame/table/drawing element(s)")
+            reporter.error("template.cover.clean", f"Cover contains {cover_drawings} body frame/drawing element(s)")
         elif cover_borders:
             reporter.error("template.cover.clean", "Cover uses w:pgBorders instead of the real template_1 outer frame")
         else:
-            reporter.pass_("template.cover.clean", "Cover body is clean; frame is supplied by the cover header")
+            reporter.pass_("template.cover.clean", "Cover body has no forbidden template text or body-drawn frame")
+        if cover_tables >= 1:
+            reporter.pass_("template.cover.peopleTable", "Cover includes the required people/signature table")
+        else:
+            reporter.error("template.cover.peopleTable", "Cover must include the required people/signature table")
 
     if sections:
         cover_targets = section_ref_targets(package, sections[0])
@@ -2034,7 +2582,16 @@ def check_templates(package: dict[str, bytes], root: etree._Element, reporter: R
         cover_part_text = _clean(" ".join(text_of(part) for part in cover_header_parts + cover_footer_parts))
         forbidden = [
             key
-            for key in ["Sign", "Date", "Page", "Author", "Supervisor", "Computer&Systems", "BSTU", "YOUR_NUMBER"]
+            for key in [
+                "Sign",
+                "Date",
+                "Page",
+                "Author",
+                "Supervisor",
+                "Computer&Systems",
+                "BSTU",
+                "YOUR_NUMBER",
+            ]
             if key in cover_part_text
         ]
         if forbidden:
@@ -2070,26 +2627,80 @@ def check_templates(package: dict[str, bytes], root: etree._Element, reporter: R
             outer_frames,
             expected_cover_outer_frame,
         )
-        if any(part.xpath(".//mc:Fallback", namespaces=NS) for part in cover_header_parts):
-            reporter.error("template.cover.fallback", "Cover header still contains mc:Fallback content")
+        stale_cover_fallbacks = _stale_template_fallback_texts(cover_header_parts)
+        if stale_cover_fallbacks:
+            reporter.error("template.cover.fallback", "Cover header contains stale template fallback text: " + "; ".join(stale_cover_fallbacks))
         else:
-            reporter.pass_("template.cover.fallback", "Cover header has no mc:Fallback duplicate branch")
+            reporter.pass_("template.cover.fallback", "Cover header has no stale mc:Fallback template text")
 
     text = _clean(text_of(root))
+    placeholder_text = [
+        key
+        for key in [
+            "BSTU.YOUR_NUMBER",
+            "YOUR_NUMBER",
+            "YOUR TASK",
+            "Your name",
+            "Your_name",
+            "Designing a universal microcomputer",
+            "Design of EdgeHub",
+            "Design of the EdgeHub",
+            "Luo Zhenkun",
+            "Nikalayuk",
+            "Rtsishchava",
+        ]
+        if key in text
+    ]
+    if placeholder_text:
+        reporter.error("template.placeholders", f"Document still contains template placeholder text: {placeholder_text}")
+    else:
+        reporter.pass_("template.placeholders", "Document contains no stale template placeholder text")
     if all(key in text for key in ["Sign", "Date", "Supervisor", "Author"]):
         reporter.pass_("template.contents.frame", "Contents page includes template_0 frame key text")
     else:
         reporter.error("template.contents.frame", "Contents page does not show expected template_0 frame text")
+    stale_fallbacks = _stale_template_fallback_texts([root])
+    if stale_fallbacks:
+        reporter.error("template.contents.fallback", "Contents page still contains stale template fallback text: " + "; ".join(stale_fallbacks))
+    else:
+        reporter.pass_("template.contents.fallback", "Contents page has no stale fallback template text")
     contents_page_values = _textbox_shapes_by_name(root, "Rectangle 34")
     contents_pages_values = _textbox_shapes_by_name(root, "Rectangle 6")
     if any(_shape_has_field(shape, "PAGE") for shape in contents_page_values):
-        reporter.pass_("template.contents.pageField", "Contents Page cell uses a real PAGE field")
+        reporter.error("template.contents.pageStatic", "Contents Page cell must be a stable static 4, not a live PAGE field")
     else:
-        reporter.error("template.contents.pageField", "Contents Page cell must not be a static typed number")
+        reporter.pass_("template.contents.pageStatic", "Contents Page cell is not a live PAGE field")
+    page_static_values = [
+        _clean(_visible_text(shape))
+        for shape in contents_page_values
+        if _clean(_visible_text(shape))
+    ]
+    if page_static_values and all(value == "4" for value in page_static_values):
+        reporter.pass_("template.contents.pageStaticValue", "Contents Page cell visibly contains static value 4")
+    else:
+        reporter.error(
+            "template.contents.pageStaticValue",
+            f"Contents Page cell must visibly contain static value 4, found: {page_static_values or ['<empty>']}",
+        )
     if any(_shape_has_field(shape, "NUMPAGES") for shape in contents_pages_values):
-        reporter.pass_("template.contents.numpagesField", "Contents Pages cell uses a real NUMPAGES field")
+        reporter.error("template.contents.pagesStatic", "Contents Pages cell must be static visible page-total value, not a live NUMPAGES field")
     else:
-        reporter.error("template.contents.numpagesField", "Contents Pages cell must not keep the template's static total page count")
+        reporter.pass_("template.contents.pagesStatic", "Contents Pages cell is a static visible page-total value")
+    pages_static_values = [
+        _clean(_visible_text(shape))
+        for shape in contents_pages_values
+        if _clean(_visible_text(shape))
+    ]
+    if pages_static_values and all(value == str(BODY_TITLE_BLOCK_TOTAL_PAGES) for value in pages_static_values):
+        reporter.pass_(
+            "template.contents.pagesStaticValue",
+            f"Contents Pages cell visibly contains static value {BODY_TITLE_BLOCK_TOTAL_PAGES}",
+        )
+    else:
+        reporter.error(
+            "template.contents.pagesStaticValue",
+            f"Contents Pages cell must visibly contain static value {BODY_TITLE_BLOCK_TOTAL_PAGES}, found: {pages_static_values or ['<empty>']}",
+        )
     if any(_clean(_visible_text(shape)) == "46" for shape in contents_pages_values):
         reporter.error("template.contents.staticPages", "Contents Pages cell still contains the template placeholder value 46")
     else:
@@ -2124,10 +2735,10 @@ def check_templates(package: dict[str, bytes], root: etree._Element, reporter: R
             body_outer_frames,
             expected_body_outer_frame,
         )
-        if "BSTU.YOUR_NUMBER" in body_text:
-            reporter.pass_("template.body.code", "Body template document-code placeholder is preserved")
+        if BODY_TITLE_BLOCK_CODE in body_text:
+            reporter.pass_("template.body.code", "Body official document code is present")
         else:
-            reporter.warn("template.body.code", "Body template document-code placeholder was not detected")
+            reporter.warn("template.body.code", f"Body official document code `{BODY_TITLE_BLOCK_CODE}` was not detected")
         code_boxes = [
             _clean(_visible_text(shape))
             for part in body_header_parts
@@ -2149,6 +2760,15 @@ def check_templates(package: dict[str, bytes], root: etree._Element, reporter: R
             reporter.error("template.body.codeHighlight", "Body title block code must not have yellow highlight or shading")
         else:
             reporter.pass_("template.body.codeHighlight", "Body title block code has no highlight or shading")
+        body_title_entries = [
+            _clean(text_of(paragraph))
+            for paragraph in root.xpath("//w:p", namespaces=NS)
+            if "EdgeHub-Based Closed-Loop Temperature Control System" in _clean(text_of(paragraph))
+        ]
+        if any("Explanatory note" in value for value in body_title_entries):
+            reporter.pass_("template.body.explanatoryNote", "Body title block includes Explanatory note")
+        else:
+            reporter.error("template.body.explanatoryNote", "Body title block title must end with Explanatory note")
 
 
 def _render_docx_to_pdf(docx_path: Path, out_dir: Path) -> Path | None:
@@ -2166,6 +2786,53 @@ def _render_docx_to_pdf(docx_path: Path, out_dir: Path) -> Path | None:
     if result.returncode != 0:
         return None
     return out_dir / f"{docx_path.stem}.pdf"
+
+
+def _applescript_string(value: Path | str) -> str:
+    return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _render_docx_to_pdf_with_word(docx_path: Path, out_dir: Path) -> Path | None:
+    supplied_pdf = os.environ.get("THESIS_WORD_VISUAL_PDF")
+    if supplied_pdf:
+        supplied_path = Path(supplied_pdf)
+        if supplied_path.exists():
+            return supplied_path
+    if not os.environ.get("THESIS_WORD_VISUAL_CHECK"):
+        return None
+    osascript = shutil.which("osascript")
+    if not osascript or not Path("/Applications/Microsoft Word.app").exists():
+        return None
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{docx_path.stem}_word.pdf"
+    if out_path.exists():
+        out_path.unlink()
+    script = f'''
+set docPath to POSIX file "{_applescript_string(docx_path)}"
+set outPath to "{_applescript_string(out_path)}"
+tell application "Microsoft Word"
+    set display alerts to none
+    open docPath
+    delay 1
+    set docRef to active document
+    save as docRef file name outPath file format format PDF
+    close docRef saving no
+end tell
+'''
+    result = subprocess.run(
+        [osascript],
+        input=script,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=180,
+    )
+    if out_path.exists():
+        return out_path
+    if result.returncode != 0:
+        return None
+    return out_path if out_path.exists() else None
 
 
 def _render_pdf_pages(pdf_path: Path, out_dir: Path) -> list[Path]:
@@ -2195,37 +2862,30 @@ def _rendered_outer_frame_margins(png_path: Path) -> tuple[int, int, int, int] |
         from PIL import Image
     except ImportError:
         return None
-    image = Image.open(png_path).convert("RGB")
+    image = Image.open(png_path).convert("L")
     width, height = image.size
-    rows = []
-    for y in range(height):
-        xs = [
-            x
-            for x in range(width)
-            if all(channel < 120 for channel in image.getpixel((x, y)))
-        ]
-        if len(xs) > width * 0.45:
-            rows.append((y, min(xs), max(xs), len(xs)))
-    cols = []
-    for x in range(width):
-        ys = [
-            y
-            for y in range(height)
-            if all(channel < 120 for channel in image.getpixel((x, y)))
-        ]
-        if len(ys) > height * 0.35:
-            cols.append((x, min(ys), max(ys), len(ys)))
+    mask = image.point(lambda value: 1 if value < 120 else 0)
+    row_counts = [
+        sum(mask.crop((0, y, width, y + 1)).getdata())
+        for y in range(height)
+    ]
+    col_counts = [
+        sum(mask.crop((x, 0, x + 1, height)).getdata())
+        for x in range(width)
+    ]
+    rows = [index for index, count in enumerate(row_counts) if count > width * 0.45]
+    cols = [index for index, count in enumerate(col_counts) if count > height * 0.35]
     if not rows or not cols:
         return None
 
-    def centers(items: list[tuple[int, int, int, int]]) -> list[int]:
-        groups: list[list[tuple[int, int, int, int]]] = []
+    def centers(items: list[int]) -> list[int]:
+        groups: list[list[int]] = []
         for item in items:
-            if not groups or item[0] > groups[-1][-1][0] + 1:
+            if not groups or item > groups[-1][-1] + 1:
                 groups.append([item])
             else:
                 groups[-1].append(item)
-        return [sum(entry[0] for entry in group) // len(group) for group in groups]
+        return [sum(group) // len(group) for group in groups]
 
     row_centers = centers(rows)
     col_centers = centers(cols)
@@ -2255,15 +2915,289 @@ def _pdf_pages_text(pdf_path: Path) -> list[str]:
     return text.split("\f")
 
 
+def _pdf_page_count(pdf_path: Path) -> int | None:
+    pdfinfo = shutil.which("pdfinfo")
+    if pdfinfo and pdf_path.exists():
+        result = subprocess.run(
+            [pdfinfo, str(pdf_path)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode == 0:
+            match = re.search(r"^Pages:\s+(\d+)\s*$", result.stdout, flags=re.M)
+            if match:
+                return int(match.group(1))
+    pages_text = _pdf_pages_text(pdf_path)
+    if not pages_text:
+        return None
+    return len(pages_text) - (1 if pages_text[-1] == "" else 0)
+
+
 def _normalized_pdf_line(text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("\u00a0", " ")).strip().lower()
 
 
+def _rendered_page_heading_candidates(page_text: str) -> set[str]:
+    lines = [_normalized_pdf_line(line) for line in page_text.splitlines() if line.strip()]
+    candidates = set(lines)
+    for start in range(len(lines)):
+        combined = lines[start]
+        for end in range(start + 1, min(start + 4, len(lines))):
+            combined = f"{combined} {lines[end]}"
+            candidates.add(combined)
+    return candidates
+
+
 def _rendered_body_start_index(pages_text: list[str]) -> int:
     for index, page in enumerate(pages_text):
-        if any(_normalized_pdf_line(line) == "1 introduction" for line in page.splitlines()):
+        lines = [_normalized_pdf_line(line) for line in page.splitlines() if line.strip()]
+        dot_leader_lines = sum(1 for line in page.splitlines() if re.search(r"\.{4,}\s*\d+\s*$", line))
+        if any(line == "contents" for line in lines) or dot_leader_lines >= 3:
+            continue
+        if any(_normalized_pdf_line(line) == "introduction" for line in page.splitlines()):
             return index
     return 2
+
+
+def _rendered_title_block_page_number(page_text: str, physical_page_index: int) -> str:
+    lines = [line.rstrip() for line in page_text.splitlines()]
+    for line_index, line in enumerate(lines):
+        if not re.search(r"\bPage\b", line):
+            continue
+        for following in lines[line_index + 1 : line_index + 6]:
+            matches = re.findall(r"\b(\d{1,3})\s*$", following)
+            if not matches:
+                continue
+            value = int(matches[-1])
+            if value >= 3:
+                return str(value)
+    return str(physical_page_index)
+
+
+def _rendered_heading_pages(pages_text: list[str], headings: list[str]) -> dict[str, str]:
+    body_start_index = _rendered_body_start_index(pages_text) if pages_text else 2
+    page_heading_candidates = [_rendered_page_heading_candidates(page) for page in pages_text]
+    heading_pages: dict[str, str] = {}
+    for heading in headings:
+        needle = _normalized_pdf_line(heading)
+        if not needle:
+            continue
+        for page_index, heading_candidates in enumerate(page_heading_candidates[body_start_index:], start=body_start_index + 1):
+            if needle in heading_candidates:
+                heading_pages[heading] = _rendered_title_block_page_number(
+                    pages_text[page_index - 1],
+                    page_index,
+                )
+                break
+    return heading_pages
+
+
+def _table_header_text(table: etree._Element) -> str:
+    header_row = table.find("./w:tr", namespaces=NS)
+    if header_row is None:
+        return ""
+    return _normalized_pdf_line(" ".join(_clean(text_of(cell)) for cell in header_row.xpath("./w:tc", namespaces=NS)))
+
+
+def _word_table_headers(root: etree._Element) -> dict[str, str]:
+    children = _body_section_children(root)
+    headers: dict[str, str] = {}
+    for index, element in enumerate(children):
+        if element.tag != qn("w:tbl"):
+            continue
+        previous_paragraphs = [child_el for child_el in children[:index] if child_el.tag == qn("w:p")]
+        caption_text = _clean(text_of(previous_paragraphs[-1])) if previous_paragraphs else ""
+        if caption_text.startswith("Continue of the Table"):
+            continue
+        match = re.match(r"^Table\s+(\d+\.\d+)\s+\u2013", caption_text)
+        if not match:
+            continue
+        header_text = _table_header_text(element)
+        if header_text:
+            headers[match.group(1)] = header_text
+    return headers
+
+
+def _check_rendered_table_continuations(
+    sample_pdf: Path,
+    reporter: Reporter,
+    *,
+    table_headers: dict[str, str] | None = None,
+) -> None:
+    pages_text = _pdf_pages_text(sample_pdf)
+    if not pages_text:
+        reporter.warn("table.renderedContinuation", "Could not extract rendered PDF text to validate continued table labels")
+        return
+    table_headers = table_headers or {}
+    if not table_headers:
+        reporter.warn("table.renderedContinuation", "Could not validate continued table labels without Word table metadata")
+        return
+    missing: list[str] = []
+    for page_index, page_text in enumerate(pages_text, start=1):
+        lines = [_normalized_pdf_line(line) for line in page_text.splitlines() if line.strip()]
+        if not lines:
+            continue
+        top_text = " ".join(lines[:8])
+        top_caption_zone = " ".join(lines[:14])
+        for table_number, header_text in table_headers.items():
+            continuation_text = f"continue of the table {table_number}"
+            caption_text = f"table {table_number}"
+            if (
+                header_text in top_text
+                and continuation_text not in top_text
+                and caption_text not in top_caption_zone
+            ):
+                missing.append(f"page {page_index}: Table {table_number}")
+    if missing:
+        reporter.error(
+            "table.renderedContinuation",
+            "Rendered continued table page is missing the required upper-left label: " + "; ".join(missing),
+        )
+    else:
+        reporter.pass_("table.renderedContinuation", "Rendered continued table pages include required upper-left labels")
+
+
+def _contents_paragraphs_for_entries(root: etree._Element, styles: dict[str, etree._Element]) -> list[etree._Element]:
+    paragraphs = _section_paragraphs(root, 1)
+    body_leading_contents: list[etree._Element] = []
+    for paragraph in _body_section_paragraphs(root):
+        text = _clean(text_of(paragraph))
+        if _is_paragraph_style(paragraph, styles, "Contents Entry"):
+            body_leading_contents.append(paragraph)
+            continue
+        if text:
+            break
+    return paragraphs + body_leading_contents
+
+
+def _manual_contents_entries(root: etree._Element, styles: dict[str, etree._Element]) -> dict[str, str]:
+    entries: dict[str, str] = {}
+    for paragraph in _contents_paragraphs_for_entries(root, styles):
+        if _clean(text_of(paragraph)) == "Contents":
+            continue
+        text = _clean(_visible_text(paragraph))
+        match = re.match(r"^(.*?)(\d+)$", text)
+        if not match:
+            continue
+        title = _clean(match.group(1))
+        page = match.group(2)
+        if title:
+            entries[title] = page
+    return entries
+
+
+def _check_rendered_contents_page_numbers(
+    root: etree._Element,
+    styles: dict[str, etree._Element],
+    sample_pdf: Path,
+    reporter: Reporter,
+) -> None:
+    pages_text = _pdf_pages_text(sample_pdf)
+    if not pages_text:
+        reporter.warn("contents.pageNumbers.rendered", "Could not extract rendered PDF text to validate Contents page numbers")
+        return
+    body_headings = [
+        _clean(text_of(paragraph))
+        for paragraph in _body_section_paragraphs(root)
+        if _is_paragraph_style(paragraph, styles, "Heading 1") or _is_paragraph_style(paragraph, styles, "Heading 2")
+    ]
+    entries = _manual_contents_entries(root, styles)
+    rendered_pages = _rendered_heading_pages(pages_text, body_headings)
+    mismatches: list[str] = []
+    missing_rendered: list[str] = []
+    for heading in body_headings:
+        if heading not in entries:
+            continue
+        rendered_page = rendered_pages.get(heading)
+        if rendered_page is None:
+            missing_rendered.append(heading)
+            continue
+        if entries[heading] != rendered_page:
+            mismatches.append(f"{heading}: Contents {entries[heading]}, rendered {rendered_page}")
+    if mismatches:
+        reporter.error(
+            "contents.pageNumbers.rendered",
+            "Contents page numbers must match rendered heading pages: " + "; ".join(mismatches[:12]),
+        )
+    elif missing_rendered:
+        reporter.error(
+            "contents.pageNumbers.rendered",
+            "Rendered heading page could not be resolved for Contents validation: " + "; ".join(missing_rendered[:12]),
+        )
+    else:
+        reporter.pass_("contents.pageNumbers.rendered", "Contents page numbers match rendered heading pages")
+
+
+def _check_rendered_contents_total_pages(sample_pdf: Path, reporter: Reporter) -> None:
+    pages_text = _pdf_pages_text(sample_pdf)
+    page_count = _pdf_page_count(sample_pdf)
+    if not pages_text or page_count is None:
+        reporter.warn("contents.totalPages.rendered", "Could not extract rendered Contents total page count")
+        return
+    contents_text = "\n".join(pages_text[1:3])
+    lines = contents_text.splitlines()
+    rendered_total = None
+    for index, line in enumerate(lines):
+        if not re.search(r"\bPage\s+Pages\b", line):
+            continue
+        pages_col = line.find("Pages")
+        for following in lines[index + 1 : index + 10]:
+            for match in re.finditer(r"\b(\d{2,3})\b", following):
+                value = int(match.group(1))
+                if 40 <= value <= 200 and match.start() >= max(0, pages_col - 10):
+                    rendered_total = value
+                    break
+            if rendered_total is not None:
+                break
+        if rendered_total is not None:
+            break
+    if rendered_total is None:
+        match = re.search(r"\bPages\s*\n\s*(\d{2,3})\b", contents_text)
+        if match:
+            rendered_total = int(match.group(1))
+    if rendered_total is None:
+        reporter.warn("contents.totalPages.rendered", "Could not locate rendered Pages value in the Contents title block")
+        return
+    # The official title-block numbering starts on the third physical page:
+    # cover = 1, first contents page = 2, second contents/body-title-block
+    # section starts at visible page BODY_TITLE_BLOCK_PAGE_START.
+    visible_last_page = page_count + BODY_TITLE_BLOCK_PAGE_START - 3
+    if rendered_total != visible_last_page:
+        reporter.error(
+            "contents.totalPages.rendered",
+            f"Rendered Contents Pages value must match the last visible title-block page number: Pages cell {rendered_total}, last visible page {visible_last_page}",
+        )
+    else:
+        reporter.pass_(
+            "contents.totalPages.rendered",
+            f"Rendered Contents Pages value matches the last visible title-block page number: {visible_last_page}",
+        )
+
+
+def _check_rendered_numbered_reference_line_breaks(sample_pdf: Path, reporter: Reporter) -> None:
+    pages_text = _pdf_pages_text(sample_pdf)
+    if not pages_text:
+        reporter.warn("visual.numberedReferenceNoBreak", "Could not extract rendered PDF text to validate numbered reference line breaks")
+        return
+    broken: list[str] = []
+    ref_word_re = re.compile(rf"\b{NUMBERED_REFERENCE_WORDS_RE}\s*$", flags=re.I)
+    ref_number_re = re.compile(r"^\s*\(\d+\.\d+\)\b")
+    for page_index, page_text in enumerate(pages_text, start=1):
+        lines = [line.rstrip() for line in page_text.splitlines()]
+        for line_index, line in enumerate(lines[:-1]):
+            if ref_word_re.search(line) and ref_number_re.search(lines[line_index + 1]):
+                broken.append(
+                    f"page {page_index}: `{_clean(line[-80:])}` / `{_clean(lines[line_index + 1][:40])}`"
+                )
+    if broken:
+        reporter.error(
+            "visual.numberedReferenceNoBreak",
+            "Rendered numbered references must stay on one line: " + " | ".join(broken[:8]),
+        )
+    else:
+        reporter.pass_("visual.numberedReferenceNoBreak", "Rendered Figure/Table/formula references are not split before their numbers")
 
 
 def _pdf_words_by_page(pdf_path: Path) -> list[list[tuple[str, float, float, float, float]]]:
@@ -2310,6 +3244,8 @@ def _non_template_words(words: list[tuple[str, float, float, float, float]]) -> 
         and not re.fullmatch(r"\d+", item[0])
         and "BSTU" not in item[0]
         and "YOUR_NUMBER" not in item[0]
+        and "БрГТУ" not in item[0]
+        and "241297" not in item[0]
     ]
 
 
@@ -2324,34 +3260,22 @@ def _page_fill_ratio(words: list[tuple[str, float, float, float, float]], *, usa
 
 def _visual_page_fill_ratio(png_path: Path) -> float | None:
     try:
-        from PIL import Image
+        from PIL import Image, ImageChops
     except ImportError:
         return None
     image = Image.open(png_path).convert("RGB")
     width, height = image.size
-    margins = _rendered_outer_frame_margins(png_path)
-    if margins:
-        top_margin, bottom_margin, left_margin, right_margin = margins
-        left = max(0, left_margin + int(width * 0.03))
-        right = min(width, width - right_margin - int(width * 0.03))
-        top = max(0, top_margin + int(height * 0.04))
-        bottom = min(height, height - bottom_margin - int(height * 0.12))
-    else:
-        left, right = int(width * 0.12), int(width * 0.88)
-        top, bottom = int(height * 0.10), int(height * 0.84)
-    ys: list[int] = []
-    for y in range(top, bottom):
-        row_has_content = False
-        for x in range(left, right, 2):
-            r, g, b = image.getpixel((x, y))
-            if min(r, g, b) < 245:
-                row_has_content = True
-                break
-        if row_has_content:
-            ys.append(y)
-    if not ys or bottom <= top:
+    left, right = int(width * 0.12), int(width * 0.88)
+    top, bottom = int(height * 0.10), int(height * 0.84)
+    if right <= left or bottom <= top:
         return None
-    return (max(ys) - min(ys)) / (bottom - top)
+    cropped = image.crop((left, top, right, bottom))
+    light_mask = cropped.point(lambda value: 255 if value >= 248 else 0)
+    ink_mask = ImageChops.invert(light_mask.convert("L"))
+    bbox = ink_mask.getbbox()
+    if not bbox:
+        return None
+    return (bbox[3] - bbox[1]) / (bottom - top)
 
 
 def _check_body_page_fill(
@@ -2361,14 +3285,17 @@ def _check_body_page_fill(
     sample_pngs: list[Path] | None = None,
     min_body_ratio: float = 0.6,
     min_last_ratio: float = 0.5,
+    hard_min_body_ratio: float = 0.5,
+    code_prefix: str = "visual.pageFill",
 ) -> None:
     words_by_page = _pdf_words_by_page(sample_pdf)
     if len(words_by_page) < 3:
-        reporter.warn("visual.pageFill", "Could not evaluate body-page fill because rendered body pages were not detected")
+        reporter.warn(code_prefix, "Could not evaluate body-page fill because rendered body pages were not detected")
         return
     pages_text = _pdf_pages_text(sample_pdf)
     body_start_index = _rendered_body_start_index(pages_text) if pages_text else 2
     body_pages = words_by_page[body_start_index:]
+    under_half_pages: list[str] = []
     short_middle_pages: list[str] = []
     for idx, words in enumerate(body_pages[:-1]):
         text_ratio = _page_fill_ratio(words)
@@ -2381,16 +3308,25 @@ def _check_body_page_fill(
         if ratio is None:
             continue
         page_number = body_start_index + idx + 1
+        if ratio < hard_min_body_ratio:
+            under_half_pages.append(f"{page_number} ({ratio:.2f})")
         if ratio < min_body_ratio:
             short_middle_pages.append(f"{page_number} ({ratio:.2f})")
+    if under_half_pages:
+        reporter.error(
+            f"{code_prefix}.halfPage",
+            "Body pages must not be under 50% filled: " + ", ".join(under_half_pages),
+        )
+    else:
+        reporter.pass_(f"{code_prefix}.halfPage", "All non-final body pages are at least half filled")
     if short_middle_pages:
         reporter.error(
-            "visual.pageFill.body",
+            f"{code_prefix}.body",
             "Body pages must not contain large blank areas below the 60% fill threshold: "
             + ", ".join(short_middle_pages),
         )
     else:
-        reporter.pass_("visual.pageFill.body", "All non-final body pages are filled above the 60% threshold")
+        reporter.pass_(f"{code_prefix}.body", "All non-final body pages are filled above the 60% threshold")
 
     last_idx = None
     for idx in range(len(body_pages) - 1, -1, -1):
@@ -2399,27 +3335,27 @@ def _check_body_page_fill(
             last_idx = idx
             break
     if last_idx is None:
-        reporter.warn("visual.pageFill.lastBody", "No body text words were found in rendered preview")
+        reporter.warn(f"{code_prefix}.lastBody", "No body text words were found in rendered preview")
         return
     fill_ratio = _page_fill_ratio(body_pages[last_idx])
     if fill_ratio is None:
-        reporter.warn("visual.pageFill.lastBody", "Could not evaluate final body-page fill")
+        reporter.warn(f"{code_prefix}.lastBody", "Could not evaluate final body-page fill")
         return
     page_number = body_start_index + last_idx + 1
     if fill_ratio >= min_last_ratio:
         reporter.pass_(
-            "visual.pageFill.lastBody",
+            f"{code_prefix}.lastBody",
             f"Last body page {page_number} is filled above half-page threshold: {fill_ratio:.2f}",
         )
     else:
-        reporter.warn(
-            "visual.pageFill.lastBody",
+        reporter.error(
+            f"{code_prefix}.lastBody",
             f"Last body page {page_number} has large blank area; text fill is only {fill_ratio:.2f}. "
             "Add content or move material so the final page is at least about half full before the next section starts.",
         )
 
 
-def check_visual_preview(docx_path: Path, reporter: Reporter) -> None:
+def check_visual_preview(docx_path: Path, root: etree._Element, styles: dict[str, etree._Element], reporter: Reporter) -> None:
     preview_dir = docx_path.parent / "preview"
     side_by_side_dir = preview_dir / "side_by_side_preview"
     soffice = shutil.which("libreoffice") or shutil.which("soffice")
@@ -2457,6 +3393,21 @@ def check_visual_preview(docx_path: Path, reporter: Reporter) -> None:
         return
     reporter.pass_("visual.render.sample", f"Rendered sample PDF: {sample_pdf}")
 
+    word_pdf_dir = preview_dir / "word_preview"
+    word_pdf = _render_docx_to_pdf_with_word(docx_path, word_pdf_dir)
+    visual_pdf = word_pdf if word_pdf and word_pdf.exists() else sample_pdf
+    if word_pdf and word_pdf.exists():
+        reporter.pass_("visual.wordRender.sample", f"Using Microsoft Word PDF for page-sensitive checks: {word_pdf}")
+    else:
+        reporter.warn(
+            "visual.wordRender.sample",
+            "Microsoft Word PDF export was not available; LibreOffice PDF was used for page-sensitive preview checks",
+        )
+    _check_rendered_contents_page_numbers(root, styles, visual_pdf, reporter)
+    _check_rendered_contents_total_pages(visual_pdf, reporter)
+    _check_rendered_numbered_reference_line_breaks(visual_pdf, reporter)
+    _check_rendered_table_continuations(visual_pdf, reporter, table_headers=_word_table_headers(root))
+
     sample_pngs = _render_pdf_pages(sample_pdf, preview_dir)
     template0_pngs = _render_pdf_pages(template0_pdf, preview_dir) if template0_pdf else []
     template1_pngs = _render_pdf_pages(template1_pdf, preview_dir) if template1_pdf else []
@@ -2490,7 +3441,7 @@ def check_visual_preview(docx_path: Path, reporter: Reporter) -> None:
         else:
             reporter.warn("visual.frameMargins.contentsBody", "Could not measure rendered Contents/body frame margins")
 
-    pages_text = _pdf_pages_text(sample_pdf)
+    pages_text = _pdf_pages_text(visual_pdf)
     body_pages = [page for page in pages_text[2:] if page.strip()]
     visual_x_pages = [
         idx + 3
@@ -2510,8 +3461,23 @@ def check_visual_preview(docx_path: Path, reporter: Reporter) -> None:
         reporter.error("visual.textArtifact.page", f"Rendered body page(s) contain visible PAGE/field artifacts: {visual_page_pages}")
     else:
         reporter.pass_("visual.textArtifact.page", "Rendered body pages contain no visible PAGE artifacts")
-    _check_body_page_fill(sample_pdf, reporter, sample_pngs=sample_pngs)
-    if any(
+    if word_pdf and word_pdf.exists():
+        word_pngs = _render_pdf_pages(word_pdf, word_pdf_dir)
+        if word_pngs:
+            reporter.pass_("visual.wordPng", f"Rendered {len(word_pngs)} Microsoft Word PNG page(s) under {word_pdf_dir}")
+            _check_body_page_fill(
+                word_pdf,
+                reporter,
+                sample_pngs=word_pngs,
+                code_prefix="visual.wordPageFill",
+            )
+        else:
+            reporter.warn("visual.wordPng", "Microsoft Word PDF rendered, but PNG rasterization was not available")
+    else:
+        _check_body_page_fill(sample_pdf, reporter, sample_pngs=sample_pngs)
+    if word_pdf and word_pdf.exists():
+        reporter.pass_("visual.pagenum.rendered", "Microsoft Word PDF was used for rendered page-number verification")
+    elif any(
         finding.severity == "PASS" and finding.code == "pagenum.body.liveFieldCount"
         for finding in reporter.findings
     ):
@@ -2588,6 +3554,7 @@ def check_docx(docx_path: Path, report_path: Path = REPORT_PATH, *, partial: boo
     check_page_setup(document_root, reporter)
     check_body_paragraphs(document_root, styles, reporter)
     check_headings(document_root, styles, reporter)
+    check_thesis_section_structure(document_root, styles, reporter)
     check_contents(document_root, styles, reporter)
     check_page_numbers(package, document_root, reporter)
     check_style_colors(styles, reporter)
@@ -2598,7 +3565,7 @@ def check_docx(docx_path: Path, report_path: Path = REPORT_PATH, *, partial: boo
     check_chapter_rules(document_root, styles, reporter)
     check_references(document_root, styles, reporter)
     check_templates(package, document_root, reporter)
-    check_visual_preview(docx_path, reporter)
+    check_visual_preview(docx_path, document_root, styles, reporter)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(render_report(docx_path, reporter), encoding="utf-8")
     return reporter

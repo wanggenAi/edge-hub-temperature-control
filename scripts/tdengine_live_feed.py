@@ -36,6 +36,10 @@ def q(text: str) -> str:
     return "'" + text.replace("'", "''") + "'"
 
 
+def calc_error_c(target_temp_c: float, sensor_temp_c: float) -> float:
+    return float(target_temp_c) - float(sensor_temp_c)
+
+
 @dataclass
 class TdengineClient:
     url: str
@@ -92,8 +96,8 @@ def insert_telemetry(td: TdengineClient, state: DeviceState, ts_ms: int) -> None
     drift = math.sin(state.tick / 80.0 + state.phase) * 0.2
     sensor = state.target_temp + wave + drift
     sim_temp = sensor + math.sin(state.tick / 9.0) * 0.03
-    error_c = sensor - state.target_temp
-    pwm = max(15, min(98, int(52 + wave * 18 + abs(error_c) * 8)))
+    error_c = calc_error_c(state.target_temp, sensor)
+    pwm = max(15, min(98, int(52 + max(0.0, error_c) * 18 + abs(error_c) * 8)))
     saturation_state = "high" if pwm >= 85 else ("medium" if pwm >= 70 else "normal")
     fault_latched = "true" if abs(error_c) > 1.3 and (state.tick % 9 == 0) else "false"
     fault_reason = "temp_guard" if fault_latched == "true" else ""

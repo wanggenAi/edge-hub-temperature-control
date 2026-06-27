@@ -1,6 +1,4 @@
-# 1 INTRODUCTION
-
-## 1.1 Relevance and problem statement
+# INTRODUCTION
 
 Temperature control is a common engineering task in laboratory equipment, heating units, environmental chambers, embedded automation systems, and industrial processes. In such systems, the temperature value must not only be measured, but also maintained near a specified setpoint under the influence of disturbances, actuator limitations, sensor errors, thermal inertia, and communication delays. For this reason, a temperature-control system has to be considered not only as a controller, but as an engineering workflow that includes measurement, control action, supervision, configuration, feedback, and verification [1].
 
@@ -11,8 +9,6 @@ The diploma project is focused on the development of a layered closed-loop tempe
 The relevance of the project is determined by the need to connect embedded control, structured data exchange, persistent storage, operator interaction, and post-apply result checking into one reproducible engineering process. Therefore, the project is not limited to creating a temperature display, a separate PID controller, or an isolated web dashboard. Its purpose is to implement a complete control cycle: temperature measurement, local control, telemetry publishing, Data Hub ingestion, storage and processing, HMI monitoring, parameter update, device acknowledgement, and verification after the applied change.
 
 The main engineering contribution of the project is the implementation of an end-to-end closed-loop platform in which local control, MQTT-based message exchange, Data Hub processing, persistent historical storage, HMI-based operation, parameter acknowledgement, and post-apply verification are integrated into one reproducible workflow. The auxiliary decision-support mechanism increases the engineering value of the system by supporting analysis and parameter preparation, while the operator remains in the loop and the system emphasizes explainability, feedback, and controlled evaluation rather than uncontrolled automatic optimization.
-
-## 1.2 Aim and objectives of the project
 
 The aim of the diploma project is to design, implement, and validate a layered closed-loop temperature control and monitoring system that combines an edge control layer, a Data Hub layer, an HMI layer, and an auxiliary decision-support mechanism for control-behavior analysis and parameter recommendation.
 
@@ -27,13 +23,9 @@ To achieve this aim, the following objectives must be completed:
 - to include an auxiliary decision-support mechanism for analyzing control behavior and preparing parameter recommendations;
 - to validate the complete closed loop, including telemetry generation, Data Hub ingestion, HMI monitoring, parameter update, device acknowledgement, and observation of system behavior after the applied change.
 
-## 1.3 Object and subject of the project
-
 The object of the project is an edge-based temperature control system considered as a closed-loop engineering platform. The platform combines local control execution with supervisory data processing, operator interaction, parameter adjustment, and evidence-based result checking.
 
 The subject of the project is the architecture, communication flow, control logic, data processing pipeline, HMI interaction, parameter update mechanism, acknowledgement procedure, verification process, and auxiliary decision-support functions required to implement the complete temperature-control loop.
-
-## 1.4 Practical significance
 
 The practical significance of the project lies in the implementation of a complete layered prototype that demonstrates an industrial-style workflow for temperature control and monitoring. The system is not limited to displaying temperature values. It supports local control execution, structured MQTT communication, telemetry ingestion, time-series storage, operator interaction, parameter update, acknowledgement handling, and checking of the result after a new configuration is applied.
 
@@ -43,22 +35,10 @@ The Data Hub layer improves traceability by receiving telemetry, processing mess
 
 The auxiliary decision-support mechanism adds value by helping evaluate control behavior and prepare parameter recommendations. At the same time, the operator remains responsible for applying changes through the HMI and checking the result using stored measurements and acknowledgement information. This makes the prototype suitable as an engineering demonstration of a closed-loop control platform with traceable configuration, feedback, and verification. The developed system can also serve as a foundation for future hardware deployment, extension of control functions, or integration with additional monitoring tools.
 
-## 1.5 Structure of the thesis
+The scope of the work is defined so that the developed prototype remains realistic for later transfer to physical equipment. The project does not treat the edge device as a passive sensor node and does not move the control decision completely to a remote service. Instead, the local device is responsible for measurement, parameter storage, control calculation, actuator command preparation, and acknowledgement of accepted configuration changes. Higher software layers are responsible for data processing, visualization, operator interaction, historical analysis, and preparation of recommendations. This separation is important because it reflects the practical engineering requirement that local control must remain stable even when supervisory services are used for monitoring and configuration.
 
-The thesis consists of seven main sections.
+The project also emphasizes that controller-parameter changes must be evaluated as part of a complete workflow. A new configuration is not considered successful only because it was entered in the interface or transmitted through MQTT. It must be accepted by the edge device, stored with a traceable parameter version, followed by new telemetry, and then compared with the expected process behavior. This approach makes it possible to use the prototype during the future hardware stage, when initial PID parameters can be obtained by a standard engineering tuning method and then checked through measured response, acknowledgement records, and historical trends.
 
-The first section introduces the relevance of the topic, states the engineering problem, defines the aim and objectives of the project, and describes the object, subject, and practical significance of the developed system.
-
-The second section analyzes temperature control and monitoring systems. It considers feedback control principles, edge-based execution, telemetry exchange, HMI requirements, decision-support functions, and the requirements for the developed system.
-
-The third section describes the system architecture. It explains the responsibilities of the edge control layer, the Data Hub layer, and the HMI layer, and presents the closed-loop flow of measurements, commands, acknowledgements, and feedback.
-
-The fourth section describes the implementation of the edge control layer, including temperature acquisition, heater control, the control algorithm, runtime configuration, MQTT communication, and local response to parameter updates.
-
-The fifth section describes the implementation of the Data Hub and HMI layers. It covers MQTT ingestion, message parsing, telemetry processing, persistent storage, backend services, frontend interaction, monitoring, and parameter configuration.
-
-The sixth section describes the auxiliary decision-support mechanism and system validation. It explains how telemetry is used for behavior analysis, how recommendations are prepared, and how the complete loop is checked through telemetry generation, data ingestion, HMI operation, acknowledgement, and post-apply observation.
-
-The seventh section summarizes the completed work, evaluates whether the project objectives have been achieved, and outlines possible directions for further improvement.
+After the introduction, the thesis contains five numbered main sections, followed by the conclusion and references. Section 1 analyzes temperature control and monitoring systems. It considers feedback control principles, edge-based execution, telemetry exchange, HMI requirements, decision-support functions, and the requirements for the developed system. Section 2 describes the system architecture, explains the responsibilities of the edge control layer, the Data Hub layer, and the HMI layer, and presents the closed-loop flow of measurements, commands, acknowledgements, and feedback. Section 3 describes the implementation of the edge control layer, including temperature acquisition, heater control, the control algorithm, runtime configuration, MQTT communication, and local response to parameter updates. Section 4 describes the implementation of the Data Hub and HMI layers, including MQTT ingestion, message parsing, telemetry processing, persistent storage, backend services, frontend interaction, monitoring, and parameter configuration. Section 5 describes the auxiliary decision-support mechanism and system validation. It explains how telemetry is used for behavior analysis, how recommendations are prepared, and how the complete loop is checked through telemetry generation, data ingestion, HMI operation, acknowledgement, and post-apply observation. The conclusion summarizes the completed work, evaluates whether the project objectives have been achieved, and outlines possible directions for further improvement.
 
 Thus, the thesis follows the engineering flow of the project: requirements analysis, architecture design, implementation of the main system layers, validation of the closed loop, and final evaluation of the obtained result.

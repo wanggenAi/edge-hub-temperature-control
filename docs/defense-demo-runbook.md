@@ -1,331 +1,160 @@
-# 答辩演示 Runbook
+# Defense Demo Runbook
 
-目标：让答辩演示能稳定证明项目最有价值的闭环能力，而不是只展示静态页面。
+## 1. Demo Objective
 
-核心演示链路：
+This demo uses deterministic controlled telemetry, not random fake rows. The goal is to reproduce the same data structures and control logic used by the real system while avoiding defense-day risk from network, serial, broker, or timing instability.
+
+The story to prove is:
 
 ```text
-HMI 页面修改目标温度
--> HMI 后端发布 MQTT params/set
--> Wokwi/硬件 edge-node-001 接收并应用参数
--> 设备发布 params/ack 和 telemetry
--> Java DataHub 消费 MQTT 并写入 TDengine
--> HMI 从 TDengine 看到目标值、实时温度和在线状态变化
+edge telemetry -> TDengine -> HMI -> AI diagnosis -> PID recommendation
+-> preview -> apply / ACK -> post-apply validation -> feedback learning sample
 ```
 
-## 1. 演示设备
+The `DEF-101` to `DEF-114` devices are presentation devices. They are safe to reset because every seeded row uses `device_code like 'DEF-%'` and `run_id like 'defense_%'`.
 
-### 主演示设备
+## 2. Start Services
 
-- 设备编号：`edge-node-001`
-- 代码位置：`simulator/wokwi/src/config/app_config.h`
-- MQTT telemetry：`edge/temperature/edge-node-001/telemetry`
-- MQTT 参数下发：`edge/temperature/edge-node-001/params/set`
-- MQTT ACK：`edge/temperature/edge-node-001/params/ack`
-- 用途：正式演示 HMI -> MQTT -> 设备 ACK -> DataHub -> TDengine -> HMI 的真实闭环。
-
-答辩时优先使用 Wokwi/真实硬件运行这个设备。Python live edge 只作为明天自测和现场兜底，不作为主叙事。
-
-### 造数设备
-
-运行 `seed_defense_demo.py` 后会生成 6 个 `DEF-*` 设备，用来展示 AI 诊断、历史对比、告警和应用后验证：
-
-| 设备 | 主题 | 演示价值 |
-|---|---|---|
-| `DEF-STABLE-01` | 稳定闭环 | 证明系统不是只会报错，也能识别正常状态 |
-| `DEF-SLOW-01` | 慢响应 | 展示特征诊断和安全增益建议 |
-| `DEF-OSC-01` | 振荡 | 展示振荡证据、阻尼建议、预览和反馈样本 |
-| `DEF-OVS-01` | 超调 | 展示保守调参和过冲降低 |
-| `DEF-SAT-01` | 执行器饱和 | 展示系统知道 PID 不能解决硬件能力边界 |
-| `DEF-SSE-01` | 稳态误差 | 展示积分修正和应用后验证 |
-
-## 2. 明天自测顺序
-
-所有命令默认从仓库根目录执行：
+Run commands from the repository root unless noted.
 
 ```bash
 cd /Users/seker./edge-hub-temperature-control
+docker compose -f docker-compose.postgresql.yml up -d
+docker compose -f docker-compose.tdengine.yml up -d
 ```
 
-### 2.1 启动 HMI、AI 和中间件
-
-这个命令会启动 PostgreSQL、TDengine、AI runtime、HMI 后端和 HMI 前端：
+Start HMI. Use the AI runtime if it is stable; otherwise the backend fallback and seeded recommendations are enough for the defense demo.
 
 ```bash
-./scripts/start-hmi-dev.sh --with-docker --skip-install --restart
+./scripts/start-hmi-dev.sh --skip-install --without-ai
 ```
 
-预期地址：
-
-- HMI 前端：`http://127.0.0.1:5173`
-- HMI 后端：`http://127.0.0.1:8000/docs`
-- AI runtime：`http://127.0.0.1:8010/health`
-- TDengine REST：`http://127.0.0.1:6041`
-
-登录账号：
-
-- 用户名：`admin`
-- 密码：`admin123`
-
-### 2.2 生成答辩造数数据
-
-先确保基础用户、规则和预览案例存在：
-
-```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/db_seed.py --rules --demo --preview-ai-demo
-```
-
-确保正式闭环演示设备 `edge-node-001` 已经在 HMI 数据库里，页面能搜索到它：
-
-```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/ensure_defense_live_device.py
-```
-
-再生成高信号答辩数据：
-
-```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/seed_defense_demo.py --reset --minutes 180 --step-seconds 15
-```
-
-这一步只重置 `DEF-*` 设备，不会删除 `edge-node-001`。
-
-### 2.3 启动 DataHub
-
-DataHub 需要单独启动，保持这个终端不要关：
+Optional DataHub runtime:
 
 ```bash
 cd /Users/seker./edge-hub-temperature-control/data-hub
 ./gradlew bootRun
 ```
 
-预期配置：
+Optional Wokwi or Python edge node can be used for a live hardware-style segment, but the seeded DEF devices are the fallback for the core defense story.
 
-- DataHub 主端口：`18080`
-- Actuator/Prometheus：`8081`
-- MQTT broker：读取 `data-hub/config/application.properties`
-- TDengine 写入模式：`tdengine-rest`
+Main URLs:
 
-健康检查：
+- HMI: `http://127.0.0.1:5173`
+- Backend docs: `http://127.0.0.1:8000/docs`
+- DataHub actuator, if running: `http://127.0.0.1:8081/actuator/health`
 
-```bash
-curl http://127.0.0.1:8081/actuator/health
-```
+## 3. Seed Demo Data
 
-### 2.4 编译并启动 Wokwi
-
-编译固件：
+Use one command to reset only demo devices and reseed all defense scenarios:
 
 ```bash
-cd /Users/seker./edge-hub-temperature-control/simulator/wokwi
-pio run -e esp32dev
+python scripts/seed_defense_demo_data.py --reset --scenario all
+python scripts/preflight-defense-demo.py
+python scripts/seed_defense_demo_data.py --report
 ```
 
-然后在 VS Code 里打开 `simulator/wokwi`，用 Wokwi 扩展启动仿真。
-
-串口日志重点看这些字段：
-
-```text
-edge_temperature_app_boot=ok
-runtime_config_load_status=loaded_from_nvs
-runtime_target_temp_c=...
-mqtt_telemetry_topic=edge/temperature/edge-node-001/telemetry
-mqtt_params_topic=edge/temperature/edge-node-001/params/set
-mqtt_params_ack_topic=edge/temperature/edge-node-001/params/ack
-```
-
-如果第一次运行没有 NVS，应该看到默认目标温度来自代码配置，当前默认是 `23.0°C`，不是旧的 `35.0°C`。
-
-检查 Wokwi 串口桥是否开启：
+Useful targeted commands:
 
 ```bash
-nc -vz 127.0.0.1 4000
+python scripts/seed_defense_demo_data.py --dry-run --scenario all
+python scripts/seed_defense_demo_data.py --scenario slow_response
+python scripts/seed_defense_demo_data.py --scenario ack_success
+python scripts/seed_defense_demo_data.py --scenario over_temperature_safety
 ```
 
-### 2.5 运行预检查
+## 4. 15-Minute Defense Demo Path
 
-回到仓库根目录：
+1. Open the HMI dashboard and show the `DEF-*` device list.
+2. Open `DEF-101 normal_stable` and explain the normal baseline.
+3. Open `DEF-108 steady_state_error`; show sustained setpoint bias and generate the AI recommendation.
+4. Explain feature extraction: mean error, mean absolute error, in-band ratio, settling time, temperature swing, and saturation ratio.
+5. Open `DEF-105 post_apply_success`; show baseline / preview / actual curves and the improved validation result.
+6. Open `DEF-106 preview_mismatch`; explain the system compares preview and actual instead of blindly trusting AI.
+7. Keep `DEF-102 slow_response` as backup only if a teacher asks about response speed.
+8. Open `DEF-112 ack_success`; show seeded params/set and successful params/ack evidence.
+9. Open `DEF-113 ack_failure_validation_error`; show illegal parameters are rejected.
+10. Open `DEF-110 sensor_invalid` or `DEF-111 over_temperature_safety`; show safety forced output off.
+11. Open `DEF-109 saturation_limited`; explain actuator limits and why PID is not magic.
+12. If time remains, open Ops / learning pages and show feedback labels used by the learning loop.
+
+## 5. Scenario Table
+
+| Device | Scenario | What to show | Expected result | Teacher question it answers |
+|---|---|---|---|---|
+| `DEF-101` | `normal_stable` | Stable telemetry curve | Error stays near zero; no adjustment needed | Can the system distinguish normal operation from faults? |
+| `DEF-102` | `slow_response` | Slow rise toward target | AI problem is `slow_response`; after curve settles faster | Backup: how does AI find slow response? |
+| `DEF-103` | `overshoot_high` | Temperature exceeds target | Overshoot is reduced after conservative tuning | Can it handle too aggressive control? |
+| `DEF-104` | `oscillation` | Repeated crossings around target | Amplitude and error variance shrink after tuning | Can it detect oscillation rather than one noisy point? |
+| `DEF-105` | `post_apply_success` | Before / preview / actual comparison | Steady-state error improves; `actual_effect_label=improved`, `preview_gap_label=low` | Does recommendation improve setpoint stability? |
+| `DEF-106` | `preview_mismatch` | Preview good, actual weaker | Steady-state error is not improved as much as predicted; `preview_gap_label=high` | What happens if AI prediction is wrong? |
+| `DEF-107` | `insufficient_data` | Too few post-apply points | Evaluation is pending or insufficient | Does it avoid false conclusions with little data? |
+| `DEF-108` | `steady_state_error` | Long-term same-sign error | AI problem is `steady_state_error` | Does it detect persistent bias, not just transient error? |
+| `DEF-109` | `saturation_limited` | PWM near 100 percent | AI flags actuator or load limitation | Does it know hardware limits matter? |
+| `DEF-110` | `sensor_invalid` | Fault-latched safety state | `sensor_valid=false`, PWM forced to zero | What if the sensor fails? |
+| `DEF-111` | `over_temperature_safety` | Temperature above safety limit | Over-temperature alarm and output off | What if the process becomes unsafe? |
+| `DEF-112` | `ack_success` | `params_set` then `params_ack` | ACK success and action status applied | Is apply confirmed by the device? |
+| `DEF-113` | `ack_failure_validation_error` | Invalid `kp` attempt | Validation ACK rejects the command | Are dangerous parameters blocked? |
+| `DEF-114` | `post_apply_partial` | Some improvement, not enough | `actual_effect_label=unchanged`, `preview_gap_label=medium` | Does the learning loop record partial failures? |
+
+## 6. Teacher Q&A Cheat Sheet
+
+Q: Are these data fake?
+
+A: They are deterministic controlled demo telemetry. The real edge path can produce the same kinds of records, but the defense uses controlled telemetry to avoid network, serial, and timing instability. The seeded rows still go into PostgreSQL and TDengine using the same schema that HMI, AI, ACK, and learning pages read.
+
+Q: Is the AI recommendation just written by hand?
+
+A: The recommendation path uses TDengine history and PostgreSQL device parameters to extract features such as mean absolute error, overshoot, settling time, zero crossings, in-band ratio, and saturation ratio. The seeded recommendation records preserve those inputs and expected labels so the page can demonstrate the same reasoning path reliably.
+
+Q: What if the AI prediction is wrong?
+
+A: `DEF-106 preview_mismatch` shows exactly that. The preview looks strong, but the actual telemetry does not match. The system labels the gap as high and records it as feedback instead of assuming the recommendation was correct.
+
+Q: What if the sensor breaks?
+
+A: `DEF-110 sensor_invalid` shows `sensor_valid=false`, `fault_latched=true`, and `pwm_duty=0`. The system prioritizes safety and blocks normal tuning.
+
+Q: What if a parameter is illegal?
+
+A: `DEF-113 ack_failure_validation_error` shows an invalid `kp` attempt rejected by `params_ack` with `ack_type=validation_error`, `success=false`, and `reason=kp_out_of_range`. The current safe parameters are not overwritten.
+
+Q: What if the actuator is not strong enough?
+
+A: `DEF-109 saturation_limited` keeps PWM near 100 percent while the temperature remains below target. The system flags actuator saturation and hardware/load limits instead of pretending PID can solve everything.
+
+Q: Why is `error_c` positive when temperature is below target?
+
+A: The project definition is `error_c = target_temp_c - sensor_temp_c`. Positive error means the measured temperature is below target and heating demand remains.
+
+## 7. Fallback Plan
+
+- AI runtime is not running: use backend fallback and seeded recommendations.
+- Wokwi is unstable: use seeded `DEF-*` telemetry for the core story.
+- DataHub actuator is not running: use seeded `params_set` and `params_ack` data for ACK evidence; DataHub runtime health remains a warning unless explicitly required.
+- MQTT broker is unstable: use seeded TDengine and PostgreSQL data to show HMI, AI, validation, and feedback.
+- Time window shows no data: rerun `python scripts/seed_defense_demo_data.py --reset --scenario all` and then rerun preflight.
+- Browser route looks stale after login: use the dashboard/device navigation directly and search for `DEF-102`.
+
+## 8. Final Preflight Checklist
+
+Run this five minutes before defense:
 
 ```bash
-cd /Users/seker./edge-hub-temperature-control
-hmi/backend/.venv/bin/python scripts/preflight-defense-demo.py --require-wokwi
+python scripts/seed_defense_demo_data.py --reset --scenario all
+python scripts/preflight-defense-demo.py
+python scripts/seed_defense_demo_data.py --report
 ```
 
-如果还没启动 Wokwi，可以先不加 `--require-wokwi`：
+Checklist:
 
-```bash
-hmi/backend/.venv/bin/python scripts/preflight-defense-demo.py
-```
-
-预检查会看：
-
-- PostgreSQL / TDengine Docker 是否运行
-- HMI 后端、前端、AI runtime 是否健康
-- DataHub actuator 是否健康
-- DataHub 是否没有占用 `8080`
-- Wokwi 串口端口 `4000`
-- `edge-node-001` 是否存在于 PostgreSQL
-- `DEF-*` 造数设备是否存在
-- TDengine 中 `device_status`、`telemetry`、`params_ack` 的最新状态
-
-### 2.6 自动验证真实闭环
-
-Wokwi 已经在线后，先把目标改成 25：
-
-```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/verify_target_update_flow.py --target-temp 25 --timeout 20
-```
-
-再改回 23，保证正式演示前回到温和初始状态：
-
-```bash
-hmi/backend/.venv/bin/python hmi/backend/scripts/verify_target_update_flow.py --target-temp 23 --timeout 20
-```
-
-看到下面这行才算闭环自测通过：
-
-```text
-[pass] target update closed-loop verified
-```
-
-这个验证脚本实际检查的是：
-
-- HMI 登录成功
-- HMI 找到 `edge-node-001`
-- DataHub `device_status` 显示在线
-- HMI API 发布参数
-- TDengine 出现 `params_set`
-- 设备返回匹配目标值的 `params_ack`
-- TDengine 出现目标值匹配的 `telemetry`
-- HMI 详情页接口反映新目标值
-
-## 3. 正式答辩演示流程
-
-### 3.1 开场说法
-
-可以这样讲：
-
-> 我这个系统不是单纯的温度看板，而是端到端闭环温控平台。页面上的目标温度修改，会通过 HMI 后端发布到 MQTT；边缘设备收到后要进行参数校验、应用并返回 ACK；DataHub 消费 telemetry、params/set 和 params/ack 写入 TDengine；最后 HMI 从时序库看到实时状态变化。这里重点不是某个页面，而是控制意图、设备确认和时序证据形成闭环。
-
-### 3.2 现场操作
-
-1. 打开 `http://127.0.0.1:5173`，登录 `admin / admin123`。
-2. 进入 `edge-node-001` 设备详情页。
-3. 指出页面当前状态：
-   - `Comm = Online`
-   - 当前温度、目标温度、PWM 输出
-   - 曲线正在刷新
-4. 修改目标温度，例如从 `23` 改到 `25`。
-5. 保存参数。
-6. 切到 DataHub 终端，指出收到了 `params/set`、`params/ack`、`telemetry`。
-7. 回到页面，观察目标值和温度曲线变化。
-8. 说明这一步证明的链路：
-   `页面 -> HMI API -> MQTT -> 设备 -> ACK -> DataHub -> TDengine -> 页面`。
-
-### 3.3 用 TDengine 证明不是假数据
-
-现场可以运行：
-
-```bash
-docker exec edgehub-tdengine taos -s "use edgehub; select ts,target_temp_c,kp,ki,kd,control_mode from params_set where device_id='edge-node-001' order by ts desc limit 5; select ts,ack_type,success,reason,target_temp_c,kp,ki,kd,control_mode from params_ack where device_id='edge-node-001' order by ts desc limit 5; select ts,target_temp_c,sensor_temp_c,sim_temp_c,pwm_duty,run_id from telemetry where device_id='edge-node-001' order by ts desc limit 5;"
-```
-
-解释口径：
-
-> `params_set` 是上位机控制意图，`params_ack` 是设备确认结果，`telemetry` 是设备运行事实。三张表同时出现同一个目标温度，说明不是前端本地改了一个数字。
-
-### 3.4 展示 AI 和论文价值
-
-闭环演示完成后，再切换到 `DEF-*` 设备讲系统价值：
-
-1. `DEF-OSC-01`：展示振荡识别、推荐降 Kp/增加阻尼、预览曲线和应用后反馈。
-2. `DEF-OVS-01`：展示超调问题和保守参数建议。
-3. `DEF-SAT-01`：强调执行器饱和不是靠盲目加 PID 解决，系统能识别硬件边界。
-4. `DEF-SSE-01`：展示稳态误差和积分修正。
-5. 打开 `/history`：展示历史窗口、摘要和对比。
-6. 打开 `/alarms`：展示告警来自 DataHub 规则和设备状态，不是前端写死。
-7. 打开 `/ops`：展示 DataHub 指标、AI runtime 状态和工程运行可观测性。
-
-建议叙事：
-
-> 第一部分证明真实闭环能跑通，第二部分证明系统能把运行数据转化为诊断、推荐、预览和应用后验证。这就是论文里“边缘闭环 + 数据中枢 + HMI + AI 决策支持”的完整价值。
-
-## 4. 兜底方案
-
-如果 Wokwi 临场跑不起来，但 HMI、DataHub、TDengine 都正常，可以用 Python live edge 作为兜底设备。这个兜底仍然走真实 MQTT 和 DataHub，不直接写 TDengine。
-
-```bash
-cd /Users/seker./edge-hub-temperature-control/hmi/backend
-.venv/bin/python scripts/live_thermal_edge_node.py \
-  --device-id edge-node-001 \
-  --environment defense_live \
-  --target-temp 23 \
-  --start-temp 23 \
-  --kp 120 --ki 12 --kd 0 \
-  --seconds 0 \
-  --log-every 5
-```
-
-兜底时要诚实说明：
-
-> 这里用的是软件边缘节点替代 Wokwi 硬件仿真，但 MQTT、DataHub、TDengine 和 HMI 都仍然是真实链路。正式硬件/Wokwi 代码使用同一套 topic 和 payload contract。
-
-## 5. 常用排查命令
-
-看 HMI 状态：
-
-```bash
-./scripts/start-hmi-dev.sh --status
-```
-
-看 HMI 日志：
-
-```bash
-tail -f runtime/logs/dev/hmi-backend.log
-tail -f runtime/logs/dev/hmi-frontend.log
-tail -f runtime/logs/dev/ai-runtime.log
-```
-
-看 DataHub 健康：
-
-```bash
-curl http://127.0.0.1:8081/actuator/health
-```
-
-看 DataHub 最新设备状态：
-
-```bash
-docker exec edgehub-tdengine taos -s "use edgehub; select ts,last_seen_ts,online,status_reason,last_message_kind from device_status where device_id='edge-node-001' order by ts desc limit 5;"
-```
-
-看端口：
-
-```bash
-lsof -nP -iTCP:5173 -sTCP:LISTEN
-lsof -nP -iTCP:8000 -sTCP:LISTEN
-lsof -nP -iTCP:8010 -sTCP:LISTEN
-lsof -nP -iTCP:8081 -sTCP:LISTEN
-lsof -nP -iTCP:18080 -sTCP:LISTEN
-lsof -nP -iTCP:8080 -sTCP:LISTEN
-```
-
-停止 HMI：
-
-```bash
-./scripts/stop-hmi-dev.sh
-```
-
-停止 HMI 和 Docker 中间件：
-
-```bash
-./scripts/stop-hmi-dev.sh --with-docker-down
-```
-
-## 6. 注意事项
-
-- DataHub 不由 `start-hmi-dev.sh` 启动，需要单独 `./gradlew bootRun`。
-- HMI 一键脚本会启动 PostgreSQL 和 TDengine，但不会启动 Wokwi。
-- 当前 Java DataHub 源码没有 Redis 依赖，Redis 不是答辩主链路必需项。
-- DataHub 主端口已经改为 `18080`，避免影响你自己的 `8080` 服务。
-- `MQTT_PUBLISH_RETAIN=false`，正式演示不依赖 retained 参数。
-- 设备重启后的目标温度由 NVS 优先恢复；如果没有 NVS，则使用代码默认 `23.0°C`。
-- 演示前用 `verify_target_update_flow.py --target-temp 23` 把现场设备恢复到温和初始目标。
+- HMI opens at `http://127.0.0.1:5173`.
+- Backend docs open at `http://127.0.0.1:8000/docs`.
+- Seed report shows at least 14 `DEF-*` devices.
+- Preflight prints `required_failed=0`.
+- `DEF-102` historical curve is visible.
+- `DEF-105` has improved / low feedback.
+- `DEF-106` has high preview gap feedback.
+- `DEF-112` has a successful ACK.
+- `DEF-113` has a validation-error ACK.
+- `DEF-110` or `DEF-111` shows safety fault evidence.

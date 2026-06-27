@@ -51,6 +51,36 @@ const DEFAULT_TARGET_CONFIG: TargetConfig = {
 const CHART_RENDER_MAX_POINTS = 300;
 const PREVIEW_CHART_MAX_POINTS = 240;
 const GENERATE_CLICK_DEBOUNCE_MS = 1200;
+const LIVE_CONTROL_EVAL_WINDOW_MS = 30 * 60 * 1000;
+const LIVE_CHART_VISIBLE_WINDOW_MS = 5 * 60 * 1000;
+const LIVE_CHART_MAX_SAMPLE_GAP_MS = 3 * 60 * 1000;
+const LIVE_CHART_TARGET_CHANGE_EPSILON = 0.05;
+
+function metricTimestampMs(metric: { timestamp: string }): number {
+  return new Date(metric.timestamp).getTime();
+}
+
+function latestContinuousMetricSegment<T extends { timestamp: string; target_temp: number }>(
+  rows: T[],
+  maxGapMs = LIVE_CHART_MAX_SAMPLE_GAP_MS,
+  targetEpsilon = LIVE_CHART_TARGET_CHANGE_EPSILON
+): T[] {
+  if (rows.length <= 1) return rows;
+  let segmentStart = 0;
+  for (let index = 1; index < rows.length; index += 1) {
+    const prevTs = metricTimestampMs(rows[index - 1]);
+    const nextTs = metricTimestampMs(rows[index]);
+    const gapMs = nextTs - prevTs;
+    const prevTarget = rows[index - 1].target_temp;
+    const nextTarget = rows[index].target_temp;
+    const targetChanged =
+      Number.isFinite(prevTarget) && Number.isFinite(nextTarget) && Math.abs(nextTarget - prevTarget) > targetEpsilon;
+    if (!Number.isFinite(gapMs) || gapMs > maxGapMs || targetChanged) {
+      segmentStart = index;
+    }
+  }
+  return rows.slice(segmentStart);
+}
 
 const EMPTY_CONTROL_EVAL: ControlEvaluation = {
   current_temp: 0,
@@ -73,6 +103,7 @@ type EffectState = "Pending" | "Improved" | "No Change" | "Worse";
 type TargetResult = "On Target" | "Critical" | "Not Met";
 type EvalStatus = "Pass" | "Warn" | "Fail";
 type HistoryRangePreset = "2h" | "6h" | "24h" | "custom";
+type AiApplyDisplay = { ackStatus: string; applyStatus: string; detail: string };
 
 export function DeviceDetailPage() {
   const { id } = useParams();
@@ -87,8 +118,8 @@ export function DeviceDetailPage() {
   const [editing, setEditing] = useState({ kp: "", ki: "", kd: "", target_temp: "", control_mode: "" });
   const [feedback, setFeedback] = useState({
     lastUpdate: "-",
-    ackStatus: "Acked",
-    appliedStatus: "Applied",
+    ackStatus: "Idle",
+    appliedStatus: "Idle",
     effect: "No Change" as EffectState,
     reason: "-" as string,
   });
@@ -111,7 +142,7 @@ export function DeviceDetailPage() {
   const [aiPreviewResult, setAiPreviewResult] = useState<AIPreviewSimulation | null>(null);
   const [aiPreviewError, setAiPreviewError] = useState<string | null>(null);
   const [targetEvalOpen, setTargetEvalOpen] = useState(false);
-  const [historyRangePreset, setHistoryRangePreset] = useState<HistoryRangePreset>("6h");
+  const [historyRangePreset, setHistoryRangePreset] = useState<HistoryRangePreset>("2h");
   const [historyCustomStart, setHistoryCustomStart] = useState(() =>
     toDatetimeLocalValue(new Date(Date.now() - 6 * 60 * 60 * 1000))
   );
@@ -183,7 +214,7 @@ export function DeviceDetailPage() {
       const now = Date.now();
       return api
         .controlEval(deviceId, {
-          start_ms: now - 6 * 60 * 60 * 1000,
+          start_ms: now - LIVE_CONTROL_EVAL_WINDOW_MS,
           end_ms: now,
           band: targetConfig.band,
           steady_window: targetConfig.steadyWindow,
@@ -227,12 +258,14 @@ export function DeviceDetailPage() {
     targetConfig.overshootLimit,
   ]);
 
+  const latestMetric = metrics.length ? metrics[metrics.length - 1] : null;
+
   const evalSnapshot = useMemo(
     () => ({
-      currentTemp: controlEval.current_temp || metrics[metrics.length - 1]?.current_temp || device?.current_temp || 0,
-      targetTemp: controlEval.target_temp || metrics[metrics.length - 1]?.target_temp || device?.target_temp || 0,
+      currentTemp: device?.current_temp ?? latestMetric?.current_temp ?? controlEval.current_temp ?? 0,
+      targetTemp: device?.target_temp ?? latestMetric?.target_temp ?? controlEval.target_temp ?? 0,
     }),
-    [controlEval.current_temp, controlEval.target_temp, metrics, device]
+    [controlEval.current_temp, controlEval.target_temp, latestMetric, device]
   );
 
   const derived = useMemo(
@@ -253,13 +286,21 @@ export function DeviceDetailPage() {
   );
 
   const metricsForChart = useMemo(() => {
-    if (metrics.length <= CHART_RENDER_MAX_POINTS) return metrics;
-    const step = Math.ceil(metrics.length / CHART_RENDER_MAX_POINTS);
+    const orderedMetrics = metrics
+      .filter((metric) => Number.isFinite(metricTimestampMs(metric)))
+      .slice()
+      .sort((a, b) => metricTimestampMs(a) - metricTimestampMs(b));
+    if (!orderedMetrics.length) return orderedMetrics;
+    const latestTs = metricTimestampMs(orderedMetrics[orderedMetrics.length - 1]);
+    const recent = orderedMetrics.filter((m) => metricTimestampMs(m) >= latestTs - LIVE_CHART_VISIBLE_WINDOW_MS);
+    const source = latestContinuousMetricSegment(recent.length > 0 ? recent : orderedMetrics);
+    if (source.length <= CHART_RENDER_MAX_POINTS) return source;
+    const step = Math.ceil(source.length / CHART_RENDER_MAX_POINTS);
     const sampled: typeof metrics = [];
-    for (let i = 0; i < metrics.length; i += step) {
-      sampled.push(metrics[i]);
+    for (let i = 0; i < source.length; i += step) {
+      sampled.push(source[i]);
     }
-    const last = metrics[metrics.length - 1];
+    const last = source[source.length - 1];
     if (sampled[sampled.length - 1] !== last) sampled.push(last);
     return sampled;
   }, [metrics]);
@@ -276,7 +317,7 @@ export function DeviceDetailPage() {
   );
 
   const targetTemp = evalSnapshot.targetTemp;
-  const latestPwm = controlEval.pwm_output || metrics[metrics.length - 1]?.pwm_output || device?.pwm_output || 0;
+  const latestPwm = device?.pwm_output ?? latestMetric?.pwm_output ?? controlEval.pwm_output ?? 0;
   useEffect(() => {
     if (!deviceId) return;
     setHistoryStatsLoading(true);
@@ -311,6 +352,8 @@ export function DeviceDetailPage() {
         end_ms: Math.floor(endMs),
         band: targetConfig.band,
         steady_window: targetConfig.steadyWindow,
+        continuous_latest: historyRangePreset !== "custom",
+        max_gap_ms: LIVE_CHART_MAX_SAMPLE_GAP_MS,
         limit: 20000,
       })
       .then((stats) => setHistoryRangeStats(stats))
@@ -402,7 +445,7 @@ export function DeviceDetailPage() {
   const targetBandAreas = useMemo(() => {
     if (!chartData.length) return [] as Array<{ key: string; x1: number; x2: number; y1: number; y2: number }>;
     // Avoid generating too many tiny areas caused by float jitter.
-    const epsilon = 1e-3;
+    const epsilon = LIVE_CHART_TARGET_CHANGE_EPSILON;
     const areas: Array<{ key: string; x1: number; x2: number; y1: number; y2: number }> = [];
     let start = 0;
     let activeTarget = chartData[0].target;
@@ -444,10 +487,17 @@ export function DeviceDetailPage() {
   );
   const aiEvidenceRows = aiGenerated ? buildEvidenceRows(aiGenerated.evidence) : [];
   const showStoredEvidenceHint = Boolean(aiGenerated && aiRecoveredFromStorage && aiEvidenceRows.length === 0);
+  const aiDecisionSummary = useMemo(() => buildDeviceDecisionSummary(aiGenerated?.ai_decision), [aiGenerated?.ai_decision]);
+  const aiBlockedBySafety = Boolean(aiGenerated?.ai_decision?.blocked_by_safety);
+  const aiDisplayApplyResult = useMemo(
+    () => deriveDisplayApplyResult(aiGenerated, aiApplyResult),
+    [aiGenerated, aiApplyResult]
+  );
+  const aiSeededApplyLock = useMemo(() => deriveSeededApplyLock(aiGenerated), [aiGenerated]);
   const aiPreviewTrust = useMemo(() => {
-    if (!aiGenerated || aiNoChangeNeeded) return null;
+    if (!aiGenerated || aiNoChangeNeeded || aiBlockedBySafety) return null;
     return derivePreviewTrust(aiGenerated.ai_decision);
-  }, [aiGenerated, aiNoChangeNeeded]);
+  }, [aiGenerated, aiNoChangeNeeded, aiBlockedBySafety]);
   const previewCurveData = useMemo(() => {
     if (!aiPreviewResult) return [] as Array<{ idx: number; t: string; baseline: number; recommended: number; target: number }>;
     const base = aiPreviewResult.baseline_curve;
@@ -518,8 +568,21 @@ export function DeviceDetailPage() {
     };
   }, [alarms]);
 
-  // Intentionally do not auto-recover stored recommendation into the main panel.
-  // Main AI recommendation details should appear only after explicit Generate action.
+  useEffect(() => {
+    if (!recommendation || !parameters) return;
+    const currentParams = {
+      kp: parameters.kp,
+      ki: parameters.ki,
+      kd: parameters.kd,
+    };
+    const recovered = buildRecoveredAiGenerated(recommendation, currentParams);
+    if (!recovered) return;
+    setAiGenerated((prev) => {
+      if (prev && prev.generated_at && prev.generated_at !== recommendation.last_run_at) return prev;
+      return recovered;
+    });
+    setAiRecoveredFromStorage(true);
+  }, [recommendation, parameters]);
 
   if (loading) return <p className="text-sm text-mute">Loading device detail...</p>;
   if (!device || !parameters) return <p className="text-sm text-danger">Device not found or no permission.</p>;
@@ -539,10 +602,10 @@ export function DeviceDetailPage() {
     const prevErr = Math.abs(snapshot.current_temp - snapshot.target_temp);
     setFeedback({
       lastUpdate: new Date().toLocaleTimeString(),
-      ackStatus: "Acked",
-      appliedStatus: "Pending",
+      ackStatus: "Waiting",
+      appliedStatus: "Dispatching",
       effect: "Pending",
-      reason: "-",
+      reason: "Parameter update sent. Waiting for device ACK.",
     });
 
     try {
@@ -552,12 +615,12 @@ export function DeviceDetailPage() {
         ki: editing.ki ? Number(editing.ki) : undefined,
         kd: editing.kd ? Number(editing.kd) : undefined,
         control_mode: editing.control_mode || undefined,
-        target_band: targetConfig.band,
-        overshoot_limit_pct: targetConfig.overshootLimit,
-        saturation_warn_ratio: targetConfig.saturationWarn,
-        saturation_high_ratio: targetConfig.saturationHigh,
-        pwm_saturation_threshold: targetConfig.pwmThreshold,
-        steady_window_samples: targetConfig.steadyWindow,
+        target_band: roundTargetSetting(targetConfig.band, 2),
+        overshoot_limit_pct: roundTargetSetting(targetConfig.overshootLimit, 2),
+        saturation_warn_ratio: roundTargetSetting(targetConfig.saturationWarn, 2),
+        saturation_high_ratio: roundTargetSetting(targetConfig.saturationHigh, 2),
+        pwm_saturation_threshold: Math.round(targetConfig.pwmThreshold),
+        steady_window_samples: Math.round(targetConfig.steadyWindow),
       });
       setEditing({ kp: "", ki: "", kd: "", target_temp: "", control_mode: "" });
       await reload();
@@ -593,22 +656,33 @@ export function DeviceDetailPage() {
 
   async function executeSaveTargetsOnly() {
     if (!canWrite) return;
-    await updateParameters({
-      target_band: targetConfig.band,
-      overshoot_limit_pct: targetConfig.overshootLimit,
-      saturation_warn_ratio: targetConfig.saturationWarn,
-      saturation_high_ratio: targetConfig.saturationHigh,
-      pwm_saturation_threshold: targetConfig.pwmThreshold,
-      steady_window_samples: targetConfig.steadyWindow,
-    });
-    await reload();
-    setFeedback((prev) => ({
-      ...prev,
-      lastUpdate: new Date().toLocaleTimeString(),
-      ackStatus: "Acked",
-      appliedStatus: "Applied",
-      reason: "-",
-    }));
+    try {
+      await updateParameters({
+        target_band: roundTargetSetting(targetConfig.band, 2),
+        overshoot_limit_pct: roundTargetSetting(targetConfig.overshootLimit, 2),
+        saturation_warn_ratio: roundTargetSetting(targetConfig.saturationWarn, 2),
+        saturation_high_ratio: roundTargetSetting(targetConfig.saturationHigh, 2),
+        pwm_saturation_threshold: Math.round(targetConfig.pwmThreshold),
+        steady_window_samples: Math.round(targetConfig.steadyWindow),
+      });
+      await reload();
+      setFeedback((prev) => ({
+        ...prev,
+        lastUpdate: new Date().toLocaleTimeString(),
+        ackStatus: "Stored",
+        appliedStatus: "Saved",
+        reason: "Target settings saved locally. No MQTT dispatch required.",
+      }));
+    } catch (error) {
+      setFeedback((prev) => ({
+        ...prev,
+        lastUpdate: new Date().toLocaleTimeString(),
+        ackStatus: "Failed",
+        appliedStatus: "Save Failed",
+        reason: normalizeApiError(error),
+      }));
+      throw error;
+    }
   }
 
   async function handleGenerateAiRecommendation() {
@@ -670,7 +744,7 @@ export function DeviceDetailPage() {
   }
 
   function openApplyAiConfirm() {
-    if (!aiGenerated || !canWrite || aiApplyBusy || aiNoChangeNeeded) return;
+    if (!aiGenerated || !canWrite || aiApplyBusy || aiNoChangeNeeded || aiBlockedBySafety || aiSeededApplyLock) return;
     setAiConfirmOpen(true);
   }
 
@@ -721,8 +795,14 @@ export function DeviceDetailPage() {
   }
 
   async function handlePreviewImpact() {
-    if (!aiGenerated || aiNoChangeNeeded) {
-      setAiPreviewError(aiNoChangeNeeded ? "No change needed; preview is skipped." : "Generate recommendation first.");
+    if (!aiGenerated || aiNoChangeNeeded || aiBlockedBySafety) {
+      setAiPreviewError(
+        aiBlockedBySafety
+          ? "Safety condition active; preview is skipped."
+          : aiNoChangeNeeded
+            ? "No change needed; preview is skipped."
+            : "Generate recommendation first."
+      );
       setAiPreviewResult(null);
       return;
     }
@@ -807,8 +887,8 @@ export function DeviceDetailPage() {
           <CardContent className="pt-0">
             <div className="mb-3 rounded border border-line/70 bg-panel2 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-text">Control Target History Window</div>
-                <div className="text-xs text-mute">Evaluate stability over selected range</div>
+                <div className="text-sm font-semibold text-text">Current Target Stability Window</div>
+                <div className="text-xs text-mute">Chart shows recent telemetry; stability stats use the latest continuous target segment</div>
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -851,7 +931,7 @@ export function DeviceDetailPage() {
                   <span className="inline-block h-4 w-[360px] animate-pulse rounded bg-panel2" />
                 ) : (
                   <>
-                    Samples: {historyRangeStats.samples} · Rule: stable requires at least {targetConfig.steadyWindow} consecutive samples within ±
+                    Samples: {historyRangeStats.samples} latest continuous points · Rule: stable requires at least {targetConfig.steadyWindow} consecutive samples within ±
                     {targetConfig.band.toFixed(2)}°C.
                   </>
                 )}
@@ -907,9 +987,7 @@ export function DeviceDetailPage() {
                     stroke="#29f0ff"
                     strokeWidth={2.8}
                     dot={false}
-                    isAnimationActive
-                    animationDuration={850}
-                    animationEasing="ease-out"
+                    isAnimationActive={false}
                   />
                   <Line
                     type="monotone"
@@ -917,9 +995,7 @@ export function DeviceDetailPage() {
                     stroke="#2ad4a0"
                     strokeWidth={1.9}
                     dot={false}
-                    isAnimationActive
-                    animationDuration={850}
-                    animationEasing="ease-out"
+                    isAnimationActive={false}
                   />
                   <ReferenceDot
                     x={chartData.length - 1}
@@ -985,7 +1061,12 @@ export function DeviceDetailPage() {
                   <div className="mt-1 text-xs text-mute">
                     Expected Effect: <span className="text-text">{aiGenerated ? formatExpectedEffect(aiGenerated.expected_effect) : "N/A"}</span>
                   </div>
-                  {aiNoChangeNeeded && (
+                  {aiBlockedBySafety && (
+                    <div className="mt-2 rounded border border-danger/40 bg-danger/10 px-2 py-1 text-xs text-danger">
+                      Safety condition active; parameter tuning is blocked and output remains forced off.
+                    </div>
+                  )}
+                  {aiNoChangeNeeded && !aiBlockedBySafety && (
                     <div className="mt-2 rounded border border-accent/40 bg-accent/10 px-2 py-1 text-xs text-accent">
                       System currently stable, no parameter adjustment recommended.
                     </div>
@@ -1021,14 +1102,93 @@ export function DeviceDetailPage() {
 
                 <div className="rounded border border-line/70 bg-panel px-3 py-2">
                   <div className="text-[11px] uppercase tracking-wide text-mute">Apply Result</div>
-                  <div className="mt-1 text-xs text-mute">ACK: <span className="text-text">{aiApplyResult.ackStatus}</span></div>
-                  <div className="mt-1 text-xs text-mute">Apply: <span className="text-text">{aiApplyResult.applyStatus}</span></div>
+                  <div className="mt-1 text-xs text-mute">ACK: <span className="text-text">{aiDisplayApplyResult.ackStatus}</span></div>
+                  <div className="mt-1 text-xs text-mute">Apply: <span className="text-text">{aiDisplayApplyResult.applyStatus}</span></div>
                   <div className="mt-1 text-xs text-mute">
-                    Detail: <span className="text-text">{aiApplyResult.detail}</span>
+                    Detail: <span className="text-text">{aiDisplayApplyResult.detail}</span>
                   </div>
                   <div className="mt-1 text-xs text-mute">Last Stored Suggestion: <span className="text-text">{recommendation?.reason ?? "-"}</span></div>
                 </div>
               </div>
+
+              {aiDecisionSummary && (
+                <div className="mt-2 rounded border border-neon/35 bg-panel px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[11px] uppercase tracking-wide text-neon">Model Ranking Decision</div>
+                    <span
+                      className={`rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        aiDecisionSummary.rankingUsed
+                          ? "border-accent/50 bg-accent/10 text-accent"
+                          : aiDecisionSummary.rankingFallbackUsed
+                            ? "border-warn/50 bg-warn/10 text-warn"
+                            : "border-line/70 bg-panel2 text-mute"
+                      }`}
+                    >
+                      Ranking Used: {aiDecisionSummary.rankingUsed ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  <div className="mt-1 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded border border-line/60 bg-panel2 px-2 py-1">
+                      <div className="text-[10px] uppercase tracking-wide text-mute">Selected Candidate</div>
+                      <div className="font-semibold text-text">{aiDecisionSummary.selectedCandidate}</div>
+                    </div>
+                    <div className="rounded border border-line/60 bg-panel2 px-2 py-1">
+                      <div className="text-[10px] uppercase tracking-wide text-mute">Candidates Evaluated</div>
+                      <div className="font-semibold text-text">{aiDecisionSummary.evaluatedCandidates}</div>
+                    </div>
+                    <div className="rounded border border-line/60 bg-panel2 px-2 py-1">
+                      <div className="text-[10px] uppercase tracking-wide text-mute">Top Score</div>
+                      <div className="font-semibold text-text">{formatScore(aiDecisionSummary.topScore)}</div>
+                    </div>
+                    <div className="rounded border border-line/60 bg-panel2 px-2 py-1">
+                      <div className="text-[10px] uppercase tracking-wide text-mute">Rule Center</div>
+                      <div className="font-semibold text-text">{formatPidTuple(aiDecisionSummary.ruleCenterParams)}</div>
+                    </div>
+                  </div>
+                  {aiDecisionSummary.candidates.length > 0 && (
+                    <div className="mt-2 overflow-auto">
+                      <table className="w-full min-w-[720px] text-xs">
+                        <thead className="text-left text-mute">
+                          <tr>
+                            <th className="py-1">Rank</th>
+                            <th className="py-1">Candidate</th>
+                            <th className="py-1">Recommended Params</th>
+                            <th className="py-1">Delta</th>
+                            <th className="py-1 text-right">Success</th>
+                            <th className="py-1 text-right">Gap</th>
+                            <th className="py-1 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {aiDecisionSummary.candidates.map((candidate) => (
+                            <tr
+                              key={`${candidate.rank}-${candidate.candidateId}`}
+                              className={`border-t border-line/60 ${
+                                candidate.candidateId === aiDecisionSummary.selectedCandidate ? "bg-neon/15" : ""
+                              }`}
+                            >
+                              <td className="py-1">{candidate.rank ?? "-"}</td>
+                              <td className="py-1 font-semibold text-text">
+                                {candidate.candidateId}
+                                {candidate.candidateId === aiDecisionSummary.selectedCandidate && (
+                                  <span className="ml-1 rounded border border-accent/50 bg-accent/10 px-1 py-0.5 text-[10px] text-accent">
+                                    Selected
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-1">{formatPidTuple(candidate.recommendedParams)}</td>
+                              <td className="py-1 text-neon">{formatPidTuple(candidate.delta, true)}</td>
+                              <td className="py-1 text-right tabular-nums">{formatScore(candidate.successScore)}</td>
+                              <td className="py-1 text-right tabular-nums">{formatScore(candidate.gapScore)}</td>
+                              <td className="py-1 text-right tabular-nums">{formatScore(candidate.totalScore)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
 
             <div className="mt-2 rounded border border-line/70 bg-panel px-3 py-2">
               <div className="text-[11px] uppercase tracking-wide text-mute">Evidence / Metrics</div>
@@ -1053,11 +1213,24 @@ export function DeviceDetailPage() {
               <Button size="sm" variant="ghost" onClick={handleGenerateAiRecommendation} disabled={aiGenerateBusy}>
                 {aiGenerateBusy ? "Generating..." : "Generate Recommendation"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={handlePreviewImpact} disabled={aiPreviewBusy || !aiGenerated || aiNoChangeNeeded}>
+              <Button size="sm" variant="ghost" onClick={handlePreviewImpact} disabled={aiPreviewBusy || !aiGenerated || aiNoChangeNeeded || aiBlockedBySafety}>
                 {aiPreviewBusy ? "Simulating..." : "Preview Impact"}
               </Button>
-              <Button size="sm" variant="accent" onClick={openApplyAiConfirm} disabled={!canWrite || !aiGenerated || aiApplyBusy || aiNoChangeNeeded}>
-                {aiApplyBusy ? "Applying..." : aiNoChangeNeeded ? "No Change Needed" : "Apply Recommendation"}
+              <Button
+                size="sm"
+                variant="accent"
+                onClick={openApplyAiConfirm}
+                disabled={!canWrite || !aiGenerated || aiApplyBusy || aiNoChangeNeeded || aiBlockedBySafety || Boolean(aiSeededApplyLock)}
+              >
+                {aiApplyBusy
+                  ? "Applying..."
+                  : aiSeededApplyLock
+                    ? aiSeededApplyLock.label
+                    : aiBlockedBySafety
+                      ? "Safety Blocked"
+                      : aiNoChangeNeeded
+                        ? "No Change Needed"
+                        : "Apply Recommendation"}
               </Button>
               </div>
 
@@ -1084,7 +1257,9 @@ export function DeviceDetailPage() {
                 {!aiPreviewResult && !aiPreviewBusy && !aiPreviewError && (
                   <div className="mt-1 text-xs text-mute">
                     {aiGenerated
-                      ? aiNoChangeNeeded
+                      ? aiBlockedBySafety
+                        ? "Safety condition active; preview impact is skipped."
+                        : aiNoChangeNeeded
                         ? "No change needed; preview impact is skipped."
                         : "Run preview to compare baseline vs recommended parameter impact."
                       : "Generate recommendation first, then run preview impact."}
@@ -1206,7 +1381,7 @@ export function DeviceDetailPage() {
                   disabled={!canWrite}
                   type="number"
                   step="0.1"
-                  placeholder={`Target Temp ${device.target_temp.toFixed(1)}°C`}
+                  placeholder={`Target Temp ${evalSnapshot.targetTemp.toFixed(1)}°C`}
                   value={editing.target_temp}
                   onChange={(e) => setEditing((s) => ({ ...s, target_temp: e.target.value }))}
                 />
@@ -1244,36 +1419,42 @@ export function DeviceDetailPage() {
                 label="Band"
                 value={targetConfig.band}
                 step="0.1"
+                decimals={2}
                 onChange={(next) => setTargetConfig((s) => ({ ...s, band: next }))}
               />
               <SmallNumberInput
                 label="Overshoot %"
                 value={targetConfig.overshootLimit}
                 step="0.1"
+                decimals={2}
                 onChange={(next) => setTargetConfig((s) => ({ ...s, overshootLimit: next }))}
               />
               <SmallNumberInput
                 label="Sat Warn"
                 value={targetConfig.saturationWarn}
                 step="0.05"
+                decimals={2}
                 onChange={(next) => setTargetConfig((s) => ({ ...s, saturationWarn: next }))}
               />
               <SmallNumberInput
                 label="Sat High"
                 value={targetConfig.saturationHigh}
                 step="0.05"
+                decimals={2}
                 onChange={(next) => setTargetConfig((s) => ({ ...s, saturationHigh: next }))}
               />
               <SmallNumberInput
                 label="PWM Threshold %"
                 value={targetConfig.pwmThreshold}
                 step="1"
+                decimals={0}
                 onChange={(next) => setTargetConfig((s) => ({ ...s, pwmThreshold: Math.max(1, Math.round(next)) }))}
               />
               <SmallNumberInput
                 label="Steady Window Samples"
                 value={targetConfig.steadyWindow}
                 step="1"
+                decimals={0}
                 onChange={(next) => setTargetConfig((s) => ({ ...s, steadyWindow: Math.max(1, Math.round(next)) }))}
               />
             </div>
@@ -1336,6 +1517,8 @@ export function DeviceDetailPage() {
             if (confirmIntent === "targets") await executeSaveTargetsOnly();
             else await executeSaveParameters();
             setConfirmOpen(false);
+          } catch {
+            // The detailed failure has already been written to the Apply Result panel.
           } finally {
             setConfirmBusy(false);
           }
@@ -1654,8 +1837,9 @@ function formatExpectedEffect(value: string): string {
     reduce_overshoot: "Reduce Overshoot",
     reduce_oscillation: "Reduce Oscillation",
     limited_gain_expected: "Limited Gain Expected",
+    safety_output_forced_off: "Safety Output Forced Off",
   };
-  return map[value] ?? value;
+  return map[value] ?? formatLabel(value);
 }
 
 function formatLabel(value: string): string {
@@ -1683,6 +1867,9 @@ function deriveProblemFlags(data: AIGeneratedRecommendation): Record<string, boo
     ["overshoot_high", "rule_overshoot_high"],
     ["steady_state_error", "rule_steady_state_error"],
     ["slow_response", "rule_slow_response"],
+    ["sensor_invalid", "rule_sensor_invalid"],
+    ["over_temperature_safety", "rule_over_temperature_safety"],
+    ["blocked_by_safety", "rule_blocked_by_safety"],
   ];
   const out: Record<string, boolean> = {};
   for (const [key, evidenceKey] of mapping) {
@@ -2001,6 +2188,8 @@ function parseStoredAiRecommendation(
   primary_problem_type?: string;
   secondary_problem_types?: string[];
   problem_flags?: Record<string, boolean>;
+  actual_effect_evaluated?: boolean;
+  current_params?: { kp: number; ki: number; kd: number };
   recommended_params?: { kp: number; ki: number; kd: number };
   delta?: { kp: number; ki: number; kd: number };
 } {
@@ -2010,6 +2199,8 @@ function parseStoredAiRecommendation(
     primary_problem_type?: string;
     secondary_problem_types?: string[];
     problem_flags?: Record<string, boolean>;
+    actual_effect_evaluated?: boolean;
+    current_params?: { kp: number; ki: number; kd: number };
     recommended_params?: { kp: number; ki: number; kd: number };
     delta?: { kp: number; ki: number; kd: number };
   } = {
@@ -2024,6 +2215,7 @@ function parseStoredAiRecommendation(
   if (typeof meta.last_generate_reused === "boolean") parsed.last_generate_reused = meta.last_generate_reused;
   if (typeof meta.reused_count === "number") parsed.reused_count = meta.reused_count;
   if (meta.last_accessed_at) parsed.last_accessed_at = meta.last_accessed_at;
+  if (typeof meta.actual_effect_evaluated === "boolean") parsed.actual_effect_evaluated = meta.actual_effect_evaluated;
   if (meta.ai_decision && typeof meta.ai_decision === "object") parsed.ai_decision = meta.ai_decision;
 
   const suggestion = recommendation.suggestion?.trim() ?? "";
@@ -2048,6 +2240,8 @@ function parseStoredAiRecommendation(
     if (!parsed.evidence && obj.evidence && typeof obj.evidence === "object") {
       parsed.evidence = obj.evidence as Record<string, string | number | boolean | null>;
     }
+    const baseline = pickPidTuple(obj.current_params);
+    if (!parsed.current_params && baseline) parsed.current_params = baseline;
     const recommended = pickPidTuple(obj.recommended_params);
     if (!parsed.recommended_params && recommended) parsed.recommended_params = recommended;
     const delta = pickPidTuple(obj.delta);
@@ -2078,6 +2272,8 @@ function parseStoredAiRecommendation(
         if (!parsed.evidence && p.evidence && typeof p.evidence === "object") {
           parsed.evidence = p.evidence as Record<string, string | number | boolean | null>;
         }
+        const baseline = pickPidTuple(p.cp);
+        if (baseline) parsed.current_params = baseline;
         const recommended = pickPidTuple(p.rp);
         if (recommended) parsed.recommended_params = recommended;
         const delta = pickPidTuple(p.d);
@@ -2118,14 +2314,15 @@ function buildRecoveredAiGenerated(
   current_params: { kp: number; ki: number; kd: number }
 ): AIGeneratedRecommendation | null {
   const parsed = parseStoredAiRecommendation(recommendation, current_params);
+  const baselineParams = parsed.current_params ? normalizePidTuple(parsed.current_params) : normalizePidTuple(current_params);
 
   const recommended = parsed.recommended_params
     ? normalizePidTuple(parsed.recommended_params)
     : parsed.delta
       ? normalizePidTuple({
-          kp: current_params.kp + parsed.delta.kp,
-          ki: current_params.ki + parsed.delta.ki,
-          kd: current_params.kd + parsed.delta.kd,
+          kp: baselineParams.kp + parsed.delta.kp,
+          ki: baselineParams.ki + parsed.delta.ki,
+          kd: baselineParams.kd + parsed.delta.kd,
         })
       : null;
   if (!recommended) return null;
@@ -2133,9 +2330,9 @@ function buildRecoveredAiGenerated(
   const delta = parsed.delta
     ? normalizePidTuple(parsed.delta)
     : normalizePidTuple({
-        kp: recommended.kp - current_params.kp,
-        ki: recommended.ki - current_params.ki,
-        kd: recommended.kd - current_params.kd,
+        kp: recommended.kp - baselineParams.kp,
+        ki: recommended.ki - baselineParams.ki,
+        kd: recommended.kd - baselineParams.kd,
       });
 
   const problem_type = parsed.problem_type || (isZeroDelta(delta.kp) && isZeroDelta(delta.ki) && isZeroDelta(delta.kd) ? "normal" : "unknown");
@@ -2152,13 +2349,14 @@ function buildRecoveredAiGenerated(
     confidence: Number.isFinite(recommendation.confidence) ? recommendation.confidence : 0,
     risk_level: parsed.risk_level || "N/A",
     requires_confirmation,
-    current_params: normalizePidTuple(current_params),
+    current_params: baselineParams,
     recommended_params: recommended,
     delta,
     expected_effect,
     evidence: (parsed.evidence as Record<string, string | number | boolean | null> | undefined) ?? {},
     generated_at: recommendation.last_run_at,
     ai_decision: parsed.ai_decision ?? null,
+    history_state: parsed.history_state ?? (parsed.actual_effect_evaluated ? "applied" : null),
   };
 }
 
@@ -2190,6 +2388,143 @@ function derivePreviewTrust(
     return { trustLevel: "medium", trustLabel: "Partially Trust (Medium)", pLow, pMedium, pHigh };
   }
   return { trustLevel: "low", trustLabel: "Use Caution (Low)", pLow, pMedium, pHigh };
+}
+
+function deriveDisplayApplyResult(aiGenerated: AIGeneratedRecommendation | null, fallback: AiApplyDisplay): AiApplyDisplay {
+  const aiDecision = aiGenerated?.ai_decision;
+  if (!aiDecision || typeof aiDecision !== "object") return fallback;
+
+  const attemptedParams =
+    aiDecision.attempted_params && typeof aiDecision.attempted_params === "object" && !Array.isArray(aiDecision.attempted_params)
+      ? (aiDecision.attempted_params as Record<string, unknown>)
+      : null;
+  const failureReason = readString(aiDecision.failure_reason) || readString(attemptedParams?.failure_reason);
+  const ackStatus = readString(aiDecision.ack_status)?.toLowerCase();
+
+  if (ackStatus === "validation_error" || failureReason) {
+    return {
+      ackStatus: "Validation Error",
+      applyStatus: "Rejected",
+      detail: `Rejected by parameter validation${failureReason ? `: ${failureReason}` : ""}. Device parameters remain safe.`,
+    };
+  }
+
+  if (ackStatus === "applied" || (Boolean(aiDecision.ack_seeded) && aiDecision.ack_success !== false)) {
+    return {
+      ackStatus: "Applied",
+      applyStatus: "Applied",
+      detail: "Seeded params/set command is confirmed by params/ack.",
+    };
+  }
+
+  if (aiGenerated?.history_state === "applied") {
+    return {
+      ackStatus: "Applied",
+      applyStatus: "Applied",
+      detail: "This seeded recommendation has already been applied and is available in post-apply validation.",
+    };
+  }
+
+  return fallback;
+}
+
+function deriveSeededApplyLock(aiGenerated: AIGeneratedRecommendation | null): { label: string } | null {
+  const aiDecision = aiGenerated?.ai_decision;
+  if (!aiDecision || typeof aiDecision !== "object") return null;
+  const ackStatus = readString(aiDecision.ack_status)?.toLowerCase();
+  const attemptedParams =
+    aiDecision.attempted_params && typeof aiDecision.attempted_params === "object" && !Array.isArray(aiDecision.attempted_params)
+      ? (aiDecision.attempted_params as Record<string, unknown>)
+      : null;
+  const hasFailure = Boolean(readString(aiDecision.failure_reason) || readString(attemptedParams?.failure_reason));
+  if (ackStatus === "validation_error" || hasFailure) return { label: "Rejected by Validation" };
+  if (ackStatus === "applied" || (Boolean(aiDecision.ack_seeded) && aiDecision.ack_success !== false)) {
+    return { label: "ACK Applied" };
+  }
+  if (aiGenerated?.history_state === "applied") return { label: "Already Applied" };
+  return null;
+}
+
+type DeviceDecisionCandidate = {
+  rank: number | null;
+  candidateId: string;
+  recommendedParams: { kp: number; ki: number; kd: number } | null;
+  delta: { kp: number; ki: number; kd: number } | null;
+  successScore: number | null;
+  gapScore: number | null;
+  totalScore: number | null;
+};
+
+function buildDeviceDecisionSummary(aiDecision: Record<string, unknown> | null | undefined): {
+  rankingUsed: boolean;
+  rankingFallbackUsed: boolean;
+  selectedCandidate: string;
+  evaluatedCandidates: number;
+  topScore: number | null;
+  ruleCenterParams: { kp: number; ki: number; kd: number } | null;
+  candidates: DeviceDecisionCandidate[];
+} | null {
+  if (!aiDecision || typeof aiDecision !== "object") return null;
+  const selectedCandidate = readString(aiDecision.selected_candidate_id) || readString(aiDecision.top_1_candidate_id) || "rule_center";
+  const ranked = Array.isArray(aiDecision.ranked_candidates) ? aiDecision.ranked_candidates : [];
+  const candidates = ranked
+    .map((item) => toDeviceDecisionCandidate(item))
+    .filter((item): item is DeviceDecisionCandidate => item !== null);
+  return {
+    rankingUsed: Boolean(aiDecision.ranking_used),
+    rankingFallbackUsed: Boolean(aiDecision.ranking_fallback_used),
+    selectedCandidate,
+    evaluatedCandidates:
+      readFiniteNumber(aiDecision.evaluated_candidate_count) ??
+      readFiniteNumber(aiDecision.candidate_count) ??
+      candidates.length,
+    topScore: readFiniteNumber(aiDecision.top_score),
+    ruleCenterParams: pickPidTuple(aiDecision.base_recommended_params),
+    candidates,
+  };
+}
+
+function toDeviceDecisionCandidate(value: unknown): DeviceDecisionCandidate | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const candidateId = readString(row.candidate_id);
+  if (!candidateId) return null;
+  const successModel = row.success_model && typeof row.success_model === "object" && !Array.isArray(row.success_model)
+    ? (row.success_model as Record<string, unknown>)
+    : {};
+  const gapModel = row.preview_gap_model && typeof row.preview_gap_model === "object" && !Array.isArray(row.preview_gap_model)
+    ? (row.preview_gap_model as Record<string, unknown>)
+    : {};
+  return {
+    rank: readFiniteNumber(row.rank),
+    candidateId,
+    recommendedParams: pickPidTuple(row.recommended_params),
+    delta: pickPidTuple(row.delta),
+    successScore: readFiniteNumber(successModel.success_score) ?? readFiniteNumber(row.success_score),
+    gapScore: readFiniteNumber(gapModel.gap_score) ?? readFiniteNumber(row.preview_gap_score),
+    totalScore: readFiniteNumber(row.total_score),
+  };
+}
+
+function readString(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return text ? text : null;
+}
+
+function readFiniteNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatScore(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "N/A";
+  return value.toFixed(3);
+}
+
+function formatPidTuple(value: { kp: number; ki: number; kd: number } | null, signed = false): string {
+  if (!value) return "N/A";
+  const fmt = signed ? withSign : formatPidValue;
+  return `Kp ${fmt(value.kp)}, Ki ${fmt(value.ki)}, Kd ${fmt(value.kd)}`;
 }
 
 function normalizeRiskLevel(value: unknown): string {
@@ -2268,11 +2603,13 @@ function SmallNumberInput({
   label,
   value,
   step,
+  decimals = 2,
   onChange,
 }: {
   label: string;
   value: number;
   step: string;
+  decimals?: number;
   onChange: (value: number) => void;
 }) {
   return (
@@ -2282,11 +2619,23 @@ function SmallNumberInput({
         className="h-8"
         type="number"
         step={step}
-        value={Number.isFinite(value) ? value : 0}
-        onChange={(e) => onChange(Number(e.target.value || 0))}
+        value={formatTargetSettingInput(value, decimals)}
+        onChange={(e) => onChange(roundTargetSetting(Number(e.target.value || 0), decimals))}
       />
     </label>
   );
+}
+
+function roundTargetSetting(value: number, decimals: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const factor = 10 ** Math.max(0, decimals);
+  return Math.round(value * factor) / factor;
+}
+
+function formatTargetSettingInput(value: number, decimals: number): string {
+  const rounded = roundTargetSetting(value, decimals);
+  if (decimals <= 0) return String(Math.round(rounded));
+  return rounded.toFixed(decimals).replace(/\.?0+$/, "");
 }
 
 function toDatetimeLocalValue(date: Date): string {

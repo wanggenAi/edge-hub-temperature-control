@@ -23,3 +23,5 @@
 [11] Wokwi. Wokwi Documentation. Available: https://docs.wokwi.com/. Accessed: 14 May 2026.
 
 [12] PostgreSQL Global Development Group. PostgreSQL Documentation. Available: https://www.postgresql.org/docs/. Accessed: 14 May 2026.
+
+[13] Åström K. J., Hägglund T. PID Controllers: Theory, Design, and Tuning. 2nd ed. Instrument Society of America, 1995.

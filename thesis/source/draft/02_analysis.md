@@ -1,6 +1,6 @@
-# 2 ANALYSIS OF TEMPERATURE CONTROL AND MONITORING SYSTEMS
+# 1 ANALYSIS OF TEMPERATURE CONTROL AND MONITORING SYSTEMS
 
-## 2.1 Temperature-control process characteristics
+## 1.1 Temperature-control process characteristics
 
 Temperature control is a common engineering task in heating units, laboratory equipment, environmental chambers, embedded automation systems, and industrial processes. The controlled variable is temperature, while the desired operating condition is defined by a setpoint. The purpose of the control system is to keep the measured temperature close to this setpoint despite internal process dynamics and external influences [1].
 
@@ -12,7 +12,7 @@ Sensor noise and measurement uncertainty also affect temperature-control quality
 
 Actuator limitations must also be considered. A heater, fan, relay, valve, or PWM-controlled output has a limited operating range and cannot produce an unlimited control effect. If the actuator reaches saturation, the system may not be able to reduce the control error quickly. Incorrect controller settings may lead to overshoot, when the temperature exceeds the setpoint, or to steady-state error, when the temperature remains below or above the required value for a long time. These characteristics show that temperature control requires not only measurement, but also stable control logic, parameter management, and observation of process behavior.
 
-## 2.2 Closed-loop control principles
+## 1.2 Closed-loop control principles
 
 A closed-loop control system uses feedback from the controlled object to correct its own behavior. The basic control sequence includes measurement of the process value, comparison with the setpoint, calculation of the control action, application of this action to the actuator, and repeated observation of the result. This repeated correction allows the system to compensate for disturbances and process changes that cannot be fully predicted in advance.
 
@@ -22,7 +22,7 @@ Closed-loop control is more suitable for temperature regulation than open-loop c
 
 In the developed project, the closed-loop principle is extended beyond the local controller. The local loop remains responsible for measurement, control calculation, and actuator output. However, the complete engineering workflow also includes supervisory parameter changes and result verification. A parameter update is prepared in the HMI, published as an MQTT command, received by the edge device, acknowledged after processing, stored by the Data Hub, and then checked through subsequent process behavior. This extended loop is important because it connects operator action with device response and post-apply verification.
 
-## 2.3 Edge-based execution in temperature-control systems
+## 1.3 Edge-based execution in temperature-control systems
 
 Edge-based execution means that the time-critical part of the control system is performed close to the controlled object. In a temperature-control system, this approach is important because measurement, control calculation, and actuator output must continue even if the HMI, database, or network connection is temporarily unavailable. The local controller must not depend on a remote service for every control decision.
 
@@ -32,7 +32,7 @@ Keeping control execution at the edge also reduces the influence of communicatio
 
 For the developed system, the edge control layer is the execution core of the closed-loop temperature control and monitoring system. It is not only a data source for the HMI, but also the component that applies control logic and confirms configuration changes. This role requires clear separation between local control responsibilities and supervisory functions implemented in the Data Hub and HMI layers.
 
-## 2.4 Data acquisition and monitoring requirements
+## 1.4 Data acquisition and monitoring requirements
 
 Data acquisition in a temperature-control system must provide structured and traceable information about the controlled process. The system should not collect only temperature values, because a single value does not explain the state of the controller or the reason for a change in behavior. For engineering analysis, each record should include context that allows the process state to be reconstructed.
 
@@ -44,7 +44,7 @@ The Data Hub layer is responsible for ingestion and processing of these messages
 
 Persistent storage is required for engineering analysis and post-apply verification. Historical records allow the system developer and operator to observe trends, identify slow response or oscillation, compare control behavior under different parameters, and prepare data for auxiliary decision support. Device status tracking is also necessary because stale data, disconnection, or missing acknowledgements can affect the interpretation of control results.
 
-## 2.5 HMI requirements for supervisory control
+## 1.5 HMI requirements for supervisory control
 
 The HMI layer is one of the main layers of the developed system. Its role is to provide supervisory control and operator interaction. The HMI must not be limited to displaying the current temperature. It should provide a clear view of the current device state, historical behavior, parameter configuration, command results, alarms, and abnormal events.
 
@@ -56,7 +56,7 @@ The HMI must also support controlled parameter configuration. A parameter update
 
 Alarm and abnormal event visibility is another important requirement. If the device becomes unavailable, measurements become stale, actuator output reaches an abnormal state, or the process moves outside an acceptable range, the HMI should make this condition visible. In this way, the HMI becomes part of the supervisory control process rather than only a passive dashboard.
 
-## 2.6 Auxiliary decision-support role
+## 1.6 Auxiliary decision-support role
 
 The auxiliary decision-support mechanism is an additional support function in the developed system. It is not the main controller, not an autonomous optimizer, and not the central contribution of the thesis. Its role is to analyze stored behavior and prepare reviewable parameter recommendations that may help improve control quality.
 
@@ -66,13 +66,13 @@ The recommendation process must remain connected to operator supervision. A reco
 
 This boundary is important for the thesis. The main engineering result is the layered closed-loop temperature control and monitoring system. The auxiliary decision-support mechanism increases the value of the system by improving analysis and parameter preparation, while the operator remains in the loop and the system remains explainable and traceable.
 
-## 2.7 Requirements for the developed system
+## 1.7 Requirements for the developed system
 
 The analysis of temperature-control process characteristics, closed-loop control principles, edge-based execution, data acquisition, HMI supervision, and auxiliary decision support leads to the requirements for the developed system. These requirements define the difference between a simple temperature-monitoring prototype and a complete layered closed-loop temperature control and monitoring system.
 
-The requirements are grouped by the main system areas: the edge control layer, communication mechanism, Data Hub layer, HMI layer, auxiliary decision-support mechanism, and integrated system validation. This grouping reflects the architecture of the project and keeps the auxiliary functions separated from the main control and monitoring layers. The summarized requirements are presented in Table 2.1.
+The requirements are grouped by the main system areas: the edge control layer, communication mechanism, Data Hub layer, HMI layer, auxiliary decision-support mechanism, and integrated system validation. This grouping reflects the architecture of the project and keeps the auxiliary functions separated from the main control and monitoring layers. The summarized requirements are presented in Table 1.1.
 
-Table 2.1 – Main engineering requirements of the developed system
+Table 1.1 – Main engineering requirements of the developed system
 
 | Area | Requirement | Purpose |
 |---|---|---|

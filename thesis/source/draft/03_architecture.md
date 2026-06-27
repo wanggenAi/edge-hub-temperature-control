@@ -1,14 +1,14 @@
-# 3 ARCHITECTURE OF THE DEVELOPED SYSTEM
+# 2 ARCHITECTURE OF THE DEVELOPED SYSTEM
 
-## 3.1 General architecture of the system
+## 2.1 General architecture of the system
 
-The developed system is designed as a layered closed-loop temperature control and monitoring system. Its architecture separates time-critical local control from supervisory data processing and operator interaction. This separation is necessary because the temperature-control process must continue at the edge, while monitoring, storage, parameter configuration, and analysis can be performed by upper layers. Figure 3.1 presents the general architecture of the developed system and shows the relationship between the three main layers and the auxiliary decision-support mechanism.
+The developed system is designed as a layered closed-loop temperature control and monitoring system. Its architecture separates time-critical local control from supervisory data processing and operator interaction. This separation is necessary because the temperature-control process must continue at the edge, while monitoring, storage, parameter configuration, and analysis can be performed by upper layers. Figure 2.1 presents the general architecture of the developed system and shows the relationship between the three main layers and the auxiliary decision-support mechanism.
 
 The architecture contains three main layers: the edge control layer, the Data Hub layer, and the HMI layer. The edge control layer interacts directly with the controlled object and executes the local feedback process. The Data Hub layer receives MQTT messages, parses them, stores normalized records, and maintains device status. The HMI layer provides operator supervision, history viewing, parameter configuration, and command-result visibility. The auxiliary decision-support mechanism is connected to the HMI and stored data, but it is not a separate main control layer and does not replace the operator.
 
-The main architectural decision is to treat the system as an engineering workflow rather than as a set of independent modules. A temperature measurement is not only displayed to the user; it becomes part of a traceable sequence that includes control execution, telemetry publishing, message ingestion, storage, HMI observation, parameter update, device acknowledgement, and post-apply verification. As shown in Figure 3.1, the three main layers are aligned around the closed-loop measurement, command, and verification path, while the auxiliary decision-support mechanism remains outside the main control chain. The layered structure of the developed system is summarized in Table 3.1.
+The main architectural decision is to treat the system as an engineering workflow rather than as a set of independent modules. A temperature measurement is not only displayed to the user; it becomes part of a traceable sequence that includes control execution, telemetry publishing, message ingestion, storage, HMI observation, parameter update, device acknowledgement, and post-apply verification. As shown in Figure 2.1, the three main layers are aligned around the closed-loop measurement, command, and verification path, while the auxiliary decision-support mechanism remains outside the main control chain. The layered structure of the developed system is summarized in Table 2.1.
 
-Table 3.1 – Architectural areas of the developed system
+Table 2.1 – Architectural areas of the developed system
 
 | Area | Main responsibility | Main exchanged information |
 |---|---|---|
@@ -19,7 +19,7 @@ Table 3.1 – Architectural areas of the developed system
 
 The three main layers are connected through a common communication and data model. MQTT is used for runtime message exchange between the edge device and upper layers [2], while persistent storage provides the historical basis for monitoring, analysis, and verification. This approach allows each layer to have a clear responsibility while still supporting an end-to-end control workflow.
 
-## 3.2 Edge control layer
+## 2.2 Edge control layer
 
 The edge control layer is the execution core of the system. It is responsible for acquiring temperature data, comparing the measured value with the setpoint, calculating the local control action, and applying the actuator output. In the developed project, the edge node is represented by an ESP32-oriented firmware structure and a Wokwi simulation profile. This makes it possible to test the control workflow in a repeatable environment while keeping the structure suitable for later hardware deployment.
 
@@ -29,7 +29,7 @@ Besides local control, the edge layer participates in the wider engineering loop
 
 The telemetry produced by the edge layer includes not only the current temperature but also engineering context such as setpoint, control output, controller coefficients, timing information, safety state, connectivity state, and pending-parameter status. These fields allow the upper layers to interpret process behavior and to verify changes after new parameters are applied.
 
-## 3.3 Data Hub layer
+## 2.3 Data Hub layer
 
 The Data Hub layer is the processing center between the edge device and the HMI. Its role is to receive MQTT messages, classify them by topic and payload type, transform them into stable internal records, and store them for later use. This layer prevents the HMI from depending directly on raw device messages and provides a consistent data source for monitoring, history, alarms, and analysis.
 
@@ -39,7 +39,7 @@ Persistent storage is a central responsibility of the Data Hub. Telemetry record
 
 The Data Hub also supports device-status tracking. Online or offline state, stale telemetry, missing acknowledgements, and abnormal process conditions affect how the operator should interpret the HMI view. By maintaining status information separately from raw telemetry, the system can present a clearer operational picture.
 
-## 3.4 HMI layer
+## 2.4 HMI layer
 
 The HMI layer is the operator-facing part of the system. Its role is not limited to displaying a temperature value. It provides access to current device state, historical behavior, parameter configuration, command status, alarms, and post-apply observations. The HMI is therefore the supervisory control layer through which the operator interacts with the developed system.
 
@@ -49,7 +49,7 @@ The HMI also provides the controlled path for parameter configuration. When the 
 
 This design keeps the operator in the loop. Even when an auxiliary recommendation is available, the HMI remains the place where the recommendation is reviewed, applied, and checked. This boundary is important because the system is intended as a traceable engineering prototype rather than an autonomous optimization product.
 
-## 3.5 Closed-loop data and command flow
+## 2.5 Closed-loop data and command flow
 
 The central system behavior is the closed-loop flow from measurement to post-apply verification. At the local level, the edge device measures temperature, calculates the control action, applies actuator output, and repeats this process. At the system level, the same control process is extended by structured communication, storage, HMI supervision, and controlled parameter updates.
 
@@ -57,9 +57,9 @@ The normal telemetry path begins when the edge device publishes a message contai
 
 The command path begins when an operator changes a parameter through the HMI. The HMI initiates a parameter-set operation, and the upper-layer command path publishes the corresponding message to the device-specific MQTT topic. The edge device receives the command, validates its content, applies or stages the new parameters according to the command semantics, and publishes an acknowledgement. The Data Hub stores the command and acknowledgement records, while the HMI displays the result to the operator.
 
-Post-apply verification closes the engineering loop. After the acknowledgement is received, later telemetry is observed to determine whether the process behavior changed as expected. This step is essential because an acknowledgement only confirms that the device processed the command; it does not prove that the control behavior improved. The sequence of the developed workflow is summarized in Table 3.2.
+Post-apply verification closes the engineering loop. After the acknowledgement is received, later telemetry is observed to determine whether the process behavior changed as expected. This step is essential because an acknowledgement only confirms that the device processed the command; it does not prove that the control behavior improved. The sequence of the developed workflow is summarized in Table 2.2.
 
-Table 3.2 – Closed-loop workflow of the developed system
+Table 2.2 – Closed-loop workflow of the developed system
 
 | Step | Responsible layer | Purpose |
 |---|---|---|
@@ -73,7 +73,7 @@ Table 3.2 – Closed-loop workflow of the developed system
 
 This flow shows that the developed architecture is not a simple one-way monitoring chain. It contains feedback at the control level and traceability at the engineering-system level.
 
-## 3.6 Communication protocol and data model
+## 2.6 Communication protocol and data model
 
 MQTT is used as the main runtime communication protocol between the edge device and the upper layers. The topic structure separates telemetry, commands, acknowledgements, and configuration events. This separation is necessary because each message type has a different meaning and must be processed differently by the Data Hub and HMI.
 
@@ -85,14 +85,10 @@ The parameter-set payload contains the values that may change during runtime, su
 
 This data model is intentionally explicit. It makes the system easier to test because every important transition can be observed in messages or storage records. It also supports later extension because additional fields can be added without changing the main topic separation.
 
-## 3.7 Auxiliary decision-support interface
+## 2.7 Auxiliary decision-support interface
 
 The auxiliary decision-support mechanism is connected to the architecture through stored telemetry, parameter records, and HMI actions. It analyzes historical behavior and prepares parameter recommendations, but it does not control the actuator directly and does not bypass the normal command path.
 
-The input for decision support comes from the Data Hub and HMI data sources. Historical telemetry windows, setpoint changes, actuator output, controller coefficients, acknowledgement records, and post-apply results provide the context for evaluating control behavior. These records allow the mechanism to identify patterns such as slow response, overshoot, oscillation, or poor settling behavior.
+The input for decision support comes from the Data Hub and HMI data sources: telemetry windows, setpoint changes, actuator output, controller coefficients, acknowledgement records, and post-apply results. This context allows the mechanism to identify slow response, overshoot, oscillation, or poor settling behavior.
 
-The output of decision support is a reviewable recommendation rather than an automatic control action. A recommendation may include proposed parameter values and supporting information for the operator. Before it affects the system, it must be reviewed in the HMI and applied through the same parameter-set mechanism used for manual configuration. After application, the edge device must acknowledge the command and later telemetry must be checked.
-
-This interface keeps the auxiliary mechanism explainable and traceable. It improves the engineering value of the system by supporting parameter analysis and recommendation preparation, while the main architecture remains based on edge execution, Data Hub processing, and HMI supervision.
-
-The architecture described in this section defines the structural basis for the implementation of the developed system. The following section focuses on the edge control layer, including temperature acquisition, local control execution, runtime parameter handling, MQTT communication, and acknowledgement processing.
+The output of decision support is a reviewable recommendation rather than an automatic control action. It may include proposed parameter values and supporting information for the operator. Before affecting the system, it must be reviewed in the HMI and applied through the same parameter-set mechanism used for manual configuration. After application, the edge device must acknowledge the command and later telemetry must be checked, keeping the auxiliary mechanism explainable and traceable within the main architecture.

@@ -14,6 +14,7 @@ export function UsersPage() {
   const { users, createUser, updateUser, deleteUser, loading, reload } = useUsers();
   const [form, setForm] = useState({ username: "", email: "", password: "", role: "viewer" as Role });
   const [editing, setEditing] = useState<{ id: number; role: Role; active: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
     open: boolean;
     title: string;
@@ -36,13 +37,21 @@ export function UsersPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
+    const username = form.username.trim();
+    const email = form.email.trim();
+    const password = form.password;
+    if (!username || !email || !password) {
+      setError("Username, email, and password are required.");
+      return;
+    }
     setConfirm({
       open: true,
       title: "Confirm User Creation",
-      description: `Create user ${form.username || "(no username)"} with role ${form.role}?`,
+      description: `Create user ${username} with role ${form.role}?`,
       tone: "accent",
       action: async () => {
-        await createUser({ username: form.username, email: form.email, password: form.password, roles: [form.role] });
+        await createUser({ username, email, password, roles: [form.role] });
         setForm({ username: "", email: "", password: "", role: "viewer" });
         reload();
       },
@@ -74,6 +83,7 @@ export function UsersPage() {
           <CardTitle>User Management</CardTitle>
         </CardHeader>
         <CardContent>
+          {error && <div className="mb-3 rounded border border-danger/50 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>}
           <form className="grid gap-2 md:grid-cols-5" onSubmit={submit}>
             <Input
               placeholder="username"
@@ -242,6 +252,9 @@ export function UsersPage() {
           try {
             await confirm.action();
             setConfirm((s) => ({ ...s, open: false }));
+            setError(null);
+          } catch (exc) {
+            setError(exc instanceof Error ? exc.message : "Operation failed.");
           } finally {
             setConfirmBusy(false);
           }

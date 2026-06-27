@@ -295,14 +295,21 @@ def crop_pcb_main_area(image: Image.Image) -> Image.Image:
 
 
 def copy_enclosure_figures() -> None:
+    def crop_presentation(image: Image.Image) -> Image.Image:
+        return image.convert("RGB").crop((150, 70, 1050, 835))
+
+    def crop_parts(image: Image.Image) -> Image.Image:
+        return image.convert("RGB").crop((220, 240, 940, 735))
+
     targets = [
-        (ENCLOSURE_PRESENTATION, FIGURES_DIR / "figure_4_3_enclosure_layout.png"),
-        (ENCLOSURE_PARTS, FIGURES_DIR / "figure_4_4_enclosure_parts.png"),
+        (ENCLOSURE_PRESENTATION, FIGURES_DIR / "figure_4_3_enclosure_layout.png", crop_presentation),
+        (ENCLOSURE_PARTS, FIGURES_DIR / "figure_4_4_enclosure_parts.png", crop_parts),
     ]
-    for src, dst in targets:
+    for src, dst, crop in targets:
         if not src.exists():
             raise FileNotFoundError(src)
-        shutil.copy2(src, dst)
+        image = Image.open(src)
+        crop(image).save(dst, quality=95)
 
 
 def main() -> None:

@@ -131,7 +131,15 @@ export const api = {
   },
   metricsStats: (
     id: number,
-    params: { start_ms: number; end_ms: number; band: number; steady_window: number; limit?: number }
+    params: {
+      start_ms: number;
+      end_ms: number;
+      band: number;
+      steady_window: number;
+      limit?: number;
+      continuous_latest?: boolean;
+      max_gap_ms?: number;
+    }
   ) => {
     const sp = new URLSearchParams();
     sp.set("start_ms", String(params.start_ms));
@@ -139,6 +147,8 @@ export const api = {
     sp.set("band", String(params.band));
     sp.set("steady_window", String(params.steady_window));
     if (typeof params.limit === "number") sp.set("limit", String(params.limit));
+    if (typeof params.continuous_latest === "boolean") sp.set("continuous_latest", String(params.continuous_latest));
+    if (typeof params.max_gap_ms === "number") sp.set("max_gap_ms", String(params.max_gap_ms));
     return request<MetricWindowStats>(`/devices/${id}/metrics/stats?${sp.toString()}`);
   },
   controlEval: (

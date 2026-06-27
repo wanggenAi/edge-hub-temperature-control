@@ -32,6 +32,7 @@ data-hub/config/application.properties
 *.iml
 .DS_Store
 .*.bkp
+.tmp_word_work/
 
 # Local logs and temporary outputs
 *.log

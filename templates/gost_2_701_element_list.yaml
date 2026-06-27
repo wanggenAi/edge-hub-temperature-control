@@ -1,0 +1,226 @@
+{
+  "standard": "GOST 2.701",
+  "table": "List of Elements",
+  "unit": "mm",
+  "origin": "top-left",
+  "overall": {
+    "width": 185,
+    "x": 651,
+    "y": 5,
+    "right": 836
+  },
+  "element_list": {
+    "x": 651,
+    "y": 5,
+    "width": 185,
+    "right": 836,
+    "max_bottom_y_mm": 522,
+    "min_gap_to_title_block_mm": 12,
+    "title_height_mm": 0,
+    "header_height_mm": 16,
+    "group_row_height_mm": 16,
+    "item_row_height_mm": 16,
+    "blank_row_height_mm": 16,
+    "min_row_height_mm": 16,
+    "line_width_major_mm": 1.2,
+    "line_width_minor_mm": 0.5,
+    "line_width_tolerance_mm": 0.03,
+    "min_font_height_mm": 4.3,
+    "title_font_height_mm": 3.0,
+    "header_font_height_mm": 4.6
+  },
+  "columns": [
+    {
+      "id": "ref_designator",
+      "title": "Position number",
+      "x": 0,
+      "width": 38
+    },
+    {
+      "id": "description",
+      "title": "Name",
+      "x": 38,
+      "width": 86
+    },
+    {
+      "id": "qty",
+      "title": "Qty.",
+      "x": 124,
+      "width": 17
+    },
+    {
+      "id": "note",
+      "title": "Note",
+      "x": 141,
+      "width": 44
+    }
+  ],
+  "column_x": [
+    0,
+    38,
+    124,
+    141,
+    185
+  ],
+  "rows": {
+    "title_height_mm": 0,
+    "header_height_mm": 16,
+    "group_row_height_mm": 16,
+    "item_row_height_mm": 16,
+    "blank_row_height_mm": 16,
+    "min_row_height_mm": 16
+  },
+  "line_widths": {
+    "outer_border_mm": 1.2,
+    "major_separator_mm": 1.2,
+    "minor_grid_mm": 0.5,
+    "tolerance_mm": 0.03
+  },
+  "text": {
+    "title_height_mm": 3.0,
+    "header_height_mm": 4.6,
+    "body_height_mm": 4.3,
+    "min_text_to_line_clearance_mm": 0.4,
+    "allowed_angles_deg": [
+      0
+    ]
+  },
+  "placement": {
+    "align_right_to_frame": true,
+    "frame_right_mm": 836,
+    "min_gap_to_title_block_mm": 12,
+    "must_be_above_title_block": true
+  },
+  "title": {
+    "text": "List of Elements",
+    "height": 0,
+    "font_height_mm": 3.0
+  },
+  "header": {
+    "height": 16,
+    "font_height_mm": 4.6
+  },
+  "row_height_mm": 16,
+  "groups": [
+    {
+      "name": "Capacitors",
+      "items": [
+        {
+          "refs": "C1",
+          "description": "CL10A106KP8NNNC 10 uF",
+          "qty": 1,
+          "note": "Samsung"
+        },
+        {
+          "refs": "C2, C4",
+          "description": "CL10B104KB8NNNC 0.1 uF",
+          "qty": 2,
+          "note": "Samsung"
+        },
+        {
+          "refs": "C3",
+          "description": "CL31A107MQHNNNE 100 uF",
+          "qty": 1,
+          "note": "Samsung"
+        }
+      ]
+    },
+    {
+      "name": "Resistors",
+      "items": [
+        {
+          "refs": "R1, R5, R6",
+          "description": "RC0603FR-0710KL 10 kOhm",
+          "qty": 3,
+          "note": "YAGEO"
+        },
+        {
+          "refs": "R2",
+          "description": "RC0603FR-074K7L 4.7 kOhm",
+          "qty": 1,
+          "note": "YAGEO"
+        },
+        {
+          "refs": "R3",
+          "description": "RC0603FR-07330RL 330 Ohm",
+          "qty": 1,
+          "note": "YAGEO"
+        },
+        {
+          "refs": "R4",
+          "description": "RC0603FR-07100RL 100 Ohm",
+          "qty": 1,
+          "note": "YAGEO"
+        }
+      ]
+    },
+    {
+      "name": "Semiconductor Devices",
+      "items": [
+        {
+          "refs": "DD1",
+          "description": "ESP32-WROOM-32E-N4 module",
+          "qty": 1,
+          "note": "Espressif"
+        },
+        {
+          "refs": "HL1",
+          "description": "19-217/R6C-AL1M2VY/3T LED",
+          "qty": 1,
+          "note": "Everlight"
+        },
+        {
+          "refs": "VT1",
+          "description": "AO3400A N-MOSFET SOT-23",
+          "qty": 1,
+          "note": "AOS"
+        }
+      ]
+    },
+    {
+      "name": "Switching Components",
+      "items": [
+        {
+          "refs": "SB1, SB2",
+          "description": "B3F-1000 tactile switch",
+          "qty": 2,
+          "note": "Omron"
+        }
+      ]
+    },
+    {
+      "name": "Connectors",
+      "items": [
+        {
+          "refs": "XS1",
+          "description": "XH2.54-3P connector",
+          "qty": 1,
+          "note": "JST"
+        },
+        {
+          "refs": "XS2, XS3",
+          "description": "KF2EDGV-3.81-2P terminal",
+          "qty": 2,
+          "note": "Kefa"
+        },
+        {
+          "refs": "XS4",
+          "description": "KF2EDG-5.00-4P terminal",
+          "qty": 1,
+          "note": "Kefa"
+        }
+      ]
+    },
+    {
+      "name": "Power Modules",
+      "items": [
+        {
+          "refs": "A1",
+          "description": "MP1584EN DC/DC module",
+          "qty": 1,
+          "note": "MPS"
+        }
+      ]
+    }
+  ]
+}

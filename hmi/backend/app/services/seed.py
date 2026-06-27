@@ -26,6 +26,10 @@ from app.services.ai.schemas import PIDParams, RecommendationGenerateOutput
 from app.services.ops_runbook_service import ops_runbook_service
 
 
+def calc_error_c(target_temp: float, current_temp: float) -> float:
+    return float(target_temp) - float(current_temp)
+
+
 ROLE_DATA = [
     ("admin", "Administrator"),
     ("operator", "Operator"),
@@ -335,7 +339,7 @@ def seed_demo_data(db: Session) -> None:
             t = now - timedelta(minutes=24 - i)
             current = device.current_temp + (i - 12) * 0.03
             target = device.target_temp
-            err = round(current - target, 3)
+            err = round(calc_error_c(target, current), 3)
             pwm = max(0.0, min(100.0, device.pwm_output + (12 - i) * 0.4))
             generated_metrics.append(
                 {
@@ -456,7 +460,7 @@ def _build_preview_series(case: dict, *, points: int = 24) -> list[dict]:
         progress = 0.0 if points <= 1 else float(idx) / float(points - 1)
         phase = progress * osc_cycles * math.tau
         error = start_error + (end_error - start_error) * progress + osc_amp * math.sin(phase)
-        temp = target + error
+        temp = target - error
         pwm = max(0.0, min(100.0, pwm_base + pwm_amp * abs(math.sin(phase + math.pi / 8))))
         out.append(
             {

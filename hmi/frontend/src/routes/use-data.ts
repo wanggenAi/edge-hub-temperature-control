@@ -24,10 +24,73 @@ type DeviceStreamMessage = {
   devices: DeviceSnapshot[];
 };
 
+const DETAIL_METRICS_WINDOW_MS = 5 * 60 * 1000;
+const DETAIL_METRICS_LIMIT = 20000;
+const DETAIL_STREAM_WINDOW_MS = 5 * 60 * 1000;
+const METRIC_VALUE_EPSILON = 0.000001;
+
 function isDeviceStreamMessage(value: unknown): value is DeviceStreamMessage {
   if (!value || typeof value !== "object") return false;
   const msg = value as Partial<DeviceStreamMessage>;
   return msg.type === "device_snapshot" && Array.isArray(msg.devices);
+}
+
+function calcErrorC(targetTemp: number, currentTemp: number): number {
+  return targetTemp - currentTemp;
+}
+
+function metricTimestampMs(metric: Pick<Metric, "timestamp">): number {
+  return new Date(metric.timestamp).getTime();
+}
+
+function isValidMetricTimestamp(metric: Pick<Metric, "timestamp">): boolean {
+  return Number.isFinite(metricTimestampMs(metric));
+}
+
+function numbersClose(left: number, right: number): boolean {
+  return Math.abs(left - right) <= METRIC_VALUE_EPSILON;
+}
+
+function sameMetricValues(left: Metric, right: Metric): boolean {
+  return (
+    left.timestamp === right.timestamp &&
+    numbersClose(left.current_temp, right.current_temp) &&
+    numbersClose(left.target_temp, right.target_temp) &&
+    numbersClose(left.pwm_output, right.pwm_output) &&
+    left.is_alarm === right.is_alarm
+  );
+}
+
+function normalizeMetrics(rows: Metric[], limit = DETAIL_METRICS_LIMIT): Metric[] {
+  const byTime = new Map<number, Metric>();
+  for (const row of rows) {
+    const ts = metricTimestampMs(row);
+    if (!Number.isFinite(ts)) continue;
+    byTime.set(ts, row);
+  }
+  const sorted = Array.from(byTime.values()).sort((a, b) => metricTimestampMs(a) - metricTimestampMs(b));
+  return sorted.slice(-limit);
+}
+
+function mergeLiveMetric(prev: Metric[], nextMetric: Metric): Metric[] {
+  if (!isValidMetricTimestamp(nextMetric)) return prev;
+  const latestSeenMs = Math.max(
+    metricTimestampMs(nextMetric),
+    ...prev.map(metricTimestampMs).filter((value) => Number.isFinite(value))
+  );
+  const cutoffMs = latestSeenMs - DETAIL_STREAM_WINDOW_MS;
+  const recent = prev.filter((metric) => {
+    const ts = metricTimestampMs(metric);
+    return Number.isFinite(ts) && ts >= cutoffMs;
+  });
+  const existing = recent.find((metric) => metricTimestampMs(metric) === metricTimestampMs(nextMetric));
+  if (existing && sameMetricValues(existing, nextMetric)) {
+    return normalizeMetrics(recent);
+  }
+  return normalizeMetrics(
+    [...recent.filter((metric) => metricTimestampMs(metric) !== metricTimestampMs(nextMetric)), nextMetric],
+    DETAIL_METRICS_LIMIT
+  );
 }
 
 export function useDevices() {
@@ -105,19 +168,25 @@ export function useDeviceDetail(deviceId: number) {
     if (!deviceId) return;
     const silent = opts?.silent ?? false;
     if (!silent) setLoading(true);
-    Promise.all([
-      api.device(deviceId),
-      api.metrics(deviceId),
-      api.parameters(deviceId),
-      api.alarms(deviceId),
-      api.aiRecommendation(deviceId).catch(() => null),
-    ])
-      .then(([d, m, p, a, r]) => {
+    const endMs = Date.now();
+    const startMs = endMs - DETAIL_METRICS_WINDOW_MS;
+    api
+      .device(deviceId)
+      .then(async (d) => {
+        const [m, p, a, r] = await Promise.all([
+          api.metrics(deviceId, { start_ms: startMs, end_ms: endMs, limit: DETAIL_METRICS_LIMIT }).catch(() => [] as Metric[]),
+          api.parameters(deviceId).catch(() => null as Parameter | null),
+          api.alarms(deviceId).catch(() => [] as Alarm[]),
+          api.aiRecommendation(deviceId).catch(() => null),
+        ]);
         setDevice(d);
-        setMetrics(m);
-        setParameters(p);
+        setMetrics(normalizeMetrics(m));
+        if (p) setParameters(p);
         setAlarms(a);
         setRecommendation(r);
+      })
+      .catch(() => {
+        if (!silent) setDevice(null);
       })
       .finally(() => {
         if (!silent) setLoading(false);
@@ -142,32 +211,24 @@ export function useDeviceDetail(deviceId: number) {
           if (!isDeviceStreamMessage(parsed) || parsed.devices.length === 0) return;
           const snapshot = parsed.devices[0];
           setDevice(snapshot);
-          setMetrics((prev) => {
-            const metricTs = snapshot.snapshot_ts ?? parsed.emitted_at;
-            const nextMetric: Metric = {
-              id: prev.length > 0 ? prev[prev.length - 1].id + 1 : 1,
-              timestamp: metricTs,
-              current_temp: snapshot.current_temp,
-              target_temp: snapshot.target_temp,
-              error: snapshot.current_temp - snapshot.target_temp,
-              pwm_output: snapshot.pwm_output,
-              status: "active",
-              in_spec: Math.abs(snapshot.current_temp - snapshot.target_temp) <= 0.5,
-              is_alarm: snapshot.is_alarm,
-            };
-            const last = prev[prev.length - 1];
-            if (
-              last &&
-              last.timestamp === nextMetric.timestamp &&
-              last.current_temp === nextMetric.current_temp &&
-              last.target_temp === nextMetric.target_temp &&
-              last.pwm_output === nextMetric.pwm_output &&
-              last.is_alarm === nextMetric.is_alarm
-            ) {
-              return prev;
-            }
-            return [...prev, nextMetric].slice(-1000);
-          });
+          const metricTs = snapshot.snapshot_ts;
+          if (metricTs) {
+            setMetrics((prev) => {
+              const error = calcErrorC(snapshot.target_temp, snapshot.current_temp);
+              const nextMetric: Metric = {
+                id: prev.length > 0 ? prev[prev.length - 1].id + 1 : 1,
+                timestamp: metricTs,
+                current_temp: snapshot.current_temp,
+                target_temp: snapshot.target_temp,
+                error,
+                pwm_output: snapshot.pwm_output,
+                status: "active",
+                in_spec: Math.abs(error) <= 0.5,
+                is_alarm: snapshot.is_alarm,
+              };
+              return mergeLiveMetric(prev, nextMetric);
+            });
+          }
           setLoading(false);
         } catch {
           // ignore malformed event and keep stream alive

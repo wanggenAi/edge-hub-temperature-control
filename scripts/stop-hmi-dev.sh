@@ -7,9 +7,13 @@ PID_DIR="$ROOT_DIR/runtime/pids"
 BACKEND_PID_FILE="$PID_DIR/hmi-backend.pid"
 FRONTEND_PID_FILE="$PID_DIR/hmi-frontend.pid"
 AI_PID_FILE="$PID_DIR/ai-runtime.pid"
+DATAHUB_PID_FILE="$PID_DIR/data-hub.pid"
+LIVE_EDGE_PID_FILE="$PID_DIR/defense-live-edge.pid"
 
 WITH_DOCKER_DOWN=0
 STATUS_ONLY=0
+KEEP_DATAHUB=0
+KEEP_LIVE_EDGE=0
 
 usage() {
   cat <<'EOF'
@@ -18,6 +22,8 @@ Usage:
 
 Options:
   --with-docker-down  Stop HMI middleware docker compose services as well: PostgreSQL, TDengine.
+  --keep-datahub      Do not stop a manually started DataHub process.
+  --keep-live-edge    Do not stop the local live edge fallback process.
   --status            Show current status only, do not stop.
 EOF
 }
@@ -43,6 +49,16 @@ print_status() {
     echo "  frontend:   running pid=$(cat "$FRONTEND_PID_FILE")"
   else
     echo "  frontend:   stopped"
+  fi
+  if [[ -f "$DATAHUB_PID_FILE" ]] && is_pid_alive "$(cat "$DATAHUB_PID_FILE" 2>/dev/null || true)"; then
+    echo "  data-hub:   running pid=$(cat "$DATAHUB_PID_FILE")"
+  else
+    echo "  data-hub:   stopped"
+  fi
+  if [[ -f "$LIVE_EDGE_PID_FILE" ]] && is_pid_alive "$(cat "$LIVE_EDGE_PID_FILE" 2>/dev/null || true)"; then
+    echo "  live-edge:  running pid=$(cat "$LIVE_EDGE_PID_FILE")"
+  else
+    echo "  live-edge:  stopped"
   fi
 }
 
@@ -79,6 +95,8 @@ stop_by_port() {
 for arg in "$@"; do
   case "$arg" in
     --with-docker-down) WITH_DOCKER_DOWN=1 ;;
+    --keep-datahub) KEEP_DATAHUB=1 ;;
+    --keep-live-edge) KEEP_LIVE_EDGE=1 ;;
     --status) STATUS_ONLY=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg"; usage; exit 1 ;;
@@ -93,11 +111,25 @@ fi
 stop_by_pid_file "ai-runtime" "$AI_PID_FILE"
 stop_by_pid_file "backend" "$BACKEND_PID_FILE"
 stop_by_pid_file "frontend" "$FRONTEND_PID_FILE"
+if [[ "$KEEP_DATAHUB" -eq 1 ]]; then
+  echo "[keep] data-hub"
+else
+  stop_by_pid_file "data-hub" "$DATAHUB_PID_FILE"
+fi
+if [[ "$KEEP_LIVE_EDGE" -eq 1 ]]; then
+  echo "[keep] live-edge"
+else
+  stop_by_pid_file "live-edge" "$LIVE_EDGE_PID_FILE"
+fi
 
 # Fallback in case pid files are stale/missing.
 stop_by_port "ai-runtime" "8010"
 stop_by_port "backend" "8000"
 stop_by_port "frontend" "5173"
+if [[ "$KEEP_DATAHUB" -eq 0 ]]; then
+  stop_by_port "data-hub" "18080"
+  stop_by_port "data-hub-actuator" "8081"
+fi
 
 if [[ "$WITH_DOCKER_DOWN" -eq 1 ]]; then
   echo "[stop] stopping HMI middleware docker services..."

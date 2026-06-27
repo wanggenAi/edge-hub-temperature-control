@@ -63,7 +63,7 @@ public final class ReactiveMqttConsumer implements MqttMessageSource {
             config.qos(),
             config.maxInflight(),
             properties.effectiveSourceQueueSize()))
-        .then(subscribeTopics());
+        .then();
   }
 
   @Override
@@ -102,6 +102,9 @@ public final class ReactiveMqttConsumer implements MqttMessageSource {
     builder.addConnectedListener(context -> log.info(
         "hivemq connected listener clientId={}",
         context.getClientConfig().getClientIdentifier().map(Object::toString).orElse("unknown")));
+    // Subscribe from the connected listener only. The HiveMQ client also invokes this
+    // listener after automatic reconnects; subscribing again from connect() can register
+    // duplicate publish callbacks for the same topic filters in some timing windows.
     builder.addConnectedListener(context -> subscribeTopics()
         .doOnError(error -> log.error("hivemq subscribe after connect failed", error))
         .onErrorResume(error -> Mono.empty())
@@ -111,7 +114,6 @@ public final class ReactiveMqttConsumer implements MqttMessageSource {
         log.info("hivemq disconnected by user");
         return;
       }
-      subscribed.set(false);
       log.warn(
           "hivemq disconnected source={} cause={}",
           context.getSource(),

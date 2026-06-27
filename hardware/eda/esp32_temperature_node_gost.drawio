@@ -1,0 +1,982 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.0.6 Chrome/138.0.7204.100 Electron/37.2.3 Safari/537.36" version="28.0.6">
+  <diagram id="esp32-temperature-node" name="A1">
+    <mxGraphModel dx="913" dy="614" grid="1" gridSize="1" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="841" pageHeight="594" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="frame.outer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=2.5;align=center;verticalAlign=middle;spacing=0;" parent="1" vertex="1" data-kind="frame" data-role="drawing_frame" data-id="frame.outer" data-unit="mm">
+          <mxGeometry x="20" y="5" width="816" height="584" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.outer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=Arial;fontSize=2.5;align=center;verticalAlign=middle;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block.outer_border" data-template_id="gost_2_104_form1" data-unit="mm">
+          <mxGeometry x="648.996" y="532.876" width="187.004" height="56.124" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.line.h.left.005" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.minor_line" data-template_id="h.left.005" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="538.356" as="sourcePoint" />
+            <mxPoint x="715.393" y="538.356" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.left.010" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.minor_line" data-template_id="h.left.010" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="543.288" as="sourcePoint" />
+            <mxPoint x="715.393" y="543.288" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.015" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="h.015" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="548.367" as="sourcePoint" />
+            <mxPoint x="836" y="548.367" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.sig.020" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="h.sig.020" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="667.737" y="553.192" as="sourcePoint" />
+            <mxPoint x="715.393" y="553.192" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.right.020" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="h.right.020" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="784.967" y="553.192" as="sourcePoint" />
+            <mxPoint x="836" y="553.192" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.sig.025" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="h.sig.025" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="558.525" as="sourcePoint" />
+            <mxPoint x="715.393" y="558.525" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.sig.030" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.minor_line" data-template_id="h.sig.030" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="563.605" as="sourcePoint" />
+            <mxPoint x="715.393" y="563.605" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.sig.035" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.minor_line" data-template_id="h.sig.035" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="568.684" as="sourcePoint" />
+            <mxPoint x="715.393" y="568.684" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.right.035" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="h.right.035" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="784.967" y="568.684" as="sourcePoint" />
+            <mxPoint x="836" y="568.684" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.040" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="h.040" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="573.509" as="sourcePoint" />
+            <mxPoint x="836" y="573.509" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.sig.045" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.minor_line" data-template_id="h.sig.045" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="578.814" as="sourcePoint" />
+            <mxPoint x="715.393" y="578.814" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.h.sig.050" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.minor_line" data-template_id="h.sig.050" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="648.996" y="583.893" as="sourcePoint" />
+            <mxPoint x="715.393" y="583.893" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.008" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.008" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="657.033" y="532.876" as="sourcePoint" />
+            <mxPoint x="657.033" y="558.525" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.018" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.018" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="667.737" y="532.876" as="sourcePoint" />
+            <mxPoint x="667.737" y="589" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.040" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.040" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="689.654" y="532.876" as="sourcePoint" />
+            <mxPoint x="689.654" y="589" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.055" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.055" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="704.944" y="532.876" as="sourcePoint" />
+            <mxPoint x="704.944" y="589" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.065" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.065" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="715.393" y="532.876" as="sourcePoint" />
+            <mxPoint x="715.393" y="589" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.134" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.134" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="784.967" y="548.367" as="sourcePoint" />
+            <mxPoint x="784.967" y="589" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.149" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.149" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="800.258" y="548.367" as="sourcePoint" />
+            <mxPoint x="800.258" y="568.684" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.166" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.166" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="817.078" y="548.367" as="sourcePoint" />
+            <mxPoint x="817.078" y="568.684" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.line.v.right.sheet" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" parent="1" edge="1" data-kind="title_block_line" data-role="title_block.major_line" data-template_id="v.right.sheet" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="804.085" y="568.684" as="sourcePoint" />
+            <mxPoint x="804.085" y="573.509" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title_block.cell.rev_top" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="rev_top" data-field_name="Rev." data-line_type="major" data-unit="mm">
+          <mxGeometry x="648.996" y="532.876" width="8.037" height="15.491" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.sheet_top" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="sheet_top" data-field_name="Sheet" data-line_type="major" data-unit="mm">
+          <mxGeometry x="657.033" y="532.876" width="10.704" height="15.491" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.name_top" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="name_top" data-field_name="Name" data-line_type="major" data-unit="mm">
+          <mxGeometry x="667.737" y="532.876" width="21.917" height="20.316" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.sign_top" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="sign_top" data-field_name="Sign" data-line_type="major" data-unit="mm">
+          <mxGeometry x="689.654" y="532.876" width="15.29" height="20.316" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.date_top" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="date_top" data-field_name="Date" data-line_type="major" data-unit="mm">
+          <mxGeometry x="704.944" y="532.876" width="10.449" height="20.316" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.document_code" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="document_code" data-field_name="Document code" data-line_type="major" data-unit="mm">
+          <mxGeometry x="715.393" y="532.876" width="120.607" height="15.491" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.document_code" value="BSTU.241297.005 Э3" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=7.1;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="7.1" data-template_id="document_code" data-field_name="Document code" data-unit="mm">
+          <mxGeometry x="715.893" y="533.376" width="119.607" height="14.491" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.name_header" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="name_header" data-field_name="Name" data-line_type="major" data-unit="mm">
+          <mxGeometry x="667.737" y="553.192" width="21.917" height="5.333" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.name_header" value="Name" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="name_header" data-field_name="Name" data-unit="mm">
+          <mxGeometry x="668.237" y="553.692" width="20.917" height="4.333" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.sign_header" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="sign_header" data-field_name="Sign" data-line_type="major" data-unit="mm">
+          <mxGeometry x="689.654" y="553.192" width="15.29" height="5.333" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.sign_header" value="Sign" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="sign_header" data-field_name="Sign" data-unit="mm">
+          <mxGeometry x="690.154" y="553.692" width="14.29" height="4.333" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.date_header" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="date_header" data-field_name="Date" data-line_type="major" data-unit="mm">
+          <mxGeometry x="704.944" y="553.192" width="10.449" height="5.333" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.date_header" value="Date" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="date_header" data-field_name="Date" data-unit="mm">
+          <mxGeometry x="705.444" y="553.692" width="9.449" height="4.333" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.executed_label" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="executed_label" data-field_name="Executed" data-line_type="major" data-unit="mm">
+          <mxGeometry x="648.996" y="558.525" width="18.741" height="5.08" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.executed_label" value="Executed" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="executed_label" data-field_name="Executed" data-unit="mm">
+          <mxGeometry x="649.496" y="559.025" width="17.741" height="4.08" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.executed_name" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="executed_name" data-field_name="Name" data-line_type="major" data-unit="mm">
+          <mxGeometry x="667.737" y="558.525" width="21.917" height="5.08" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.executed_name" value="Wang Gen" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="executed_name" data-field_name="Name" data-unit="mm">
+          <mxGeometry x="668.237" y="559.025" width="20.917" height="4.08" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.executed_sign" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="executed_sign" data-field_name="Sign" data-line_type="major" data-unit="mm">
+          <mxGeometry x="689.654" y="558.525" width="15.29" height="5.08" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.executed_date" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="executed_date" data-field_name="Date" data-line_type="major" data-unit="mm">
+          <mxGeometry x="704.944" y="558.525" width="10.449" height="5.08" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.checked_label" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="checked_label" data-field_name="Checked" data-line_type="minor" data-unit="mm">
+          <mxGeometry x="648.996" y="563.605" width="18.741" height="5.079" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.checked_label" value="Checked" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="checked_label" data-field_name="Checked" data-unit="mm">
+          <mxGeometry x="649.496" y="564.105" width="17.741" height="4.079" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.checked_name" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="checked_name" data-field_name="Name" data-line_type="minor" data-unit="mm">
+          <mxGeometry x="667.737" y="563.605" width="21.917" height="5.079" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.checked_name" value="Разумейчик B.C." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="checked_name" data-field_name="Name" data-unit="mm">
+          <mxGeometry x="668.237" y="564.105" width="20.917" height="4.079" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.checked_sign" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="checked_sign" data-field_name="Sign" data-line_type="minor" data-unit="mm">
+          <mxGeometry x="689.654" y="563.605" width="15.29" height="5.079" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.checked_date" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="checked_date" data-field_name="Date" data-line_type="minor" data-unit="mm">
+          <mxGeometry x="704.944" y="563.605" width="10.449" height="5.079" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.approved_label" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="approved_label" data-field_name="Approved" data-line_type="minor" data-unit="mm">
+          <mxGeometry x="648.996" y="568.684" width="18.741" height="4.825" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.approved_label" value="Approved" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="approved_label" data-field_name="Approved" data-unit="mm">
+          <mxGeometry x="649.496" y="569.184" width="17.741" height="3.825" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.product_document" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="product_document" data-field_name="Product and document name" data-line_type="major" data-unit="mm">
+          <mxGeometry x="715.393" y="548.367" width="69.574" height="25.142" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.product_document" value="Microcontroller-based I/O Device" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.6;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="4.6" data-template_id="product_document" data-field_name="Product and document name" data-unit="mm">
+          <mxGeometry x="715.893" y="548.867" width="68.574" height="24.142" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.letter" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="letter" data-field_name="Letter" data-line_type="major" data-unit="mm">
+          <mxGeometry x="784.967" y="548.367" width="15.291" height="20.317" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.mass" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="mass" data-field_name="Mass" data-line_type="major" data-unit="mm">
+          <mxGeometry x="800.258" y="548.367" width="16.82" height="20.317" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.scale" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="scale" data-field_name="Scale" data-line_type="major" data-unit="mm">
+          <mxGeometry x="817.078" y="548.367" width="18.922" height="20.317" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.sheet" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="sheet" data-field_name="Sheet" data-line_type="major" data-unit="mm">
+          <mxGeometry x="784.967" y="568.684" width="19.118" height="4.825" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.sheet" value="Page" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="sheet" data-field_name="Sheet" data-unit="mm">
+          <mxGeometry x="785.467" y="569.184" width="18.118" height="3.825" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.sheets" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="sheets" data-field_name="Sheets" data-line_type="major" data-unit="mm">
+          <mxGeometry x="804.085" y="568.684" width="31.915" height="4.825" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.sheets" value="Pages 1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=2.5;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="2.5" data-template_id="sheets" data-field_name="Sheets" data-unit="mm">
+          <mxGeometry x="804.585" y="569.184" width="30.915" height="3.825" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.document_name" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="document_name" data-field_name="Document name" data-line_type="major" data-unit="mm">
+          <mxGeometry x="715.393" y="573.509" width="69.574" height="15.491" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.cell.organization" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="title_block_cell" data-role="title_block_cell" data-template_id="organization" data-field_name="Organization" data-line_type="major" data-unit="mm">
+          <mxGeometry x="784.967" y="573.509" width="51.033" height="15.491" as="geometry" />
+        </mxCell>
+        <mxCell id="title_block.text.organization" value="Department of Computer and System" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=3.6;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="title_block" data-role="title_block_text" data-font_height_mm="3.6" data-template_id="organization" data-field_name="Organization" data-unit="mm">
+          <mxGeometry x="785.467" y="574.009" width="50.033" height="14.491" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.outer" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list" data-role="element_list.outer_border" data-template_id="gost_2_701_element_list" data-unit="mm">
+          <mxGeometry x="651" y="5" width="185" height="432" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.line.v.000" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.2;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.outer_border" data-line_type="outer" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="5" as="sourcePoint" />
+            <mxPoint x="651" y="437" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.v.001" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.2;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.major_line" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="689" y="5" as="sourcePoint" />
+            <mxPoint x="689" y="437" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.v.002" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.2;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.major_line" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="775" y="5" as="sourcePoint" />
+            <mxPoint x="775" y="437" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.v.003" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.2;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.major_line" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="792" y="5" as="sourcePoint" />
+            <mxPoint x="792" y="437" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.cell.header.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="5" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.header.ref_designator" value="Position number" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.6;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.6" data-column_id="ref_designator">
+          <mxGeometry x="651.6" y="5.4" width="36.8" height="15.2" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.header.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="5" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.header.description" value="Name" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.6;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.6" data-column_id="description">
+          <mxGeometry x="689.6" y="5.4" width="84.8" height="15.2" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.header.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="5" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.header.qty" value="Qty." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.6;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.6" data-column_id="qty">
+          <mxGeometry x="775.6" y="5.4" width="15.8" height="15.2" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.header.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="5" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.header.note" value="Note" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.6;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.6" data-column_id="note">
+          <mxGeometry x="792.6" y="5.4" width="42.8" height="15.2" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Capacitors.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Capacitors" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="21" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Capacitors.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Capacitors" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="21" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Capacitors.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Capacitors" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="21" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Capacitors.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Capacitors" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="21" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.group.Capacitors" value="Capacitors" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-group="Capacitors" data-column_id="description">
+          <mxGeometry x="689.8" y="22" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C1.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C1" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="37" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C1.ref_designator" value="C1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C1" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="38" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C1.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C1" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="37" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C1.description" value="CL10A106KP8NNNC 10 uF" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C1" data-column_id="description">
+          <mxGeometry x="689.8" y="38" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C1.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C1" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="37" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C1.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C1" data-column_id="qty">
+          <mxGeometry x="775.8" y="38" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C1.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C1" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="37" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C1.note" value="Samsung" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C1" data-column_id="note">
+          <mxGeometry x="792.8" y="38" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C2_C4.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C2, C4" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="53" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C2_C4.ref_designator" value="C2, C4" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C2, C4" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="54" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C2_C4.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C2, C4" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="53" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C2_C4.description" value="CL10B104KB8NNNC 0.1 uF" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C2, C4" data-column_id="description">
+          <mxGeometry x="689.8" y="54" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C2_C4.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C2, C4" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="53" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C2_C4.qty" value="2" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C2, C4" data-column_id="qty">
+          <mxGeometry x="775.8" y="54" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C2_C4.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C2, C4" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="53" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C2_C4.note" value="Samsung" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C2, C4" data-column_id="note">
+          <mxGeometry x="792.8" y="54" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C3.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C3" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="69" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C3.ref_designator" value="C3" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C3" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="70" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C3.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C3" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="69" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C3.description" value="CL31A107MQHNNNE 100 uF" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C3" data-column_id="description">
+          <mxGeometry x="689.8" y="70" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C3.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C3" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="69" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C3.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C3" data-column_id="qty">
+          <mxGeometry x="775.8" y="70" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.C3.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="C3" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="69" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.C3.note" value="Samsung" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="C3" data-column_id="note">
+          <mxGeometry x="792.8" y="70" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Capacitors.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Capacitors" data-column_id="ref_designator" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="651" y="85" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Capacitors.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Capacitors" data-column_id="description" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="689" y="85" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Capacitors.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Capacitors" data-column_id="qty" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="775" y="85" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Capacitors.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Capacitors" data-column_id="note" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="792" y="85" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Resistors.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Resistors" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="101" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Resistors.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Resistors" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="101" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Resistors.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Resistors" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="101" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Resistors.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Resistors" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="101" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.group.Resistors" value="Resistors" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-group="Resistors" data-column_id="description">
+          <mxGeometry x="689.8" y="102" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R1_R5_R6.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R1, R5, R6" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="117" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R1_R5_R6.ref_designator" value="R1, R5, R6" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R1, R5, R6" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="118" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R1_R5_R6.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R1, R5, R6" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="117" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R1_R5_R6.description" value="RC0603FR-0710KL 10 kOhm" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R1, R5, R6" data-column_id="description">
+          <mxGeometry x="689.8" y="118" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R1_R5_R6.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R1, R5, R6" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="117" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R1_R5_R6.qty" value="3" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R1, R5, R6" data-column_id="qty">
+          <mxGeometry x="775.8" y="118" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R1_R5_R6.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R1, R5, R6" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="117" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R1_R5_R6.note" value="YAGEO" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R1, R5, R6" data-column_id="note">
+          <mxGeometry x="792.8" y="118" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R2.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R2" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="133" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R2.ref_designator" value="R2" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R2" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="134" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R2.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R2" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="133" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R2.description" value="RC0603FR-074K7L 4.7 kOhm" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R2" data-column_id="description">
+          <mxGeometry x="689.8" y="134" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R2.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R2" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="133" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R2.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R2" data-column_id="qty">
+          <mxGeometry x="775.8" y="134" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R2.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R2" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="133" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R2.note" value="YAGEO" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R2" data-column_id="note">
+          <mxGeometry x="792.8" y="134" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R3.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R3" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="149" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R3.ref_designator" value="R3" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R3" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="150" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R3.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R3" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="149" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R3.description" value="RC0603FR-07330RL 330 Ohm" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R3" data-column_id="description">
+          <mxGeometry x="689.8" y="150" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R3.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R3" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="149" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R3.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R3" data-column_id="qty">
+          <mxGeometry x="775.8" y="150" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R3.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R3" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="149" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R3.note" value="YAGEO" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R3" data-column_id="note">
+          <mxGeometry x="792.8" y="150" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R4.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R4" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="165" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R4.ref_designator" value="R4" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R4" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="166" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R4.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R4" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="165" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R4.description" value="RC0603FR-07100RL 100 Ohm" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R4" data-column_id="description">
+          <mxGeometry x="689.8" y="166" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R4.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R4" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="165" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R4.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R4" data-column_id="qty">
+          <mxGeometry x="775.8" y="166" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.R4.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="R4" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="165" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.R4.note" value="YAGEO" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="R4" data-column_id="note">
+          <mxGeometry x="792.8" y="166" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Resistors.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Resistors" data-column_id="ref_designator" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="651" y="181" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Resistors.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Resistors" data-column_id="description" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="689" y="181" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Resistors.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Resistors" data-column_id="qty" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="775" y="181" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Resistors.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Resistors" data-column_id="note" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="792" y="181" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Semiconductor_Devices.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Semiconductor Devices" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="197" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Semiconductor_Devices.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Semiconductor Devices" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="197" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Semiconductor_Devices.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Semiconductor Devices" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="197" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Semiconductor_Devices.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Semiconductor Devices" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="197" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.group.Semiconductor_Devices" value="Semiconductor Devices" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-group="Semiconductor Devices" data-column_id="description">
+          <mxGeometry x="689.8" y="198" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.DD1.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="DD1" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="213" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.DD1.ref_designator" value="DD1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="DD1" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="214" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.DD1.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="DD1" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="213" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.DD1.description" value="ESP32-WROOM-32E-N4 module" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="DD1" data-column_id="description">
+          <mxGeometry x="689.8" y="214" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.DD1.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="DD1" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="213" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.DD1.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="DD1" data-column_id="qty">
+          <mxGeometry x="775.8" y="214" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.DD1.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="DD1" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="213" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.DD1.note" value="Espressif" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="DD1" data-column_id="note">
+          <mxGeometry x="792.8" y="214" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.HL1.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="HL1" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="229" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.HL1.ref_designator" value="HL1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="HL1" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="230" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.HL1.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="HL1" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="229" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.HL1.description" value="19-217/R6C-AL1M2VY/3T LED" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="HL1" data-column_id="description">
+          <mxGeometry x="689.8" y="230" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.HL1.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="HL1" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="229" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.HL1.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="HL1" data-column_id="qty">
+          <mxGeometry x="775.8" y="230" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.HL1.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="HL1" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="229" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.HL1.note" value="Everlight" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="HL1" data-column_id="note">
+          <mxGeometry x="792.8" y="230" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.VT1.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="VT1" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="245" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.VT1.ref_designator" value="VT1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="VT1" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="246" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.VT1.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="VT1" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="245" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.VT1.description" value="AO3400A N-MOSFET SOT-23" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="VT1" data-column_id="description">
+          <mxGeometry x="689.8" y="246" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.VT1.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="VT1" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="245" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.VT1.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="VT1" data-column_id="qty">
+          <mxGeometry x="775.8" y="246" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.VT1.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="VT1" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="245" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.VT1.note" value="AOS" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="VT1" data-column_id="note">
+          <mxGeometry x="792.8" y="246" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Semiconductor_Devices.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Semiconductor Devices" data-column_id="ref_designator" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="651" y="261" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Semiconductor_Devices.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Semiconductor Devices" data-column_id="description" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="689" y="261" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Semiconductor_Devices.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Semiconductor Devices" data-column_id="qty" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="775" y="261" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Semiconductor_Devices.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Semiconductor Devices" data-column_id="note" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="792" y="261" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Switching_Components.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Switching Components" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="277" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Switching_Components.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Switching Components" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="277" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Switching_Components.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Switching Components" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="277" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Switching_Components.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Switching Components" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="277" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.group.Switching_Components" value="Switching Components" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-group="Switching Components" data-column_id="description">
+          <mxGeometry x="689.8" y="278" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.SB1_SB2.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="SB1, SB2" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="293" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.SB1_SB2.ref_designator" value="SB1, SB2" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="SB1, SB2" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="294" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.SB1_SB2.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="SB1, SB2" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="293" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.SB1_SB2.description" value="B3F-1000 tactile switch" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="SB1, SB2" data-column_id="description">
+          <mxGeometry x="689.8" y="294" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.SB1_SB2.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="SB1, SB2" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="293" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.SB1_SB2.qty" value="2" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="SB1, SB2" data-column_id="qty">
+          <mxGeometry x="775.8" y="294" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.SB1_SB2.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="SB1, SB2" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="293" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.SB1_SB2.note" value="Omron" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="SB1, SB2" data-column_id="note">
+          <mxGeometry x="792.8" y="294" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Switching_Components.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Switching Components" data-column_id="ref_designator" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="651" y="309" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Switching_Components.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Switching Components" data-column_id="description" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="689" y="309" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Switching_Components.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Switching Components" data-column_id="qty" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="775" y="309" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Switching_Components.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Switching Components" data-column_id="note" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="792" y="309" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Connectors.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Connectors" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="325" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Connectors.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Connectors" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="325" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Connectors.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Connectors" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="325" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Connectors.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Connectors" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="325" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.group.Connectors" value="Connectors" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-group="Connectors" data-column_id="description">
+          <mxGeometry x="689.8" y="326" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS1.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS1" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="341" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS1.ref_designator" value="XS1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS1" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="342" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS1.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS1" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="341" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS1.description" value="XH2.54-3P connector" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS1" data-column_id="description">
+          <mxGeometry x="689.8" y="342" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS1.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS1" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="341" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS1.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS1" data-column_id="qty">
+          <mxGeometry x="775.8" y="342" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS1.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS1" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="341" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS1.note" value="JST" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS1" data-column_id="note">
+          <mxGeometry x="792.8" y="342" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS2_XS3.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS2, XS3" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="357" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS2_XS3.ref_designator" value="XS2, XS3" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS2, XS3" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="358" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS2_XS3.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS2, XS3" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="357" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS2_XS3.description" value="KF2EDGV-3.81-2P terminal" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS2, XS3" data-column_id="description">
+          <mxGeometry x="689.8" y="358" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS2_XS3.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS2, XS3" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="357" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS2_XS3.qty" value="2" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS2, XS3" data-column_id="qty">
+          <mxGeometry x="775.8" y="358" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS2_XS3.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS2, XS3" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="357" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS2_XS3.note" value="Kefa" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS2, XS3" data-column_id="note">
+          <mxGeometry x="792.8" y="358" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS4.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS4" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="373" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS4.ref_designator" value="XS4" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS4" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="374" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS4.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS4" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="373" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS4.description" value="KF2EDG-5.00-4P terminal" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS4" data-column_id="description">
+          <mxGeometry x="689.8" y="374" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS4.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS4" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="373" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS4.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS4" data-column_id="qty">
+          <mxGeometry x="775.8" y="374" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.XS4.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="XS4" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="373" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.XS4.note" value="Kefa" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="XS4" data-column_id="note">
+          <mxGeometry x="792.8" y="374" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Connectors.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Connectors" data-column_id="ref_designator" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="651" y="389" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Connectors.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Connectors" data-column_id="description" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="689" y="389" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Connectors.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Connectors" data-column_id="qty" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="775" y="389" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.blank.Connectors.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group_after="Connectors" data-column_id="note" data-blank_row="true" data-unit="mm">
+          <mxGeometry x="792" y="389" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Power_Modules.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Power Modules" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="405" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Power_Modules.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Power Modules" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="405" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Power_Modules.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Power Modules" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="405" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.group.Power_Modules.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-group="Power Modules" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="405" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.group.Power_Modules" value="Power Modules" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-group="Power Modules" data-column_id="description">
+          <mxGeometry x="689.8" y="406" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.A1.ref_designator" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="A1" data-column_id="ref_designator" data-unit="mm">
+          <mxGeometry x="651" y="421" width="38" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.A1.ref_designator" value="A1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="A1" data-column_id="ref_designator">
+          <mxGeometry x="651.8" y="422" width="36.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.A1.description" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="A1" data-column_id="description" data-unit="mm">
+          <mxGeometry x="689" y="421" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.A1.description" value="MP1584EN DC/DC module" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="A1" data-column_id="description">
+          <mxGeometry x="689.8" y="422" width="84.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.A1.qty" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="A1" data-column_id="qty" data-unit="mm">
+          <mxGeometry x="775" y="421" width="17" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.A1.qty" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="A1" data-column_id="qty">
+          <mxGeometry x="775.8" y="422" width="15.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.cell.A1.note" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;strokeWidth=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_cell" data-role="element_list_cell" data-refs="A1" data-column_id="note" data-unit="mm">
+          <mxGeometry x="792" y="421" width="44" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.text.A1.note" value="MPS" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=4.3;rotation=0;spacing=0;" parent="1" vertex="1" data-kind="element_list_text" data-role="element_list_text" data-font_height_mm="4.3" data-refs="A1" data-column_id="note">
+          <mxGeometry x="792.8" y="422" width="42.4" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="element_list.line.h.000" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.2;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.major_line" data-line_type="major" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="21" as="sourcePoint" />
+            <mxPoint x="836" y="21" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.001" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="37" as="sourcePoint" />
+            <mxPoint x="836" y="37" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.002" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="53" as="sourcePoint" />
+            <mxPoint x="836" y="53" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.003" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="69" as="sourcePoint" />
+            <mxPoint x="836" y="69" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.004" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="85" as="sourcePoint" />
+            <mxPoint x="836" y="85" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.005" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="101" as="sourcePoint" />
+            <mxPoint x="836" y="101" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.006" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="117" as="sourcePoint" />
+            <mxPoint x="836" y="117" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.007" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="133" as="sourcePoint" />
+            <mxPoint x="836" y="133" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.008" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="149" as="sourcePoint" />
+            <mxPoint x="836" y="149" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.009" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="165" as="sourcePoint" />
+            <mxPoint x="836" y="165" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.010" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="181" as="sourcePoint" />
+            <mxPoint x="836" y="181" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.011" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="197" as="sourcePoint" />
+            <mxPoint x="836" y="197" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.012" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="213" as="sourcePoint" />
+            <mxPoint x="836" y="213" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.013" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="229" as="sourcePoint" />
+            <mxPoint x="836" y="229" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.014" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="245" as="sourcePoint" />
+            <mxPoint x="836" y="245" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.015" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="261" as="sourcePoint" />
+            <mxPoint x="836" y="261" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.016" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="277" as="sourcePoint" />
+            <mxPoint x="836" y="277" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.017" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="293" as="sourcePoint" />
+            <mxPoint x="836" y="293" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.018" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="309" as="sourcePoint" />
+            <mxPoint x="836" y="309" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.019" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="325" as="sourcePoint" />
+            <mxPoint x="836" y="325" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.020" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="341" as="sourcePoint" />
+            <mxPoint x="836" y="341" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.021" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="357" as="sourcePoint" />
+            <mxPoint x="836" y="357" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.022" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="373" as="sourcePoint" />
+            <mxPoint x="836" y="373" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.023" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="389" as="sourcePoint" />
+            <mxPoint x="836" y="389" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.024" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="405" as="sourcePoint" />
+            <mxPoint x="836" y="405" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.025" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=0.5;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.minor_line" data-line_type="minor" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="421" as="sourcePoint" />
+            <mxPoint x="836" y="421" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="element_list.line.h.bottom" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.2;" parent="1" edge="1" data-kind="element_list_line" data-role="element_list.outer_border" data-line_type="outer" data-unit="mm">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="651" y="437" as="sourcePoint" />
+            <mxPoint x="836" y="437" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

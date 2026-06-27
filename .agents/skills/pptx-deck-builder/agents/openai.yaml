@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPTX Deck Builder"
+  short_description: "Editable multilingual PPTX decks from JSON."
+  default_prompt: "Use $pptx-deck-builder to create an editable PowerPoint deck from content.json."

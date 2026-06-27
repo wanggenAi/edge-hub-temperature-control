@@ -1,169 +1,233 @@
-# A1 Engineering Flowchart Layout Plan
+# GOST 19.701-90 / BrSTU Flowchart Plan
 
-## Page And Template
-- Template file: aa.drawio
-- A1 page size read from template: 3300 x 2339
-- Detected template title block: x=2555.18, y=2107.42, width=733.7860000000003, height=221
-- Forbidden title block area: x=2525, y=2075, width=775, height=264
+## Normative Basis
+- The 23-page diagram.pdf was read and used as the binding symbol and connection standard.
+- Sections applied: 3.1 data symbols, 3.2 process symbols, 3.3 line symbols, 3.4 special symbols, 4.1 symbol use, 4.2 connections, 4.3 multiple outputs/repetition, and appendix examples.
+- No BrSTU official public flowchart-specific rule was found in the available search results. BrSTU/ESKD drawing-frame practice is retained through the A1 frame, title block, drawing number and page fields; GOST 19.701-90 controls the flowchart itself.
 
-## Symbol Ratio Rules
-- Terminator, process, predefined process, data, document, and manual input use L = 2W.
-- Stored data uses L = 1.5W, following the common horizontal 3:2 proportion used for database-style stored-data symbols.
-- Decision uses L = 1.5W.
-- Connector uses L = W.
-- Autosize is disabled on all repo_flow_ nodes.
+## Generated Artifacts
+- Single-page main drawio/png/svg/pdf: optimized_architecture_flowchart.*
+- Machine model: gost_flow_model.json
+- Symbol table: symbol_definition_table.md
+- No predefined_process/function-block shapes are used; separate subflow pages are intentionally not generated.
+- Validation report: compliance_report.md
 
-## Calculated Sizes
-- Rect/parallelogram family: 144 x 72
-- Stored data/database family: 119 x 79
-- Decision: 132 x 88
-- Connector: 52 x 52
-- Uniform local segment length U: 130
-- Row gap: 285
+## Main Diagram Nodes
+- n_start: Start (terminator) 
+- n_item_menu: Item Menu (decision) 
+- n_cend: C (connector) 
+- n_end: End (terminator) 
+- n_status: Status (data) 
+- n_telem_msg: Telem Msg (data) 
+- n_mqtt: MQTT Broker (process) 
+- n_telem_topic: Telem Topic (data) 
+- n_parser: Msg Parser (process) 
+- n_schema: Schema Check? (decision) 
+- n_data_norm: Data Norm (process) 
+- n_java_hub: Java Hub (process) 
+- n_ts_store: TS Store (process) 
+- n_backend_services: Backend Services (process) 
+- n_hmi: HMI (process) 
+- n_c_telemetry: C (connector) 
+- n_c_schema_invalid: C (connector) 
+- n_temp: Temp Input (data) 
+- n_sensor: Sensor Bus Read (process) 
+- n_raw: Raw Sample (data) 
+- n_filter: Sample Filter (process) 
+- n_range: Range Check? (decision) 
+- n_norm: Normalize (process) 
+- n_tick: Edge Tick (process) 
+- n_sample_window: Sample Window (process) 
+- n_cycle_state: Cycle State (data) 
+- n_control_tick: Control Tick (process) 
+- n_sample_complete: Sample Complete (process) 
+- n_c_sample: C (connector) 
+- n_c_range_invalid: C (connector) 
+- n_param_wait: Param Wait? (decision) 
+- n_param_candidate: Param Candidate (data) 
+- n_param_validate: Param Validate (process) 
+- n_param_apply: Param Apply (process) 
+- n_param_ack: Param ACK (data) 
+- n_param_store: Param Store (process) 
+- n_param_audit: Param Audit (process) 
+- n_param_sync: Param Sync (process) 
+- n_param_ready: Param Ready (data) 
+- n_param_commit: Param Commit (process) 
+- n_param_branch_complete: Param Complete (process) 
+- n_c_param: C (connector) 
+- n_c_param_no: C (connector) 
+- n_safety_gate: Safety Gate (process) 
+- n_safety_check: Safety Check? (decision) 
+- n_pid: PID Control (process) 
+- n_integral: Integral Update (process) 
+- n_duty: Duty Limit (process) 
+- n_pwm: PWM Output (process) 
+- n_heater: Heater Driver (process) 
+- n_actuator_ack: Actuator ACK (data) 
+- n_heat_state: Heat State (data) 
+- n_control_log: Control Log (process) 
+- n_control_complete: Control Complete (process) 
+- n_c_control: C (connector) 
+- n_fault_handler: Fault Handler (process) 
+- n_fault_latch: Fault Latch (process) 
+- n_safety_cutoff: Safety Cutoff (process) 
+- n_alarm_event: Alarm Event (data) 
+- n_alarm_panel: Alarm Panel (process) 
+- n_alarm_api: Alarm API (process) 
+- n_device_api: Device API (process) 
+- n_alarm_records: Alarm Records (process) 
+- n_alarm_review: Alarm Review (process) 
+- n_fault_reset: Fault Reset (process) 
+- n_fault_report: Fault Report (process) 
+- n_fault_archive: Fault Archive (process) 
+- n_fault_complete: Fault Complete (process) 
+- n_c_fault: C (connector) 
+- n_run_config: Run Config (process) 
+- n_chamber: Chamber (process) 
+- n_temp_feed: Temp Feed (data) 
+- n_control_status: Control Status (data) 
+- n_feedback_filter: Feedback Filter (process) 
+- n_status_window: Status Window (process) 
+- n_history_api: History API (process) 
+- n_history_cache: History Cache (process) 
+- n_feedback_sync: Feedback Sync (process) 
+- n_feedback_ready: Feedback Ready (data) 
+- n_feedback_complete: Feedback Complete (process) 
+- n_c_feedback: C (connector) 
+- n_window: Window Build (process) 
+- n_feature_extract: Feature Extract (process) 
+- n_feature_store: Feature Store (process) 
+- n_dataset: Dataset Builder (process) 
+- n_offline: Offline Learn (process) 
+- n_model_eval: Model Eval (process) 
+- n_policy: Policy Rank (process) 
+- n_model_package: Model Package (process) 
+- n_model_check: Model Check (process) 
+- n_model_ready: Model Ready (data) 
+- n_model_complete: Model Complete (process) 
+- n_c_model: C (connector) 
+- n_candidate_set: Candidate Set (data) 
+- n_safe_filter: Safe Filter (process) 
+- n_preview: Preview Sim (process) 
+- n_approve: Approve Req (process) 
+- n_op_input: Op Input (manual_operation) 
+- n_ok: OK? (decision) 
+- n_publish: Param Publish (process) 
+- n_topic: Params Topic (data) 
+- n_down_ack: Down ACK (data) 
+- n_model_files: Model Files (process) 
+- n_publish_complete: Publish Complete (process) 
+- n_c_downlink: C (connector) 
+- n_keep: Keep Params (process) 
+- n_reject_log: Reject Log (process) 
+- n_c_reject: C (connector) 
 
-## Balanced 2D Grid Strategy
-- The renderer computes symbol sizes from the A1 free area, node count, and readability limits.
-- Nodes are placed in a program-scheme lane layout: multiple left-to-right horizontal flow lines with explicit row connector symbols.
-- Rows are not forced to connect with synthetic lines; cross-row relationships use R/F/T/P/A/L connector pairs or local decision branches.
-- Node labels are shortened, wrapped, and fitted before draw.io cells are generated.
-
-## Title Block Avoidance
-- The renderer rejects any node that intersects the forbidden area.
-- The validator checks nodes, lines, labels, and waypoints against the forbidden area.
-- The bottom-right page area is left clear around the original title block.
-
-## Connector Pairs
-- F1: temperature feedback return; nodes n72 and n73
-- P1: parameter downlink; nodes n74 and n75
-- R1: row continuation; nodes n81 and n82
-- R2: row continuation; nodes n83 and n84
-- R3: row continuation; nodes n85 and n86
-- R4: row continuation; nodes n87 and n88
-- R5: row continuation; nodes n89 and n90
-- R6: row continuation; nodes n94 and n95
-- R7: short parameter bypass row continuation; nodes n96 and n97
-- R8: short safety fault row continuation; nodes n98 and n100
-
-## Long-Line Prevention
-- Direct visible edges are generated only for local rightward or adjacent downward relationships.
-- Remote logical transfers are recorded as connector-resolved logical edges, never as skipped edges.
-- Explicit mxPoint support is implemented in createEdgeCell for controlled Manhattan routing.
-- Decision branch labels are stored in separate repo_flow_label_ text cells so they can be offset from line segments.
-- No long cross-page polylines are generated.
-
-## No Visible Modules
-- Phase and group metadata are kept only in flow_model.json.
-- The draw.io page contains no module frames, module titles, legends, or top title.
-
-## English Labels
-- All generated node labels and edge labels are English.
-- Each node label is restricted to at most two lines.
-- Long labels are shortened before wrapping.
-- Decision labels are emitted once per rendered branch edge, without duplicate text cells.
-- Separate branch label cells use the repo_flow_label_ prefix and are excluded from the flowchart element count.
-
-## GOST / ISO 5807 Mapping Summary
-- Terminator: rounded start/end symbol.
-- Process: rectangle.
-- Predefined process: rectangle with two inner vertical lines.
-- Decision: diamond.
-- Data: parallelogram.
-- Stored data: cylinder-style stored data symbol.
-- Document: document symbol.
-- Manual input: manual input symbol.
-- Connector: circular connector.
-
-## 93 Elements
-- 1. Cycle / Start (terminator)
-- 2. Temp / Input (data)
-- 3. Sensor / Read (process)
-- 4. Raw / Sample (data)
-- 5. Sample / Filter (process)
-- 6. Range / Check? (decision)
-- 7. Norm (process)
-- 8. Edge / Tick (predefined_process)
-- 9. Run / Config (stored_data)
-- 10. Param / Wait? (decision)
-- 11. Param / Valid (process)
-- 12. Param / Apply (process)
-- 13. Param / ACK (document)
-- 14. Safety / Merge (process)
-- 15. Safety / Check? (decision)
-- 16. Fault / Latch (process)
-- 17. Safety / Cutoff (process)
-- 17. Alarm / Event (data)
-- 18. PID / Control (predefined_process)
-- 19. Int / Upd (process)
-- 20. Duty / Limit (process)
-- 21. PWM / Output (process)
-- 22. Heater / Driver (process)
-- 23. Chamber (process)
-- 24. Temp / Feed (data)
-- 25. Status (data)
-- 26. Telem / Msg (data)
-- 27. Edge / Log (document)
-- 30. MQTT / Broker (predefined_process)
-- 31. Telem / Topic (data)
-- 32. Msg / Parser (process)
-- 33. Schema / Check? (decision)
-- 34. Norm (process)
-- 35. Java / Hub (predefined_process)
-- 36. Alarm / Rules (predefined_process)
-- 37. TS / Writer (process)
-- 38. TS DB (stored_data)
-- 39. Alarm / Store (stored_data)
-- 40. Backend / DB (stored_data)
-- 41. FastAPI (predefined_process)
-- 42. History / API (process)
-- 43. Alarm / API (process)
-- 44. Device / API (process)
-- 45. HMI (predefined_process)
-- 46. Live / Chart (document)
-- 47. Alarm / Panel (document)
-- 48. OpVw (manual_input)
-- 50. Act (manual_input)
-- 51. Audit / Log (document)
-- 52. History / Win (stored_data)
-- 53. Window / Build (process)
-- 54. Feature / Extract (predefined_process)
-- 55. Feature / Store (stored_data)
-- 56. Dataset / Builder (process)
-- 57. Offline / Learn (predefined_process)
-- 58. Model / Eval (process)
-- 59. Policy / Rank (predefined_process)
-- 60. Cand / Set (data)
-- 61. Safe / Filter (process)
-- 62. Preview / Sim (predefined_process)
-- 63. Appr / Req (document)
-- 64. OpIn (manual_input)
-- 65. OK? (decision)
-- 66. Param / Publish (process)
-- 67. Params / Topic (data)
-- 68. ACK (document)
-- 69. Keep / Params (document)
-- 70. Reject / Log (document)
-- 71. Model / Files (document)
-- 72. F1 (connector)
-- 73. F1 (connector)
-- 74. P1 (connector)
-- 75. P1 (connector)
-- 80. End / / Cont (terminator)
-- 81. R1 (connector)
-- 82. R1 (connector)
-- 83. R2 (connector)
-- 84. R2 (connector)
-- 85. R3 (connector)
-- 86. R3 (connector)
-- 87. R4 (connector)
-- 88. R4 (connector)
-- 89. R5 (connector)
-- 90. R5 (connector)
-- 91. Input / Merge (process)
-- 92. Config / Merge (process)
-- 93. Fault / Merge (process)
-- 94. R6 (connector)
-- 95. R6 (connector)
-- 96. R7 (connector)
-- 97. R7 (connector)
-- 98. R8 (connector)
-- 100. R8 (connector)
+## Main Diagram Edges
+- m00: n_start.south -> n_item_menu.north; control
+- m01: n_item_menu.south -> n_cend.north [End]; control
+- m02: n_cend.south -> n_end.north; control
+- t01: n_item_menu.south -> n_status.north [Telemetry]; communication
+- t02: n_status.south -> n_telem_msg.north; communication
+- t03: n_telem_msg.south -> n_mqtt.north; communication
+- t04: n_mqtt.south -> n_telem_topic.north; communication
+- t05: n_telem_topic.south -> n_parser.north; communication
+- t06: n_parser.south -> n_schema.north; communication
+- t07: n_schema.south -> n_data_norm.north [Yes]; communication
+- t08: n_schema.west -> n_c_schema_invalid.east [No]; communication
+- t09: n_data_norm.south -> n_java_hub.north; communication
+- t10: n_java_hub.south -> n_ts_store.north; communication
+- t11: n_ts_store.south -> n_backend_services.north; communication
+- t12: n_backend_services.south -> n_hmi.north; communication
+- t13: n_hmi.south -> n_c_telemetry.north; control
+- s01: n_item_menu.south -> n_temp.north [Sampling]; control
+- s02: n_temp.south -> n_sensor.north; control
+- s03: n_sensor.south -> n_raw.north; control
+- s04: n_raw.south -> n_filter.north; control
+- s05: n_filter.south -> n_range.north; control
+- s06: n_range.south -> n_norm.north [Yes]; control
+- s07: n_norm.south -> n_tick.north; control
+- s08: n_tick.south -> n_sample_window.north; control
+- s09: n_sample_window.south -> n_cycle_state.north; control
+- s10: n_cycle_state.south -> n_control_tick.north; control
+- s11: n_control_tick.south -> n_sample_complete.north; control
+- s12: n_sample_complete.south -> n_c_sample.north; control
+- s13: n_range.east -> n_c_range_invalid.west [No]; control
+- p01: n_item_menu.south -> n_param_wait.north [Parameter]; control
+- p02: n_param_wait.south -> n_param_candidate.north [Yes]; control
+- p03: n_param_candidate.south -> n_param_validate.north; control
+- p04: n_param_validate.south -> n_param_apply.north; control
+- p05: n_param_apply.south -> n_param_ack.north; control
+- p06: n_param_ack.south -> n_param_store.north; control
+- p07: n_param_wait.east -> n_c_param_no.west [No]; control
+- p08: n_param_store.south -> n_param_audit.north; control
+- p09: n_param_audit.south -> n_param_sync.north; control
+- p10: n_param_sync.south -> n_param_ready.north; control
+- p11: n_param_ready.south -> n_param_commit.north; control
+- p12: n_param_commit.south -> n_param_branch_complete.north; control
+- p13: n_param_branch_complete.south -> n_c_param.north; control
+- c01: n_item_menu.south -> n_safety_gate.north [Control]; control
+- c02: n_safety_gate.south -> n_safety_check.north; control
+- c03: n_safety_check.south -> n_pid.north [Yes]; control
+- c04: n_pid.south -> n_integral.north; control
+- c05: n_integral.south -> n_duty.north; control
+- c06: n_duty.south -> n_pwm.north; control
+- c07: n_pwm.south -> n_heater.north; control
+- c08: n_heater.south -> n_actuator_ack.north; control
+- c09: n_actuator_ack.south -> n_heat_state.north; control
+- c10: n_heat_state.south -> n_control_log.north; control
+- c11: n_control_log.south -> n_control_complete.north; control
+- c12: n_control_complete.south -> n_c_control.north; control
+- c13: n_safety_check.east -> n_fault_handler.west [No]; control
+- f00: n_item_menu.south -> n_fault_handler.north [Fault]; control
+- f01: n_fault_handler.south -> n_fault_latch.north; control
+- f02: n_fault_latch.south -> n_safety_cutoff.north; control
+- f03: n_safety_cutoff.south -> n_alarm_event.north; control
+- f04: n_alarm_event.south -> n_alarm_panel.north; control
+- f05: n_alarm_panel.south -> n_alarm_api.north; control
+- f06: n_alarm_api.south -> n_device_api.north; control
+- f07: n_device_api.south -> n_alarm_records.north; control
+- f08: n_alarm_records.south -> n_alarm_review.north; control
+- f09: n_alarm_review.south -> n_fault_reset.north; control
+- f10: n_fault_reset.south -> n_fault_report.north; control
+- f11: n_fault_report.south -> n_fault_archive.north; control
+- f12: n_fault_archive.south -> n_fault_complete.north; control
+- f13: n_fault_complete.south -> n_c_fault.north; control
+- g01: n_item_menu.south -> n_run_config.north [Feedback]; communication
+- g02: n_run_config.south -> n_chamber.north; communication
+- g03: n_chamber.south -> n_temp_feed.north; communication
+- g04: n_temp_feed.south -> n_control_status.north; communication
+- g05: n_control_status.south -> n_feedback_filter.north; communication
+- g06: n_feedback_filter.south -> n_status_window.north; communication
+- g07: n_status_window.south -> n_history_api.north; communication
+- g08: n_history_api.south -> n_history_cache.north; communication
+- g09: n_history_cache.south -> n_feedback_sync.north; communication
+- g10: n_feedback_sync.south -> n_feedback_ready.north; communication
+- g11: n_feedback_ready.south -> n_feedback_complete.north; communication
+- g12: n_feedback_complete.south -> n_c_feedback.north; communication
+- r01: n_item_menu.south -> n_window.north [Model]; data
+- r02: n_window.south -> n_feature_extract.north; data
+- r03: n_feature_extract.south -> n_feature_store.north; data
+- r04: n_feature_store.south -> n_dataset.north; data
+- r05: n_dataset.south -> n_offline.north; data
+- r06: n_offline.south -> n_model_eval.north; data
+- r07: n_model_eval.south -> n_policy.north; data
+- r08: n_policy.south -> n_model_package.north; data
+- r09: n_model_package.south -> n_model_check.north; data
+- r10: n_model_check.south -> n_model_ready.north; data
+- r11: n_model_ready.south -> n_model_complete.north; data
+- r12: n_model_complete.south -> n_c_model.north; data
+- d01: n_item_menu.south -> n_candidate_set.north [Approval]; control
+- d02: n_candidate_set.south -> n_safe_filter.north; control
+- d03: n_safe_filter.south -> n_preview.north; control
+- d04: n_preview.south -> n_approve.north; control
+- d05: n_approve.south -> n_op_input.north; control
+- d06: n_op_input.south -> n_ok.north; control
+- d07: n_ok.south -> n_publish.north [Yes]; control
+- d08: n_publish.south -> n_topic.north; communication
+- d09: n_topic.south -> n_down_ack.north; communication
+- d10: n_down_ack.south -> n_model_files.north; communication
+- d11: n_model_files.south -> n_publish_complete.north; communication
+- d12: n_publish_complete.south -> n_c_downlink.north; control
+- j01: n_ok.east -> n_keep.west [No]; data
+- j02: n_keep.south -> n_reject_log.north; data
+- j03: n_reject_log.south -> n_c_reject.north; data

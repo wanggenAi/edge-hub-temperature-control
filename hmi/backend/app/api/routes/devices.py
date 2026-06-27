@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
+import socket
 import time
 from typing import Any, Optional
 
@@ -74,11 +75,128 @@ from app.services.control_action_learning import control_action_learning_service
 router = APIRouter(prefix="/devices", tags=["devices"])
 tdengine = TdengineClient()
 mqtt_publisher = MqttPublisher()
+
+RUNTIME_PARAMETER_FIELDS = {"target_temp", "kp", "ki", "kd", "control_mode", "sampling_period_ms"}
+LOCAL_EVALUATION_PARAMETER_FIELDS = {
+    "target_band",
+    "overshoot_limit_pct",
+    "saturation_warn_ratio",
+    "saturation_high_ratio",
+    "pwm_saturation_threshold",
+    "steady_window_samples",
+    "upload_period_s",
+}
 recommendation_service = RecommendationService()
 recommendation_orchestrator = RecommendationOrchestrator(recommendation_service)
 preview_simulator = RecommendationPreviewSimulator()
 post_effect_evaluator = PostEffectEvaluator()
 logger = logging.getLogger(__name__)
+LIVE_SNAPSHOT_FRESH_MS = 2 * 60 * 1000
+
+
+def _calc_error_c(target_temp: float, sensor_temp: float) -> float:
+    return float(target_temp) - float(sensor_temp)
+
+
+def _td_ts_value_to_ms(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            return int(value)
+        return int(tdengine.to_datetime(value).timestamp() * 1000)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _is_fresh_td_timestamp(value: Any, *, max_age_ms: int = LIVE_SNAPSHOT_FRESH_MS) -> bool:
+    ts_ms = _td_ts_value_to_ms(value)
+    if ts_ms is None:
+        return False
+    age_ms = _utc_ms_now() - ts_ms
+    return 0 <= age_ms <= max_age_ms
+
+
+def _latest_continuous_control_points(
+    points: list[tuple[int, float, float, float, float]],
+    *,
+    max_gap_ms: int = 3 * 60 * 1000,
+    target_change_tolerance: float = 0.05,
+) -> list[tuple[int, float, float, float, float]]:
+    if len(points) <= 1:
+        return points
+    segment_start = 0
+    for index in range(1, len(points)):
+        time_gap = points[index][0] - points[index - 1][0]
+        target_changed = abs(float(points[index][2]) - float(points[index - 1][2])) > target_change_tolerance
+        if time_gap > max_gap_ms or target_changed:
+            segment_start = index
+    return points[segment_start:]
+
+
+def _latest_continuous_metric_points(
+    points: list[tuple[int, float, Optional[float]]],
+    *,
+    max_gap_ms: int = 3 * 60 * 1000,
+    target_change_tolerance: float = 0.05,
+) -> list[tuple[int, float, Optional[float]]]:
+    if len(points) <= 1:
+        return points
+    segment_start = 0
+    for index in range(1, len(points)):
+        time_gap = points[index][0] - points[index - 1][0]
+        prev_target = points[index - 1][2]
+        next_target = points[index][2]
+        target_changed = (
+            prev_target is not None
+            and next_target is not None
+            and abs(float(next_target) - float(prev_target)) > target_change_tolerance
+        )
+        if time_gap > max_gap_ms or target_changed:
+            segment_start = index
+    return points[segment_start:]
+
+
+def _td_bool(value: Any) -> Optional[bool]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in {"true", "t", "1", "yes", "y"}:
+        return True
+    if text in {"false", "f", "0", "no", "n"}:
+        return False
+    return None
+
+
+def _td_pwm_percent(row: dict[str, Any], *, duty_key: str = "pwm_duty", norm_key: str = "pwm_norm") -> float:
+    norm = row.get(norm_key)
+    if norm is not None:
+        try:
+            norm_value = float(norm)
+        except (TypeError, ValueError):
+            norm_value = None
+        if norm_value is not None and norm_value == norm_value:
+            if 0.0 <= norm_value <= 1.5:
+                return max(0.0, min(100.0, norm_value * 100.0))
+            if 1.5 < norm_value <= 100.0:
+                return max(0.0, min(100.0, norm_value))
+
+    duty = row.get(duty_key)
+    if duty is None:
+        return 0.0
+    try:
+        duty_value = float(duty)
+    except (TypeError, ValueError):
+        return 0.0
+    if duty_value != duty_value:
+        return 0.0
+    if duty_value > 100.0:
+        return max(0.0, min(100.0, duty_value / 255.0 * 100.0))
+    return max(0.0, min(100.0, duty_value))
 
 
 def query_accessible_devices(db: Session, current_user: User):
@@ -108,11 +226,31 @@ def _normalize_control_mode(value: Optional[str]) -> Optional[str]:
     return mode
 
 
+def _ensure_device_parameter(
+    db: Session,
+    *,
+    device_id: int,
+    updated_by: str = "system:auto-create",
+) -> DeviceParameter:
+    param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    if param is not None:
+        return param
+    param = DeviceParameter(device_id=device_id, updated_by=updated_by)
+    db.add(param)
+    db.commit()
+    db.refresh(param)
+    logger.warning("auto-created missing device parameters device_id=%s updated_by=%s", device_id, updated_by)
+    return param
+
+
 # Runtime guardrails to reject corrupted ACK/telemetry PID values.
+# Keep these aligned with the Wokwi/edge firmware runtime validator
+# (`ControlConfig::max_gain`), otherwise the HMI can ignore a valid live
+# controller gain and accidentally publish stale PostgreSQL parameters.
 _RUNTIME_PID_BOUNDS = {
-    "kp": (0.0, 100.0),
-    "ki": (0.0, 50.0),
-    "kd": (0.0, 50.0),
+    "kp": (0.0, 1000.0),
+    "ki": (0.0, 1000.0),
+    "kd": (0.0, 1000.0),
 }
 
 
@@ -156,23 +294,32 @@ def _load_live_snapshot(device_code: str) -> dict:
     online_from_status: Optional[bool] = None
     if status_result.rows:
         status_row = tdengine.row_to_dict(status_result.columns, status_result.rows[0])
-        if status_row.get("online") is not None:
+        if status_row.get("online") is not None and _is_fresh_td_timestamp(status_row.get("ts")):
             online_from_status = bool(status_row.get("online"))
 
     sql = (
-        f"SELECT ts, sensor_temp_c, target_temp_c, pwm_duty, fault_latched "
+        f"SELECT ts, sensor_temp_c, target_temp_c, pwm_duty, pwm_norm, fault_latched "
         f"FROM {_tdb()}.telemetry WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
     )
     result = tdengine.query(sql)
     if not result.rows:
         return {"is_online": online_from_status} if online_from_status is not None else {}
     row = tdengine.row_to_dict(result.columns, result.rows[0])
-    return {
+    snapshot = {
         "current_temp": float(row.get("sensor_temp_c") or 0.0),
-        "pwm_output": float(row.get("pwm_duty") or 0.0),
+        "target_temp": float(row.get("target_temp_c") or 0.0),
+        "pwm_output": _td_pwm_percent(row),
         "is_alarm": bool(row.get("fault_latched") or False),
-        "is_online": online_from_status if online_from_status is not None else True,
     }
+    if _is_fresh_td_timestamp(row.get("ts")):
+        snapshot["is_online"] = online_from_status if online_from_status is not None else True
+        snapshot["snapshot_ts"] = tdengine.to_datetime(row.get("ts")).isoformat()
+    else:
+        # Display the hardware's last reported target/current values, but do not
+        # expose snapshot_ts. The frontend only appends chart points when this
+        # timestamp is present, so stale rows cannot fabricate a live curve.
+        snapshot["is_online"] = online_from_status if online_from_status is not None else False
+    return snapshot
 
 
 def _wait_latest_params_ack(device_code: str, *, after_ms: int, timeout_ms: int = 5000) -> Optional[dict]:
@@ -186,7 +333,7 @@ def _wait_latest_params_ack(device_code: str, *, after_ms: int, timeout_ms: int 
     while time.monotonic() < deadline:
         attempts += 1
         sql = (
-            f"SELECT ts, ack_type, success, reason, kp, ki, kd, control_mode "
+            f"SELECT ts, ack_type, success, reason, target_temp_c, kp, ki, kd, control_mode "
             f"FROM {_tdb()}.params_ack WHERE device_id='{device_code}' AND ts >= {strict_after_ms} "
             f"ORDER BY ts DESC LIMIT 1"
         )
@@ -306,6 +453,19 @@ def _latest_params_ack(device_code: str) -> Optional[dict]:
     return tdengine.row_to_dict(result.columns, result.rows[0])
 
 
+def _latest_telemetry_runtime_params(device_code: str) -> Optional[dict]:
+    if not tdengine.enabled():
+        return None
+    sql = (
+        f"SELECT ts, target_temp_c, kp, ki, kd, control_mode "
+        f"FROM {_tdb()}.telemetry WHERE device_id='{device_code}' ORDER BY ts DESC LIMIT 1"
+    )
+    result = tdengine.query(sql)
+    if not result.rows:
+        return None
+    return tdengine.row_to_dict(result.columns, result.rows[0])
+
+
 def _coerce_post_effect_metrics(value: object) -> Optional[AIPostEffectMetricsOut]:
     if not isinstance(value, dict):
         return None
@@ -343,9 +503,9 @@ def _derive_effect_outcome(comparison: Optional[AIPostEffectComparisonOut]) -> s
     ):
         if value is None:
             continue
-        if value < -0.0001:
+        if value > 0.0001:
             weighted_deltas.append(1)
-        elif value > 0.0001:
+        elif value < -0.0001:
             weighted_deltas.append(-1)
 
     if not weighted_deltas:
@@ -604,7 +764,7 @@ def _calc_metric_window_stats(points: list[tuple[int, float]], band: float, stea
 
     since_last = None
     if last_stable_end_ms is not None:
-        since_last = max(0, int((datetime.utcnow().timestamp() * 1000 - last_stable_end_ms) / 1000))
+        since_last = max(0, int((_utc_ms_now() - last_stable_end_ms) / 1000))
 
     return MetricWindowStatsOut(
         samples=len(points),
@@ -632,6 +792,16 @@ def _utc_naive_from_sec(sec: float) -> datetime:
     return datetime.fromtimestamp(float(sec), tz=timezone.utc).replace(tzinfo=None)
 
 
+def _utc_ms_now() -> int:
+    return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+
+
+def _utc_ms_from_naive(dt: datetime) -> int:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
 def _calc_control_eval(
     points: list[tuple[int, float, float, float, float]],
     *,
@@ -651,7 +821,7 @@ def _calc_control_eval(
         target_temp = float(latest[2])
         pwm_output = float(latest[4])
 
-    error = current_temp - target_temp
+    error = _calc_error_c(target_temp, current_temp)
     in_band = abs(error) <= band
 
     window = points[-steady_window:] if steady_window > 0 else points
@@ -663,8 +833,10 @@ def _calc_control_eval(
     observed_settling_sec: Optional[float] = None
     saturation_ratio = 0.0
     if points:
+        recent_eval_window = window or points[-steady_window:]
         overshoot_pct = max(
-            max(0.0, ((temp - target) / max(target, 0.001)) * 100.0) for _, temp, target, _err, _pwm in points
+            max(0.0, ((temp - target) / max(target, 0.001)) * 100.0)
+            for _, temp, target, _err, _pwm in recent_eval_window
         )
         if window:
             saturation_ratio = sum(1 for _ts, _temp, _target, _err, pwm in window if pwm >= pwm_threshold) / len(window)
@@ -683,7 +855,7 @@ def _calc_control_eval(
     else:
         saturation_risk = "Low"
 
-    tune_advice = "Keep" if in_band and steady and saturation_risk == "Low" else "Tune"
+    tune_advice = "Keep" if in_band and steady and saturation_risk == "Low" and overshoot_pct <= overshoot_limit else "Tune"
     if in_band and steady and saturation_risk == "Low" and overshoot_pct <= overshoot_limit:
         result = "On Target"
     elif in_band or saturation_risk != "High":
@@ -721,7 +893,7 @@ def _build_recommendation_input(
     points: list[HistoryPoint] = []
     if tdengine.enabled():
         sql = (
-            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty "
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, pwm_norm "
             f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' "
             f"AND ts >= {int(start_ms)} AND ts <= {int(end_ms)} "
             f"ORDER BY ts ASC LIMIT {int(limit)}"
@@ -735,7 +907,7 @@ def _build_recommendation_input(
                     current_temp=float(row.get("sensor_temp_c") or 0.0),
                     target_temp=float(row.get("target_temp_c") or 0.0),
                     error=float(row.get("error_c") or 0.0),
-                    pwm_output=float(row.get("pwm_duty") or 0.0),
+                    pwm_output=_td_pwm_percent(row),
                 )
             )
     # Fallback to relational history when TDengine has no rows for this device/window.
@@ -759,7 +931,7 @@ def _build_recommendation_input(
         for ts, temp, target, err, pwm in rows:
             points.append(
                 HistoryPoint(
-                    ts_ms=int(ts.timestamp() * 1000),
+                    ts_ms=_utc_ms_from_naive(ts),
                     current_temp=float(temp or 0.0),
                     target_temp=float(target or 0.0),
                     error=float(err or 0.0),
@@ -783,6 +955,64 @@ def _build_recommendation_input(
         saturation_warn_ratio=float(params.saturation_warn_ratio),
         saturation_high_ratio=float(params.saturation_high_ratio),
     )
+
+
+def _demo_history_end_ms_if_window_empty(
+    *,
+    db: Session,
+    device: Device,
+    start_ms: int,
+    end_ms: int,
+) -> Optional[int]:
+    """Keep DEF demo generation stable after seeded telemetry ages out of "now" windows."""
+    if not str(device.code or "").startswith("DEF-"):
+        return None
+    if tdengine.enabled():
+        try:
+            sql = (
+                f"SELECT count(*) AS cnt FROM {_tdb()}.telemetry "
+                f"WHERE device_id='{device.code}' AND ts >= {int(start_ms)} AND ts <= {int(end_ms)}"
+            )
+            result = tdengine.query(sql)
+            count = int(result.rows[0][0]) if result.rows else 0
+            if count > 0:
+                return None
+            latest_sql = f"SELECT ts FROM {_tdb()}.telemetry WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 1"
+            latest_result = tdengine.query(latest_sql)
+            if latest_result.rows:
+                return _ts_value_to_ms(tdengine.row_to_dict(latest_result.columns, latest_result.rows[0]).get("ts"))
+        except Exception:  # noqa: BLE001
+            pass
+    latest_metric_ts = db.scalar(
+        select(func.max(DeviceMetric.timestamp)).where(DeviceMetric.device_id == device.id)
+    )
+    return _utc_ms_from_naive(latest_metric_ts) if latest_metric_ts is not None else None
+
+
+def _demo_reanchor_post_apply_window_if_empty(
+    *,
+    db: Session,
+    device: Device,
+    applied_ms: int,
+    selected_start_ms: int,
+    selected_end_ms: int,
+    observation_window_minutes: int,
+) -> Optional[tuple[int, int]]:
+    """Keep seeded DEF post-apply comparisons useful after wall-clock time moves on."""
+    if not str(device.code or "").startswith("DEF-"):
+        return None
+    if selected_end_ms <= applied_ms or selected_start_ms >= applied_ms:
+        actual_points = _load_observed_points(
+            db=db,
+            device=device,
+            start_ms=max(selected_start_ms, applied_ms),
+            end_ms=max(selected_end_ms, applied_ms),
+            limit=1,
+        )
+        if actual_points:
+            return None
+        return (applied_ms, applied_ms + max(1, int(observation_window_minutes)) * 60 * 1000)
+    return None
 
 
 def _pid_is_effectively_applied(
@@ -911,7 +1141,7 @@ def _load_observed_points(
     points: list[ObservedTelemetryPoint] = []
     if tdengine.enabled():
         sql = (
-            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, saturation_state "
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, pwm_norm, saturation_state "
             f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' "
             f"AND ts >= {int(start_ms)} AND ts <= {int(end_ms)} "
             f"ORDER BY ts ASC LIMIT {int(limit)}"
@@ -929,7 +1159,7 @@ def _load_observed_points(
                     temp=temp,
                     target_temp=target,
                     error=error,
-                    pwm_output=float(row.get("pwm_duty") or 0.0),
+                    pwm_output=_td_pwm_percent(row),
                     saturation_state=(None if row.get("saturation_state") is None else str(row.get("saturation_state"))),
                 )
             )
@@ -958,7 +1188,7 @@ def _load_observed_points(
         error_v = float(err) if err is not None else (target_v - temp_v)
         points.append(
             ObservedTelemetryPoint(
-                ts_ms=int(ts.timestamp() * 1000),
+                ts_ms=_utc_ms_from_naive(ts),
                 temp=temp_v,
                 target_temp=target_v,
                 error=error_v,
@@ -1158,6 +1388,7 @@ def _dispatch_and_confirm_parameter_update(
     device: Device,
     param: DeviceParameter,
     updated_by: str,
+    target_temp_for_publish: Optional[float] = None,
     control_mode_for_publish: Optional[str] = None,
 ) -> DeviceParameter:
     flow_t0 = time.monotonic()
@@ -1180,7 +1411,7 @@ def _dispatch_and_confirm_parameter_update(
     publish_t0 = time.monotonic()
     publish_result = mqtt_publisher.publish_params_set(
         device_id=device.code,
-        target_temp_c=device.target_temp,
+        target_temp_c=target_temp_for_publish if target_temp_for_publish is not None else device.target_temp,
         kp=param.kp,
         ki=param.ki,
         kd=param.kd,
@@ -1203,7 +1434,7 @@ def _dispatch_and_confirm_parameter_update(
     ack = _wait_latest_params_ack_relaxed(
         device_code=device.code,
         after_ms=dispatch_ms,
-        expected_target_temp_c=float(device.target_temp),
+        expected_target_temp_c=float(target_temp_for_publish if target_temp_for_publish is not None else device.target_temp),
         expected_kp=float(param.kp),
         expected_ki=float(param.ki),
         expected_kd=float(param.kd),
@@ -1280,33 +1511,73 @@ def _hydrate_runtime_parameters(device: Device, param: DeviceParameter) -> None:
     if not tdengine.enabled():
         return
 
-    # Prefer runtime-confirmed params_ack values to keep UI and AI inputs aligned with device runtime state.
+    telemetry = _latest_telemetry_runtime_params(device.code)
     ack = _latest_params_ack(device.code)
-    if ack and bool(ack.get("success") is True):
-        has_valid_runtime_pid = _apply_runtime_pid_if_valid(param, source=ack, log_prefix="HYDRATE-ACK-PID")
-        if not has_valid_runtime_pid:
-            logger.warning("[HYDRATE-ACK-PID] device=%s ack exists but PID invalid; fallback to telemetry", device.code)
-        else:
-            if ack.get("control_mode"):
-                param.control_mode = _normalize_control_mode(str(ack.get("control_mode"))) or param.control_mode
-            if ack.get("target_temp_c") is not None:
-                device.target_temp = float(ack.get("target_temp_c") or device.target_temp)
-            return
 
-    # Fallback to latest telemetry snapshot when params_ack stream is unavailable.
+    # Prefer the newest runtime source. A stale params_ack can otherwise override
+    # newer live telemetry and make the HMI show PID values the device no longer
+    # runs with.
+    source = telemetry
+    source_label = "TELEMETRY"
+    if ack and bool(ack.get("success") is True):
+        if telemetry is None or _ts_value_to_ms(ack.get("ts")) >= _ts_value_to_ms(telemetry.get("ts")):
+            source = ack
+            source_label = "ACK"
+
+    if not source:
+        return
+
+    has_valid_runtime_pid = _apply_runtime_pid_if_valid(param, source=source, log_prefix=f"HYDRATE-{source_label}-PID")
+    if not has_valid_runtime_pid and telemetry is not None and source is not telemetry:
+        logger.warning("[HYDRATE-%s-PID] device=%s PID invalid; fallback to latest telemetry", source_label, device.code)
+        source = telemetry
+        _apply_runtime_pid_if_valid(param, source=source, log_prefix="HYDRATE-TELEMETRY-PID")
+    if source.get("control_mode"):
+        param.control_mode = _normalize_control_mode(str(source.get("control_mode"))) or param.control_mode
+    if source.get("target_temp_c") is not None:
+        device.target_temp = float(source.get("target_temp_c") or device.target_temp)
+
+
+def _latest_tdengine_alarm_state(device: Device, param: Optional[DeviceParameter]) -> tuple[dict[str, bool], Optional[datetime]]:
+    if not tdengine.enabled():
+        return {}, None
     sql = (
-        f"SELECT ts, target_temp_c, kp, ki, kd, control_mode "
+        "SELECT ts, error_c, pwm_duty, pwm_norm, saturation_state, sensor_valid, sensor_status, "
+        "fault_latched, safety_output_forced_off, fault_reason, sensor_temp_c, software_max_safe_temp_c "
         f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 1"
     )
     result = tdengine.query(sql)
     if not result.rows:
-        return
+        return {}, None
     row = tdengine.row_to_dict(result.columns, result.rows[0])
-    _apply_runtime_pid_if_valid(param, source=row, log_prefix="HYDRATE-TELEMETRY-PID")
-    if row.get("control_mode"):
-        param.control_mode = _normalize_control_mode(str(row.get("control_mode"))) or param.control_mode
-    if row.get("target_temp_c") is not None:
-        device.target_temp = float(row.get("target_temp_c") or device.target_temp)
+    target_band = float(param.target_band if param else 0.5)
+    pwm_threshold = float(param.pwm_saturation_threshold if param else 85.0)
+    error_c = float(row.get("error_c") or 0.0)
+    pwm_duty = _td_pwm_percent(row)
+    saturation_state = str(row.get("saturation_state") or "").strip().lower()
+    sensor_valid = _td_bool(row.get("sensor_valid"))
+    sensor_status = str(row.get("sensor_status") or "ok").strip().lower()
+    fault_latched = bool(_td_bool(row.get("fault_latched")) is True)
+    forced_off = bool(_td_bool(row.get("safety_output_forced_off")) is True)
+    fault_reason = str(row.get("fault_reason") or "").strip().lower()
+    sensor_temp = row.get("sensor_temp_c")
+    max_safe = row.get("software_max_safe_temp_c")
+
+    over_temperature = "over_temperature" in fault_reason
+    if sensor_temp is not None and max_safe is not None:
+        over_temperature = over_temperature or float(sensor_temp) > float(max_safe)
+
+    return (
+        {
+            "out_of_band": abs(error_c) > target_band,
+            "high_saturation": pwm_duty >= pwm_threshold or saturation_state in {"high", "saturated"},
+            "sensor_invalid": sensor_valid is False or sensor_status not in {"", "ok", "normal", "valid"},
+            "fault_latched": fault_latched,
+            "safety_output_forced_off": forced_off,
+            "over_temperature": over_temperature,
+        },
+        tdengine.to_datetime(row.get("ts")),
+    )
 
 
 @router.get("", response_model=list[DeviceOut])
@@ -1455,13 +1726,17 @@ def get_metrics(
         if end_ms is not None:
             where_parts.append(f"ts <= {int(end_ms)}")
         where_sql = " AND ".join(where_parts)
+        order_direction = "ASC" if start_ms is not None or end_ms is not None else "DESC"
         sql = (
-            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, sensor_valid, fault_latched "
-            f"FROM {_tdb()}.telemetry WHERE {where_sql} ORDER BY ts ASC LIMIT {int(limit)}"
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, pwm_norm, sensor_valid, fault_latched "
+            f"FROM {_tdb()}.telemetry WHERE {where_sql} ORDER BY ts {order_direction} LIMIT {int(limit)}"
         )
         result = tdengine.query(sql)
+        result_rows = list(result.rows)
+        if order_direction == "DESC":
+            result_rows.reverse()
         metrics: list[MetricOut] = []
-        for idx, row_raw in enumerate(result.rows):
+        for idx, row_raw in enumerate(result_rows):
             row = tdengine.row_to_dict(result.columns, row_raw)
             metrics.append(
                 MetricOut(
@@ -1470,7 +1745,7 @@ def get_metrics(
                     current_temp=float(row.get("sensor_temp_c") or 0.0),
                     target_temp=float(row.get("target_temp_c") or 0.0),
                     error=float(row.get("error_c") or 0.0),
-                    pwm_output=float(row.get("pwm_duty") or 0.0),
+                    pwm_output=_td_pwm_percent(row),
                     status="active",
                     in_spec=abs(float(row.get("error_c") or 0.0)) <= 0.5,
                     is_alarm=bool(row.get("fault_latched") or (row.get("sensor_valid") is False)),
@@ -1482,6 +1757,10 @@ def get_metrics(
         query = query.where(DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms))
     if end_ms is not None:
         query = query.where(DeviceMetric.timestamp <= _utc_naive_from_ms(end_ms))
+    if start_ms is None and end_ms is None:
+        rows = db.scalars(query.order_by(DeviceMetric.timestamp.desc()).limit(limit)).all()
+        rows.reverse()
+        return rows
     return db.scalars(query.order_by(DeviceMetric.timestamp.asc()).limit(limit)).all()
 
 
@@ -1493,6 +1772,8 @@ def get_metric_window_stats(
     band: float = Query(default=0.5, gt=0, le=20),
     steady_window: int = Query(default=12, ge=1, le=10000),
     limit: int = Query(default=20000, ge=1, le=200000),
+    continuous_latest: bool = Query(default=False),
+    max_gap_ms: int = Query(default=3 * 60 * 1000, ge=1000, le=60 * 60 * 1000),
     db: Session = Depends(get_db_dep),
     current_user: User = Depends(get_current_user),
 ) -> MetricWindowStatsOut:
@@ -1503,23 +1784,30 @@ def get_metric_window_stats(
     if start_ms > end_ms:
         raise HTTPException(status_code=400, detail="start_ms must be <= end_ms")
 
-    points: list[tuple[int, float]] = []
+    points: list[tuple[int, float, Optional[float]]] = []
     relational_fallback_needed = False
     if tdengine.enabled():
         sql = (
-            f"SELECT ts, error_c FROM {_tdb()}.telemetry "
+            f"SELECT ts, error_c, target_temp_c FROM {_tdb()}.telemetry "
             f"WHERE device_id='{device.code}' AND ts >= {int(start_ms)} AND ts <= {int(end_ms)} "
             f"ORDER BY ts ASC LIMIT {int(limit)}"
         )
         result = tdengine.query(sql)
         for row_raw in result.rows:
             row = tdengine.row_to_dict(result.columns, row_raw)
-            points.append((_ts_value_to_ms(row.get("ts")), float(row.get("error_c") or 0.0)))
+            target = row.get("target_temp_c")
+            points.append(
+                (
+                    _ts_value_to_ms(row.get("ts")),
+                    float(row.get("error_c") or 0.0),
+                    None if target is None else float(target),
+                )
+            )
         if not points:
             relational_fallback_needed = True
     if (not tdengine.enabled()) or relational_fallback_needed:
         rows = db.execute(
-            select(DeviceMetric.timestamp, DeviceMetric.error)
+            select(DeviceMetric.timestamp, DeviceMetric.error, DeviceMetric.target_temp)
             .where(
                 DeviceMetric.device_id == device_id,
                 DeviceMetric.timestamp >= _utc_naive_from_ms(start_ms),
@@ -1528,10 +1816,13 @@ def get_metric_window_stats(
             .order_by(DeviceMetric.timestamp.asc())
             .limit(limit)
         ).all()
-        for ts, err in rows:
-            points.append((int(ts.timestamp() * 1000), float(err or 0.0)))
+        for ts, err, target in rows:
+            points.append((_utc_ms_from_naive(ts), float(err or 0.0), None if target is None else float(target)))
 
-    return _calc_metric_window_stats(points, band=band, steady_window=steady_window)
+    if continuous_latest:
+        points = _latest_continuous_metric_points(points, max_gap_ms=max_gap_ms)
+
+    return _calc_metric_window_stats([(ts, err) for ts, err, _target in points], band=band, steady_window=steady_window)
 
 
 @router.get("/{device_id}/control-eval", response_model=ControlEvalOut)
@@ -1553,6 +1844,7 @@ def get_control_eval(
     device = db.scalar(select(Device).where(Device.id == device_id))
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+    device = _apply_live_snapshot(device)
 
     params = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
     band_final = float(band if band is not None else (params.target_band if params else 0.5))
@@ -1572,7 +1864,7 @@ def get_control_eval(
         overshoot_limit if overshoot_limit is not None else (params.overshoot_limit_pct if params else 3.0)
     )
 
-    end_ms_final = int(end_ms if end_ms is not None else datetime.utcnow().timestamp() * 1000)
+    end_ms_final = int(end_ms if end_ms is not None else _utc_ms_now())
     start_ms_final = int(start_ms if start_ms is not None else end_ms_final - 6 * 60 * 60 * 1000)
     if start_ms_final > end_ms_final:
         raise HTTPException(status_code=400, detail="start_ms must be <= end_ms")
@@ -1585,7 +1877,7 @@ def get_control_eval(
 
     if tdengine.enabled():
         sql = (
-            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty "
+            f"SELECT ts, sensor_temp_c, target_temp_c, error_c, pwm_duty, pwm_norm "
             f"FROM {_tdb()}.telemetry WHERE device_id='{device.code}' "
             f"AND ts >= {start_ms_final} AND ts <= {end_ms_final} "
             f"ORDER BY ts ASC LIMIT {int(limit)}"
@@ -1599,7 +1891,7 @@ def get_control_eval(
                     float(row.get("sensor_temp_c") or 0.0),
                     float(row.get("target_temp_c") or 0.0),
                     float(row.get("error_c") or 0.0),
-                    float(row.get("pwm_duty") or 0.0),
+                    _td_pwm_percent(row),
                 )
             )
         if not points:
@@ -1624,7 +1916,7 @@ def get_control_eval(
         for ts, temp, target, err, pwm in rows:
             points.append(
                 (
-                    int(ts.timestamp() * 1000),
+                    _utc_ms_from_naive(ts),
                     float(temp or 0.0),
                     float(target or 0.0),
                     float(err or 0.0),
@@ -1632,6 +1924,7 @@ def get_control_eval(
                 )
             )
 
+    points = _latest_continuous_control_points(points)
     return _calc_control_eval(
         points,
         current_temp=current_temp,
@@ -1656,9 +1949,7 @@ def get_parameters(
     device = db.scalar(select(Device).where(Device.id == device_id))
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
-    if not param:
-        raise HTTPException(status_code=404, detail="Parameters not found")
+    param = _ensure_device_parameter(db, device_id=device_id, updated_by=f"{current_user.username}:auto-create")
     _hydrate_runtime_parameters(device, param)
     return param
 
@@ -1672,12 +1963,19 @@ def update_parameters(
 ) -> DeviceParameter:
     require_device_access(device_id, db, current_user)
 
-    param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+    param = _ensure_device_parameter(db, device_id=device_id, updated_by=f"{current_user.username}:auto-create")
     device = db.scalar(select(Device).where(Device.id == device_id))
-    if not param:
-        raise HTTPException(status_code=404, detail="Parameters not found")
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+
+    _hydrate_runtime_parameters(device, param)
+
+    payload_data = payload.model_dump(exclude_none=True)
+    unknown_fields = set(payload_data) - RUNTIME_PARAMETER_FIELDS - LOCAL_EVALUATION_PARAMETER_FIELDS
+    if unknown_fields:
+        raise HTTPException(status_code=400, detail=f"Unsupported parameter fields: {sorted(unknown_fields)}")
+    runtime_update_requested = bool(set(payload_data) & RUNTIME_PARAMETER_FIELDS)
+
     before = {
         "control_mode": str(param.control_mode or "pid_control"),
         "target_temp": float(device.target_temp),
@@ -1685,22 +1983,27 @@ def update_parameters(
         "ki": float(param.ki),
         "kd": float(param.kd),
     }
-
-    payload_data = payload.model_dump(exclude_none=True)
     if "control_mode" in payload_data:
         payload_data["control_mode"] = _normalize_control_mode(str(payload_data["control_mode"]))
+    target_temp_for_publish = None
     if "target_temp" in payload_data:
-        device.target_temp = float(payload_data["target_temp"])
-        device.updated_at = datetime.utcnow()
-        payload_data.pop("target_temp", None)
+        target_temp_for_publish = float(payload_data.pop("target_temp"))
 
     for key, value in payload_data.items():
         setattr(param, key, value)
+    if not runtime_update_requested:
+        param.updated_by = f"{current_user.username}:local-target-settings"
+        param.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(param)
+        return param
+
     updated = _dispatch_and_confirm_parameter_update(
         db=db,
         device=device,
         param=param,
         updated_by=current_user.username,
+        target_temp_for_publish=target_temp_for_publish,
         control_mode_for_publish=str(payload_data["control_mode"]) if "control_mode" in payload_data else None,
     )
     after = {
@@ -1739,22 +2042,57 @@ def get_alarms(
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
     if tdengine.enabled():
-        sql = (
-            f"SELECT ts, rule_code, severity, source, reason, alarm_event_type AS alarm_ev_type "
-            f"FROM {_tdb()}.alarm_events WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 200"
-        )
-        result = tdengine.query(sql)
-        rows: list[AlarmOut] = []
-        for idx, row_raw in enumerate(result.rows):
+        param = db.scalar(select(DeviceParameter).where(DeviceParameter.device_id == device_id))
+        try:
+            current_alarm_state, current_alarm_ts = _latest_tdengine_alarm_state(device, param)
+            sql = (
+                f"SELECT ts, rule_code, severity, source, reason, alarm_event_type AS alarm_ev_type "
+                f"FROM {_tdb()}.alarm_events WHERE device_id='{device.code}' ORDER BY ts DESC LIMIT 200"
+            )
+            result = tdengine.query(sql)
+        except (HTTPException, TimeoutError, socket.timeout, OSError) as exc:
+            logger.warning("[ALARMS] TDengine fallback device=%s reason=%s", device.code, exc)
+            return db.scalars(
+                select(DeviceAlarm).where(DeviceAlarm.device_id == device_id).order_by(DeviceAlarm.created_at.desc())
+            ).all()
+        latest_by_rule: dict[str, dict[str, Any]] = {}
+        for row_raw in result.rows:
             row = tdengine.row_to_dict(result.columns, row_raw)
+            rule_code = str(row.get("rule_code") or "alarm")
+            if rule_code not in latest_by_rule:
+                latest_by_rule[rule_code] = row
+        rows: list[AlarmOut] = []
+        for idx, (rule_code, row) in enumerate(latest_by_rule.items()):
+            event_active = str(row.get("alarm_ev_type") or "").lower() != "cleared"
+            is_active = current_alarm_state.get(rule_code, event_active)
+            event_ts = tdengine.to_datetime(row.get("ts"))
+            if not is_active and (_utc_ms_now() - _utc_ms_from_naive(event_ts)) > 24 * 60 * 60 * 1000:
+                continue
+            message = str(row.get("reason") or "")
+            if event_active and not is_active and current_alarm_ts is not None:
+                message = "Current telemetry is back within normal range."
             rows.append(
                 AlarmOut(
                     id=idx + 1,
                     level=str(row.get("severity") or "warning"),
-                    title=str(row.get("rule_code") or "alarm"),
-                    message=str(row.get("reason") or ""),
-                    is_active=str(row.get("alarm_ev_type") or "").lower() != "cleared",
-                    created_at=tdengine.to_datetime(row.get("ts")),
+                    title=rule_code,
+                    message=message,
+                    is_active=is_active,
+                    created_at=event_ts,
+                )
+            )
+        seen_rules = set(latest_by_rule)
+        for rule_code, is_active in current_alarm_state.items():
+            if not is_active or rule_code in seen_rules or current_alarm_ts is None:
+                continue
+            rows.append(
+                AlarmOut(
+                    id=len(rows) + 1,
+                    level="critical" if rule_code in {"sensor_invalid", "fault_latched", "over_temperature"} else "warning",
+                    title=rule_code,
+                    message="Current telemetry indicates active alarm condition.",
+                    is_active=True,
+                    created_at=current_alarm_ts,
                 )
             )
         return rows
@@ -1874,10 +2212,19 @@ def generate_ai_recommendation(
         raise HTTPException(status_code=404, detail="Parameters not found")
     _hydrate_runtime_parameters(device, params)
 
-    end_ms_final = int(end_ms if end_ms is not None else datetime.utcnow().timestamp() * 1000)
+    end_ms_final = int(end_ms if end_ms is not None else _utc_ms_now())
     start_ms_final = int(end_ms_final - max(1, window_minutes) * 60 * 1000)
     if start_ms_final > end_ms_final:
         raise HTTPException(status_code=400, detail="start_ms must be <= end_ms")
+    demo_end_ms = _demo_history_end_ms_if_window_empty(
+        db=db,
+        device=device,
+        start_ms=start_ms_final,
+        end_ms=end_ms_final,
+    )
+    if demo_end_ms is not None:
+        end_ms_final = int(demo_end_ms)
+        start_ms_final = int(end_ms_final - max(1, window_minutes) * 60 * 1000)
 
     request_payload = _build_recommendation_input(
         db=db,
@@ -2322,9 +2669,9 @@ def evaluate_ai_recommendation_actual(
         raise HTTPException(status_code=409, detail="Not enough post-apply telemetry data yet.")
 
     window_minutes = int(payload.observation_window_minutes)
-    observation_start_ms = int(apply_at.timestamp() * 1000)
+    observation_start_ms = _utc_ms_from_naive(apply_at)
     observation_end_dt = min(now_dt, _utc_naive_from_sec(observation_start_ms / 1000.0 + window_minutes * 60))
-    observation_end_ms = int(observation_end_dt.timestamp() * 1000)
+    observation_end_ms = _utc_ms_from_naive(observation_end_dt)
 
     observed_points = _load_observed_points(
         db=db,
@@ -2449,9 +2796,9 @@ def get_ai_recommendation_telemetry_comparison(
     if history_state != "applied":
         raise HTTPException(status_code=409, detail="Recommendation has not been applied yet")
 
-    applied_ms = int(applied_at.timestamp() * 1000)
+    applied_ms = _utc_ms_from_naive(applied_at)
 
-    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    now_ms = int(_utc_ms_now())
     selected_end_ms = int(end_ms) if isinstance(end_ms, int) and end_ms > 0 else now_ms
     if selected_end_ms > now_ms:
         selected_end_ms = now_ms
@@ -2464,6 +2811,17 @@ def get_ai_recommendation_telemetry_comparison(
     base_minutes = int(baseline_window_minutes or obs_minutes)
     obs_minutes = max(1, min(720, obs_minutes))
     base_minutes = max(1, min(720, base_minutes))
+
+    reanchored_window = _demo_reanchor_post_apply_window_if_empty(
+        db=db,
+        device=device,
+        applied_ms=applied_ms,
+        selected_start_ms=selected_start_ms,
+        selected_end_ms=selected_end_ms,
+        observation_window_minutes=obs_minutes,
+    )
+    if reanchored_window is not None:
+        selected_start_ms, selected_end_ms = reanchored_window
 
     baseline_start_ms = applied_ms - base_minutes * 60 * 1000
     baseline_end_ms = applied_ms

@@ -38,6 +38,10 @@ DEMO_RUN_PREFIX = "pavdemo"
 DEFAULT_SCENARIOS = ["success", "partial", "preview_mismatch", "insufficient_data"]
 
 
+def calc_error_c(target_temp_c: float, sensor_temp_c: float) -> float:
+    return float(target_temp_c) - float(sensor_temp_c)
+
+
 @dataclass(frozen=True)
 class ScenarioDef:
     key: str
@@ -376,7 +380,8 @@ def generate_window(
     for i in range(point_count):
         ts_ms = start_ms + i * step_ms
         error = profile_error(profile, i)
-        sensor = target_temp + error
+        sensor = target_temp - error
+        error_c = calc_error_c(target_temp, sensor)
         integral += error * (step_ms / 1000.0)
         pwm = max(8, min(99, int(round(46 + abs(error) * 28 + max(0.0, error) * 9 + 4 * math.sin(i / 4.0)))))
         saturation_state = "high" if pwm >= 85 else ("medium" if pwm >= 70 else "normal")
@@ -385,8 +390,8 @@ def generate_window(
                 "ts_ms": ts_ms,
                 "target_temp_c": round(target_temp, 4),
                 "sensor_temp_c": round(sensor, 4),
-                "sim_temp_c": round(sensor - error * 0.05, 4),
-                "error_c": round(error, 4),
+                "sim_temp_c": round(sensor + error_c * 0.05, 4),
+                "error_c": round(error_c, 4),
                 "integral_error": round(integral, 4),
                 "control_output": round(pwm * 2.05, 4),
                 "pwm_duty": int(pwm),

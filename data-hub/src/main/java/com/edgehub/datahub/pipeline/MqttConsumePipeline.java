@@ -52,6 +52,7 @@ public final class MqttConsumePipeline implements SmartLifecycle {
   private final AtomicBoolean running = new AtomicBoolean();
   private volatile String pipelineOverflowStrategyName = "drop_latest";
   private Disposable subscription;
+  private Disposable connectSubscription;
 
   public MqttConsumePipeline(
       MqttMessageSource source,
@@ -84,17 +85,17 @@ public final class MqttConsumePipeline implements SmartLifecycle {
       return;
     }
     subscription = buildSubscription();
-    try {
-      source.connect().block();
-      running.set(true);
-      log.info("mqtt consume pipeline started");
-    } catch (RuntimeException exception) {
-      if (subscription != null && !subscription.isDisposed()) {
-        subscription.dispose();
-      }
-      subscription = null;
-      throw exception;
-    }
+    running.set(true);
+    connectSubscription = source.connect()
+        .doOnSubscribe(ignored -> log.info("mqtt source connect initiated"))
+        .doOnSuccess(ignored -> log.info("mqtt source initial connect completed"))
+        .doOnError(error -> log.error(
+            "mqtt source initial connect failed; pipeline remains active and will rely on reconnect behavior",
+            error))
+        .subscribe(
+            ignored -> {},
+            error -> {});
+    log.info("mqtt consume pipeline started");
   }
 
   @Override
@@ -102,6 +103,10 @@ public final class MqttConsumePipeline implements SmartLifecycle {
     if (!running.getAndSet(false)) {
       return;
     }
+    if (connectSubscription != null && !connectSubscription.isDisposed()) {
+      connectSubscription.dispose();
+    }
+    connectSubscription = null;
     try {
       source.disconnect().block();
     } catch (RuntimeException exception) {

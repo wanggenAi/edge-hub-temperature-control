@@ -75,7 +75,18 @@ LIVE_PAGE_FIELD_Y_TWIPS = 15880
 LIVE_PAGE_FIELD_WIDTH_TWIPS = 540
 LIVE_PAGE_FIELD_HEIGHT_TWIPS = 500
 LIVE_PAGE_FIELD_RUN_POSITION_HALF_POINTS = 0
-BODY_TITLE_BLOCK_CODE = "BSTU.YOUR_NUMBER- 12 81 00"
+BODY_TITLE_BLOCK_CODE = "БрГТУ.241297 - 05 81 00"
+BODY_TITLE_BLOCK_TITLE = "EdgeHub-Based Closed-Loop Temperature Control System"
+BODY_TITLE_BLOCK_NOTE = "Explanatory note"
+BODY_TITLE_BLOCK_PAGE_START = 5
+BODY_TITLE_BLOCK_TOTAL_PAGES = 62
+BODY_TITLE_BLOCK_NAME_SIZE = "16"
+COVER_BODY_SOURCE = (
+    ROOT
+    / "generated"
+    / "drafts"
+    / "thesis_draft_final_format_fixed_quantified_pid_tuning_TEMPLATE_COVER_FORMAT_RULES_OK_REVISED_ALL_TABLE_CONTINUATIONS_STRICT_OK_WORD_PAGE21_OK_FINAL.docx"
+)
 
 
 def _set_rules_text_margins(sect_pr: etree._Element) -> None:
@@ -133,6 +144,64 @@ def _section_break_paragraphs(document_root: etree._Element) -> list[etree._Elem
     if body is None:
         return []
     return body.xpath("./w:p[w:pPr/w:sectPr]", namespaces=NS)
+
+
+def _element_has_visible_payload(element: etree._Element) -> bool:
+    return bool(
+        _clean_text(text_of(element))
+        or element.xpath(".//w:tbl|.//w:drawing|.//w:pict|.//v:shape|.//wps:wsp", namespaces=NS)
+    )
+
+
+def _remove_direct_section_properties(element: etree._Element) -> None:
+    for sect_pr in list(element.xpath("./w:pPr/w:sectPr", namespaces=NS)):
+        parent = sect_pr.getparent()
+        if parent is not None:
+            parent.remove(sect_pr)
+
+
+def _cover_body_elements(source_docx: Path) -> list[etree._Element]:
+    root = _template_document_root(source_docx)
+    body = root.find("w:body", namespaces=NS)
+    if body is None:
+        raise RuntimeError(f"No document body found in {source_docx}")
+
+    elements: list[etree._Element] = []
+    for element in body:
+        clone = copy.deepcopy(element)
+        has_section_break = bool(clone.xpath("./w:pPr/w:sectPr", namespaces=NS))
+        if clone.tag == qn("w:sectPr"):
+            break
+        if has_section_break:
+            _remove_direct_section_properties(clone)
+            if _element_has_visible_payload(clone):
+                elements.append(clone)
+            break
+        elements.append(clone)
+    if not elements:
+        raise RuntimeError(f"No cover body content found in {source_docx}")
+    return elements
+
+
+def _replace_first_section_body(document_root: etree._Element, cover_elements: list[etree._Element]) -> None:
+    body = document_root.find("w:body", namespaces=NS)
+    if body is None:
+        raise RuntimeError("Cannot replace cover body: document body missing")
+    breaks = _section_break_paragraphs(document_root)
+    if not breaks:
+        raise RuntimeError("Cannot replace cover body: cover section break missing")
+    first_break = breaks[0]
+    break_index = body.index(first_break)
+    for _ in range(break_index):
+        del body[0]
+    for offset, element in enumerate(cover_elements):
+        body.insert(offset, copy.deepcopy(element))
+
+
+def _replace_text_nodes(root: etree._Element, old: str, new: str) -> None:
+    for text_el in root.xpath(".//w:t", namespaces=NS):
+        if text_el.text and old in text_el.text:
+            text_el.text = text_el.text.replace(old, new)
 
 
 def _insert_elements_after(anchor: etree._Element, elements: list[etree._Element]) -> None:
@@ -337,13 +406,169 @@ def _replace_shape_text_with_field(shape: etree._Element, instr: str, display: s
         _clear_paragraph_content_keep_ppr(paragraph)
 
 
+def _replace_shape_text_with_static_text(shape: etree._Element, text: str) -> None:
+    paragraphs = _paragraphs_inside(shape)
+    if not paragraphs:
+        return
+    rpr = _field_run_properties_from_shape(shape)
+    if rpr is None:
+        rpr = _title_block_run_properties(size="28")
+    _remove_highlight_and_shading(shape)
+    _clear_paragraph_content_keep_ppr(paragraphs[0])
+    ppr = paragraphs[0].find("w:pPr", namespaces=NS)
+    if ppr is None:
+        ppr = etree.Element(qn("w:pPr"))
+        paragraphs[0].insert(0, ppr)
+    for jc in ppr.findall("w:jc", namespaces=NS):
+        ppr.remove(jc)
+    jc = etree.SubElement(ppr, qn("w:jc"))
+    jc.set(qn("w:val"), "center")
+    _append_text_run(paragraphs[0], text, rpr)
+    for paragraph in paragraphs[1:]:
+        _clear_paragraph_content_keep_ppr(paragraph)
+
+
+def _replace_shape_text_preserve_alignment(shape: etree._Element, text: str) -> None:
+    paragraphs = _paragraphs_inside(shape)
+    if not paragraphs:
+        return
+    rpr = _field_run_properties_from_shape(shape)
+    if rpr is None:
+        rpr = _title_block_run_properties(size="28")
+    _remove_highlight_and_shading(shape)
+    _clear_paragraph_content_keep_ppr(paragraphs[0])
+    _append_text_run(paragraphs[0], text, rpr)
+    for paragraph in paragraphs[1:]:
+        _clear_paragraph_content_keep_ppr(paragraph)
+
+
+def _replace_shape_text_with_run_properties(
+    shape: etree._Element,
+    text: str,
+    rpr: etree._Element,
+) -> None:
+    paragraphs = _paragraphs_inside(shape)
+    if not paragraphs:
+        return
+    _remove_highlight_and_shading(shape)
+    _clear_paragraph_content_keep_ppr(paragraphs[0])
+    _append_text_run(paragraphs[0], text, rpr)
+    for paragraph in paragraphs[1:]:
+        _clear_paragraph_content_keep_ppr(paragraph)
+
+
+def _title_block_name_run_properties(rpr: etree._Element | None) -> etree._Element:
+    if rpr is None:
+        rpr = _title_block_run_properties(size=BODY_TITLE_BLOCK_NAME_SIZE)
+    else:
+        rpr = copy.deepcopy(rpr)
+    for tag_name in ("w:sz", "w:szCs"):
+        tag = qn(tag_name)
+        for size_el in list(rpr.findall(tag)):
+            rpr.remove(size_el)
+        size_el = etree.SubElement(rpr, tag)
+        size_el.set(qn("w:val"), BODY_TITLE_BLOCK_NAME_SIZE)
+    return rpr
+
+
+def _center_shape_text_vertically(shape: etree._Element) -> None:
+    for body_pr in shape.xpath(".//wps:bodyPr", namespaces=NS):
+        body_pr.set("anchor", "ctr")
+        body_pr.set("anchorCtr", "0")
+        body_pr.set("tIns", "0")
+        body_pr.set("bIns", "0")
+    for spacing in shape.xpath(".//w:txbxContent/w:p/w:pPr/w:spacing", namespaces=NS):
+        spacing.set(qn("w:before"), "0")
+        spacing.set(qn("w:after"), "0")
+
+
+def _lower_supervisor_name_text(shape: etree._Element) -> None:
+    for body_pr in shape.xpath(".//wps:bodyPr", namespaces=NS):
+        body_pr.set("anchor", "t")
+        body_pr.set("anchorCtr", "0")
+        body_pr.set("tIns", "50800")
+        body_pr.set("bIns", "0")
+    for spacing in shape.xpath(".//w:txbxContent/w:p/w:pPr/w:spacing", namespaces=NS):
+        spacing.set(qn("w:before"), "0")
+        spacing.set(qn("w:after"), "0")
+
+
+def _center_tiny_title_block_cell(shape: etree._Element) -> None:
+    for body_pr in shape.xpath(".//wps:bodyPr", namespaces=NS):
+        body_pr.set("anchor", "ctr")
+        body_pr.set("anchorCtr", "0")
+        body_pr.set("tIns", "0")
+        body_pr.set("bIns", "0")
+    for rpr in shape.xpath(".//w:rPr | .//w:pPr/w:rPr", namespaces=NS):
+        for tag_name in ("w:sz", "w:szCs"):
+            tag = qn(tag_name)
+            for existing in list(rpr.findall(tag)):
+                rpr.remove(existing)
+            size_el = etree.SubElement(rpr, tag)
+            size_el.set(qn("w:val"), BODY_TITLE_BLOCK_NAME_SIZE)
+    for spacing in shape.xpath(".//w:txbxContent/w:p/w:pPr/w:spacing", namespaces=NS):
+        spacing.set(qn("w:before"), "0")
+        spacing.set(qn("w:after"), "0")
+
+
+def _keep_only_first_shape_paragraph(shape: etree._Element) -> None:
+    paragraphs = _paragraphs_inside(shape)
+    for paragraph in paragraphs[1:]:
+        parent = paragraph.getparent()
+        if parent is not None:
+            parent.remove(paragraph)
+
+
+def _replace_shape_text_with_centered_lines(shape: etree._Element, lines: list[str], *, size: str = "28") -> None:
+    paragraphs = _paragraphs_inside(shape)
+    if not paragraphs:
+        return
+    rpr = _field_run_properties_from_shape(shape)
+    if rpr is None:
+        rpr = _title_block_run_properties(size=size)
+    else:
+        rpr = copy.deepcopy(rpr)
+        for tag_name in ("w:sz", "w:szCs"):
+            tag = qn(tag_name)
+            for size_el in list(rpr.findall(tag)):
+                rpr.remove(size_el)
+            size_el = etree.SubElement(rpr, tag)
+            size_el.set(qn("w:val"), size)
+    _remove_highlight_and_shading(shape)
+    for body_pr in shape.xpath(".//wps:bodyPr", namespaces=NS):
+        body_pr.set("anchor", "ctr")
+        body_pr.set("anchorCtr", "0")
+        body_pr.set("tIns", "0")
+        body_pr.set("bIns", "0")
+    paragraph = paragraphs[0]
+    _clear_paragraph_content_keep_ppr(paragraph)
+    ppr = paragraph.find("w:pPr", namespaces=NS)
+    if ppr is None:
+        ppr = etree.Element(qn("w:pPr"))
+        paragraph.insert(0, ppr)
+    for jc in ppr.findall("w:jc", namespaces=NS):
+        ppr.remove(jc)
+    jc = etree.SubElement(ppr, qn("w:jc"))
+    jc.set(qn("w:val"), "center")
+    for index, line in enumerate(lines):
+        if index:
+            run = etree.SubElement(paragraph, qn("w:r"))
+            run.append(copy.deepcopy(rpr))
+            etree.SubElement(run, qn("w:br"))
+        _append_text_run(paragraph, line, rpr)
+    for extra in paragraphs[1:]:
+        _clear_paragraph_content_keep_ppr(extra)
+
+
 def _normalize_contents_page_number_cells(elements: list[etree._Element]) -> None:
     # template_0 contains static sample values ("2" and highlighted "46").
-    # Keep the original title-block geometry, but make both cells real Word fields.
+    # Keep the original title-block geometry; the visible Page cell is static for
+    # the explanatory-note frame. The visible total follows the page-numbering
+    # scale printed in the title block, not Word's physical NUMPAGES value.
     for shape in _shapes_by_name_in_elements(elements, "Rectangle 34"):
-        _replace_shape_text_with_field(shape, "PAGE", "2")
+        _replace_shape_text_with_static_text(shape, "4")
     for shape in _shapes_by_name_in_elements(elements, "Rectangle 6"):
-        _replace_shape_text_with_field(shape, "NUMPAGES", "1")
+        _replace_shape_text_with_static_text(shape, str(BODY_TITLE_BLOCK_TOTAL_PAGES))
 
 
 def _remove_standalone_page_paragraphs(root: etree._Element) -> None:
@@ -622,6 +847,38 @@ def _append_text_run(paragraph: etree._Element, text: str, rpr: etree._Element) 
     text_el.text = text
 
 
+def _polish_contents_title_block(root: etree._Element) -> None:
+    for shape in _textbox_shapes_by_name(root, "Rectangle 9"):
+        _replace_shape_text_with_centered_lines(
+            shape,
+            [BODY_TITLE_BLOCK_TITLE, BODY_TITLE_BLOCK_NOTE],
+            size="24",
+        )
+
+    for shape in _textbox_shapes_by_name(root, "Rectangle 36"):
+        _replace_shape_text_with_static_text(shape, BODY_TITLE_BLOCK_CODE)
+    author_name_rpr = None
+    for shape in _textbox_shapes_by_name(root, "Rectangle 55"):
+        author_name_rpr = _title_block_name_run_properties(_field_run_properties_from_shape(shape))
+        _replace_shape_text_with_run_properties(shape, "Wang Gen", author_name_rpr)
+    for shape in _textbox_shapes_by_name(root, "Rectangle 32"):
+        if author_name_rpr is None:
+            author_name_rpr = _title_block_name_run_properties(_field_run_properties_from_shape(shape))
+        else:
+            author_name_rpr = copy.deepcopy(author_name_rpr)
+        _replace_shape_text_with_run_properties(shape, "V.S. Razumeichik", author_name_rpr)
+        _lower_supervisor_name_text(shape)
+
+    for shape in _textbox_shapes_by_name(root, "Rectangle 14"):
+        for text_el in shape.xpath(".//w:t", namespaces=NS):
+            if text_el.text and "Sign" in text_el.text and "Date" in text_el.text:
+                text_el.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                text_el.text = "    Sign        Date"
+    for shape in _textbox_shapes_by_name(root, "Rectangle 63"):
+        if "".join(shape.xpath(".//w:t/text()", namespaces=NS)).strip() == "D":
+            _center_tiny_title_block_cell(shape)
+
+
 def _restore_template1_title_block_text(root: etree._Element) -> None:
     boxes = _textbox_shapes_by_name(root, "Text Box 81")
     if len(boxes) != 1:
@@ -631,10 +888,8 @@ def _restore_template1_title_block_text(root: etree._Element) -> None:
         raise RuntimeError("Text Box 81 has no paragraph for the document code")
     paragraph = paragraphs[0]
     _clear_paragraph_content_keep_ppr(paragraph)
-    _append_text_run(paragraph, "BSTU", _title_block_run_properties(size="28"))
-    _append_text_run(paragraph, ".", _title_block_run_properties(size="28"))
-    _append_text_run(paragraph, "YOUR_NUMBER", _title_block_run_properties(size="28"))
-    _append_text_run(paragraph, "- 12 81 00", _title_block_run_properties(size="28"))
+    _append_text_run(paragraph, "БрГТУ", _title_block_run_properties(size="28"))
+    _append_text_run(paragraph, ".241297 - 05 81 00", _title_block_run_properties(size="28"))
     for extra in paragraphs[1:]:
         _clear_paragraph_content_keep_ppr(extra)
 
@@ -800,6 +1055,19 @@ def _set_section_from_template(
     parent.replace(target_sect_pr, replacement)
 
 
+def _set_section_page_number_start(sect_pr: etree._Element, start: int) -> None:
+    pg_num = child(sect_pr, "w:pgNumType")
+    if pg_num is None:
+        pg_num = etree.Element(qn("w:pgNumType"))
+        insert_after_tags = {qn("w:type"), qn("w:pgSz"), qn("w:pgMar")}
+        insert_index = 0
+        for index, item in enumerate(list(sect_pr)):
+            if item.tag in insert_after_tags:
+                insert_index = index + 1
+        sect_pr.insert(insert_index, pg_num)
+    pg_num.set(qn("w:start"), str(start))
+
+
 def _enforce_black_styles(package: dict[str, bytes]) -> None:
     styles_name = "word/styles.xml"
     if styles_name not in package:
@@ -927,11 +1195,17 @@ def postprocess_docx(
     document_rels_root = parse_xml(package["word/_rels/document.xml.rels"])
     content_types_root = parse_xml(package["[Content_Types].xml"])
 
+    if COVER_BODY_SOURCE.exists():
+        _replace_first_section_body(document_root, _cover_body_elements(COVER_BODY_SOURCE))
+        _replace_text_nodes(document_root, "Листов 60", f"Листов {BODY_TITLE_BLOCK_TOTAL_PAGES}")
+
     sections = iter_section_properties(document_root)
     if len(sections) < 3:
         raise RuntimeError("Raw docx must contain cover, contents, and body sections.")
 
     contents_frame = _template_body_frame_elements(template_0)
+    for element in contents_frame:
+        _remove_fallback_branches(element)
     _normalize_contents_page_number_cells(contents_frame)
     _shift_template_frame_elements(
         contents_frame,
@@ -945,6 +1219,7 @@ def postprocess_docx(
     if not breaks:
         raise RuntimeError("Cannot locate cover-to-contents section break")
     _insert_elements_after(breaks[0], contents_frame)
+    _polish_contents_title_block(document_root)
 
     cover_header_rid = add_header_footer_part(
         package,
@@ -980,6 +1255,7 @@ def postprocess_docx(
     set_header_footer_references(sections[0], cover_header_rid, cover_footer_rid)
     set_header_footer_references(sections[1], contents_header_rid, contents_footer_rid)
     set_header_footer_references(sections[2], body_header_rid, body_footer_rid)
+    _set_section_page_number_start(sections[2], BODY_TITLE_BLOCK_PAGE_START)
 
     package["word/document.xml"] = serialize_xml(document_root)
     package["word/_rels/document.xml.rels"] = serialize_xml(document_rels_root)

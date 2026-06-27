@@ -1,0 +1,20 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: edgehub-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - edgehub_mosquitto_data:/mosquitto/data
+      - edgehub_mosquitto_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -q 1 -t edgehub/health -m ok >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  edgehub_mosquitto_data:
+  edgehub_mosquitto_log:

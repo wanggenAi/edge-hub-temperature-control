@@ -138,9 +138,9 @@ def _derive_actual_effect_label(comparison: Optional[PostEffectComparison]) -> s
     ):
         if value is None:
             continue
-        if value < -0.0001:
+        if value > 0.0001:
             weighted_deltas.append(1)
-        elif value > 0.0001:
+        elif value < -0.0001:
             weighted_deltas.append(-1)
     if not weighted_deltas:
         return "unchanged"

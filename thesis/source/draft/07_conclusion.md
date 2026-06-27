@@ -1,6 +1,4 @@
-# 7 CONCLUSION
-
-## 7.1 Achieved engineering results
+# CONCLUSION
 
 The diploma project resulted in the design, implementation, and validation of a layered closed-loop temperature control and monitoring system. The developed system combines three main layers: the edge control layer, the Data Hub layer, and the HMI layer. It also includes an auxiliary decision-support mechanism, which analyzes stored behavior and prepares reviewable parameter recommendations. The decision-support part does not replace the operator and is not treated as a separate control layer.
 
@@ -12,8 +10,6 @@ The edge layer was implemented with an ESP32-oriented firmware structure and a s
 
 The Data Hub and HMI layers were implemented as service components rather than as a single screen-oriented application. The Data Hub uses a bounded message-processing pipeline and supports persistent storage of telemetry, parameter commands, acknowledgements, summaries, alarm facts, and device status. The HMI backend and frontend provide monitoring screens, historical views, parameter forms, acknowledgement-aware command feedback, and operations visibility. This structure makes operator action traceable and prevents a parameter update from being treated as successful only because a button was pressed or an MQTT message was published.
 
-## 7.2 Deployment and validation support
-
 The service deployment part of the project also supports the engineering result. Local infrastructure is prepared through Docker Compose files for PostgreSQL, TDengine, and Redis [10]. This makes the data and service environment reproducible during development, demonstration, and later testing. The repository also contains operational scripts for starting and stopping the HMI environment, resetting development databases, feeding telemetry, testing MQTT paths, and generating Data Hub load. The Data Hub stress script can publish telemetry from many simulated devices at a controlled message rate, which supports checking ingestion behavior, queueing, buffering, and saturation conditions. These tools are important because the developed system is a layered platform, and its quality depends not only on individual functions but also on service interaction under realistic operating conditions.
 
 The deployment structure also makes the result easier to repeat during later thesis defense and laboratory work. Instead of manually preparing each service, the infrastructure can be started from documented compose files and helper scripts. The same environment can then be used for HMI demonstration, MQTT command testing, database reset, telemetry seeding, and Data Hub stress testing. This is important for an engineering thesis because the obtained result should be reproducible and inspectable, not dependent on a one-time manual launch sequence.
@@ -21,8 +17,6 @@ The deployment structure also makes the result easier to repeat during later the
 The auxiliary decision-support mechanism was implemented as a supporting analytical function. It extracts control-behavior indicators from stored history, classifies behavior such as slow response, overshoot, oscillation, steady-state error, or actuator saturation, and prepares parameter recommendations for operator review. The validation chapter demonstrated that recommendations can be connected to the same command path as manual changes and that later behavior can be compared with the baseline. This keeps the operator in the loop and supports explainability.
 
 The validation results show that the developed prototype preserves the engineering meaning of the closed loop. Telemetry is not only displayed, but stored with context. Parameter changes are not only requested, but acknowledged by the edge device. Recommendations are not only generated, but can be checked through post-apply measurements. The example validation scenario showed improvement in the in-band ratio, overshoot, settling time, mean absolute error, saturation ratio, and temperature swing. These values should be interpreted as software and simulation-based validation evidence, not as final physical hardware performance.
-
-## 7.3 Limitations and further work
 
 The main limitations of the current result are connected with the physical implementation stage. The PCB, power driver, enclosure, heater behavior, grounding, supply stability, and sensor placement still require real assembly and instrument-based testing. The simulator profile is useful for repeatable software validation, but it cannot prove MOSFET heating, PWM waveform quality, load-current behavior, real chamber dynamics, or sensor placement accuracy. Therefore, the next stage should include physical fabrication, electrical inspection, low-voltage power tests, PWM and gate waveform measurement, controlled load testing, external temperature comparison, and full chamber-response recording.
 

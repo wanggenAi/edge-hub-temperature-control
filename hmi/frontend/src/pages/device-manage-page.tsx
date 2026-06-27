@@ -37,23 +37,38 @@ export function DeviceManagePage() {
     action: null,
   });
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
+    const code = form.code.trim();
+    const name = form.name.trim();
+    const line = form.line.trim();
+    const location = form.location.trim();
+    const targetTemp = Number(form.target_temp);
+    if (!code || !name || !line || !location) {
+      setError("Code, name, line, and location are required.");
+      return;
+    }
+    if (!Number.isFinite(targetTemp)) {
+      setError("Target temp must be a valid number.");
+      return;
+    }
     setConfirm({
       open: true,
       title: "Confirm Device Creation",
-      description: `Create device ${form.code || "(no code)"} with target ${form.target_temp}°C?`,
+      description: `Create device ${code} with target ${targetTemp.toFixed(1)}°C?`,
       tone: "accent",
       action: async () => {
         await createDevice({
-          code: form.code,
-          name: form.name,
-          line: form.line,
-          location: form.location,
-          target_temp: Number(form.target_temp),
+          code,
+          name,
+          line,
+          location,
+          target_temp: targetTemp,
           status: "active",
-          current_temp: Number(form.target_temp) - 0.8,
+          current_temp: targetTemp - 0.8,
           pwm_output: 30,
           is_alarm: false,
           is_online: true,
@@ -66,6 +81,7 @@ export function DeviceManagePage() {
 
   async function saveEdit() {
     if (!editing) return;
+    setError(null);
     setConfirm({
       open: true,
       title: "Confirm Device Update",
@@ -94,6 +110,7 @@ export function DeviceManagePage() {
           <CardTitle>Device Management</CardTitle>
         </CardHeader>
         <CardContent>
+          {error && <div className="mb-3 rounded border border-danger/50 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>}
           <form className="grid gap-2 md:grid-cols-6" onSubmit={submit}>
             <Input
               placeholder="Code (TC-401)"
@@ -110,6 +127,7 @@ export function DeviceManagePage() {
             <Input
               placeholder="Target Temp"
               type="number"
+              step="0.1"
               value={form.target_temp}
               onChange={(e) => setForm((s) => ({ ...s, target_temp: e.target.value }))}
             />
@@ -197,7 +215,7 @@ export function DeviceManagePage() {
                       </td>
                       <td>
                         {isEditing ? (
-                          <Input className="h-8" type="number" value={editing.target_temp} onChange={(e) => setEditing((s) => (s ? { ...s, target_temp: e.target.value } : s))} />
+                          <Input className="h-8" type="number" step="0.1" value={editing.target_temp} onChange={(e) => setEditing((s) => (s ? { ...s, target_temp: e.target.value } : s))} />
                         ) : (
                           `${d.target_temp.toFixed(1)}°C`
                         )}
@@ -250,7 +268,8 @@ export function DeviceManagePage() {
                               variant="ghost"
                               size="sm"
                               disabled={!canEdit}
-                              onClick={() =>
+                              onClick={() => {
+                                setError(null);
                                 setConfirm({
                                   open: true,
                                   title: "Confirm Device Deletion",
@@ -260,8 +279,8 @@ export function DeviceManagePage() {
                                     await deleteDevice(d.id);
                                     reload();
                                   },
-                                })
-                              }
+                                });
+                              }}
                             >
                               Delete
                             </Button>
@@ -297,6 +316,9 @@ export function DeviceManagePage() {
           try {
             await confirm.action();
             setConfirm((s) => ({ ...s, open: false }));
+            setError(null);
+          } catch (exc) {
+            setError(exc instanceof Error ? exc.message : "Operation failed.");
           } finally {
             setConfirmBusy(false);
           }
